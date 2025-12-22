@@ -6,10 +6,19 @@ Sistema ERP completo para gestión de retail con soporte multi-sucursal, punto d
 
 ## 📚 Documentación Técnica
 
-### Arquitectura Base
+### Arquitectura
 | Documento | Descripción |
 |-----------|-------------|
+| [arquitectura.md](arquitectura.md) | **Estructura del proyecto Electron + Next.js con SSR** |
 | [base.md](base.md) | Arquitectura fundamental, transacciones inmutables, entidades maestras |
+
+### Sistema Core
+| Documento | Descripción |
+|-----------|-------------|
+| [personas.md](personas.md) | Sistema de personas (base para usuarios, clientes, proveedores) |
+| [usuarios.md](usuarios.md) | Gestión de usuarios, roles y autenticación |
+| [permisos.md](permisos.md) | Sistema de permisos granulares |
+| [auditorias.md](auditorias.md) | Sistema de auditoría y trazabilidad |
 | [producto-inventario.md](producto-inventario.md) | Productos, variantes, storage, stock, costeo PPP |
 
 ### Procesos de Negocio
@@ -24,9 +33,64 @@ Sistema ERP completo para gestión de retail con soporte multi-sucursal, punto d
 
 ---
 
+## 🗄️ Entidades
+
+La documentación de entidades se encuentra en [entities/](entities/):
+
+| Entidad | Descripción |
+|---------|-------------|
+| [Transaction](entities/transaction.md) | **ENTIDAD CENTRAL** - Registro inmutable de operaciones |
+| [Company](entities/company.md) | Configuración de empresa única |
+| [Branch](entities/branch.md) | Sucursales |
+| [Storage](entities/storage.md) | Almacenes/Bodegas |
+| [PointOfSale](entities/point-of-sale.md) | Puntos de venta |
+| [CashSession](entities/cash-session.md) | Sesiones de caja |
+| [Person](entities/person.md) | Persona base |
+| [User](entities/user.md) | Usuarios del sistema |
+| [Customer](entities/customer.md) | Clientes |
+| [Supplier](entities/supplier.md) | Proveedores |
+| [Product](entities/product.md) | Productos |
+| [ProductVariant](entities/product-variant.md) | Variantes/SKUs |
+| [Category](entities/category.md) | Categorías |
+| [PriceList](entities/price-list.md) | Listas de precios |
+| [Tax](entities/tax.md) | Impuestos |
+| [StockLevel](entities/stock-level.md) | Stock (calculado) |
+| [Audit](entities/audit.md) | Auditoría |
+| [Permission](entities/permission.md) | Permisos |
+
+---
+
+## ⚡ Server Actions
+
+La documentación de Server Actions se encuentra en [server-actions/](server-actions/):
+
+| Action | Entidad | Descripción |
+|--------|---------|-------------|
+| [transactions.ts](server-actions/transactions.md) | Transaction | Ventas, compras, movimientos (inmutables) |
+| [auth.server.ts](server-actions/auth.md) | User/Session | Login, logout, sesión |
+| [companies.ts](server-actions/companies.md) | Company | Configuración de empresa |
+| [branches.ts](server-actions/branches.md) | Branch | Gestión de sucursales |
+| [storages.ts](server-actions/storages.md) | Storage | Gestión de almacenes |
+| [pointsOfSale.ts](server-actions/points-of-sale.md) | PointOfSale | Puntos de venta |
+| [cashSessions.ts](server-actions/cash-sessions.md) | CashSession | Sesiones de caja |
+| [persons.ts](server-actions/persons.md) | Person | CRUD de personas |
+| [users.ts](server-actions/users.md) | User | Gestión de usuarios |
+| [customers.ts](server-actions/customers.md) | Customer | Gestión de clientes |
+| [suppliers.ts](server-actions/suppliers.md) | Supplier | Gestión de proveedores |
+| [products.ts](server-actions/products.md) | Product | Productos base |
+| [productVariants.ts](server-actions/product-variants.md) | ProductVariant | Variantes/SKUs |
+| [categories.ts](server-actions/categories.md) | Category | Categorías |
+| [priceLists.ts](server-actions/price-lists.md) | PriceList | Listas de precios |
+| [taxes.ts](server-actions/taxes.md) | Tax | Impuestos |
+| [stock.ts](server-actions/stock.md) | StockLevel | Consultas de stock |
+| [audits.ts](server-actions/audits.md) | Audit | Consulta de auditorías |
+| [permissions.ts](server-actions/permissions.md) | Permission | Gestión de permisos |
+
+---
+
 ## 🎨 Guías de Interfaz de Usuario
 
-Las guías de UI se encuentran en el directorio [ui-guides/](ui-guides/):
+Las guías de UI se encuentran en [ui-guides/](ui-guides/):
 
 | Guía | Descripción |
 |------|-------------|
@@ -40,6 +104,7 @@ Las guías de UI se encuentran en el directorio [ui-guides/](ui-guides/):
 | [07-fiscal-ui.md](ui-guides/07-fiscal-ui.md) | Gestión fiscal, declaraciones |
 | [08-tesoreria-ui.md](ui-guides/08-tesoreria-ui.md) | Tesorería, sesiones de caja |
 | [09-reportes-ui.md](ui-guides/09-reportes-ui.md) | Dashboard, reportes |
+| [10-rutas-ui.md](ui-guides/10-rutas-ui.md) | Mapa de rutas y wireframes |
 
 ---
 
@@ -49,6 +114,10 @@ Las guías de UI se encuentran en el directorio [ui-guides/](ui-guides/):
 - Las transacciones nunca se modifican ni eliminan
 - Para anular, se crea una transacción de reversión
 - Trazabilidad completa por diseño
+
+### Compañía Única
+- El sistema opera con una sola Company
+- La configuración fiscal se maneja en la entidad Tax
 
 ### Multi-Sucursal
 - Jerarquía: Company → Branch → PointOfSale → CashSession

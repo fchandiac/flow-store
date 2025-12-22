@@ -1,11 +1,11 @@
 {
-  "appName": "BerriesApp",
+  "appName": "FlowStore",
   "dataBase": {
-    "name": "next-start",
+    "name": "flow-store",
     "version": "1.0.0",
-    "description": "Database for ElectNextStart application",
+    "description": "Database for FlowStore application",
     "port": 3306,
-    "host": "192.168.0.27",
+    "host": "localhost",
     "username": "root",
     "password": "YOUR_PASSWORD_HERE",
     "engine": "mysql"

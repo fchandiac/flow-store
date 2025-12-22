@@ -74,6 +74,8 @@ enum UserRole {
 
 ### 3.1 User → Person
 
+> 📝 Ver documento `personas.md` para el modelo completo de personas.
+
 ```
 User ──────────── Person
      ManyToOne
@@ -84,9 +86,27 @@ User ──────────── Person
 | Campo | Tipo | Descripción |
 |-------|------|-------------|
 | `person` | `Person` | Persona asociada al usuario |
-| Cardinalidad | N:1 | Muchos usuarios pueden no tener persona |
-| Nullable | Sí | El usuario puede existir sin persona |
+| Cardinalidad | N:1 | Un usuario pertenece a una persona |
+| Nullable | Sí | El usuario puede existir sin persona vinculada |
 | On Delete | SET NULL | Si se elimina la persona, el campo queda null |
+
+**Beneficios de vincular User a Person:**
+- Los datos de identificación (RUT, nombre, contacto) se heredan de `Person`
+- Una misma persona puede ser usuario Y cliente Y proveedor
+- Cambios en datos personales se reflejan automáticamente
+
+```typescript
+// Ejemplo: Obtener datos completos del usuario
+const user = await userRepo.findOne({
+    where: { id: userId },
+    relations: ['person']
+});
+
+// Acceder a datos de la persona
+console.log(user.person?.name);      // Nombre completo
+console.log(user.person?.taxId);     // RUT
+console.log(user.person?.phone);     // Teléfono
+```
 
 ### 3.2 User → Audit
 

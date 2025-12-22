@@ -1,27 +1,28 @@
 {
+  "appName": "FlowStore",
   "database": {
     "type": "mysql",
-    "host": "192.168.2.10",
+    "host": "localhost",
     "port": 3306,
     "username": "root",
-    "password": "zeniz355",
-    "database": "berries-app",
+    "password": "redbull90",
+    "database": "flow-store",
     "synchronize": false,
     "logging": false
   },
   "dataBase": {
-    "name": "berries-app",
+    "name": "flow-store",
     "version": "1.0.0",
-    "description": "Database for ElectNextStart application",
+    "description": "Database for FlowStore application",
     "port": 3306,
-    "host": "192.168.2.10",
+    "host": "localhost",
     "username": "root",
-    "password": "zeniz355",
+    "password": "redbull90",
     "engine": "mysql"
   },
   "app": {
-    "name": "ElectNextStart Production",
-    "version": "1.3.0",
+    "name": "FlowStore Production",
+    "version": "1.0.0",
     "environment": "production"
   }
 }

@@ -101,55 +101,82 @@ PointOfSale
 └── settings: JSON
 ```
 
-### 3.4 User (Usuario)
+### 3.4 Person (Persona)
+
+> 📝 Ver documento `personas.md` para documentación completa.
+
+La entidad `Person` es la **base central** para todos los actores del sistema.
+
+```
+Person
+├── id: UUID
+├── type: enum (NATURAL, COMPANY)
+├── tax_id: string (RUT/RFC/RUC)
+├── name: string (nombre completo o razón social)
+├── email: string
+├── phone: string
+├── address: string
+├── is_active: boolean
+└── metadata: JSON
+```
+
+**Tipos de Persona:**
+
+| Tipo | Descripción |
+|------|-------------|
+| `NATURAL` | Persona física/natural (individuo) |
+| `COMPANY` | Persona jurídica (empresa) |
+
+**Relaciones:** Una persona puede ser Usuario, Cliente y/o Proveedor simultáneamente.
+
+### 3.5 User (Usuario)
+
+> 📝 Ver documento `usuarios.md` para documentación completa.
 
 ```
 User
 ├── id: UUID
-├── company_id: UUID (FK)
-├── email: string
-├── name: string
-├── role: enum (ADMIN, MANAGER, SUPERVISOR, CASHIER)
-├── branch_ids: UUID[] (sucursales asignadas)
-├── is_active: boolean
-└── settings: JSON
+├── person_id: UUID (FK → Person, nullable)
+├── userName: string
+├── pass: string (encrypted)
+├── mail: string
+├── rol: enum (ADMIN, OPERATOR)
+└── deletedAt: timestamp (soft delete)
 ```
 
-### 3.5 Customer (Cliente)
+**Nota:** El usuario está vinculado a una `Person`, heredando sus datos de identificación y contacto.
+
+### 3.6 Customer (Cliente)
 
 ```
 Customer
 ├── id: UUID
-├── company_id: UUID (FK)
-├── tax_id: string (RUT/RFC/RUC)
-├── name: string
-├── email: string
-├── phone: string
-├── address: string
+├── person_id: UUID (FK → Person)
 ├── credit_limit: decimal
 ├── payment_term_days: integer
+├── price_list_id: UUID (FK, nullable)
 ├── is_active: boolean
 └── metadata: JSON
 ```
 
-### 3.6 Supplier (Proveedor)
+**Nota:** Los datos de identificación (RUT, nombre, contacto) están en la entidad `Person` vinculada.
+
+### 3.7 Supplier (Proveedor)
 
 ```
 Supplier
 ├── id: UUID
-├── company_id: UUID (FK)
-├── tax_id: string
-├── name: string
-├── contact_name: string
-├── email: string
-├── phone: string
-├── address: string
+├── person_id: UUID (FK → Person)
 ├── payment_term_days: integer
+├── bank_account: string
+├── categories: UUID[] (categorías de productos)
 ├── is_active: boolean
 └── metadata: JSON
 ```
 
-### 3.7 Storage (Almacén/Bodega)
+**Nota:** Los datos de identificación (RUT, nombre, contacto) están en la entidad `Person` vinculada.
+
+### 3.8 Storage (Almacén/Bodega)
 
 ```
 Storage

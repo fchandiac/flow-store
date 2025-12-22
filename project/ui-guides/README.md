@@ -11,6 +11,11 @@ Este directorio contiene las guías visuales de la interfaz del sistema ERP. Cad
 
 ## 📑 Índice de Guías
 
+### Estructura y Rutas
+| # | Guía | Descripción |
+|---|------|-------------|
+| 10 | [rutas-ui](10-rutas-ui.md) | **Mapa de rutas y UI requerida por página** |
+
 ### Acceso y Estructura
 | # | Guía | Descripción |
 |---|------|-------------|

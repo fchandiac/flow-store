@@ -37,6 +37,7 @@
   "include": [
     "src/**/*",
     "app/**/*",
+    "data/**/*",
     ".next/types/**/*.ts"
   ],
   "exclude": [

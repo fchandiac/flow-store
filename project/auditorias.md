@@ -88,15 +88,25 @@ Audit
 
 ## 4. Entidades Auditadas
 
-### 4.1 Entidades del Sistema
+### 4.1 Entidades del Sistema (Core)
 
 | Entidad | entityName | Descripción |
 |---------|------------|-------------|
-| Usuario | `User` | Gestión de usuarios |
-| Persona | `Person` | Datos de personas |
+| **Persona** | `Person` | Entidad base para usuarios, clientes y proveedores |
+| Usuario | `User` | Cuentas de acceso al sistema |
+| Permiso | `Permission` | Permisos granulares de usuario |
 | Autenticación | `Auth` | Eventos de login/logout |
 
-### 4.2 Entidades de Producción
+> 📝 La entidad `Person` es la base del modelo. Ver `personas.md` para más detalles.
+
+### 4.2 Entidades Comerciales
+
+| Entidad | entityName | Descripción |
+|---------|------------|-------------|
+| Cliente | `Customer` | Extensión de Person para clientes |
+| Proveedor | `Supplier` | Extensión de Person para proveedores |
+
+### 4.3 Entidades de Producción
 
 | Entidad | entityName | Descripción |
 |---------|------------|-------------|
@@ -107,14 +117,14 @@ Audit
 | Recepción | `Reception` | Recepciones de producto |
 | Pallet | `Pallet` | Pallets de almacenamiento |
 
-### 4.3 Entidades de Almacenamiento
+### 4.4 Entidades de Almacenamiento
 
 | Entidad | entityName | Descripción |
 |---------|------------|-------------|
 | Almacenamiento | `Storage` | Ubicaciones de almacenamiento |
 | Bandeja | `Tray` | Bandejas de producto |
 
-### 4.4 Entidades Financieras
+### 4.5 Entidades Financieras
 
 | Entidad | entityName | Descripción |
 |---------|------------|-------------|
@@ -122,11 +132,10 @@ Audit
 | Liquidación | `Settlement` | Liquidaciones |
 | Transacción | `Transaction` | Transacciones financieras |
 
-### 4.5 Entidades de Despacho
+### 4.6 Entidades de Despacho
 
 | Entidad | entityName | Descripción |
 |---------|------------|-------------|
-| Cliente | `Customer` | Clientes |
 | Despacho | `Dispatch` | Despachos de producto |
 
 ---
