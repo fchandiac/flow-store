@@ -1,0 +1,13 @@
+{
+  "appName": "BerriesApp",
+  "dataBase": {
+    "name": "next-start",
+    "version": "1.0.0",
+    "description": "Database for ElectNextStart application",
+    "port": 3306,
+    "host": "192.168.0.27",
+    "username": "root",
+    "password": "YOUR_PASSWORD_HERE",
+    "engine": "mysql"
+  }
+}

@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>App</title>
+    <style>
+        :root {
+            color-scheme: light dark;
+            --color-accent: #2E4019;
+            --color-secondary: #9EC261;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            background-color: transparent;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 1;
+            transform: scale(1);
+            transition: opacity 1s ease, transform 1s ease;
+            color: #fff;
+        }
+
+        .splash {
+            width: 640px;
+            height: 360px;
+            display: flex;
+            overflow: hidden;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.65);
+            background: rgba(0, 0, 0, 0.35);
+            backdrop-filter: blur(12px);
+            animation: fadeInContainer 0.8s ease;
+        }
+
+        .left {
+            flex: 0.45;
+            position: relative;
+            background: url('./splash.jpg') center/cover no-repeat;
+            display: flex;
+            align-items: flex-start;
+            justify-content: center;
+        }
+
+        .loading-overlay {
+            position: absolute;
+            top: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 70%;
+            z-index: 2;
+        }
+
+        .loading-label {
+            font-size: 12px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            text-align: center;
+            margin-bottom: 10px;
+            opacity: 0.75;
+        }
+
+        .loading-bar {
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.25);
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .loading-fill {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, var(--color-secondary), rgba(162, 185, 69, 0.35));
+            transform-origin: left center;
+            animation: loading 3.6s ease-in-out infinite;
+        }
+
+        .right {
+            flex: 0.55;
+            background: var(--color-accent);
+            padding: 30px 24px 28px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .header {
+            text-align: right;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: flex-end;
+            align-items: flex-start;
+            gap: 6px;
+        }
+
+        .header-left {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+        }
+
+        .app-name {
+            font-size: 24px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .version {
+            font-size: 14px;
+            color: var(--color-secondary);
+            font-weight: 500;
+            margin-top: -2px;
+        }
+
+        .release {
+            font-size: 10px;
+            color: rgba(255, 255, 255, 0.65);
+        }
+
+        .logo-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex: 1;
+        }
+
+        .logo {
+            width: 140px;
+            height: 140px;
+            opacity: 0.95;
+            display: block;
+        }
+
+        .footer {
+            text-align: left;
+            line-height: 1.1;
+            align-items: flex-start;
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+
+        .description {
+            font-size: 13px;
+            color: var(--color-secondary);
+            font-weight: 600;
+        }
+
+        .organization {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .author {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: 500;
+        }
+
+        .email {
+            font-size: 9px;
+            color: rgba(255, 255, 255, 0.6);
+            font-weight: 500;
+        }
+
+        .copyright {
+            position: fixed;
+            right: 10px;
+            bottom: 20px;
+            color: rgba(255, 255, 255, 0.75);
+            font-size: 10px;
+            letter-spacing: 0.04em;
+            text-shadow: 0 2px 6px rgba(0, 0, 0, 0.65);
+            pointer-events: none;
+        }
+
+        @keyframes fadeInContainer {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes loading {
+            0% {
+                transform: scaleX(0.05);
+            }
+            50% {
+                transform: scaleX(1);
+            }
+            100% {
+                transform: scaleX(0.05);
+            }
+        }
+
+        body.exit {
+            opacity: 0;
+            transform: scale(0.96);
+        }
+    </style>
+</head>
+<body>
+    <div class="splash">
+        <div class="left">
+            <div class="loading-overlay">
+                <div class="loading-bar">
+                    <div class="loading-fill"></div>
+                </div>
+            </div>
+        </div>
+        <div class="right">
+            <div class="header">
+                <div class="header-top">
+                    <div class="header-left">
+                        <div class="app-name" id="app-name">BerriesApp</div>
+                        <div class="release" id="app-release" data-default="Release: 16-Diciembre-2025">Release: 16-Diciembre-2025</div>
+                    </div>
+                    <div class="version" id="app-version" data-default="v2.0">v2.1</div>
+                </div>
+            </div>
+            <div class="logo-container">
+                <img src="./logo.png" alt="Logotipo BerriesApp" class="logo" />
+            </div>
+            <div class="footer">
+                <div class="description" id="app-description" data-default="Gestión Recepciones y despacho para berries">Gestión Recepciones y despacho para berries</div>
+                <!-- <div class="organization">Ilustre Municipalidad de Parral</div> -->
+                <div class="author" id="app-author" data-default="Felipe Chandía Castillo">Felipe Chandía Castillo</div>
+                <div class="email" id="app-email" data-default="felipe.chandia.dev@gmail.com">felipe.chandia.dev@gmail.com</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="copyright" id="app-copyright">© 2025</div>
+
+    <script>
+        console.log('App Splash Screen cargado y listo');
+
+        (function () {
+            const EXIT_DURATION = 1000;
+
+            function getMetadata() {
+                const params = new URLSearchParams(window.location.search);
+
+                return {
+                    appName: params.get('appName')?.trim() || 'BerriesApp',
+                    appVersion: params.get('appVersion')?.trim() || '',
+                    releaseDate: params.get('releaseDate')?.trim() || '',
+                    description: params.get('description')?.trim() || 'Gestión de Recepciones y Despacho de berries',
+                    authorName: params.get('authorName')?.trim() || '',
+                    authorEmail: params.get('authorEmail')?.trim() || '',
+                    copyrightYear: params.get('copyrightYear')?.trim() || String(new Date().getFullYear()),
+                };
+            }
+
+            function applyMetadata(metadata) {
+                const appNameEl = document.getElementById('app-name');
+                const versionEl = document.getElementById('app-version');
+                const releaseEl = document.getElementById('app-release');
+                const descriptionEl = document.getElementById('app-description');
+                const authorEl = document.getElementById('app-author');
+                const emailEl = document.getElementById('app-email');
+                const copyrightEl = document.getElementById('app-copyright');
+
+                const defaults = {
+                    version: versionEl?.dataset.default || versionEl?.textContent || '',
+                    release: releaseEl?.dataset.default || releaseEl?.textContent || '',
+                    description: descriptionEl?.dataset.default || descriptionEl?.textContent || '',
+                    author: authorEl?.dataset.default || authorEl?.textContent || '',
+                    email: emailEl?.dataset.default || emailEl?.textContent || '',
+                };
+
+                if (metadata.appName) {
+                    document.title = metadata.appName;
+                    appNameEl && (appNameEl.textContent = metadata.appName);
+                }
+
+                if (versionEl) {
+                    versionEl.textContent = metadata.appVersion ? `v${metadata.appVersion}` : defaults.version;
+                }
+
+                if (releaseEl) {
+                    const formattedRelease = metadata.releaseDate
+                        ? `Release: ${metadata.releaseDate}`
+                        : defaults.release;
+                    releaseEl.textContent = formattedRelease;
+                }
+
+                if (descriptionEl) {
+                    descriptionEl.textContent = metadata.description || defaults.description;
+                }
+
+                if (authorEl) {
+                    authorEl.textContent = metadata.authorName || defaults.author;
+                }
+
+                if (emailEl) {
+                    emailEl.textContent = metadata.authorEmail || defaults.email;
+                }
+
+                if (copyrightEl) {
+                    const appLabel = metadata.appName || 'App';
+                    // copyrightEl.textContent = `© ${metadata.copyrightYear}`;
+                }
+            }
+
+            const metadata = getMetadata();
+            console.debug('[splash] Metadata recibida:', metadata);
+            applyMetadata(metadata);
+
+            window.startExitAnimation = function () {
+                if (document.body.classList.contains('exit')) {
+                    return EXIT_DURATION;
+                }
+
+                document.body.classList.add('exit');
+                return EXIT_DURATION;
+            };
+        })();
+    </script>
+</body>
+</html>

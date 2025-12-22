@@ -1,0 +1,27 @@
+{
+  "database": {
+    "type": "mysql",
+    "host": "192.168.2.10",
+    "port": 3306,
+    "username": "root",
+    "password": "zeniz355",
+    "database": "berries-app",
+    "synchronize": false,
+    "logging": false
+  },
+  "dataBase": {
+    "name": "berries-app",
+    "version": "1.0.0",
+    "description": "Database for ElectNextStart application",
+    "port": 3306,
+    "host": "192.168.2.10",
+    "username": "root",
+    "password": "zeniz355",
+    "engine": "mysql"
+  },
+  "app": {
+    "name": "ElectNextStart Production",
+    "version": "1.3.0",
+    "environment": "production"
+  }
+}

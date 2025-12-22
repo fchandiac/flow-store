@@ -1,0 +1,25 @@
+{
+  "database": {
+    "type": "mysql",
+    "host": "192.168.0.124",
+    "port": 3306,
+    "username": "root",
+    "password": "redbull90",
+    "database": "next-start",
+    "synchronize": false,
+    "logging": false
+  },
+  "dataBase": {
+    "name": "next-start",
+    "host": "192.168.0.124",
+    "port": 3306,
+    "username": "root",
+    "password": "redbull90",
+    "engine": "mysql"
+  },
+  "app": {
+    "name": "ElectNextStart Test",
+    "version": "1.3.0",
+    "environment": "test"
+  }
+}

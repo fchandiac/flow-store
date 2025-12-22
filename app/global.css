@@ -1,0 +1,552 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Material Symbols Imports */
+@import '@fontsource/material-symbols-outlined';
+@import '@fontsource/material-symbols-rounded';
+@import '@fontsource/material-symbols-sharp';
+
+/* Leaflet CSS */
+@import 'leaflet/dist/leaflet.css';
+
+:root {
+  --color-primary: #242629;
+  --color-background: #ffffff;
+  --color-foreground: #131615;
+  --color-border: #c1c1c2;
+  --color-accent: #70A100;
+  --color-secondary: #9EC261;
+  --color-muted: #6b7280;
+  --color-success: #4CAF50;
+  --color-info: #2196F3;
+  --color-warning: #FFC107;
+  --color-error: #F44336;
+  --color-neutral: #F3F4F6;
+}
+
+body {
+  background-color: var(--color-background);
+}
+
+/* Material Symbols Classes */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  display: inline-flex;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+}
+
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  display: inline-flex;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+}
+
+.material-symbols-sharp {
+  font-family: 'Material Symbols Sharp';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  display: inline-flex;
+  line-height: 1;
+  text-transform: none;
+  letter-spacing: normal;
+  word-wrap: normal;
+  white-space: nowrap;
+  direction: ltr;
+}
+
+@layer base {
+  html {
+    font-family: "Inter", "System UI", sans-serif;
+  }
+
+  body {
+    font-family: "Inter", "System UI", sans-serif;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 2rem;
+  }
+
+  /* Button Styles */
+  .btn-contained-primary {
+    @apply bg-primary text-background font-light rounded-md text-sm px-4 py-2 text-center hover:bg-accent transition-colors duration-200 active:scale-90 active:shadow-inner;
+    min-width: max-content;
+    white-space: nowrap;
+  }
+
+  .btn-contained-secondary {
+    @apply bg-secondary text-background font-light rounded-md text-sm px-4 py-2 text-center hover:bg-accent transition-colors duration-200 active:scale-90 active:shadow-inner;
+    min-width: max-content;
+    white-space: nowrap;
+  }
+
+  .btn-outlined {
+    @apply border-[1px] border-foreground text-foreground bg-transparent font-light rounded-md text-sm px-4 py-2 text-center hover:bg-accent hover:text-background transition-colors duration-200 active:scale-90 active:shadow-inner;
+    min-width: max-content;
+    white-space: nowrap;
+  }
+
+  .btn-text {
+    @apply text-primary bg-transparent font-light rounded-md text-sm px-4 py-2 text-center hover:scale-110 active:scale-90;
+    min-width: max-content;
+    white-space: nowrap;
+  }
+
+  .btn-pill-primary {
+    @apply bg-primary text-background font-light rounded-full text-sm px-4 py-2 text-center hover:bg-accent transition-colors duration-200 active:scale-90 active:shadow-inner;
+    min-width: max-content;
+    white-space: nowrap;
+  }
+
+  .btn-pill-secondary {
+    @apply bg-secondary text-background font-light rounded-full text-base px-6 py-2 text-center shadow-sm transition-colors duration-200 hover:bg-accent active:scale-90 active:shadow-inner;
+    min-width: max-content;
+    white-space: nowrap;
+  }
+
+  .btn-pill-outlined {
+    @apply border border-primary text-primary bg-transparent font-light rounded-full text-base px-6 py-2 text-center transition-colors duration-200 hover:bg-accent hover:text-background hover:border-accent active:scale-90;
+    min-width: max-content;
+    white-space: nowrap;
+  }
+
+  .placeholder-muted {
+    @apply text-muted opacity-70;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-muted opacity-70;
+  }
+
+  /* Alert Variants */
+  .alert-success {
+    background-color: color-mix(in srgb, var(--color-success) 30%, transparent);
+    color: var(--color-foreground);
+    border-color: var(--color-success);
+    @apply text-sm font-light;
+  }
+
+  .alert-info {
+    background-color: color-mix(in srgb, var(--color-info) 30%, transparent);
+    color: var(--color-foreground);
+    border-color: var(--color-info);
+    @apply text-sm font-light;
+  }
+
+  .alert-warning {
+    background-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
+    color: var(--color-foreground);
+    border-color: var(--color-warning);
+    @apply text-sm font-light;
+  }
+
+  .alert-error {
+    background-color: color-mix(in srgb, var(--color-error) 30%, transparent);
+    color: var(--color-foreground);
+    border-color: var(--color-error);
+    @apply text-sm font-light;
+  }
+
+  /* Typography */
+  .italic {
+    font-family: 'Inter', sans-serif;
+    font-style: italic;
+  }
+
+  .title-base-form {
+    @apply text-2xl font-bold text-primary leading-tight ;
+  }
+
+   .subtitle-base-form {
+    @apply text-base font-light text-foreground leading-snug;
+  }
+
+
+
+  .title {
+    @apply text-2xl font-bold text-primary leading-tight ;
+  }
+
+  .subtitle {
+    @apply text-base font-light text-foreground leading-snug;
+  }
+
+  /* Masonry Layout */
+  .masonry-columns {
+    column-count: 1;
+    column-gap: 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+    .masonry-columns {
+      column-count: 2;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .masonry-columns {
+      column-count: 3;
+    }
+  }
+
+  @media (min-width: 1536px) {
+    .masonry-columns {
+      column-count: 4;
+    }
+  }
+
+  .masonry-columns > * {
+    break-inside: avoid;
+    margin-bottom: 1.5rem;
+  }
+
+  /* Dropdown List Styles */
+  .dropdown-list {
+    @apply absolute w-full rounded border border-border max-h-56 overflow-auto;
+    z-index: 60;
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+  }
+
+  .dropdown-option {
+    @apply px-3 py-2 cursor-pointer text-sm font-light transition-colors duration-200;
+  }
+
+  .dropdown-option:hover {
+    background-color: var(--color-neutral);
+  }
+
+  .dropdown-option-active {
+    @apply bg-secondary-30 font-medium;
+  }
+
+  .dropdown-divider {
+    @apply h-px bg-border my-1;
+  }
+
+  .dropdown-header {
+    @apply px-3 py-2 text-xs font-semibold text-muted uppercase tracking-wide;
+  }
+
+  .dropdown-footer {
+    @apply px-3 py-2 border-t border-border text-xs text-muted;
+  }
+
+  /* IconButton Styles */
+  .icon-button-base {
+    @apply inline-flex items-center justify-center align-middle p-2 gap-0 leading-none rounded-full transition-all duration-200 ease-in-out border-none outline-none cursor-pointer active:scale-90;
+  }
+
+  .icon-button-contained-primary {
+    @apply icon-button-base bg-primary text-background hover:bg-accent;
+  }
+
+  .icon-button-contained-primary:disabled {
+    @apply bg-primary text-background opacity-50 cursor-not-allowed active:scale-100;
+  }
+
+  .icon-button-contained-secondary {
+    @apply icon-button-base bg-secondary text-background hover:bg-accent;
+  }
+
+  .icon-button-contained-secondary:disabled {
+    @apply bg-secondary text-background opacity-50 cursor-not-allowed active:scale-100;
+  }
+
+  .icon-button-text {
+    @apply icon-button-base bg-transparent text-secondary hover:text-accent;
+  }
+
+  .icon-button-text:disabled {
+    @apply bg-transparent text-secondary opacity-50 cursor-not-allowed active:scale-100;
+  }
+
+  .icon-button-basic {
+    @apply icon-button-base bg-transparent text-primary hover:text-accent;
+  }
+
+  .icon-button-basic:disabled {
+    @apply bg-transparent text-primary opacity-50 cursor-not-allowed active:scale-100;
+  }
+
+  .icon-button-basic-secondary {
+    @apply icon-button-base bg-transparent text-secondary hover:text-accent;
+  }
+
+  .icon-button-basic-secondary:disabled {
+    @apply bg-transparent text-secondary opacity-50 cursor-not-allowed active:scale-100;
+  }
+
+  .icon-button-outlined {
+    @apply icon-button-base border border-primary text-primary bg-transparent hover:bg-accent hover:text-background;
+  }
+
+  .icon-button-outlined:disabled {
+    @apply border border-primary text-primary bg-transparent opacity-50 cursor-not-allowed active:scale-100;
+  }
+
+  /* Fallback disabled class for all variants */
+  .icon-button-disabled {
+    @apply opacity-50 cursor-not-allowed;
+  }
+
+  .icon-button-disabled:hover {
+    @apply !bg-inherit !text-inherit;
+  }
+
+  /* IconButton Size Classes */
+  .icon-size-xs {
+    font-size: 16px;
+  }
+
+  .icon-size-sm {
+    font-size: 20px;
+  }
+
+  .icon-size-md {
+    font-size: 24px;
+  }
+
+  .icon-size-lg {
+    font-size: 32px;
+  }
+
+  .icon-size-xl {
+    font-size: 40px;
+  }
+
+  /* Text Color Utilities */
+  .text-primary {
+    color: var(--color-primary);
+  }
+
+  .text-secondary {
+    color: var(--color-secondary);
+  }
+
+  .text-foreground {
+    color: var(--color-foreground);
+  }
+
+  .text-muted-foreground {
+    color: var(--color-muted);
+  }
+
+  .text-background {
+    color: var(--color-background);
+  }
+
+  /* Background Color Utilities */
+  .bg-background {
+    background-color: var(--color-background);
+  }
+
+  .bg-foreground {
+    background-color: var(--color-foreground);
+  }
+
+  .bg-muted {
+    background-color: var(--color-muted);
+  }
+
+  .bg-secondary-20 {
+    background-color: color-mix(in srgb, var(--color-secondary) 20%, transparent);
+  }
+
+  .bg-secondary-30 {
+    background-color: color-mix(in srgb, var(--color-secondary) 30%, transparent);
+  }
+
+  /* Border Color Utilities */
+  .border-primary {
+    border-color: var(--color-primary);
+  }
+
+  .border-border {
+    border-color: var(--color-border);
+  }
+
+  .border-secondary {
+    border-color: var(--color-secondary);
+  }
+
+  .border-accent {
+    border-color: var(--color-accent);
+  }
+
+  .border-background {
+    border-color: var(--color-background);
+  }
+
+  /* Form Components */
+  .form-container {
+    @apply w-full flex flex-col gap-4 p-4;
+  }
+
+  .form-group {
+    @apply w-full flex flex-col gap-1;
+  }
+
+  .form-actions {
+    @apply flex justify-between mt-4 w-full;
+  }
+
+  .form-field {
+    @apply w-full;
+  }
+
+  /* Input Components */
+  .input-container {
+    @apply relative w-full pt-2;
+  }
+
+  .input-base {
+    @apply w-full px-3 py-2 border border-border rounded-md text-sm font-light
+           text-foreground focus:outline-none focus:border-accent disabled:opacity-50;
+    background-color: var(--color-background);
+  }
+
+  .input-base[readonly] {
+    cursor: text;
+  }
+
+
+  .input-icon {
+    @apply absolute left-3 top-1/2 -translate-y-1/2 text-xl pointer-events-none
+           flex items-center justify-center z-10;
+  }
+
+  .input-icon-right {
+    @apply absolute right-3 top-1/2 -translate-y-1/2 text-xl
+           flex items-center justify-center z-10;
+  }
+
+  .password-toggle-button {
+    @apply absolute right-3 top-1/2 -translate-y-1/2 text-xl
+           flex items-center justify-center z-10;
+  }
+
+  /* Select Components */
+  .select-container {
+    @apply relative w-full pt-2;
+  }
+
+  .select-trigger {
+    @apply w-full px-3 py-2 border border-border rounded-md bg-background
+           text-left flex items-center justify-between cursor-pointer
+           focus:outline-none text-sm font-light
+           text-foreground disabled:opacity-50;
+  }
+
+  .select-dropdown {
+    @apply absolute w-full mt-1 bg-background border border-border
+           rounded-md shadow-lg max-h-60 overflow-auto;
+    z-index: 60;
+  }
+
+  .select-option:hover {
+    @apply cursor-pointer text-sm font-light text-foreground transition-colors duration-200;
+    background-color: var(--color-neutral);
+  }
+
+  .select-option-active {
+    @apply font-medium;
+    background-color: color-mix(in srgb, var(--color-secondary) 30%, transparent);
+  }
+
+  /* Range Slider Components */
+  .range-container {
+    @apply relative w-full h-8 select-none;
+  }
+
+  .range-track {
+    @apply absolute w-full h-2 top-1/2 -translate-y-1/2 rounded-lg;
+    background-color: var(--color-neutral);
+  }
+
+  .range-fill {
+    @apply absolute h-2 top-1/2 -translate-y-1/2 bg-primary rounded-lg;
+  }
+
+  .range-thumb {
+    @apply absolute w-6 h-6 bg-primary rounded-full top-1/2 -translate-y-1/2
+           appearance-none cursor-pointer border-2 border-background
+           focus:outline-none focus:ring-1 focus:ring-primary shadow;
+  }
+
+  .range-thumb:hover {
+    @apply shadow-lg;
+  }
+
+  /* Upload Components */
+  .upload-dropzone {
+    @apply border-2 border-dashed border-border rounded-lg p-6 text-center
+           cursor-pointer hover:border-accent transition-colors duration-200;
+  }
+
+  .upload-preview {
+    @apply relative w-full h-32 border border-border rounded-lg overflow-hidden;
+  }
+
+  /* Location Components */
+  .location-container {
+    @apply w-full h-96 border border-gray-300 rounded-lg overflow-hidden;
+  }
+
+  /* AutoComplete Components */
+  .autocomplete-container {
+    @apply relative w-full pt-0.5;
+  }
+
+  .autocomplete-input {
+    @apply w-full px-3 py-2 border border-border rounded-md bg-background
+           text-sm font-light text-foreground focus:outline-none
+           disabled:opacity-50;
+  }
+
+  /* Switch Components */
+  .switch-container {
+    @apply flex items-center gap-3 cursor-pointer;
+  }
+
+  .switch-track {
+    @apply relative w-12 h-6 rounded-full transition-colors duration-200;
+    background-color: var(--color-neutral);
+  }
+
+  .switch-thumb {
+    @apply absolute top-0.5 left-0.5 w-5 h-5 bg-background rounded-full
+           transition-transform duration-200 shadow-sm;
+  }
+
+  .switch-checked .switch-track {
+    @apply bg-primary;
+  }
+
+  .switch-checked .switch-thumb {
+    @apply translate-x-6;
+  }
+}
