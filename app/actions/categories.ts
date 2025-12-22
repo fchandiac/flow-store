@@ -16,20 +16,20 @@ interface GetCategoriesParams {
 
 interface CreateCategoryDTO {
     name: string;
+    code?: string;
     description?: string;
     parentId?: string | null;
     sortOrder?: number;
-    color?: string;
-    icon?: string;
+    imagePath?: string;
 }
 
 interface UpdateCategoryDTO {
     name?: string;
+    code?: string;
     description?: string;
     parentId?: string | null;
     sortOrder?: number;
-    color?: string;
-    icon?: string;
+    imagePath?: string;
     isActive?: boolean;
 }
 
@@ -178,7 +178,7 @@ export async function getCategoryPath(id: string): Promise<Category[]> {
         if (!category) break;
         
         path.unshift(category);
-        currentId = category.parentId;
+        currentId = category.parentId ?? null;
     }
     
     return path;
@@ -239,11 +239,11 @@ export async function createCategory(data: CreateCategoryDTO): Promise<CategoryR
         
         const category = repo.create({
             name: data.name,
+            code: data.code,
             description: data.description,
-            parentId: data.parentId ?? null,
+            parentId: data.parentId || undefined,
             sortOrder,
-            color: data.color,
-            icon: data.icon,
+            imagePath: data.imagePath,
             isActive: true
         });
         
@@ -321,11 +321,11 @@ export async function updateCategory(id: string, data: UpdateCategoryDTO): Promi
         }
         
         if (data.name !== undefined) category.name = data.name;
+        if (data.code !== undefined) category.code = data.code;
         if (data.description !== undefined) category.description = data.description;
-        if (data.parentId !== undefined) category.parentId = data.parentId;
+        if (data.parentId !== undefined) category.parentId = data.parentId || undefined;
         if (data.sortOrder !== undefined) category.sortOrder = data.sortOrder;
-        if (data.color !== undefined) category.color = data.color;
-        if (data.icon !== undefined) category.icon = data.icon;
+        if (data.imagePath !== undefined) category.imagePath = data.imagePath;
         if (data.isActive !== undefined) category.isActive = data.isActive;
         
         await repo.save(category);

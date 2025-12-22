@@ -4,7 +4,7 @@ const { FuseV1Options, FuseVersion } = require('@electron/fuses');
 module.exports = {
   packagerConfig: {
     asar: true,
-    name: 'berries-app',
+    name: 'FlowStore',
     icon: './assets/icons/icon',
     extraResource: [
       './.next/standalone',
@@ -29,7 +29,7 @@ module.exports = {
       if (options.platform === 'darwin') {
         // Find the .app bundle in the output directory
         const outputDir = options.outputPaths[0];
-        const appName = forgeConfig.packagerConfig.name || 'berries-app';
+        const appName = forgeConfig.packagerConfig.name || 'FlowStore';
         standalonePath = path.join(outputDir, `${appName}.app`, 'Contents', 'Resources', 'standalone');
       } else {
         standalonePath = path.join(options.outputPaths[0], 'resources', 'standalone');

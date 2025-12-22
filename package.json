@@ -22,6 +22,7 @@
     "seed": "node run-seed.js test",
     "seed:test": "node run-seed.js test",
     "seed:prod": "node run-seed.js production",
+    "seed:flowstore": "ts-node data/seed/seed-flowstore.ts",
     "seed:all": "npm run seed:test && npm run seed:prod",
     "sync-db": "ts-node scripts/sync-databases.ts",
     "migrate:production": "ts-node data/migrations/migrate-to-test-schema.ts",

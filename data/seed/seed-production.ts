@@ -30,13 +30,14 @@ async function seedProduction() {
     console.log('\n👤 Creating admin person...');
     const person = new Person();
     person.id = uuidv4();
-    person.name = 'Administrator';
-    person.dni = '00000000-0';
+    person.firstName = 'Administrator';
+    person.lastName = '';
+    person.documentNumber = '00000000-0';
     person.phone = '+56900000000';
-    person.mail = 'admin@electnext.com';
+    person.email = 'admin@electnext.com';
 
     const savedPerson = await db.getRepository(Person).save(person);
-    console.log(`✓ Person created: ${savedPerson.name} (${savedPerson.id})`);
+    console.log(`✓ Person created: ${savedPerson.firstName} (${savedPerson.id})`);
 
     // Create admin user
     console.log('\n👨‍💼 Creating admin user...');

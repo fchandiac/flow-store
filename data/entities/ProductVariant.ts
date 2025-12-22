@@ -9,7 +9,7 @@ import {
     ManyToOne,
     JoinColumn,
 } from "typeorm";
-import { Product } from "./Product";
+import type { Product } from "./Product";
 
 @Entity("product_variants")
 export class ProductVariant {
@@ -53,7 +53,7 @@ export class ProductVariant {
     deletedAt?: Date;
 
     // Relations
-    @ManyToOne(() => Product, product => product.variants, { onDelete: 'CASCADE' })
+    @ManyToOne('Product', 'variants', { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'productId' })
     product?: Product;
 }

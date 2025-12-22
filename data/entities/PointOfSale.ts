@@ -10,8 +10,8 @@ import {
     OneToMany,
     JoinColumn,
 } from "typeorm";
-import { Branch } from "./Branch";
-import { CashSession } from "./CashSession";
+import type { Branch } from "./Branch";
+import type { CashSession } from "./CashSession";
 
 @Entity("points_of_sale")
 export class PointOfSale {
@@ -43,10 +43,10 @@ export class PointOfSale {
     deletedAt?: Date;
 
     // Relations
-    @ManyToOne(() => Branch, branch => branch.pointsOfSale, { onDelete: 'CASCADE' })
+    @ManyToOne('Branch', 'pointsOfSale', { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'branchId' })
     branch?: Branch;
 
-    @OneToMany(() => CashSession, session => session.pointOfSale)
+    @OneToMany('CashSession', 'pointOfSale')
     cashSessions?: CashSession[];
 }

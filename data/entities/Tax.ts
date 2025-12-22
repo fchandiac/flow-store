@@ -9,7 +9,7 @@ import {
     ManyToOne,
     JoinColumn,
 } from "typeorm";
-import { Company } from "./Company";
+import type { Company } from "./Company";
 
 export enum TaxType {
     IVA = 'IVA',
@@ -57,7 +57,7 @@ export class Tax {
     deletedAt?: Date;
 
     // Relations
-    @ManyToOne(() => Company, company => company.taxes, { onDelete: 'CASCADE' })
+    @ManyToOne('Company', 'taxes', { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'companyId' })
     company?: Company;
 }

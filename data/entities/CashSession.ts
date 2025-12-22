@@ -9,9 +9,9 @@ import {
     OneToMany,
     JoinColumn,
 } from "typeorm";
-import { PointOfSale } from "./PointOfSale";
-import { User } from "./User";
-import { Transaction } from "./Transaction";
+import type { PointOfSale } from "./PointOfSale";
+import type { User } from "./User";
+import type { Transaction } from "./Transaction";
 
 export enum CashSessionStatus {
     OPEN = 'OPEN',
@@ -27,8 +27,8 @@ export class CashSession {
     @Column({ type: 'uuid' })
     pointOfSaleId!: string;
 
-    @Column({ type: 'uuid' })
-    openedById!: string;
+    @Column({ type: 'uuid', nullable: true })
+    openedById?: string;
 
     @Column({ type: 'uuid', nullable: true })
     closedById?: string;
@@ -64,18 +64,18 @@ export class CashSession {
     updatedAt!: Date;
 
     // Relations
-    @ManyToOne(() => PointOfSale, pos => pos.cashSessions, { onDelete: 'CASCADE' })
+    @ManyToOne('PointOfSale', 'cashSessions', { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'pointOfSaleId' })
     pointOfSale?: PointOfSale;
 
-    @ManyToOne(() => User, { onDelete: 'SET NULL' })
+    @ManyToOne('User', { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'openedById' })
     openedBy?: User;
 
-    @ManyToOne(() => User, { onDelete: 'SET NULL' })
+    @ManyToOne('User', { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'closedById' })
     closedBy?: User;
 
-    @OneToMany(() => Transaction, transaction => transaction.cashSession)
+    @OneToMany('Transaction', 'cashSession')
     transactions?: Transaction[];
 }

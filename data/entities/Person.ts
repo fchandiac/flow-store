@@ -9,8 +9,8 @@ import {
     Index,
     OneToMany,
 } from "typeorm";
-import { Customer } from "./Customer";
-import { Supplier } from "./Supplier";
+import type { Customer } from "./Customer";
+import type { Supplier } from "./Supplier";
 
 export enum PersonType {
     NATURAL = 'NATURAL',
@@ -60,9 +60,9 @@ export class Person {
     deletedAt?: Date;
 
     // Relations
-    @OneToMany(() => Customer, customer => customer.person)
+    @OneToMany('Customer', 'person')
     customers?: Customer[];
 
-    @OneToMany(() => Supplier, supplier => supplier.person)
+    @OneToMany('Supplier', 'person')
     suppliers?: Supplier[];
 }

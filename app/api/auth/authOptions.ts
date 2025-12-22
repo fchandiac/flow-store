@@ -1,14 +1,16 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { getDb } from "../../../data/db";
-import { User } from "../../../data/entities/User";
-import { Audit } from "../../../data/entities/Audit";
 import { AuditActionType } from "../../../data/entities/audit.types";
-import { Permission } from "../../../data/entities/Permission";
 import moment from "moment-timezone";
 import bcrypt from "bcryptjs";
 
 const APP_TIMEZONE = 'America/Santiago';
+
+// Lazy import functions to avoid circular dependencies
+const getDbModule = async () => (await import("../../../data/db")).getDb;
+const getUserEntity = async () => (await import("../../../data/entities/User")).User;
+const getAuditEntity = async () => (await import("../../../data/entities/Audit")).Audit;
+const getPermissionEntity = async () => (await import("../../../data/entities/Permission")).Permission;
 
 /**
  * Helper function to log login/logout attempts to audit
@@ -21,6 +23,8 @@ export async function logLoginAudit(
   details?: string
 ): Promise<void> {
   try {
+    const getDb = await getDbModule();
+    const Audit = await getAuditEntity();
     const db = await getDb();
     // Create timestamp in Chile timezone using moment
     const chileNow = moment.tz(APP_TIMEZONE);
@@ -41,8 +45,7 @@ export async function logLoginAudit(
     };
     audit.changes = {
       fields: {},
-      summary: `${action}`,
-      changeCount: 0,
+      changedFields: [],
     };
     audit.createdAt = now; // Assign explicit timestamp in Chile timezone
 
@@ -81,6 +84,9 @@ export const authOptions: NextAuthOptions = {
 
         try {
           console.log("Connecting to DB...");
+          const getDb = await getDbModule();
+          const User = await getUserEntity();
+          const Permission = await getPermissionEntity();
           const db = await getDb();
           console.log("DB Connected. Searching user:", credentials.username);
           
@@ -128,7 +134,7 @@ export const authOptions: NextAuthOptions = {
           
           return {
             id: user.id,
-            name: user.person?.name ?? '',
+            name: user.person?.firstName ? `${user.person.firstName} ${user.person.lastName || ''}`.trim() : '',
             email: user.mail,
             role: user.rol,
             permissions: abilities,
@@ -212,6 +218,9 @@ export const authOptions: NextAuthOptions = {
 
       if (token.sub) {
         try {
+          const getDb = await getDbModule();
+          const User = await getUserEntity();
+          const Permission = await getPermissionEntity();
           const db = await getDb();
           const userRepo = db.getRepository(User);
           const dbUser = await userRepo.findOne({ where: { id: token.sub } });
@@ -245,6 +254,8 @@ export const authOptions: NextAuthOptions = {
       console.log('[signOut event] Token:', token);
       if (token?.userId) {
         try {
+          const getDb = await getDbModule();
+          const User = await getUserEntity();
           const db = await getDb();
           const userRepo = db.getRepository(User);
           const user = await userRepo.findOneBy({ id: token.userId as string });

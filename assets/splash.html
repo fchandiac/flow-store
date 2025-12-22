@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>App</title>
+    <title>FlowStore</title>
     <style>
         :root {
             color-scheme: light dark;
-            --color-accent: #2E4019;
-            --color-secondary: #9EC261;
+            --color-accent: #1e3a5f;
+            --color-secondary: #3b82f6;
         }
 
         * {
@@ -80,7 +80,7 @@
         .loading-fill {
             height: 100%;
             width: 100%;
-            background: linear-gradient(90deg, var(--color-secondary), rgba(162, 185, 69, 0.35));
+            background: linear-gradient(90deg, var(--color-secondary), rgba(59, 130, 246, 0.35));
             transform-origin: left center;
             animation: loading 3.6s ease-in-out infinite;
         }
@@ -226,17 +226,17 @@
             <div class="header">
                 <div class="header-top">
                     <div class="header-left">
-                        <div class="app-name" id="app-name">BerriesApp</div>
-                        <div class="release" id="app-release" data-default="Release: 16-Diciembre-2025">Release: 16-Diciembre-2025</div>
+                        <div class="app-name" id="app-name">FlowStore</div>
+                        <div class="release" id="app-release" data-default="Release: 21-Diciembre-2025">Release: 21-Diciembre-2025</div>
                     </div>
-                    <div class="version" id="app-version" data-default="v2.0">v2.1</div>
+                    <div class="version" id="app-version" data-default="v1.0">v1.0</div>
                 </div>
             </div>
             <div class="logo-container">
-                <img src="./logo.png" alt="Logotipo BerriesApp" class="logo" />
+                <img src="./logo.png" alt="Logotipo FlowStore" class="logo" />
             </div>
             <div class="footer">
-                <div class="description" id="app-description" data-default="Gestión Recepciones y despacho para berries">Gestión Recepciones y despacho para berries</div>
+                <div class="description" id="app-description" data-default="Sistema ERP para gestión de retail y punto de venta">Sistema ERP para gestión de retail y punto de venta</div>
                 <!-- <div class="organization">Ilustre Municipalidad de Parral</div> -->
                 <div class="author" id="app-author" data-default="Felipe Chandía Castillo">Felipe Chandía Castillo</div>
                 <div class="email" id="app-email" data-default="felipe.chandia.dev@gmail.com">felipe.chandia.dev@gmail.com</div>
@@ -256,10 +256,10 @@
                 const params = new URLSearchParams(window.location.search);
 
                 return {
-                    appName: params.get('appName')?.trim() || 'BerriesApp',
+                    appName: params.get('appName')?.trim() || 'FlowStore',
                     appVersion: params.get('appVersion')?.trim() || '',
                     releaseDate: params.get('releaseDate')?.trim() || '',
-                    description: params.get('description')?.trim() || 'Gestión de Recepciones y Despacho de berries',
+                    description: params.get('description')?.trim() || 'Sistema ERP para gestión de retail y punto de venta',
                     authorName: params.get('authorName')?.trim() || '',
                     authorEmail: params.get('authorEmail')?.trim() || '',
                     copyrightYear: params.get('copyrightYear')?.trim() || String(new Date().getFullYear()),

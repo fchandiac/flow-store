@@ -10,8 +10,8 @@ import {
     OneToMany,
     JoinColumn,
 } from "typeorm";
-import { Person } from "./Person";
-import { Transaction } from "./Transaction";
+import type { Person } from "./Person";
+import type { Transaction } from "./Transaction";
 
 export enum CustomerType {
     RETAIL = 'RETAIL',
@@ -61,10 +61,10 @@ export class Customer {
     deletedAt?: Date;
 
     // Relations
-    @ManyToOne(() => Person, person => person.customers, { onDelete: 'CASCADE' })
+    @ManyToOne('Person', 'customers', { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'personId' })
     person?: Person;
 
-    @OneToMany(() => Transaction, transaction => transaction.customer)
+    @OneToMany('Transaction', 'customer')
     transactions?: Transaction[];
 }

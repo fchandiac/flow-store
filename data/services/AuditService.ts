@@ -58,8 +58,7 @@ export class AuditService {
 
     return {
       fields,
-      summary: changedFields.join(', ') || (newValues ? 'Entidad creada' : 'Entidad eliminada'),
-      changeCount: changedFields.length,
+      changedFields: changedFields,
     };
   }
 
@@ -88,7 +87,7 @@ export class AuditService {
    * Genera una descripción legible del cambio
    */
   private generateDescription(action: AuditActionType, entityName: string, changes: AuditChangeData): string {
-    const fieldsStr = changes.summary || 'sin cambios';
+    const fieldsStr = changes.changedFields.length > 0 ? changes.changedFields.join(', ') : 'sin cambios';
     
     switch (action) {
       case AuditActionType.CREATE:

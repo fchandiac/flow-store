@@ -9,7 +9,7 @@ import {
     OneToMany,
 } from "typeorm";
 import { Branch } from "./Branch";
-import { Tax } from "./Tax";
+import type { Tax } from "./Tax";
 
 @Entity("companies")
 export class Company {
@@ -44,6 +44,6 @@ export class Company {
     @OneToMany(() => Branch, branch => branch.company)
     branches?: Branch[];
 
-    @OneToMany(() => Tax, tax => tax.company)
+    @OneToMany('Tax', 'company')
     taxes?: Tax[];
 }

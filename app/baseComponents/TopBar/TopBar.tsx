@@ -2,7 +2,7 @@
 import React, { useState, useContext, useTransition } from 'react';
 import Image from 'next/image';
 import SideBar, { SideBarMenuItem } from './SideBar';
-import UserProfileDropdown from '@/app/home/users/ui/UserProfileDropdown';
+import UserProfileDropdown from '@/app/ui/UserProfileDropdown';
 
 interface TopBarProps {
   title?: string;

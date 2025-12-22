@@ -4,36 +4,48 @@ import { getDb } from '@/data/db';
 import { PriceList, PriceListType } from '@/data/entities/PriceList';
 import { PriceListItem } from '@/data/entities/PriceListItem';
 import { Product } from '@/data/entities/Product';
-import { ProductVariant } from '@/data/entities/ProductVariant';
 import { revalidatePath } from 'next/cache';
-import { IsNull } from 'typeorm';
+import { IsNull, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 
 // Types
-interface GetPriceListsParams {
-    search?: string;
-    type?: PriceListType;
-    isActive?: boolean;
-}
-
 interface CreatePriceListDTO {
     name: string;
-    description?: string;
-    type: PriceListType;
+    code: string;
+    priceListType?: PriceListType;
     currency?: string;
-    startDate?: Date;
-    endDate?: Date;
+    validFrom?: Date;
+    validUntil?: Date;
     priority?: number;
+    isDefault?: boolean;
+    description?: string;
 }
 
 interface UpdatePriceListDTO {
     name?: string;
-    description?: string;
-    type?: PriceListType;
+    code?: string;
+    priceListType?: PriceListType;
     currency?: string;
-    startDate?: Date | null;
-    endDate?: Date | null;
+    validFrom?: Date;
+    validUntil?: Date;
     priority?: number;
+    isDefault?: boolean;
     isActive?: boolean;
+    description?: string;
+}
+
+interface CreatePriceListItemDTO {
+    priceListId: string;
+    productId: string;
+    productVariantId?: string;
+    price: number;
+    minPrice?: number;
+    discountPercentage?: number;
+}
+
+interface UpdatePriceListItemDTO {
+    price?: number;
+    minPrice?: number;
+    discountPercentage?: number;
 }
 
 interface PriceListResult {
@@ -42,58 +54,53 @@ interface PriceListResult {
     error?: string;
 }
 
-interface CreatePriceListItemDTO {
-    priceListId: string;
-    productId?: string;
-    productVariantId?: string;
-    price: number;
-    minQuantity?: number;
-    maxQuantity?: number;
-}
-
-interface UpdatePriceListItemDTO {
-    price?: number;
-    minQuantity?: number;
-    maxQuantity?: number | null;
-    isActive?: boolean;
-}
-
 interface PriceListItemResult {
     success: boolean;
     item?: PriceListItem;
     error?: string;
 }
 
-// ==================== PRICE LIST ACTIONS ====================
-
 /**
  * Obtiene todas las listas de precios
  */
-export async function getPriceLists(params?: GetPriceListsParams): Promise<PriceList[]> {
+export async function getPriceLists(activeOnly: boolean = false): Promise<PriceList[]> {
     const ds = await getDb();
     const repo = ds.getRepository(PriceList);
     
-    const queryBuilder = repo.createQueryBuilder('priceList')
-        .where('priceList.deletedAt IS NULL');
-    
-    if (params?.search) {
-        queryBuilder.andWhere(
-            '(priceList.name LIKE :search OR priceList.description LIKE :search)',
-            { search: `%${params.search}%` }
-        );
+    const where: any = { deletedAt: IsNull() };
+    if (activeOnly) {
+        where.isActive = true;
     }
     
-    if (params?.type) {
-        queryBuilder.andWhere('priceList.type = :type', { type: params.type });
-    }
+    return repo.find({
+        where,
+        order: { priority: 'DESC', name: 'ASC' }
+    });
+}
+
+/**
+ * Obtiene una lista de precios por ID
+ */
+export async function getPriceListById(id: string): Promise<PriceList | null> {
+    const ds = await getDb();
+    const repo = ds.getRepository(PriceList);
     
-    if (params?.isActive !== undefined) {
-        queryBuilder.andWhere('priceList.isActive = :isActive', { isActive: params.isActive });
-    }
+    return repo.findOne({
+        where: { id, deletedAt: IsNull() },
+        relations: ['items', 'items.product']
+    });
+}
+
+/**
+ * Obtiene la lista de precios predeterminada
+ */
+export async function getDefaultPriceList(): Promise<PriceList | null> {
+    const ds = await getDb();
+    const repo = ds.getRepository(PriceList);
     
-    queryBuilder.orderBy('priceList.priority', 'DESC').addOrderBy('priceList.name', 'ASC');
-    
-    return queryBuilder.getMany();
+    return repo.findOne({
+        where: { isDefault: true, isActive: true, deletedAt: IsNull() }
+    });
 }
 
 /**
@@ -107,32 +114,10 @@ export async function getActivePriceLists(): Promise<PriceList[]> {
     return repo.createQueryBuilder('priceList')
         .where('priceList.deletedAt IS NULL')
         .andWhere('priceList.isActive = true')
-        .andWhere('(priceList.startDate IS NULL OR priceList.startDate <= :now)', { now })
-        .andWhere('(priceList.endDate IS NULL OR priceList.endDate >= :now)', { now })
+        .andWhere('(priceList.validFrom IS NULL OR priceList.validFrom <= :now)', { now })
+        .andWhere('(priceList.validUntil IS NULL OR priceList.validUntil >= :now)', { now })
         .orderBy('priceList.priority', 'DESC')
         .getMany();
-}
-
-/**
- * Obtiene una lista de precios por ID con sus items
- */
-export async function getPriceListById(id: string): Promise<(PriceList & { items: PriceListItem[] }) | null> {
-    const ds = await getDb();
-    const priceListRepo = ds.getRepository(PriceList);
-    const itemRepo = ds.getRepository(PriceListItem);
-    
-    const priceList = await priceListRepo.findOne({
-        where: { id, deletedAt: IsNull() }
-    });
-    
-    if (!priceList) return null;
-    
-    const items = await itemRepo.find({
-        where: { priceListId: id, deletedAt: IsNull() },
-        relations: ['product', 'productVariant']
-    });
-    
-    return { ...priceList, items } as any;
 }
 
 /**
@@ -143,37 +128,39 @@ export async function createPriceList(data: CreatePriceListDTO): Promise<PriceLi
         const ds = await getDb();
         const repo = ds.getRepository(PriceList);
         
-        // Validaciones
-        if (!data.name?.trim()) {
-            return { success: false, error: 'El nombre es requerido' };
-        }
-        
-        // Verificar nombre único
-        const existing = await repo.findOne({
-            where: { name: data.name, deletedAt: IsNull() }
+        // Verificar código único
+        const existingCode = await repo.findOne({
+            where: { code: data.code }
         });
-        if (existing) {
-            return { success: false, error: 'Ya existe una lista de precios con ese nombre' };
+        
+        if (existingCode) {
+            return { success: false, error: 'El código ya está en uso' };
         }
         
-        // Validar fechas
-        if (data.startDate && data.endDate && data.startDate > data.endDate) {
-            return { success: false, error: 'La fecha de inicio no puede ser posterior a la fecha de fin' };
+        // Si es default, quitar default de otras listas
+        if (data.isDefault) {
+            await repo.createQueryBuilder()
+                .update(PriceList)
+                .set({ isDefault: false })
+                .where('isDefault = true')
+                .execute();
         }
         
         const priceList = repo.create({
-            name: data.name.trim(),
-            description: data.description,
-            type: data.type,
-            currency: data.currency ?? 'CLP',
-            startDate: data.startDate,
-            endDate: data.endDate,
-            priority: data.priority ?? 0,
-            isActive: true
+            name: data.name,
+            code: data.code,
+            priceListType: data.priceListType || PriceListType.RETAIL,
+            currency: data.currency || 'CLP',
+            validFrom: data.validFrom,
+            validUntil: data.validUntil,
+            priority: data.priority || 0,
+            isDefault: data.isDefault || false,
+            isActive: true,
+            description: data.description
         });
         
         await repo.save(priceList);
-        revalidatePath('/admin/price-lists');
+        revalidatePath('/admin/products');
         
         return { success: true, priceList };
     } catch (error) {
@@ -193,43 +180,47 @@ export async function updatePriceList(id: string, data: UpdatePriceListDTO): Pro
         const ds = await getDb();
         const repo = ds.getRepository(PriceList);
         
-        const priceList = await repo.findOne({ 
-            where: { id, deletedAt: IsNull() } 
+        const priceList = await repo.findOne({
+            where: { id, deletedAt: IsNull() }
         });
         
         if (!priceList) {
             return { success: false, error: 'Lista de precios no encontrada' };
         }
         
-        // Verificar nombre único si se cambia
-        if (data.name && data.name !== priceList.name) {
-            const existing = await repo.findOne({ 
-                where: { name: data.name, deletedAt: IsNull() } 
+        // Verificar código único si cambia
+        if (data.code && data.code !== priceList.code) {
+            const existingCode = await repo.findOne({
+                where: { code: data.code }
             });
-            if (existing) {
-                return { success: false, error: 'Ya existe una lista de precios con ese nombre' };
+            if (existingCode) {
+                return { success: false, error: 'El código ya está en uso' };
             }
         }
         
-        // Validar fechas
-        const startDate = data.startDate !== undefined ? data.startDate : priceList.startDate;
-        const endDate = data.endDate !== undefined ? data.endDate : priceList.endDate;
-        if (startDate && endDate && startDate > endDate) {
-            return { success: false, error: 'La fecha de inicio no puede ser posterior a la fecha de fin' };
+        // Si es default, quitar default de otras listas
+        if (data.isDefault && !priceList.isDefault) {
+            await repo.createQueryBuilder()
+                .update(PriceList)
+                .set({ isDefault: false })
+                .where('isDefault = true AND id != :id', { id })
+                .execute();
         }
         
-        // Aplicar cambios
-        if (data.name !== undefined) priceList.name = data.name.trim();
-        if (data.description !== undefined) priceList.description = data.description;
-        if (data.type !== undefined) priceList.type = data.type;
+        // Actualizar campos
+        if (data.name !== undefined) priceList.name = data.name;
+        if (data.code !== undefined) priceList.code = data.code;
+        if (data.priceListType !== undefined) priceList.priceListType = data.priceListType;
         if (data.currency !== undefined) priceList.currency = data.currency;
-        if (data.startDate !== undefined) priceList.startDate = data.startDate;
-        if (data.endDate !== undefined) priceList.endDate = data.endDate;
+        if (data.validFrom !== undefined) priceList.validFrom = data.validFrom;
+        if (data.validUntil !== undefined) priceList.validUntil = data.validUntil;
         if (data.priority !== undefined) priceList.priority = data.priority;
+        if (data.isDefault !== undefined) priceList.isDefault = data.isDefault;
         if (data.isActive !== undefined) priceList.isActive = data.isActive;
+        if (data.description !== undefined) priceList.description = data.description;
         
         await repo.save(priceList);
-        revalidatePath('/admin/price-lists');
+        revalidatePath('/admin/products');
         
         return { success: true, priceList };
     } catch (error) {
@@ -242,27 +233,27 @@ export async function updatePriceList(id: string, data: UpdatePriceListDTO): Pro
 }
 
 /**
- * Elimina (soft delete) una lista de precios
+ * Elimina una lista de precios (soft delete)
  */
 export async function deletePriceList(id: string): Promise<{ success: boolean; error?: string }> {
     try {
         const ds = await getDb();
-        const priceListRepo = ds.getRepository(PriceList);
-        const itemRepo = ds.getRepository(PriceListItem);
+        const repo = ds.getRepository(PriceList);
         
-        const priceList = await priceListRepo.findOne({ 
-            where: { id, deletedAt: IsNull() } 
+        const priceList = await repo.findOne({
+            where: { id, deletedAt: IsNull() }
         });
         
         if (!priceList) {
             return { success: false, error: 'Lista de precios no encontrada' };
         }
         
-        // Soft delete de items asociados
-        await itemRepo.softDelete({ priceListId: id });
+        if (priceList.isDefault) {
+            return { success: false, error: 'No se puede eliminar la lista de precios predeterminada' };
+        }
         
-        await priceListRepo.softDelete(id);
-        revalidatePath('/admin/price-lists');
+        await repo.softRemove(priceList);
+        revalidatePath('/admin/products');
         
         return { success: true };
     } catch (error) {
@@ -274,10 +265,10 @@ export async function deletePriceList(id: string): Promise<{ success: boolean; e
     }
 }
 
-// ==================== PRICE LIST ITEM ACTIONS ====================
+// === PRICE LIST ITEMS ===
 
 /**
- * Obtiene items de una lista de precios
+ * Obtiene los items de una lista de precios
  */
 export async function getPriceListItems(priceListId: string): Promise<PriceListItem[]> {
     const ds = await getDb();
@@ -286,147 +277,83 @@ export async function getPriceListItems(priceListId: string): Promise<PriceListI
     return repo.find({
         where: { priceListId, deletedAt: IsNull() },
         relations: ['product', 'productVariant'],
-        order: { createdAt: 'ASC' }
+        order: { createdAt: 'DESC' }
     });
 }
 
 /**
- * Obtiene el precio de un producto en una lista
+ * Obtiene el precio de un producto en una lista de precios
  */
 export async function getProductPrice(
-    productId: string,
-    priceListId: string,
-    quantity: number = 1
+    productId: string, 
+    priceListId?: string,
+    productVariantId?: string
 ): Promise<number | null> {
     const ds = await getDb();
-    const repo = ds.getRepository(PriceListItem);
+    const itemRepo = ds.getRepository(PriceListItem);
     const productRepo = ds.getRepository(Product);
     
-    // Buscar en la lista de precios
-    const item = await repo.createQueryBuilder('item')
-        .where('item.priceListId = :priceListId', { priceListId })
-        .andWhere('item.productId = :productId', { productId })
-        .andWhere('item.isActive = true')
-        .andWhere('item.deletedAt IS NULL')
-        .andWhere('(item.minQuantity IS NULL OR item.minQuantity <= :quantity)', { quantity })
-        .andWhere('(item.maxQuantity IS NULL OR item.maxQuantity >= :quantity)', { quantity })
-        .orderBy('item.minQuantity', 'DESC')
-        .getOne();
+    // Si se especifica una lista de precios
+    if (priceListId) {
+        const item = await itemRepo.findOne({
+            where: { 
+                priceListId, 
+                productId, 
+                productVariantId: productVariantId || IsNull(),
+                deletedAt: IsNull() 
+            }
+        });
+        
+        if (item) {
+            return item.price;
+        }
+    }
     
-    if (item) return Number(item.price);
+    // Buscar en lista predeterminada
+    const defaultList = await getDefaultPriceList();
+    if (defaultList) {
+        const item = await itemRepo.findOne({
+            where: { 
+                priceListId: defaultList.id, 
+                productId, 
+                productVariantId: productVariantId || IsNull(),
+                deletedAt: IsNull() 
+            }
+        });
+        
+        if (item) {
+            return item.price;
+        }
+    }
     
-    // Fallback al precio base del producto
+    // Fallback: usar precio base del producto
     const product = await productRepo.findOne({
         where: { id: productId, deletedAt: IsNull() }
     });
     
-    return product ? Number(product.salePrice) : null;
+    return product?.basePrice || null;
 }
 
 /**
- * Obtiene el precio de una variante en una lista
+ * Crea un item en una lista de precios
  */
-export async function getVariantPrice(
-    variantId: string,
-    priceListId: string,
-    quantity: number = 1
-): Promise<number | null> {
-    const ds = await getDb();
-    const repo = ds.getRepository(PriceListItem);
-    const variantRepo = ds.getRepository(ProductVariant);
-    
-    // Buscar en la lista de precios
-    const item = await repo.createQueryBuilder('item')
-        .where('item.priceListId = :priceListId', { priceListId })
-        .andWhere('item.productVariantId = :variantId', { variantId })
-        .andWhere('item.isActive = true')
-        .andWhere('item.deletedAt IS NULL')
-        .andWhere('(item.minQuantity IS NULL OR item.minQuantity <= :quantity)', { quantity })
-        .andWhere('(item.maxQuantity IS NULL OR item.maxQuantity >= :quantity)', { quantity })
-        .orderBy('item.minQuantity', 'DESC')
-        .getOne();
-    
-    if (item) return Number(item.price);
-    
-    // Fallback al precio base de la variante
-    const variant = await variantRepo.findOne({
-        where: { id: variantId, deletedAt: IsNull() }
-    });
-    
-    return variant ? Number(variant.salePrice) : null;
-}
-
-/**
- * Agrega un item a una lista de precios
- */
-export async function addPriceListItem(data: CreatePriceListItemDTO): Promise<PriceListItemResult> {
+export async function createPriceListItem(data: CreatePriceListItemDTO): Promise<PriceListItemResult> {
     try {
         const ds = await getDb();
         const repo = ds.getRepository(PriceListItem);
-        const priceListRepo = ds.getRepository(PriceList);
-        const productRepo = ds.getRepository(Product);
-        const variantRepo = ds.getRepository(ProductVariant);
         
-        // Validaciones
-        if (data.price < 0) {
-            return { success: false, error: 'El precio no puede ser negativo' };
-        }
-        
-        if (!data.productId && !data.productVariantId) {
-            return { success: false, error: 'Se requiere un producto o variante' };
-        }
-        
-        // Verificar que la lista existe
-        const priceList = await priceListRepo.findOne({
-            where: { id: data.priceListId, deletedAt: IsNull() }
+        // Verificar que no exista ya el item
+        const existing = await repo.findOne({
+            where: { 
+                priceListId: data.priceListId, 
+                productId: data.productId,
+                productVariantId: data.productVariantId || IsNull(),
+                deletedAt: IsNull() 
+            }
         });
-        if (!priceList) {
-            return { success: false, error: 'Lista de precios no encontrada' };
-        }
         
-        // Verificar producto o variante
-        if (data.productId) {
-            const product = await productRepo.findOne({
-                where: { id: data.productId, deletedAt: IsNull() }
-            });
-            if (!product) {
-                return { success: false, error: 'Producto no encontrado' };
-            }
-        }
-        
-        if (data.productVariantId) {
-            const variant = await variantRepo.findOne({
-                where: { id: data.productVariantId, deletedAt: IsNull() }
-            });
-            if (!variant) {
-                return { success: false, error: 'Variante no encontrada' };
-            }
-        }
-        
-        // Verificar si ya existe un item con el mismo rango de cantidad
-        const existingQuery = repo.createQueryBuilder('item')
-            .where('item.priceListId = :priceListId', { priceListId: data.priceListId })
-            .andWhere('item.deletedAt IS NULL');
-        
-        if (data.productId) {
-            existingQuery.andWhere('item.productId = :productId', { productId: data.productId });
-        }
-        if (data.productVariantId) {
-            existingQuery.andWhere('item.productVariantId = :variantId', { variantId: data.productVariantId });
-        }
-        
-        // Verificar overlapping de cantidades
-        const minQty = data.minQuantity ?? 1;
-        const maxQty = data.maxQuantity;
-        
-        existingQuery.andWhere(
-            '((item.minQuantity IS NULL OR item.minQuantity <= :maxQty) AND (item.maxQuantity IS NULL OR item.maxQuantity >= :minQty))',
-            { minQty, maxQty: maxQty ?? 999999999 }
-        );
-        
-        const existing = await existingQuery.getOne();
         if (existing) {
-            return { success: false, error: 'Ya existe un precio para este rango de cantidad' };
+            return { success: false, error: 'El producto ya existe en esta lista de precios' };
         }
         
         const item = repo.create({
@@ -434,20 +361,19 @@ export async function addPriceListItem(data: CreatePriceListItemDTO): Promise<Pr
             productId: data.productId,
             productVariantId: data.productVariantId,
             price: data.price,
-            minQuantity: data.minQuantity ?? 1,
-            maxQuantity: data.maxQuantity,
-            isActive: true
+            minPrice: data.minPrice,
+            discountPercentage: data.discountPercentage || 0
         });
         
         await repo.save(item);
-        revalidatePath('/admin/price-lists');
+        revalidatePath('/admin/products');
         
         return { success: true, item };
     } catch (error) {
-        console.error('Error adding price list item:', error);
+        console.error('Error creating price list item:', error);
         return { 
             success: false, 
-            error: error instanceof Error ? error.message : 'Error al agregar item' 
+            error: error instanceof Error ? error.message : 'Error al agregar el producto a la lista' 
         };
     }
 }
@@ -460,53 +386,56 @@ export async function updatePriceListItem(id: string, data: UpdatePriceListItemD
         const ds = await getDb();
         const repo = ds.getRepository(PriceListItem);
         
-        const item = await repo.findOne({ 
-            where: { id, deletedAt: IsNull() } 
+        const item = await repo.findOne({
+            where: { id, deletedAt: IsNull() }
         });
         
         if (!item) {
             return { success: false, error: 'Item no encontrado' };
         }
         
-        if (data.price !== undefined && data.price < 0) {
-            return { success: false, error: 'El precio no puede ser negativo' };
-        }
-        
         if (data.price !== undefined) item.price = data.price;
-        if (data.minQuantity !== undefined) item.minQuantity = data.minQuantity;
-        if (data.maxQuantity !== undefined) item.maxQuantity = data.maxQuantity;
-        if (data.isActive !== undefined) item.isActive = data.isActive;
+        if (data.minPrice !== undefined) item.minPrice = data.minPrice;
+        if (data.discountPercentage !== undefined) item.discountPercentage = data.discountPercentage;
         
         await repo.save(item);
-        revalidatePath('/admin/price-lists');
+        revalidatePath('/admin/products');
         
         return { success: true, item };
     } catch (error) {
         console.error('Error updating price list item:', error);
         return { 
             success: false, 
-            error: error instanceof Error ? error.message : 'Error al actualizar item' 
+            error: error instanceof Error ? error.message : 'Error al actualizar el item' 
         };
     }
 }
 
 /**
- * Elimina un item de lista de precios
+ * Elimina un item de lista de precios (soft delete)
  */
 export async function deletePriceListItem(id: string): Promise<{ success: boolean; error?: string }> {
     try {
         const ds = await getDb();
         const repo = ds.getRepository(PriceListItem);
         
-        await repo.softDelete(id);
-        revalidatePath('/admin/price-lists');
+        const item = await repo.findOne({
+            where: { id, deletedAt: IsNull() }
+        });
+        
+        if (!item) {
+            return { success: false, error: 'Item no encontrado' };
+        }
+        
+        await repo.softRemove(item);
+        revalidatePath('/admin/products');
         
         return { success: true };
     } catch (error) {
         console.error('Error deleting price list item:', error);
         return { 
             success: false, 
-            error: error instanceof Error ? error.message : 'Error al eliminar item' 
+            error: error instanceof Error ? error.message : 'Error al eliminar el item' 
         };
     }
 }

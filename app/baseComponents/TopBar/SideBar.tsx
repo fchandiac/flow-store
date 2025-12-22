@@ -26,9 +26,9 @@ const ROLE_LABELS: Record<string, string> = {
   director: 'Director',
 };
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'BerriesApp';
-const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '2.1.0';
-const APP_RELEASE = process.env.NEXT_PUBLIC_APP_RELEASE || '16-Diciembre-2025';
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'FlowStore';
+const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0';
+const APP_RELEASE = process.env.NEXT_PUBLIC_APP_RELEASE || '21-Diciembre-2025';
 
 const SideBar: React.FC<SideBarProps> = ({ menuItems, className, style, onClose, logoUrl }) => {
   const router = useRouter();

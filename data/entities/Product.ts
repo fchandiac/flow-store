@@ -10,8 +10,8 @@ import {
     OneToMany,
     JoinColumn,
 } from "typeorm";
-import { Category } from "./Category";
-import { ProductVariant } from "./ProductVariant";
+import type { Category } from "./Category";
+import type { ProductVariant } from "./ProductVariant";
 
 export enum ProductType {
     PHYSICAL = 'PHYSICAL',
@@ -85,10 +85,10 @@ export class Product {
     deletedAt?: Date;
 
     // Relations
-    @ManyToOne(() => Category, { onDelete: 'SET NULL' })
+    @ManyToOne('Category', { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'categoryId' })
     category?: Category;
 
-    @OneToMany(() => ProductVariant, variant => variant.product)
+    @OneToMany('ProductVariant', 'product')
     variants?: ProductVariant[];
 }

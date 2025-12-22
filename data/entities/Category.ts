@@ -47,10 +47,10 @@ export class Category {
     deletedAt?: Date;
 
     // Self-referential relation for hierarchy
-    @ManyToOne(() => Category, category => category.children, { onDelete: 'SET NULL' })
+    @ManyToOne('Category', 'children', { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'parentId' })
     parent?: Category;
 
-    @OneToMany(() => Category, category => category.parent)
+    @OneToMany('Category', 'parent')
     children?: Category[];
 }

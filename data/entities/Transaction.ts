@@ -9,13 +9,13 @@ import {
     JoinColumn,
     Index,
 } from "typeorm";
-import { Branch } from "./Branch";
-import { PointOfSale } from "./PointOfSale";
-import { CashSession } from "./CashSession";
-import { Customer } from "./Customer";
-import { Supplier } from "./Supplier";
-import { User } from "./User";
-import { TransactionLine } from "./TransactionLine";
+import type { Branch } from "./Branch";
+import type { PointOfSale } from "./PointOfSale";
+import type { CashSession } from "./CashSession";
+import type { Customer } from "./Customer";
+import type { Supplier } from "./Supplier";
+import type { User } from "./User";
+import type { TransactionLine } from "./TransactionLine";
 
 /**
  * Transaction Types:
@@ -154,34 +154,34 @@ export class Transaction {
     createdAt!: Date;
 
     // Relations
-    @ManyToOne(() => Branch, { onDelete: 'RESTRICT' })
+    @ManyToOne('Branch', { onDelete: 'RESTRICT' })
     @JoinColumn({ name: 'branchId' })
     branch?: Branch;
 
-    @ManyToOne(() => PointOfSale, { onDelete: 'SET NULL' })
+    @ManyToOne('PointOfSale', { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'pointOfSaleId' })
     pointOfSale?: PointOfSale;
 
-    @ManyToOne(() => CashSession, session => session.transactions, { onDelete: 'SET NULL' })
+    @ManyToOne('CashSession', 'transactions', { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'cashSessionId' })
     cashSession?: CashSession;
 
-    @ManyToOne(() => Customer, customer => customer.transactions, { onDelete: 'SET NULL' })
+    @ManyToOne('Customer', 'transactions', { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'customerId' })
     customer?: Customer;
 
-    @ManyToOne(() => Supplier, supplier => supplier.transactions, { onDelete: 'SET NULL' })
+    @ManyToOne('Supplier', 'transactions', { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'supplierId' })
     supplier?: Supplier;
 
-    @ManyToOne(() => User, { onDelete: 'RESTRICT' })
+    @ManyToOne('User', { onDelete: 'RESTRICT' })
     @JoinColumn({ name: 'userId' })
     user?: User;
 
-    @ManyToOne(() => Transaction, { onDelete: 'SET NULL' })
+    @ManyToOne('Transaction', { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'relatedTransactionId' })
     relatedTransaction?: Transaction;
 
-    @OneToMany(() => TransactionLine, line => line.transaction)
+    @OneToMany('TransactionLine', 'transaction')
     lines?: TransactionLine[];
 }

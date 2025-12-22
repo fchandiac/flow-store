@@ -116,8 +116,10 @@ export async function login(data: LoginDTO): Promise<AuthResult> {
             changes: { timestamp: new Date().toISOString() }
         }));
         
+        // Convertir a plain object para evitar error de Server Components
         const { pass: _, ...userWithoutPassword } = user;
-        return { success: true, user: userWithoutPassword as any };
+        const plainUser = JSON.parse(JSON.stringify(userWithoutPassword));
+        return { success: true, user: plainUser };
     } catch (error) {
         console.error('Error in login:', error);
         return { 

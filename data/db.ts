@@ -1,22 +1,25 @@
 import "reflect-metadata";
 import { DataSource } from "typeorm";
+// FlowStore Entities
 import { User } from "./entities/User";
 import { Person } from "./entities/Person";
 import { Audit } from "./entities/Audit";
-import { Variety } from "./entities/Variety";
-import { Format } from "./entities/Format";
-import { Season } from "./entities/Season";
-import { Producer } from "./entities/Producer";
-import { Customer } from "./entities/Customer";
-import { Storage } from "./entities/Storage";
-import { Tray } from "./entities/Tray";
-import { Pallet } from "./entities/Pallet";
-import { Transaction } from "./entities/Transaction";
-import { ReceptionPack } from "./entities/ReceptionPack";
-import { TransactionRelation } from "./entities/TransactionRelation";
-import { AdminBankAccount } from "./entities/AdminBankAccount";
 import { Permission } from "./entities/Permission";
-import { ProductiveUnit } from "./entities/ProductiveUnit";
+import { Company } from "./entities/Company";
+import { Branch } from "./entities/Branch";
+import { Storage } from "./entities/Storage";
+import { PointOfSale } from "./entities/PointOfSale";
+import { CashSession } from "./entities/CashSession";
+import { Customer } from "./entities/Customer";
+import { Supplier } from "./entities/Supplier";
+import { Category } from "./entities/Category";
+import { Product } from "./entities/Product";
+import { ProductVariant } from "./entities/ProductVariant";
+import { PriceList } from "./entities/PriceList";
+import { PriceListItem } from "./entities/PriceListItem";
+import { Tax } from "./entities/Tax";
+import { Transaction } from "./entities/Transaction";
+import { TransactionLine } from "./entities/TransactionLine";
 import { AuditSubscriber } from "./subscribers/AuditSubscriber";
 import fs from "fs";
 import path from "path";
@@ -130,7 +133,14 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
         ssl: appConfig?.database?.ssl || appConfig?.dataBase?.ssl ? {
           rejectUnauthorized: appConfig?.database?.ssl?.rejectUnauthorized ?? false
         } : false,
-        entities: [User, Person, Audit, Variety, Format, Season, Producer, Customer, Storage, Tray, Pallet, Transaction, TransactionRelation, ReceptionPack, AdminBankAccount, Permission, ProductiveUnit],
+        entities: [
+          User, Person, Audit, Permission,
+          Company, Branch, Storage, PointOfSale, CashSession,
+          Customer, Supplier,
+          Category, Product, ProductVariant,
+          PriceList, PriceListItem, Tax,
+          Transaction, TransactionLine
+        ],
         subscribers: [AuditSubscriber],
         migrations: [],
         extra: {

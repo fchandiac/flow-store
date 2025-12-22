@@ -8,7 +8,7 @@ import {
     DeleteDateColumn,
     OneToMany,
 } from "typeorm";
-import { PriceListItem } from "./PriceListItem";
+import type { PriceListItem } from "./PriceListItem";
 
 export enum PriceListType {
     RETAIL = 'RETAIL',
@@ -62,6 +62,6 @@ export class PriceList {
     deletedAt?: Date;
 
     // Relations
-    @OneToMany(() => PriceListItem, item => item.priceList)
+    @OneToMany('PriceListItem', 'priceList')
     items?: PriceListItem[];
 }

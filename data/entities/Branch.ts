@@ -10,9 +10,9 @@ import {
     OneToMany,
     JoinColumn,
 } from "typeorm";
-import { Company } from "./Company";
-import { Storage } from "./Storage";
-import { PointOfSale } from "./PointOfSale";
+import type { Company } from "./Company";
+import type { Storage } from "./Storage";
+import type { PointOfSale } from "./PointOfSale";
 
 @Entity("branches")
 export class Branch {
@@ -50,13 +50,13 @@ export class Branch {
     deletedAt?: Date;
 
     // Relations
-    @ManyToOne(() => Company, company => company.branches, { onDelete: 'CASCADE' })
+    @ManyToOne('Company', 'branches', { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'companyId' })
     company?: Company;
 
-    @OneToMany(() => Storage, storage => storage.branch)
+    @OneToMany('Storage', 'branch')
     storages?: Storage[];
 
-    @OneToMany(() => PointOfSale, pos => pos.branch)
+    @OneToMany('PointOfSale', 'branch')
     pointsOfSale?: PointOfSale[];
 }

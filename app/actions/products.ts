@@ -1,59 +1,57 @@
 'use server'
 
 import { getDb } from '@/data/db';
-import { Product } from '@/data/entities/Product';
+import { Product, ProductType } from '@/data/entities/Product';
 import { ProductVariant } from '@/data/entities/ProductVariant';
 import { Category } from '@/data/entities/Category';
 import { revalidatePath } from 'next/cache';
-import { IsNull, In, Like } from 'typeorm';
+import { IsNull } from 'typeorm';
 
 // Types
 interface GetProductsParams {
     search?: string;
     categoryId?: string;
     isActive?: boolean;
-    hasVariants?: boolean;
-    page?: number;
-    limit?: number;
-}
-
-interface ProductsResponse {
-    data: Product[];
-    total: number;
+    productType?: ProductType;
+    includeVariants?: boolean;
 }
 
 interface CreateProductDTO {
     name: string;
-    description?: string;
-    sku?: string;
+    sku: string;
     barcode?: string;
+    description?: string;
     categoryId?: string;
-    unit: string;
-    costPrice?: number;
-    salePrice: number;
-    minStock?: number;
-    maxStock?: number;
+    productType?: ProductType;
+    unitOfMeasure?: string;
+    basePrice: number;
+    baseCost?: number;
+    defaultTaxId?: string;
     trackInventory?: boolean;
-    allowDecimalQuantity?: boolean;
-    imageUrl?: string;
-    hasVariants?: boolean;
+    minimumStock?: number;
+    maximumStock?: number;
+    reorderPoint?: number;
+    imagePath?: string;
+    attributes?: Record<string, any>;
 }
 
 interface UpdateProductDTO {
     name?: string;
-    description?: string;
     sku?: string;
     barcode?: string;
-    categoryId?: string | null;
-    unit?: string;
-    costPrice?: number;
-    salePrice?: number;
-    minStock?: number;
-    maxStock?: number;
+    description?: string;
+    categoryId?: string;
+    productType?: ProductType;
+    unitOfMeasure?: string;
+    basePrice?: number;
+    baseCost?: number;
+    defaultTaxId?: string;
     trackInventory?: boolean;
-    allowDecimalQuantity?: boolean;
-    imageUrl?: string;
-    hasVariants?: boolean;
+    minimumStock?: number;
+    maximumStock?: number;
+    reorderPoint?: number;
+    imagePath?: string;
+    attributes?: Record<string, any>;
     isActive?: boolean;
 }
 
@@ -64,18 +62,13 @@ interface ProductResult {
 }
 
 /**
- * Obtiene productos con filtros y paginación
+ * Obtiene productos con filtros opcionales
  */
-export async function getProducts(params?: GetProductsParams): Promise<ProductsResponse> {
+export async function getProducts(params?: GetProductsParams): Promise<Product[]> {
     const ds = await getDb();
     const repo = ds.getRepository(Product);
     
-    const page = params?.page ?? 1;
-    const limit = params?.limit ?? 20;
-    const skip = (page - 1) * limit;
-    
     const queryBuilder = repo.createQueryBuilder('product')
-        .leftJoinAndSelect('product.category', 'category')
         .where('product.deletedAt IS NULL');
     
     if (params?.search) {
@@ -93,60 +86,31 @@ export async function getProducts(params?: GetProductsParams): Promise<ProductsR
         queryBuilder.andWhere('product.isActive = :isActive', { isActive: params.isActive });
     }
     
-    if (params?.hasVariants !== undefined) {
-        queryBuilder.andWhere('product.hasVariants = :hasVariants', { hasVariants: params.hasVariants });
+    if (params?.productType) {
+        queryBuilder.andWhere('product.productType = :productType', { productType: params.productType });
     }
     
-    queryBuilder
-        .orderBy('product.name', 'ASC')
-        .skip(skip)
-        .take(limit);
+    if (params?.includeVariants) {
+        queryBuilder.leftJoinAndSelect('product.variants', 'variants', 'variants.deletedAt IS NULL');
+    }
     
-    const [data, total] = await queryBuilder.getManyAndCount();
+    queryBuilder.leftJoinAndSelect('product.category', 'category');
+    queryBuilder.orderBy('product.name', 'ASC');
     
-    return { data, total };
+    return queryBuilder.getMany();
 }
 
 /**
- * Busca productos por término (para autocompletado)
+ * Obtiene un producto por ID
  */
-export async function searchProducts(term: string, limit: number = 10): Promise<Product[]> {
+export async function getProductById(id: string): Promise<Product | null> {
     const ds = await getDb();
     const repo = ds.getRepository(Product);
     
-    return repo.find({
-        where: [
-            { name: Like(`%${term}%`), isActive: true, deletedAt: IsNull() },
-            { sku: Like(`%${term}%`), isActive: true, deletedAt: IsNull() },
-            { barcode: Like(`%${term}%`), isActive: true, deletedAt: IsNull() }
-        ],
-        relations: ['category'],
-        take: limit,
-        order: { name: 'ASC' }
-    });
-}
-
-/**
- * Obtiene un producto por ID con variantes
- */
-export async function getProductById(id: string): Promise<(Product & { variants: ProductVariant[] }) | null> {
-    const ds = await getDb();
-    const productRepo = ds.getRepository(Product);
-    const variantRepo = ds.getRepository(ProductVariant);
-    
-    const product = await productRepo.findOne({
+    return repo.findOne({
         where: { id, deletedAt: IsNull() },
-        relations: ['category']
+        relations: ['category', 'variants']
     });
-    
-    if (!product) return null;
-    
-    const variants = await variantRepo.find({
-        where: { productId: id, deletedAt: IsNull() },
-        order: { sortOrder: 'ASC', name: 'ASC' }
-    });
-    
-    return { ...product, variants } as any;
 }
 
 /**
@@ -158,57 +122,7 @@ export async function getProductBySku(sku: string): Promise<Product | null> {
     
     return repo.findOne({
         where: { sku, deletedAt: IsNull() },
-        relations: ['category']
-    });
-}
-
-/**
- * Obtiene un producto por código de barras
- */
-export async function getProductByBarcode(barcode: string): Promise<Product | null> {
-    const ds = await getDb();
-    const repo = ds.getRepository(Product);
-    
-    return repo.findOne({
-        where: { barcode, deletedAt: IsNull() },
-        relations: ['category']
-    });
-}
-
-/**
- * Obtiene productos por categoría (incluyendo subcategorías)
- */
-export async function getProductsByCategory(categoryId: string, includeSubcategories: boolean = true): Promise<Product[]> {
-    const ds = await getDb();
-    const productRepo = ds.getRepository(Product);
-    const categoryRepo = ds.getRepository(Category);
-    
-    let categoryIds = [categoryId];
-    
-    if (includeSubcategories) {
-        // Obtener todas las subcategorías recursivamente
-        const getAllSubcategoryIds = async (parentId: string): Promise<string[]> => {
-            const children = await categoryRepo.find({
-                where: { parentId, deletedAt: IsNull() },
-                select: ['id']
-            });
-            
-            let ids: string[] = [];
-            for (const child of children) {
-                ids.push(child.id);
-                ids = ids.concat(await getAllSubcategoryIds(child.id));
-            }
-            return ids;
-        };
-        
-        const subcategoryIds = await getAllSubcategoryIds(categoryId);
-        categoryIds = categoryIds.concat(subcategoryIds);
-    }
-    
-    return productRepo.find({
-        where: { categoryId: In(categoryIds), isActive: true, deletedAt: IsNull() },
-        relations: ['category'],
-        order: { name: 'ASC' }
+        relations: ['category', 'variants']
     });
 }
 
@@ -219,43 +133,19 @@ export async function createProduct(data: CreateProductDTO): Promise<ProductResu
     try {
         const ds = await getDb();
         const repo = ds.getRepository(Product);
-        const categoryRepo = ds.getRepository(Category);
         
-        // Validaciones
-        if (!data.name?.trim()) {
-            return { success: false, error: 'El nombre es requerido' };
-        }
+        // Verificar SKU único
+        const existingSku = await repo.findOne({
+            where: { sku: data.sku }
+        });
         
-        if (!data.unit?.trim()) {
-            return { success: false, error: 'La unidad de medida es requerida' };
-        }
-        
-        if (data.salePrice < 0) {
-            return { success: false, error: 'El precio de venta no puede ser negativo' };
-        }
-        
-        // Verificar SKU único si se proporciona
-        if (data.sku) {
-            const existingBySku = await repo.findOne({
-                where: { sku: data.sku, deletedAt: IsNull() }
-            });
-            if (existingBySku) {
-                return { success: false, error: 'El SKU ya está en uso' };
-            }
-        }
-        
-        // Verificar código de barras único si se proporciona
-        if (data.barcode) {
-            const existingByBarcode = await repo.findOne({
-                where: { barcode: data.barcode, deletedAt: IsNull() }
-            });
-            if (existingByBarcode) {
-                return { success: false, error: 'El código de barras ya está en uso' };
-            }
+        if (existingSku) {
+            return { success: false, error: 'El SKU ya está en uso' };
         }
         
         // Verificar categoría si se proporciona
         if (data.categoryId) {
+            const categoryRepo = ds.getRepository(Category);
             const category = await categoryRepo.findOne({
                 where: { id: data.categoryId, deletedAt: IsNull() }
             });
@@ -265,35 +155,29 @@ export async function createProduct(data: CreateProductDTO): Promise<ProductResu
         }
         
         const product = repo.create({
-            name: data.name.trim(),
-            description: data.description,
+            name: data.name,
             sku: data.sku,
             barcode: data.barcode,
+            description: data.description,
             categoryId: data.categoryId,
-            unit: data.unit,
-            costPrice: data.costPrice ?? 0,
-            salePrice: data.salePrice,
-            minStock: data.minStock ?? 0,
-            maxStock: data.maxStock,
-            currentStock: 0,
+            productType: data.productType || ProductType.PHYSICAL,
+            unitOfMeasure: data.unitOfMeasure,
+            basePrice: data.basePrice,
+            baseCost: data.baseCost || 0,
+            defaultTaxId: data.defaultTaxId,
             trackInventory: data.trackInventory ?? true,
-            allowDecimalQuantity: data.allowDecimalQuantity ?? false,
-            imageUrl: data.imageUrl,
-            hasVariants: data.hasVariants ?? false,
+            minimumStock: data.minimumStock || 0,
+            maximumStock: data.maximumStock || 0,
+            reorderPoint: data.reorderPoint || 0,
+            imagePath: data.imagePath,
+            attributes: data.attributes,
             isActive: true
         });
         
         await repo.save(product);
-        
-        // Recargar con relaciones
-        const savedProduct = await repo.findOne({
-            where: { id: product.id },
-            relations: ['category']
-        });
-        
         revalidatePath('/admin/products');
         
-        return { success: true, product: savedProduct! };
+        return { success: true, product };
     } catch (error) {
         console.error('Error creating product:', error);
         return { 
@@ -310,64 +194,42 @@ export async function updateProduct(id: string, data: UpdateProductDTO): Promise
     try {
         const ds = await getDb();
         const repo = ds.getRepository(Product);
-        const categoryRepo = ds.getRepository(Category);
         
-        const product = await repo.findOne({ 
-            where: { id, deletedAt: IsNull() },
-            relations: ['category']
+        const product = await repo.findOne({
+            where: { id, deletedAt: IsNull() }
         });
         
         if (!product) {
             return { success: false, error: 'Producto no encontrado' };
         }
         
-        // Verificar SKU único si se cambia
+        // Verificar SKU único si cambia
         if (data.sku && data.sku !== product.sku) {
-            const existing = await repo.findOne({ 
-                where: { sku: data.sku, deletedAt: IsNull() } 
+            const existingSku = await repo.findOne({
+                where: { sku: data.sku }
             });
-            if (existing) {
+            if (existingSku) {
                 return { success: false, error: 'El SKU ya está en uso' };
             }
         }
         
-        // Verificar código de barras único si se cambia
-        if (data.barcode && data.barcode !== product.barcode) {
-            const existing = await repo.findOne({ 
-                where: { barcode: data.barcode, deletedAt: IsNull() } 
-            });
-            if (existing) {
-                return { success: false, error: 'El código de barras ya está en uso' };
-            }
-        }
-        
-        // Verificar categoría si se cambia
-        if (data.categoryId !== undefined && data.categoryId !== product.categoryId) {
-            if (data.categoryId) {
-                const category = await categoryRepo.findOne({
-                    where: { id: data.categoryId, deletedAt: IsNull() }
-                });
-                if (!category) {
-                    return { success: false, error: 'Categoría no encontrada' };
-                }
-            }
-        }
-        
-        // Aplicar cambios
-        if (data.name !== undefined) product.name = data.name.trim();
-        if (data.description !== undefined) product.description = data.description;
+        // Actualizar campos
+        if (data.name !== undefined) product.name = data.name;
         if (data.sku !== undefined) product.sku = data.sku;
         if (data.barcode !== undefined) product.barcode = data.barcode;
+        if (data.description !== undefined) product.description = data.description;
         if (data.categoryId !== undefined) product.categoryId = data.categoryId;
-        if (data.unit !== undefined) product.unit = data.unit;
-        if (data.costPrice !== undefined) product.costPrice = data.costPrice;
-        if (data.salePrice !== undefined) product.salePrice = data.salePrice;
-        if (data.minStock !== undefined) product.minStock = data.minStock;
-        if (data.maxStock !== undefined) product.maxStock = data.maxStock;
+        if (data.productType !== undefined) product.productType = data.productType;
+        if (data.unitOfMeasure !== undefined) product.unitOfMeasure = data.unitOfMeasure;
+        if (data.basePrice !== undefined) product.basePrice = data.basePrice;
+        if (data.baseCost !== undefined) product.baseCost = data.baseCost;
+        if (data.defaultTaxId !== undefined) product.defaultTaxId = data.defaultTaxId;
         if (data.trackInventory !== undefined) product.trackInventory = data.trackInventory;
-        if (data.allowDecimalQuantity !== undefined) product.allowDecimalQuantity = data.allowDecimalQuantity;
-        if (data.imageUrl !== undefined) product.imageUrl = data.imageUrl;
-        if (data.hasVariants !== undefined) product.hasVariants = data.hasVariants;
+        if (data.minimumStock !== undefined) product.minimumStock = data.minimumStock;
+        if (data.maximumStock !== undefined) product.maximumStock = data.maximumStock;
+        if (data.reorderPoint !== undefined) product.reorderPoint = data.reorderPoint;
+        if (data.imagePath !== undefined) product.imagePath = data.imagePath;
+        if (data.attributes !== undefined) product.attributes = data.attributes;
         if (data.isActive !== undefined) product.isActive = data.isActive;
         
         await repo.save(product);
@@ -384,26 +246,22 @@ export async function updateProduct(id: string, data: UpdateProductDTO): Promise
 }
 
 /**
- * Elimina (soft delete) un producto
+ * Elimina un producto (soft delete)
  */
 export async function deleteProduct(id: string): Promise<{ success: boolean; error?: string }> {
     try {
         const ds = await getDb();
         const repo = ds.getRepository(Product);
-        const variantRepo = ds.getRepository(ProductVariant);
         
-        const product = await repo.findOne({ 
-            where: { id, deletedAt: IsNull() } 
+        const product = await repo.findOne({
+            where: { id, deletedAt: IsNull() }
         });
         
         if (!product) {
             return { success: false, error: 'Producto no encontrado' };
         }
         
-        // Soft delete de variantes asociadas
-        await variantRepo.softDelete({ productId: id });
-        
-        await repo.softDelete(id);
+        await repo.softRemove(product);
         revalidatePath('/admin/products');
         
         return { success: true };
@@ -417,66 +275,21 @@ export async function deleteProduct(id: string): Promise<{ success: boolean; err
 }
 
 /**
- * Actualiza el stock de un producto
+ * Busca productos por texto
  */
-export async function updateProductStock(
-    productId: string,
-    quantity: number,
-    operation: 'set' | 'add' | 'subtract'
-): Promise<{ success: boolean; newStock?: number; error?: string }> {
-    try {
-        const ds = await getDb();
-        const repo = ds.getRepository(Product);
-        
-        const product = await repo.findOne({ where: { id: productId } });
-        if (!product) {
-            return { success: false, error: 'Producto no encontrado' };
-        }
-        
-        let newStock: number;
-        const currentStock = Number(product.currentStock) || 0;
-        
-        switch (operation) {
-            case 'set':
-                newStock = quantity;
-                break;
-            case 'add':
-                newStock = currentStock + quantity;
-                break;
-            case 'subtract':
-                newStock = currentStock - quantity;
-                break;
-        }
-        
-        if (newStock < 0 && product.trackInventory) {
-            return { success: false, error: 'Stock insuficiente' };
-        }
-        
-        product.currentStock = newStock;
-        await repo.save(product);
-        
-        return { success: true, newStock };
-    } catch (error) {
-        console.error('Error updating product stock:', error);
-        return { 
-            success: false, 
-            error: error instanceof Error ? error.message : 'Error al actualizar stock' 
-        };
-    }
-}
-
-/**
- * Obtiene productos con stock bajo
- */
-export async function getLowStockProducts(): Promise<Product[]> {
+export async function searchProducts(query: string, limit: number = 20): Promise<Product[]> {
     const ds = await getDb();
     const repo = ds.getRepository(Product);
     
     return repo.createQueryBuilder('product')
         .where('product.deletedAt IS NULL')
         .andWhere('product.isActive = true')
-        .andWhere('product.trackInventory = true')
-        .andWhere('product.currentStock <= product.minStock')
-        .orderBy('product.currentStock', 'ASC')
+        .andWhere(
+            '(product.name LIKE :query OR product.sku LIKE :query OR product.barcode LIKE :query)',
+            { query: `%${query}%` }
+        )
+        .leftJoinAndSelect('product.category', 'category')
+        .orderBy('product.name', 'ASC')
+        .limit(limit)
         .getMany();
 }

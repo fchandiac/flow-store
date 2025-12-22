@@ -7,10 +7,10 @@ import {
     ManyToOne,
     JoinColumn,
 } from "typeorm";
-import { Transaction } from "./Transaction";
-import { Product } from "./Product";
-import { ProductVariant } from "./ProductVariant";
-import { Tax } from "./Tax";
+import type { Transaction } from "./Transaction";
+import type { Product } from "./Product";
+import type { ProductVariant } from "./ProductVariant";
+import type { Tax } from "./Tax";
 
 /**
  * TransactionLine - Línea de detalle de transacción
@@ -94,19 +94,19 @@ export class TransactionLine {
     createdAt!: Date;
 
     // Relations
-    @ManyToOne(() => Transaction, transaction => transaction.lines, { onDelete: 'CASCADE' })
+    @ManyToOne('Transaction', 'lines', { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'transactionId' })
     transaction?: Transaction;
 
-    @ManyToOne(() => Product, { onDelete: 'RESTRICT' })
+    @ManyToOne('Product', { onDelete: 'RESTRICT' })
     @JoinColumn({ name: 'productId' })
     product?: Product;
 
-    @ManyToOne(() => ProductVariant, { onDelete: 'SET NULL' })
+    @ManyToOne('ProductVariant', { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'productVariantId' })
     productVariant?: ProductVariant;
 
-    @ManyToOne(() => Tax, { onDelete: 'SET NULL' })
+    @ManyToOne('Tax', { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'taxId' })
     tax?: Tax;
 }

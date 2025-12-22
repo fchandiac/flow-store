@@ -1,126 +1,125 @@
 "use client";
 
-import { signIn, useSession } from "next-auth/react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
-import IconButton from "@/app/baseComponents/IconButton/IconButton";
-import { UpdateDataBaseDialog } from "./ui/UpdateDataBaseDialog";
-import './global.css';
-import type { BaseFormField } from '@/app/baseComponents/BaseForm/CreateBaseForm';
-import CreateBaseForm from '@/app/baseComponents/BaseForm/CreateBaseForm';
+import { TextField } from "@/app/baseComponents/TextField/TextField";
+import { Button } from "@/app/baseComponents/Button/Button";
+import Alert from "@/app/baseComponents/Alert/Alert";
+import { login } from "@/app/actions/auth.server";
 
-export default function HomePage() {
-  const { data: session, status } = useSession();
-  const router = useRouter();
-  const [values, setValues] = useState<Record<string, any>>({ username: "", password: "" });
-  const [error, setError] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+/**
+ * Página de Login
+ * Ruta: /
+ * Autenticación de usuarios con redirección según rol
+ */
+export default function LoginPage() {
+    const router = useRouter();
+    const [userName, setUserName] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [dbDialogOpen, setDbDialogOpen] = useState(false);
-
-  // Redirigir a home si ya está autenticado (usado cuando vuelve del callback)
-  useEffect(() => {
-    if (status === 'authenticated' && session) {
-      router.push('/home');
-    }
-  }, [status, session, router]);
-
-  const handleSubmit = async () => {
-    if (!values.username || !values.password) {
-      setError("Por favor completa todos los campos");
-      return;
-    }
-
-    setIsSubmitting(true);
-    setError("");
-    
-    try {
-      console.log('[Login] Iniciando login');
-      
-      // Usar signIn con redirect: false para manejar errores inline
-      const result = await signIn("credentials", {
-        username: values.username,
-        password: values.password,
-        redirect: false,
-        callbackUrl: `${window.location.origin}/home`,
-      });
-
-      console.log('[Login] Resultado del signIn:', result);
-
-      if (result?.error) {
-        // Mostrar error inline en el formulario
-        setError("Usuario o contraseña incorrectos");
-      } else if (result?.ok) {
-        // Login exitoso, redirigir manualmente
-        router.push('/home');
-      }
-
-      setIsSubmitting(false);
-    } catch (error) {
-      console.error('[Login] Error:', error);
-      setError("Error al procesar la autenticación");
-      setIsSubmitting(false);
-    }
-  };
-
-  const fields: BaseFormField[] = [
-    {
-      name: "username",
-      label: "Usuario",
-      type: "text",
-      required: true,
-    },
-    {
-      name: "password",
-      label: "Contraseña",
-      type: "password",
-      required: true,
-      passwordVisibilityToggle: true,
-    },
-  ];
-
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-8">
-      <div className="w-full max-w-md p-8 rounded-xl border shadow-2xl" style={{ 
-  
-      }}>
-        {/* Logo */}
-        <div className="flex justify-center mb-6">
-          <img
-            src="/logo.svg"
-            alt="Logo"
-            className="w-20 h-20 object-contain"
-          />
-        </div>
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
         
-        <h1 className="text-3xl font-bold text-center mb-8 text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">
-          Iniciar Sesión
-        </h1>
-        
-        <CreateBaseForm
-          fields={fields}
-          values={values}
-          onChange={(field, value) => setValues(prev => ({ ...prev, [field]: value }))}
-          onSubmit={handleSubmit}
-          isSubmitting={isSubmitting}
-          submitLabel="Ingresar"
-          errors={error ? [error] : []}
-        />
-      </div>
+        if (!userName || !password) {
+            setError("Por favor completa todos los campos");
+            return;
+        }
 
-      <IconButton 
-        icon="settings" 
-        variant="text"
-        aria-label="Editar configuración de BD" 
-        className="fixed bottom-4 right-4 p-2 rounded-full shadow-lg" 
-        style={{ zIndex: 1000, fontSize: 28 }} 
-        onClick={() => setDbDialogOpen(true)} 
-      />
+        setIsSubmitting(true);
+        setError("");
 
-      <UpdateDataBaseDialog 
-        open={dbDialogOpen} 
-        onClose={() => setDbDialogOpen(false)} 
-      />
-    </main>
-  );
+        try {
+            const result = await login({ username: userName, password });
+
+            if (!result.success) {
+                setError(result.error || "Usuario o contraseña incorrectos");
+                setIsSubmitting(false);
+                return;
+            }
+
+            // Redirección según rol
+            if (result.user?.rol === 'ADMIN') {
+                router.push('/admin');
+            } else {
+                router.push('/pointOfSale');
+            }
+        } catch (err) {
+            console.error('[Login] Error:', err);
+            setError("Error al procesar la autenticación");
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-accent via-accent/80 to-secondary">
+            <div className="w-full max-w-md">
+                {/* Card de Login */}
+                <div className="bg-white rounded-2xl shadow-2xl p-8">
+                    {/* Logo y Título */}
+                    <div className="text-center mb-8">
+                        <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-secondary to-accent rounded-2xl mb-4 shadow-lg">
+                            <span className="text-4xl text-white">🏪</span>
+                        </div>
+                        <h1 className="text-2xl font-bold text-gray-800">FlowStore</h1>
+                        <p className="text-gray-500 text-sm mt-1">Sistema de Gestión</p>
+                    </div>
+
+                    {/* Formulario */}
+                    <form onSubmit={handleSubmit} className="space-y-5">
+                        {/* Error Alert */}
+                        {error && (
+                            <Alert variant="error">
+                                {error}
+                            </Alert>
+                        )}
+
+                        {/* Usuario */}
+                        <TextField
+                            label="Usuario"
+                            value={userName}
+                            onChange={(e) => setUserName(e.target.value)}
+                            placeholder="Ingresa tu usuario"
+                            required
+                            startIcon="person"
+                            data-test-id="login-username"
+                        />
+
+                        {/* Contraseña */}
+                        <TextField
+                            label="Contraseña"
+                            type="password"
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Ingresa tu contraseña"
+                            required
+                            startIcon="lock"
+                            passwordVisibilityToggle={true}
+                            data-test-id="login-password"
+                        />
+
+                        {/* Botón Submit */}
+                        <Button
+                            type="submit"
+                            variant="primary"
+                            size="lg"
+                            className="w-full"
+                            loading={isSubmitting}
+                            disabled={isSubmitting}
+                        >
+                            {isSubmitting ? "Iniciando sesión..." : "Iniciar Sesión"}
+                        </Button>
+                    </form>
+
+                    {/* Footer */}
+                    <div className="mt-6 text-center">
+                        <p className="text-xs text-gray-400">
+                            © 2025 FlowStore ERP
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    );
 }
