@@ -78,7 +78,10 @@ export async function getCategories(params?: GetCategoriesParams): Promise<Categ
     
     queryBuilder.orderBy('category.sortOrder', 'ASC').addOrderBy('category.name', 'ASC');
     
-    return queryBuilder.getMany();
+    const categories = await queryBuilder.getMany();
+    
+    // Serialize to plain objects to avoid "Classes or null prototypes are not supported" error
+    return JSON.parse(JSON.stringify(categories));
 }
 
 /**
@@ -119,7 +122,8 @@ export async function getCategoryTree(): Promise<CategoryTreeNode[]> {
         }
     }
     
-    return roots;
+    // Serialize to plain objects
+    return JSON.parse(JSON.stringify(roots));
 }
 
 /**
@@ -129,10 +133,12 @@ export async function getCategoryById(id: string): Promise<Category | null> {
     const ds = await getDb();
     const repo = ds.getRepository(Category);
     
-    return repo.findOne({
+    const category = await repo.findOne({
         where: { id, deletedAt: IsNull() },
-        relations: ['parent', 'children']
+        relations: ['parent']
     });
+    
+    return category ? JSON.parse(JSON.stringify(category)) : null;
 }
 
 /**
@@ -157,7 +163,8 @@ export async function getCategoryWithProducts(id: string): Promise<{
         order: { name: 'ASC' }
     });
     
-    return { category, products };
+    // Serialize to plain objects
+    return JSON.parse(JSON.stringify({ category, products }));
 }
 
 /**
@@ -351,8 +358,7 @@ export async function deleteCategory(id: string): Promise<{ success: boolean; er
         const productRepo = ds.getRepository(Product);
         
         const category = await repo.findOne({ 
-            where: { id, deletedAt: IsNull() },
-            relations: ['children']
+            where: { id, deletedAt: IsNull() }
         });
         
         if (!category) {

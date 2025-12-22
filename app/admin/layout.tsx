@@ -18,7 +18,6 @@ const menuItems: SideBarMenuItem[] = [
         id: 'ventas',
         label: 'Ventas',
         children: [
-            { id: 'pos', label: 'Punto de Venta', url: '/pointOfSale' },
             { id: 'transactions', label: 'Transacciones', url: '/admin/transactions' },
             { id: 'customers', label: 'Clientes', url: '/admin/customers' },
         ]
@@ -28,7 +27,7 @@ const menuItems: SideBarMenuItem[] = [
         label: 'Inventario',
         children: [
             { id: 'products', label: 'Productos', url: '/admin/products' },
-            { id: 'categories', label: 'Categorías', url: '/admin/categories' },
+            { id: 'categories', label: 'Categorías', url: '/admin/products/categories' },
             { id: 'stock', label: 'Stock', url: '/admin/inventory' },
             { id: 'suppliers', label: 'Proveedores', url: '/admin/suppliers' },
         ]
@@ -52,6 +51,7 @@ const menuItems: SideBarMenuItem[] = [
         children: [
             { id: 'company', label: 'Empresa', url: '/admin/settings/company' },
             { id: 'branches', label: 'Sucursales', url: '/admin/settings/branches' },
+            { id: 'points-of-sale', label: 'Puntos de Venta', url: '/admin/settings/points-of-sale' },
             { id: 'users', label: 'Usuarios', url: '/admin/users' },
             { id: 'taxes', label: 'Impuestos', url: '/admin/settings/taxes' },
             { id: 'price-lists', label: 'Listas de Precios', url: '/admin/settings/price-lists' },
@@ -70,7 +70,7 @@ export default function AdminLayout({
     children: React.ReactNode;
 }) {
     return (
-        <div className="min-h-screen bg-neutral">
+        <div className="min-h-screen bg-white">
             {/* TopBar con SideBar integrado */}
             <TopBar
                 title="FlowStore Admin"

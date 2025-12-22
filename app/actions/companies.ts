@@ -37,14 +37,17 @@ export async function getCompany(): Promise<Company | null> {
  * Actualiza la configuración de la compañía
  */
 export async function updateCompany(data: UpdateCompanyDTO): Promise<UpdateResult> {
+    console.log('[updateCompany] Iniciando actualización con datos:', JSON.stringify(data));
     try {
         const ds = await getDb();
         const repo = ds.getRepository(Company);
         
         let company = await repo.findOne({ where: {} });
+        console.log('[updateCompany] Empresa encontrada:', company?.id, company?.name);
         
         if (!company) {
             // Crear si no existe
+            console.log('[updateCompany] No existe empresa, creando nueva...');
             company = repo.create({
                 name: data.name || 'Mi Empresa',
                 defaultCurrency: data.defaultCurrency || 'CLP',
@@ -54,6 +57,7 @@ export async function updateCompany(data: UpdateCompanyDTO): Promise<UpdateResul
             });
         } else {
             // Actualizar existente
+            console.log('[updateCompany] Actualizando empresa existente...');
             if (data.name !== undefined) company.name = data.name;
             if (data.defaultCurrency !== undefined) company.defaultCurrency = data.defaultCurrency;
             if (data.fiscalYearStart !== undefined) company.fiscalYearStart = data.fiscalYearStart;
@@ -62,12 +66,15 @@ export async function updateCompany(data: UpdateCompanyDTO): Promise<UpdateResul
             }
         }
         
-        await repo.save(company);
+        console.log('[updateCompany] Guardando empresa:', company.name);
+        const savedCompany = await repo.save(company);
+        console.log('[updateCompany] Empresa guardada exitosamente:', savedCompany.id);
         revalidatePath('/admin');
+        revalidatePath('/admin/settings/company');
         
-        return { success: true, company };
+        return { success: true, company: JSON.parse(JSON.stringify(savedCompany)) };
     } catch (error) {
-        console.error('Error updating company:', error);
+        console.error('[updateCompany] Error:', error);
         return { 
             success: false, 
             error: error instanceof Error ? error.message : 'Error al actualizar la compañía' 

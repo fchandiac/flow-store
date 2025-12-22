@@ -7,12 +7,9 @@ import {
     UpdateDateColumn,
     DeleteDateColumn,
     ManyToOne,
-    OneToMany,
     JoinColumn,
 } from "typeorm";
-import type { Company } from "./Company";
-import type { Storage } from "./Storage";
-import type { PointOfSale } from "./PointOfSale";
+import { Company } from "./Company";
 
 @Entity("branches")
 export class Branch {
@@ -49,14 +46,11 @@ export class Branch {
     @DeleteDateColumn()
     deletedAt?: Date;
 
-    // Relations
-    @ManyToOne('Company', 'branches', { onDelete: 'CASCADE' })
+    // Relations - unidirectional to avoid circular metadata issues
+    @ManyToOne(() => Company, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'companyId' })
     company?: Company;
 
-    @OneToMany('Storage', 'branch')
-    storages?: Storage[];
-
-    @OneToMany('PointOfSale', 'branch')
-    pointsOfSale?: PointOfSale[];
+    // Note: Storage and PointOfSale have ManyToOne to Branch
+    // We don't define inverse OneToMany here to avoid circular metadata issues
 }

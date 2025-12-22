@@ -97,7 +97,8 @@ export async function getCustomers(params?: GetCustomersParams): Promise<Custome
     
     const [data, total] = await queryBuilder.getManyAndCount();
     
-    return { data: data as (Customer & { person: Person })[], total };
+    // Serializar para evitar error de Server Components
+    return JSON.parse(JSON.stringify({ data, total }));
 }
 
 /**
@@ -217,7 +218,7 @@ export async function createCustomer(data: CreateCustomerDTO): Promise<CustomerR
         
         revalidatePath('/admin/customers');
         
-        return { success: true, customer: savedCustomer! };
+        return JSON.parse(JSON.stringify({ success: true, customer: savedCustomer! }));
     } catch (error) {
         console.error('Error creating customer:', error);
         return { 
@@ -265,7 +266,7 @@ export async function updateCustomer(id: string, data: UpdateCustomerDTO): Promi
         await repo.save(customer);
         revalidatePath('/admin/customers');
         
-        return { success: true, customer };
+        return JSON.parse(JSON.stringify({ success: true, customer }));
     } catch (error) {
         console.error('Error updating customer:', error);
         return { 

@@ -7,11 +7,9 @@ import {
     UpdateDateColumn,
     DeleteDateColumn,
     ManyToOne,
-    OneToMany,
     JoinColumn,
 } from "typeorm";
-import type { Person } from "./Person";
-import type { Transaction } from "./Transaction";
+import { Person } from "./Person";
 
 export enum SupplierType {
     MANUFACTURER = 'MANUFACTURER',
@@ -68,10 +66,10 @@ export class Supplier {
     deletedAt?: Date;
 
     // Relations
-    @ManyToOne('Person', 'suppliers', { onDelete: 'CASCADE' })
+    @ManyToOne(() => Person, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'personId' })
     person?: Person;
 
-    @OneToMany('Transaction', 'supplier')
-    transactions?: Transaction[];
+    // Note: Transaction has ManyToOne to Supplier
+    // We don't define inverse OneToMany here to avoid circular metadata issues
 }

@@ -66,7 +66,7 @@ export async function getBranchById(id: string): Promise<Branch | null> {
     
     return repo.findOne({
         where: { id, deletedAt: IsNull() },
-        relations: ['company', 'storages', 'pointsOfSale']
+        relations: ['company']
     });
 }
 
@@ -94,6 +94,14 @@ export async function createBranch(data: CreateBranchDTO): Promise<BranchResult>
             }
         }
         
+        // Si esta sucursal será casa matriz, quitar el flag de las demás
+        if (data.isHeadquarters) {
+            await repo.update(
+                { companyId: company.id, isHeadquarters: true },
+                { isHeadquarters: false }
+            );
+        }
+
         const branch = repo.create({
             companyId: company.id,
             name: data.name,
@@ -104,10 +112,10 @@ export async function createBranch(data: CreateBranchDTO): Promise<BranchResult>
             isActive: true
         });
         
-        await repo.save(branch);
-        revalidatePath('/admin/branches');
+        const savedBranch = await repo.save(branch);
+        revalidatePath('/admin/settings/branches');
         
-        return { success: true, branch };
+        return { success: true, branch: JSON.parse(JSON.stringify(savedBranch)) };
     } catch (error) {
         console.error('Error creating branch:', error);
         return { 
@@ -143,6 +151,14 @@ export async function updateBranch(id: string, data: UpdateBranchDTO): Promise<B
             }
         }
         
+        // Si esta sucursal será casa matriz, quitar el flag de las demás
+        if (data.isHeadquarters === true && !branch.isHeadquarters) {
+            await repo.update(
+                { companyId: branch.companyId, isHeadquarters: true },
+                { isHeadquarters: false }
+            );
+        }
+
         if (data.name !== undefined) branch.name = data.name;
         if (data.code !== undefined) branch.code = data.code;
         if (data.address !== undefined) branch.address = data.address;
@@ -150,10 +166,10 @@ export async function updateBranch(id: string, data: UpdateBranchDTO): Promise<B
         if (data.isActive !== undefined) branch.isActive = data.isActive;
         if (data.isHeadquarters !== undefined) branch.isHeadquarters = data.isHeadquarters;
         
-        await repo.save(branch);
-        revalidatePath('/admin/branches');
+        const savedBranch = await repo.save(branch);
+        revalidatePath('/admin/settings/branches');
         
-        return { success: true, branch };
+        return { success: true, branch: JSON.parse(JSON.stringify(savedBranch)) };
     } catch (error) {
         console.error('Error updating branch:', error);
         return { 
@@ -172,8 +188,7 @@ export async function deleteBranch(id: string): Promise<{ success: boolean; erro
         const repo = ds.getRepository(Branch);
         
         const branch = await repo.findOne({ 
-            where: { id, deletedAt: IsNull() },
-            relations: ['storages', 'pointsOfSale']
+            where: { id, deletedAt: IsNull() }
         });
         
         if (!branch) {
@@ -181,16 +196,20 @@ export async function deleteBranch(id: string): Promise<{ success: boolean; erro
         }
         
         // Verificar que no tenga dependencias activas
-        if (branch.storages && branch.storages.length > 0) {
+        const storageRepo = ds.getRepository(Storage);
+        const storageCount = await storageRepo.count({ where: { branchId: id } });
+        if (storageCount > 0) {
             return { success: false, error: 'No se puede eliminar: tiene almacenes asociados' };
         }
         
-        if (branch.pointsOfSale && branch.pointsOfSale.length > 0) {
+        const posRepo = ds.getRepository(PointOfSale);
+        const posCount = await posRepo.count({ where: { branchId: id } });
+        if (posCount > 0) {
             return { success: false, error: 'No se puede eliminar: tiene puntos de venta asociados' };
         }
         
         await repo.softDelete(id);
-        revalidatePath('/admin/branches');
+        revalidatePath('/admin/settings/branches');
         
         return { success: true };
     } catch (error) {

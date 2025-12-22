@@ -26,7 +26,7 @@ interface CreateProductDTO {
     unitOfMeasure?: string;
     basePrice: number;
     baseCost?: number;
-    defaultTaxId?: string;
+    taxIds?: string[];  // Array de IDs de impuestos
     trackInventory?: boolean;
     minimumStock?: number;
     maximumStock?: number;
@@ -45,7 +45,7 @@ interface UpdateProductDTO {
     unitOfMeasure?: string;
     basePrice?: number;
     baseCost?: number;
-    defaultTaxId?: string;
+    taxIds?: string[];  // Array de IDs de impuestos
     trackInventory?: boolean;
     minimumStock?: number;
     maximumStock?: number;
@@ -97,7 +97,8 @@ export async function getProducts(params?: GetProductsParams): Promise<Product[]
     queryBuilder.leftJoinAndSelect('product.category', 'category');
     queryBuilder.orderBy('product.name', 'ASC');
     
-    return queryBuilder.getMany();
+    const products = await queryBuilder.getMany();
+    return JSON.parse(JSON.stringify(products));
 }
 
 /**
@@ -107,10 +108,11 @@ export async function getProductById(id: string): Promise<Product | null> {
     const ds = await getDb();
     const repo = ds.getRepository(Product);
     
-    return repo.findOne({
+    const product = await repo.findOne({
         where: { id, deletedAt: IsNull() },
-        relations: ['category', 'variants']
+        relations: ['category']
     });
+    return product ? JSON.parse(JSON.stringify(product)) : null;
 }
 
 /**
@@ -120,10 +122,11 @@ export async function getProductBySku(sku: string): Promise<Product | null> {
     const ds = await getDb();
     const repo = ds.getRepository(Product);
     
-    return repo.findOne({
+    const product = await repo.findOne({
         where: { sku, deletedAt: IsNull() },
-        relations: ['category', 'variants']
+        relations: ['category']
     });
+    return product ? JSON.parse(JSON.stringify(product)) : null;
 }
 
 /**
@@ -164,7 +167,7 @@ export async function createProduct(data: CreateProductDTO): Promise<ProductResu
             unitOfMeasure: data.unitOfMeasure,
             basePrice: data.basePrice,
             baseCost: data.baseCost || 0,
-            defaultTaxId: data.defaultTaxId,
+            taxIds: data.taxIds,  // Array de IDs de impuestos
             trackInventory: data.trackInventory ?? true,
             minimumStock: data.minimumStock || 0,
             maximumStock: data.maximumStock || 0,
@@ -177,7 +180,7 @@ export async function createProduct(data: CreateProductDTO): Promise<ProductResu
         await repo.save(product);
         revalidatePath('/admin/products');
         
-        return { success: true, product };
+        return { success: true, product: JSON.parse(JSON.stringify(product)) };
     } catch (error) {
         console.error('Error creating product:', error);
         return { 
@@ -223,7 +226,7 @@ export async function updateProduct(id: string, data: UpdateProductDTO): Promise
         if (data.unitOfMeasure !== undefined) product.unitOfMeasure = data.unitOfMeasure;
         if (data.basePrice !== undefined) product.basePrice = data.basePrice;
         if (data.baseCost !== undefined) product.baseCost = data.baseCost;
-        if (data.defaultTaxId !== undefined) product.defaultTaxId = data.defaultTaxId;
+        if (data.taxIds !== undefined) product.taxIds = data.taxIds;
         if (data.trackInventory !== undefined) product.trackInventory = data.trackInventory;
         if (data.minimumStock !== undefined) product.minimumStock = data.minimumStock;
         if (data.maximumStock !== undefined) product.maximumStock = data.maximumStock;
@@ -235,7 +238,7 @@ export async function updateProduct(id: string, data: UpdateProductDTO): Promise
         await repo.save(product);
         revalidatePath('/admin/products');
         
-        return { success: true, product };
+        return { success: true, product: JSON.parse(JSON.stringify(product)) };
     } catch (error) {
         console.error('Error updating product:', error);
         return { 
@@ -281,7 +284,7 @@ export async function searchProducts(query: string, limit: number = 20): Promise
     const ds = await getDb();
     const repo = ds.getRepository(Product);
     
-    return repo.createQueryBuilder('product')
+    const products = await repo.createQueryBuilder('product')
         .where('product.deletedAt IS NULL')
         .andWhere('product.isActive = true')
         .andWhere(
@@ -292,4 +295,5 @@ export async function searchProducts(query: string, limit: number = 20): Promise
         .orderBy('product.name', 'ASC')
         .limit(limit)
         .getMany();
+    return JSON.parse(JSON.stringify(products));
 }

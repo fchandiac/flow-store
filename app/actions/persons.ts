@@ -2,6 +2,8 @@
 
 import { getDb } from '@/data/db';
 import { Person, PersonType } from '@/data/entities/Person';
+import { Customer } from '@/data/entities/Customer';
+import { Supplier } from '@/data/entities/Supplier';
 import { revalidatePath } from 'next/cache';
 import { IsNull, Like } from 'typeorm';
 
@@ -91,8 +93,7 @@ export async function getPersonById(id: string): Promise<Person | null> {
     const repo = ds.getRepository(Person);
     
     return repo.findOne({
-        where: { id, deletedAt: IsNull() },
-        relations: ['customers', 'suppliers']
+        where: { id, deletedAt: IsNull() }
     });
 }
 
@@ -215,22 +216,29 @@ export async function deletePerson(id: string): Promise<{ success: boolean; erro
     try {
         const ds = await getDb();
         const repo = ds.getRepository(Person);
+        const customerRepo = ds.getRepository(Customer);
+        const supplierRepo = ds.getRepository(Supplier);
         
         const person = await repo.findOne({ 
-            where: { id, deletedAt: IsNull() },
-            relations: ['customers', 'suppliers']
+            where: { id, deletedAt: IsNull() }
         });
         
         if (!person) {
             return { success: false, error: 'Persona no encontrada' };
         }
         
-        // Verificar que no tenga Customer o Supplier activos
-        if (person.customers && person.customers.length > 0) {
+        // Verificar que no tenga Customer o Supplier activos usando queries directas
+        const customerCount = await customerRepo.count({ 
+            where: { personId: id, deletedAt: IsNull() } 
+        });
+        if (customerCount > 0) {
             return { success: false, error: 'No se puede eliminar: tiene registros de cliente asociados' };
         }
         
-        if (person.suppliers && person.suppliers.length > 0) {
+        const supplierCount = await supplierRepo.count({ 
+            where: { personId: id, deletedAt: IsNull() } 
+        });
+        if (supplierCount > 0) {
             return { success: false, error: 'No se puede eliminar: tiene registros de proveedor asociados' };
         }
         

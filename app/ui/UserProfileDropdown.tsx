@@ -35,7 +35,7 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex h-10 w-10 items-center justify-center transition-colors text-foreground hover:text-secondary focus:outline-none"
+        className="flex h-10 w-10 items-center justify-center transition-colors text-foreground hover:text-[var(--color-secondary)] focus:outline-none"
         data-test-id="user-profile-button"
         aria-label="Menú de usuario"
       >

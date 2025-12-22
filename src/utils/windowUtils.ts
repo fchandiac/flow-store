@@ -75,12 +75,14 @@ export function createMainWindowWithPort(port: number): BrowserWindow {
     width: 1024,
     height: 768,
     show: false,
-    title: 'BerriesApp',
+    title: 'FlowStore',
     icon: getIconPath(),
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js'),
+      // Usar partición persistente para que las cookies se guarden en disco
+      partition: 'persist:flowstore',
     },
   });
   mainWindow.loadURL(`http://localhost:${port}`);

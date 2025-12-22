@@ -9,7 +9,7 @@ import {
     ManyToOne,
     JoinColumn,
 } from "typeorm";
-import type { Branch } from "./Branch";
+import { Branch } from "./Branch";
 
 export enum StorageType {
     WAREHOUSE = 'WAREHOUSE',
@@ -57,7 +57,7 @@ export class Storage {
     deletedAt?: Date;
 
     // Relations
-    @ManyToOne('Branch', 'storages', { onDelete: 'CASCADE' })
+    @ManyToOne(() => Branch, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'branchId' })
     branch?: Branch;
 }

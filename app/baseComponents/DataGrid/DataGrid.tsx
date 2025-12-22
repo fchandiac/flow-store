@@ -51,6 +51,7 @@ export interface DataGridProps {
   totalGeneral?: number;
   createForm?: React.ReactNode;
   createFormTitle?: string;
+  onAddClick?: () => void; // Callback para el botón + (abre diálogo externo)
   ["data-test-id"]?: string;
   excelUrl?: string; // Absolute URL for Excel export endpoint
   excelFields?: string;
@@ -72,6 +73,7 @@ const DataGrid: React.FC<DataGridProps> = ({
   totalGeneral,
   createForm,
   createFormTitle,
+  onAddClick,
   ["data-test-id"]: dataTestId,
   excelUrl,
   excelFields,
@@ -129,6 +131,7 @@ const DataGrid: React.FC<DataGridProps> = ({
         columns={columns}
         createForm={createForm}
         createFormTitle={createFormTitle}
+        onAddClick={onAddClick}
         screenWidth={screenWidth}
         onExportExcel={onExportExcel}
       />

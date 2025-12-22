@@ -1,15 +1,19 @@
-'use client';
+import React from 'react';
+import { getCustomers } from '@/app/actions/customers';
+import { CustomerList } from './ui';
 
 /**
  * Gestión de Clientes
  * Ruta: /admin/customers
  * CRUD de clientes (extensión de Person)
  */
-export default function CustomersPage() {
+export default async function CustomersPage() {
+    const result = await getCustomers();
+    const customers = result.data || [];
+
     return (
-        <div className="p-6">
-            <h1 className="text-2xl font-bold mb-6">Clientes</h1>
-            {/* TODO: Implementar DataGrid de clientes con CRUD */}
+        <div className="flex flex-col h-full">
+            <CustomerList customers={customers} />
         </div>
     );
 }

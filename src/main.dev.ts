@@ -76,10 +76,10 @@ app.on('ready', async () => {
   } else {
     // Modo normal con splash screen
     const splashMetadata = {
-      appName: 'BerriesApp',
-      appVersion: '2.1',
-      releaseDate: '16-Diciembre-2025',
-      description: 'Gestión Recepciones y despacho para berries',
+      appName: 'FlowStore',
+      appVersion: '1.0',
+      releaseDate: '22-Diciembre-2025',
+      description: 'Sistema de Gestión ERP',
       authorName: 'Felipe Chandía Castillo',
       authorEmail: 'felipe.chandia.dev@gmail.com',
       copyrightYear: '2025'

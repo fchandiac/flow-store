@@ -6,10 +6,7 @@ import {
     CreateDateColumn,
     UpdateDateColumn,
     DeleteDateColumn,
-    ManyToOne,
-    JoinColumn,
 } from "typeorm";
-import type { Company } from "./Company";
 
 export enum TaxType {
     IVA = 'IVA',
@@ -56,8 +53,6 @@ export class Tax {
     @DeleteDateColumn()
     deletedAt?: Date;
 
-    // Relations
-    @ManyToOne('Company', 'taxes', { onDelete: 'CASCADE' })
-    @JoinColumn({ name: 'companyId' })
-    company?: Company;
+    // Note: Tax is referenced by Product.taxIds and ProductVariant.taxIds as JSON arrays
+    // No direct relation needed - queries use the taxIds JSON field
 }

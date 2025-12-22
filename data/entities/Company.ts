@@ -6,10 +6,7 @@ import {
     CreateDateColumn,
     UpdateDateColumn,
     DeleteDateColumn,
-    OneToMany,
 } from "typeorm";
-import { Branch } from "./Branch";
-import type { Tax } from "./Tax";
 
 @Entity("companies")
 export class Company {
@@ -40,10 +37,6 @@ export class Company {
     @DeleteDateColumn()
     deletedAt?: Date;
 
-    // Relations
-    @OneToMany(() => Branch, branch => branch.company)
-    branches?: Branch[];
-
-    @OneToMany('Tax', 'company')
-    taxes?: Tax[];
+    // Note: Branches and Taxes are queried by companyId
+    // No inverse relations to avoid circular dependency issues
 }

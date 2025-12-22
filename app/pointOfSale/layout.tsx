@@ -28,7 +28,7 @@ export default function PointOfSaleLayout({
     const pathname = usePathname();
 
     return (
-        <div className="flex flex-col h-screen bg-gray-100">
+        <div className="flex flex-col h-screen bg-white">
             {/* Top Bar */}
             <header className="bg-white shadow-sm px-6 py-3 flex justify-between items-center">
                 <div className="flex items-center gap-4">

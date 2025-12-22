@@ -7,10 +7,7 @@ import {
     UpdateDateColumn,
     DeleteDateColumn,
     Index,
-    OneToMany,
 } from "typeorm";
-import type { Customer } from "./Customer";
-import type { Supplier } from "./Supplier";
 
 export enum PersonType {
     NATURAL = 'NATURAL',
@@ -59,10 +56,6 @@ export class Person {
     @DeleteDateColumn()
     deletedAt?: Date;
 
-    // Relations
-    @OneToMany('Customer', 'person')
-    customers?: Customer[];
-
-    @OneToMany('Supplier', 'person')
-    suppliers?: Supplier[];
+    // Note: Customer and Supplier have ManyToOne to Person
+    // We don't define the inverse OneToMany here to avoid circular metadata issues
 }

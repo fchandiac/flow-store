@@ -8,6 +8,7 @@ import { Category } from '../entities/Category';
 import { PriceList, PriceListType } from '../entities/PriceList';
 import { Storage, StorageType } from '../entities/Storage';
 import { PointOfSale } from '../entities/PointOfSale';
+import { Permission, Ability, ALL_ABILITIES } from '../entities/Permission';
 import * as crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -35,13 +36,23 @@ async function seedFlowStore() {
   console.log('\n🏪 FlowStore - Seed Inicial');
   console.log('═══════════════════════════════════════════════════════════');
 
-  // Sincronizar schema (crear tablas si no existen)
-  console.log('\n🔄 Sincronizando esquema de base de datos...');
+  // Limpiar permisos con ability vacío o nulo (datos corruptos)
+  console.log('\n🧹 Limpiando datos corruptos en permisos...');
   try {
-    await db.synchronize();
-    console.log('   ✓ Esquema sincronizado correctamente');
+    await db.query("DELETE FROM permissions WHERE ability IS NULL OR ability = ''");
+    console.log('   ✓ Datos corruptos limpiados');
+  } catch (cleanError) {
+    console.log('   ⚠ No se pudieron limpiar datos (tabla puede no existir aún)');
+  }
+
+  // No usamos synchronize() aquí porque puede causar conflictos con índices
+  // La tabla permissions ya debe existir (creada manualmente o por migrations)
+  console.log('\n🔄 Verificando conexión a base de datos...');
+  try {
+    await db.query('SELECT 1');
+    console.log('   ✓ Conexión verificada correctamente');
   } catch (syncError) {
-    console.error('   ✗ Error sincronizando esquema:', syncError);
+    console.error('   ✗ Error verificando conexión:', syncError);
     process.exit(1);
   }
 
@@ -173,12 +184,11 @@ async function seedFlowStore() {
     // ============================================
     console.log('\n📋 Creando lista de precios...');
     
-    let priceList = await db.getRepository(PriceList).findOne({ where: { code: 'PL-RETAIL' } });
+    let priceList = await db.getRepository(PriceList).findOne({ where: { name: 'Precio Público', isDefault: true } });
     if (!priceList) {
       priceList = new PriceList();
       priceList.id = uuidv4();
       priceList.name = 'Precio Público';
-      priceList.code = 'PL-RETAIL';
       priceList.priceListType = PriceListType.RETAIL;
       priceList.currency = 'CLP';
       priceList.priority = 0;
@@ -220,14 +230,13 @@ async function seedFlowStore() {
     console.log('\n🖥️  Creando punto de venta...');
     
     let pointOfSale = await db.getRepository(PointOfSale).findOne({ 
-      where: { branchId: branch.id, code: 'POS-001' } 
+      where: { branchId: branch.id, name: 'Caja 1' } 
     });
     if (!pointOfSale) {
       pointOfSale = new PointOfSale();
       pointOfSale.id = uuidv4();
       pointOfSale.branchId = branch.id;
       pointOfSale.name = 'Caja 1';
-      pointOfSale.code = 'POS-001';
       pointOfSale.isActive = true;
       await db.getRepository(PointOfSale).save(pointOfSale);
       console.log(`   ✓ Punto de venta creado: ${pointOfSale.name}`);
@@ -270,6 +279,42 @@ async function seedFlowStore() {
     }
 
     // ============================================
+    // 9. PERMISOS PARA ADMIN (TODOS LOS PERMISOS)
+    // ============================================
+    console.log('\n🔐 Asignando todos los permisos al administrador...');
+    
+    const permissionRepo = db.getRepository(Permission);
+    let permissionsCreated = 0;
+    let permissionsSkipped = 0;
+    
+    // Asignar TODOS los permisos al usuario admin
+    for (const ability of ALL_ABILITIES) {
+      const existingPermission = await permissionRepo.findOne({
+        where: { userId: adminUser.id, ability }
+      });
+      
+      if (!existingPermission) {
+        const permission = new Permission();
+        permission.id = uuidv4();
+        permission.userId = adminUser.id;
+        permission.ability = ability;
+        permission.description = `Permiso ${ability} para admin`;
+        await permissionRepo.save(permission);
+        permissionsCreated++;
+      } else {
+        permissionsSkipped++;
+      }
+    }
+    
+    if (permissionsCreated > 0) {
+      console.log(`   ✓ ${permissionsCreated} permisos asignados al administrador`);
+    }
+    if (permissionsSkipped > 0) {
+      console.log(`   ⚠ ${permissionsSkipped} permisos ya existían`);
+    }
+    console.log(`   📊 Total de permisos del sistema: ${ALL_ABILITIES.length}`);
+
+    // ============================================
     // RESUMEN
     // ============================================
     console.log('\n═══════════════════════════════════════════════════════════');
@@ -283,6 +328,7 @@ async function seedFlowStore() {
     console.log(`   • Lista de precios: ${priceList.name}`);
     console.log(`   • Bodega: ${storage.name}`);
     console.log(`   • Punto de venta: ${pointOfSale.name}`);
+    console.log(`   • Permisos: ${ALL_ABILITIES.length} permisos asignados al admin`);
     console.log('\n🔑 Credenciales de acceso:');
     console.log('   Usuario: admin');
     console.log('   Contraseña: 890890');

@@ -17,11 +17,12 @@ interface HeaderProps {
   columns?: DataGridColumn[];
   createForm?: React.ReactNode;
   createFormTitle?: string;
+  onAddClick?: () => void; // Callback para el botón + (abre diálogo externo)
   screenWidth?: number;
   onExportExcel?: () => Promise<void>;
 }
 
-const Header: React.FC<HeaderProps> = ({ title, filterMode = false, onToggleFilterMode, columns = [], createForm, createFormTitle, screenWidth = 1024, onExportExcel }) => {
+const Header: React.FC<HeaderProps> = ({ title, filterMode = false, onToggleFilterMode, columns = [], createForm, createFormTitle, onAddClick, screenWidth = 1024, onExportExcel }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -64,15 +65,15 @@ const Header: React.FC<HeaderProps> = ({ title, filterMode = false, onToggleFilt
     <div className="w-full px-4 py-4" data-test-id="data-grid-header">
       {/* Primera fila: Add button + Title + (Toolbar + Search en desktop) */}
       <div className="flex items-center w-full">
-        {/* Add button */}
-        {createForm && (
+        {/* Add button - usa onAddClick si está definido, sino abre el modal interno */}
+        {(createForm || onAddClick) && (
           <div className="flex items-center mr-4">
             <IconButton 
               icon="add" 
               variant="outlined" 
               shape="circular" 
               size="md"
-              onClick={() => setIsCreateModalOpen(true)}
+              onClick={onAddClick || (() => setIsCreateModalOpen(true))}
               data-test-id="add-button"
             />
           </div>

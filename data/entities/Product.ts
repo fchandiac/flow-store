@@ -7,11 +7,9 @@ import {
     UpdateDateColumn,
     DeleteDateColumn,
     ManyToOne,
-    OneToMany,
     JoinColumn,
 } from "typeorm";
-import type { Category } from "./Category";
-import type { ProductVariant } from "./ProductVariant";
+import { Category } from "./Category";
 
 export enum ProductType {
     PHYSICAL = 'PHYSICAL',
@@ -51,8 +49,13 @@ export class Product {
     @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
     baseCost!: number;
 
-    @Column({ type: 'uuid', nullable: true })
-    defaultTaxId?: string;
+    /**
+     * Array de IDs de impuestos aplicables a este producto
+     * Ej: ["uuid-iva-19", "uuid-impuesto-especial"]
+     * Las variantes pueden sobreescribir esto con su propio taxIds
+     */
+    @Column({ type: 'json', nullable: true })
+    taxIds?: string[];
 
     @Column({ type: 'boolean', default: true })
     trackInventory!: boolean;
@@ -85,10 +88,10 @@ export class Product {
     deletedAt?: Date;
 
     // Relations
-    @ManyToOne('Category', { onDelete: 'SET NULL' })
+    @ManyToOne(() => Category, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'categoryId' })
     category?: Category;
 
-    @OneToMany('ProductVariant', 'product')
-    variants?: ProductVariant[];
+    // Note: ProductVariant has ManyToOne to Product
+    // We don't define inverse OneToMany here to avoid circular metadata issues
 }

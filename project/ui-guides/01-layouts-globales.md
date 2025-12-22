@@ -403,3 +403,82 @@ Tablet Landscape            Tablet Portrait           Mobile
 | `F8` | Cobrar |
 | `F10` | Cancelar venta |
 | `F12` | Opciones |
+
+---
+
+## Patrón de Loading (loading.tsx)
+
+Cada carpeta de página debe incluir un archivo `loading.tsx` para mostrar un estado de carga mientras se obtienen los datos.
+
+### Estructura Visual
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│                                                                     │
+│                                                                     │
+│                                                                     │
+│                            ● ● ●                                    │
+│                         (DotProgress)                               │
+│                                                                     │
+│                                                                     │
+│                                                                     │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Implementación
+
+```tsx
+// loading.tsx - Crear en cada carpeta de página
+import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
+
+export default function Loading() {
+  return (
+    <div className="flex justify-center items-center min-h-screen">
+      <div className="text-center">
+        <DotProgress />
+      </div>
+    </div>
+  );
+}
+```
+
+### Ubicaciones Requeridas
+
+```
+app/
+├── admin/
+│   ├── loading.tsx          ← Admin root
+│   ├── products/
+│   │   └── loading.tsx      ← Productos
+│   ├── customers/
+│   │   └── loading.tsx      ← Clientes
+│   ├── inventory/
+│   │   └── loading.tsx      ← Inventario
+│   ├── users/
+│   │   └── loading.tsx      ← Usuarios
+│   ├── reports/
+│   │   └── loading.tsx      ← Reportes
+│   ├── audit/
+│   │   └── loading.tsx      ← Auditoría
+│   ├── suppliers/
+│   │   └── loading.tsx      ← Proveedores
+│   ├── settings/
+│   │   └── loading.tsx      ← Configuración
+│   └── persons/
+│       └── loading.tsx      ← Personas
+├── pointOfSale/
+│   ├── loading.tsx          ← POS root
+│   ├── cart/
+│   │   └── loading.tsx      ← Carrito
+│   └── checkout/
+│       └── loading.tsx      ← Checkout
+```
+
+### Comportamiento
+
+- Next.js muestra automáticamente `loading.tsx` mientras carga la página
+- Se integra con Suspense boundaries
+- Proporciona feedback visual inmediato al usuario
+- Usa el componente `DotProgress` del sistema de diseño

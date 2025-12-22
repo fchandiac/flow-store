@@ -1,8 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useMemo } from 'react';
-import { useSession } from 'next-auth/react';
-import { AbilityValue, validAbilities, ABILITY_VALUES } from '@/lib/permissions';
+import { AbilityValue, ABILITY_VALUES } from '@/lib/permissions';
 
 type PermissionsContextValue = {
   permissions: AbilityValue[];
@@ -13,46 +12,32 @@ type PermissionsContextValue = {
 
 const PermissionsContext = createContext<PermissionsContextValue | undefined>(undefined);
 
+/**
+ * PermissionsProvider - MODO DESARROLLO
+ * 
+ * Durante el desarrollo, TODOS los permisos están habilitados.
+ * La lógica de permisos real se implementará al final del proceso.
+ * 
+ * TODO: Reactivar lógica de permisos real cuando sea necesario
+ */
 export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { data: session, status } = useSession();
-
-  const normalizedPermissions = useMemo<AbilityValue[]>(() => {
-    const userPermissions = (session?.user as any)?.permissions;
-    const userRole = typeof (session?.user as any)?.role === 'string'
-      ? ((session?.user as any)?.role as string).toUpperCase()
-      : undefined;
-
-    const rawPermissions = Array.isArray(userPermissions)
-      ? (userPermissions as AbilityValue[])
-      : [];
-
-    const merged = new Set<AbilityValue>(rawPermissions);
-
-    if (userRole === 'ADMIN') {
-      for (const ability of ABILITY_VALUES) {
-        merged.add(ability);
-      }
-    }
-
-    return Array.from(merged).filter((permission): permission is AbilityValue =>
-      validAbilities.has(permission as AbilityValue)
-    );
-  }, [session]);
-
-  const permissionsSet = useMemo(() => new Set<AbilityValue>(normalizedPermissions), [normalizedPermissions]);
+  // DESARROLLO: Todos los permisos habilitados
+  const allPermissions = useMemo<AbilityValue[]>(() => {
+    return [...ABILITY_VALUES];
+  }, []);
 
   const value = useMemo<PermissionsContextValue>(() => {
-    const has = (ability: AbilityValue) => permissionsSet.has(ability);
-    const hasAny = (abilities: AbilityValue[]) =>
-      abilities.some((ability) => permissionsSet.has(ability));
+    // Durante desarrollo, siempre retorna true
+    const has = (_ability: AbilityValue) => true;
+    const hasAny = (_abilities: AbilityValue[]) => true;
 
     return {
-      permissions: normalizedPermissions,
+      permissions: allPermissions,
       has,
       hasAny,
-      isLoading: status === 'loading',
+      isLoading: false,
     };
-  }, [normalizedPermissions, permissionsSet, status]);
+  }, [allPermissions]);
 
   return (
     <PermissionsContext.Provider value={value}>

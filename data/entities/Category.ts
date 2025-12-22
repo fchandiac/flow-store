@@ -7,7 +7,6 @@ import {
     UpdateDateColumn,
     DeleteDateColumn,
     ManyToOne,
-    OneToMany,
     JoinColumn,
 } from "typeorm";
 
@@ -47,10 +46,10 @@ export class Category {
     deletedAt?: Date;
 
     // Self-referential relation for hierarchy
-    @ManyToOne('Category', 'children', { onDelete: 'SET NULL' })
+    @ManyToOne(() => Category, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'parentId' })
     parent?: Category;
 
-    @OneToMany('Category', 'parent')
-    children?: Category[];
+    // Note: Children are queried via parentId
+    // We don't define inverse OneToMany here to avoid circular metadata issues
 }

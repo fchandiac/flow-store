@@ -9,7 +9,7 @@ import {
     ManyToOne,
     JoinColumn,
 } from "typeorm";
-import type { Product } from "./Product";
+import { Product } from "./Product";
 
 @Entity("product_variants")
 export class ProductVariant {
@@ -37,6 +37,14 @@ export class ProductVariant {
     @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
     costModifier?: number;
 
+    /**
+     * Array de IDs de impuestos aplicables a esta variante
+     * Ej: ["uuid-iva-19", "uuid-impuesto-especial"]
+     * Si está vacío o null, se usan los impuestos por defecto del producto
+     */
+    @Column({ type: 'json', nullable: true })
+    taxIds?: string[];
+
     @Column({ type: 'varchar', length: 500, nullable: true })
     imagePath?: string;
 
@@ -53,7 +61,7 @@ export class ProductVariant {
     deletedAt?: Date;
 
     // Relations
-    @ManyToOne('Product', 'variants', { onDelete: 'CASCADE' })
+    @ManyToOne(() => Product, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'productId' })
     product?: Product;
 }

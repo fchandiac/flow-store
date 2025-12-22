@@ -10,9 +10,7 @@ import { IsNull, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 // Types
 interface CreatePriceListDTO {
     name: string;
-    code: string;
     priceListType?: PriceListType;
-    currency?: string;
     validFrom?: Date;
     validUntil?: Date;
     priority?: number;
@@ -22,9 +20,7 @@ interface CreatePriceListDTO {
 
 interface UpdatePriceListDTO {
     name?: string;
-    code?: string;
     priceListType?: PriceListType;
-    currency?: string;
     validFrom?: Date;
     validUntil?: Date;
     priority?: number;
@@ -128,15 +124,6 @@ export async function createPriceList(data: CreatePriceListDTO): Promise<PriceLi
         const ds = await getDb();
         const repo = ds.getRepository(PriceList);
         
-        // Verificar código único
-        const existingCode = await repo.findOne({
-            where: { code: data.code }
-        });
-        
-        if (existingCode) {
-            return { success: false, error: 'El código ya está en uso' };
-        }
-        
         // Si es default, quitar default de otras listas
         if (data.isDefault) {
             await repo.createQueryBuilder()
@@ -148,9 +135,8 @@ export async function createPriceList(data: CreatePriceListDTO): Promise<PriceLi
         
         const priceList = repo.create({
             name: data.name,
-            code: data.code,
             priceListType: data.priceListType || PriceListType.RETAIL,
-            currency: data.currency || 'CLP',
+            currency: 'CLP',
             validFrom: data.validFrom,
             validUntil: data.validUntil,
             priority: data.priority || 0,
@@ -159,10 +145,10 @@ export async function createPriceList(data: CreatePriceListDTO): Promise<PriceLi
             description: data.description
         });
         
-        await repo.save(priceList);
-        revalidatePath('/admin/products');
+        const savedPriceList = await repo.save(priceList);
+        revalidatePath('/admin/settings/price-lists');
         
-        return { success: true, priceList };
+        return { success: true, priceList: JSON.parse(JSON.stringify(savedPriceList)) };
     } catch (error) {
         console.error('Error creating price list:', error);
         return { 
@@ -188,16 +174,6 @@ export async function updatePriceList(id: string, data: UpdatePriceListDTO): Pro
             return { success: false, error: 'Lista de precios no encontrada' };
         }
         
-        // Verificar código único si cambia
-        if (data.code && data.code !== priceList.code) {
-            const existingCode = await repo.findOne({
-                where: { code: data.code }
-            });
-            if (existingCode) {
-                return { success: false, error: 'El código ya está en uso' };
-            }
-        }
-        
         // Si es default, quitar default de otras listas
         if (data.isDefault && !priceList.isDefault) {
             await repo.createQueryBuilder()
@@ -209,9 +185,7 @@ export async function updatePriceList(id: string, data: UpdatePriceListDTO): Pro
         
         // Actualizar campos
         if (data.name !== undefined) priceList.name = data.name;
-        if (data.code !== undefined) priceList.code = data.code;
         if (data.priceListType !== undefined) priceList.priceListType = data.priceListType;
-        if (data.currency !== undefined) priceList.currency = data.currency;
         if (data.validFrom !== undefined) priceList.validFrom = data.validFrom;
         if (data.validUntil !== undefined) priceList.validUntil = data.validUntil;
         if (data.priority !== undefined) priceList.priority = data.priority;
@@ -219,10 +193,10 @@ export async function updatePriceList(id: string, data: UpdatePriceListDTO): Pro
         if (data.isActive !== undefined) priceList.isActive = data.isActive;
         if (data.description !== undefined) priceList.description = data.description;
         
-        await repo.save(priceList);
-        revalidatePath('/admin/products');
+        const savedPriceList = await repo.save(priceList);
+        revalidatePath('/admin/settings/price-lists');
         
-        return { success: true, priceList };
+        return { success: true, priceList: JSON.parse(JSON.stringify(savedPriceList)) };
     } catch (error) {
         console.error('Error updating price list:', error);
         return { 
@@ -253,7 +227,7 @@ export async function deletePriceList(id: string): Promise<{ success: boolean; e
         }
         
         await repo.softRemove(priceList);
-        revalidatePath('/admin/products');
+        revalidatePath('/admin/settings/price-lists');
         
         return { success: true };
     } catch (error) {

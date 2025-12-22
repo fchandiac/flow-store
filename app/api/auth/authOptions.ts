@@ -169,10 +169,22 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: "jwt",
-    maxAge: 24 * 60 * 60, // 24 hours
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   jwt: {
-    maxAge: 24 * 60 * 60, // 24 hours
+    maxAge: 30 * 24 * 60 * 60, // 30 days
+  },
+  cookies: {
+    sessionToken: {
+      name: `next-auth.session-token`,
+      options: {
+        httpOnly: true,
+        sameSite: 'lax',
+        path: '/',
+        secure: false, // false for Electron/localhost
+        maxAge: 30 * 24 * 60 * 60, // 30 days - persistent cookie
+      },
+    },
   },
   pages: {
     signIn: "/", // Custom sign in page (we'll use the home page)
@@ -228,14 +240,13 @@ export const authOptions: NextAuthOptions = {
             token.role = dbUser.rol;
           }
 
-          if (!Array.isArray(token.permissions)) {
-            const permissionRepo = db.getRepository(Permission);
-            const dbPermissions = await permissionRepo.find({
-              select: ['ability'],
-              where: { userId: token.sub },
-            });
-            token.permissions = dbPermissions.map((permission) => permission.ability);
-          }
+          // Siempre cargar permisos desde la BD para mantenerlos actualizados
+          const permissionRepo = db.getRepository(Permission);
+          const dbPermissions = await permissionRepo.find({
+            select: ['ability'],
+            where: { userId: token.sub },
+          });
+          token.permissions = dbPermissions.map((permission) => permission.ability);
         } catch (error) {
           console.error('[authOptions.jwt] Error fetching user role from DB:', error);
         }

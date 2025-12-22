@@ -7,11 +7,9 @@ import {
     UpdateDateColumn,
     DeleteDateColumn,
     ManyToOne,
-    OneToMany,
     JoinColumn,
 } from "typeorm";
-import type { Branch } from "./Branch";
-import type { CashSession } from "./CashSession";
+import { Branch } from "./Branch";
 
 @Entity("points_of_sale")
 export class PointOfSale {
@@ -23,9 +21,6 @@ export class PointOfSale {
 
     @Column({ type: 'varchar', length: 255 })
     name!: string;
-
-    @Column({ type: 'varchar', length: 50, nullable: true })
-    code?: string;
 
     @Column({ type: 'varchar', length: 100, nullable: true })
     deviceId?: string;
@@ -43,10 +38,10 @@ export class PointOfSale {
     deletedAt?: Date;
 
     // Relations
-    @ManyToOne('Branch', 'pointsOfSale', { onDelete: 'CASCADE' })
+    @ManyToOne(() => Branch, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'branchId' })
     branch?: Branch;
 
-    @OneToMany('CashSession', 'pointOfSale')
-    cashSessions?: CashSession[];
+    // Note: CashSession has ManyToOne to PointOfSale
+    // We don't define inverse OneToMany here to avoid circular metadata issues
 }

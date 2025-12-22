@@ -141,10 +141,10 @@ export async function createTax(data: CreateTaxDTO): Promise<TaxResult> {
             isActive: true
         });
         
-        await repo.save(tax);
+        const savedTax = await repo.save(tax);
         revalidatePath('/admin/taxes');
         
-        return { success: true, tax };
+        return { success: true, tax: JSON.parse(JSON.stringify(savedTax)) };
     } catch (error) {
         console.error('Error creating tax:', error);
         return { 
@@ -202,10 +202,10 @@ export async function updateTax(id: string, data: UpdateTaxDTO): Promise<TaxResu
         if (data.isDefault !== undefined) tax.isDefault = data.isDefault;
         if (data.isActive !== undefined) tax.isActive = data.isActive;
         
-        await repo.save(tax);
+        const savedTax = await repo.save(tax);
         revalidatePath('/admin/taxes');
         
-        return { success: true, tax };
+        return { success: true, tax: JSON.parse(JSON.stringify(savedTax)) };
     } catch (error) {
         console.error('Error updating tax:', error);
         return { 
@@ -291,11 +291,11 @@ export async function setDefaultTax(id: string): Promise<TaxResult> {
         );
         
         tax.isDefault = true;
-        await repo.save(tax);
+        const savedTax = await repo.save(tax);
         
         revalidatePath('/admin/taxes');
         
-        return { success: true, tax };
+        return { success: true, tax: JSON.parse(JSON.stringify(savedTax)) };
     } catch (error) {
         console.error('Error setting default tax:', error);
         return { 
@@ -362,7 +362,7 @@ export async function initializeDefaultTax(companyId: string): Promise<TaxResult
     });
     
     if (existing) {
-        return { success: true, tax: existing };
+        return { success: true, tax: JSON.parse(JSON.stringify(existing)) };
     }
     
     return createTax({

@@ -6,12 +6,12 @@
     "port": 3306,
     "username": "root",
     "password": "redbull90",
-    "database": "flow-store-test",
-    "synchronize": false,
+    "database": "flow-store",
+    "synchronize": true,
     "logging": false
   },
   "dataBase": {
-    "name": "flow-store-test",
+    "name": "flow-store",
     "host": "localhost",
     "port": 3306,
     "username": "root",

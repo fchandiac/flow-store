@@ -10,9 +10,9 @@ import {
     JoinColumn,
     Unique,
 } from "typeorm";
-import type { PriceList } from "./PriceList";
-import type { Product } from "./Product";
-import type { ProductVariant } from "./ProductVariant";
+import { PriceList } from "./PriceList";
+import { Product } from "./Product";
+import { ProductVariant } from "./ProductVariant";
 
 @Entity("price_list_items")
 @Unique(['priceListId', 'productId', 'productVariantId'])
@@ -48,15 +48,15 @@ export class PriceListItem {
     deletedAt?: Date;
 
     // Relations
-    @ManyToOne('PriceList', 'items', { onDelete: 'CASCADE' })
+    @ManyToOne(() => PriceList, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'priceListId' })
     priceList?: PriceList;
 
-    @ManyToOne('Product', { onDelete: 'CASCADE' })
+    @ManyToOne(() => Product, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'productId' })
     product?: Product;
 
-    @ManyToOne('ProductVariant', { onDelete: 'CASCADE' })
+    @ManyToOne(() => ProductVariant, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'productVariantId' })
     productVariant?: ProductVariant;
 }

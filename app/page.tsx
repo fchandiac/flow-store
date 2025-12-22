@@ -53,15 +53,17 @@ export default function LoginPage() {
     };
 
     return (
-        <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-accent via-accent/80 to-secondary">
+        <main className="min-h-screen flex items-center justify-center bg-white">
             <div className="w-full max-w-md">
                 {/* Card de Login */}
                 <div className="bg-white rounded-2xl shadow-2xl p-8">
                     {/* Logo y Título */}
                     <div className="text-center mb-8">
-                        <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-secondary to-accent rounded-2xl mb-4 shadow-lg">
-                            <span className="text-4xl text-white">🏪</span>
-                        </div>
+                        <img 
+                            src="/logo.png" 
+                            alt="FlowStore Logo" 
+                            className="w-20 h-20 mx-auto mb-4"
+                        />
                         <h1 className="text-2xl font-bold text-gray-800">FlowStore</h1>
                         <p className="text-gray-500 text-sm mt-1">Sistema de Gestión</p>
                     </div>

@@ -15,13 +15,11 @@ interface GetPointsOfSaleParams {
 interface CreatePointOfSaleDTO {
     branchId: string;
     name: string;
-    code?: string;
     deviceId?: string;
 }
 
 interface UpdatePointOfSaleDTO {
     name?: string;
-    code?: string;
     deviceId?: string;
     isActive?: boolean;
 }
@@ -108,28 +106,17 @@ export async function createPointOfSale(data: CreatePointOfSaleDTO): Promise<Poi
         const ds = await getDb();
         const repo = ds.getRepository(PointOfSale);
         
-        // Verificar código único si se proporciona
-        if (data.code) {
-            const existing = await repo.findOne({ 
-                where: { code: data.code, deletedAt: IsNull() } 
-            });
-            if (existing) {
-                return { success: false, error: 'El código ya está en uso' };
-            }
-        }
-        
         const pointOfSale = repo.create({
             branchId: data.branchId,
             name: data.name,
-            code: data.code,
             deviceId: data.deviceId,
             isActive: true
         });
         
         await repo.save(pointOfSale);
-        revalidatePath('/admin/points-of-sale');
+        revalidatePath('/admin/settings/points-of-sale');
         
-        return { success: true, pointOfSale };
+        return { success: true, pointOfSale: JSON.parse(JSON.stringify(pointOfSale)) };
     } catch (error) {
         console.error('Error creating point of sale:', error);
         return { 
@@ -155,25 +142,14 @@ export async function updatePointOfSale(id: string, data: UpdatePointOfSaleDTO):
             return { success: false, error: 'Punto de venta no encontrado' };
         }
         
-        // Verificar código único si se cambia
-        if (data.code && data.code !== pointOfSale.code) {
-            const existing = await repo.findOne({ 
-                where: { code: data.code, deletedAt: IsNull() } 
-            });
-            if (existing) {
-                return { success: false, error: 'El código ya está en uso' };
-            }
-        }
-        
         if (data.name !== undefined) pointOfSale.name = data.name;
-        if (data.code !== undefined) pointOfSale.code = data.code;
         if (data.deviceId !== undefined) pointOfSale.deviceId = data.deviceId;
         if (data.isActive !== undefined) pointOfSale.isActive = data.isActive;
         
         await repo.save(pointOfSale);
-        revalidatePath('/admin/points-of-sale');
+        revalidatePath('/admin/settings/points-of-sale');
         
-        return { success: true, pointOfSale };
+        return { success: true, pointOfSale: JSON.parse(JSON.stringify(pointOfSale)) };
     } catch (error) {
         console.error('Error updating point of sale:', error);
         return { 
@@ -210,7 +186,7 @@ export async function deletePointOfSale(id: string): Promise<{ success: boolean;
         }
         
         await repo.softDelete(id);
-        revalidatePath('/admin/points-of-sale');
+        revalidatePath('/admin/settings/points-of-sale');
         
         return { success: true };
     } catch (error) {

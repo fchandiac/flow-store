@@ -6,9 +6,7 @@ import {
     CreateDateColumn,
     UpdateDateColumn,
     DeleteDateColumn,
-    OneToMany,
 } from "typeorm";
-import type { PriceListItem } from "./PriceListItem";
 
 export enum PriceListType {
     RETAIL = 'RETAIL',
@@ -24,9 +22,6 @@ export class PriceList {
 
     @Column({ type: 'varchar', length: 255 })
     name!: string;
-
-    @Column({ type: 'varchar', length: 50, unique: true, nullable: true })
-    code?: string;
 
     @Column({ type: 'enum', enum: PriceListType, default: PriceListType.RETAIL })
     priceListType!: PriceListType;
@@ -61,7 +56,6 @@ export class PriceList {
     @DeleteDateColumn()
     deletedAt?: Date;
 
-    // Relations
-    @OneToMany('PriceListItem', 'priceList')
-    items?: PriceListItem[];
+    // Note: PriceListItem has ManyToOne to PriceList
+    // We don't define inverse OneToMany here to avoid circular metadata issues
 }

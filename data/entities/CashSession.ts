@@ -6,12 +6,10 @@ import {
     CreateDateColumn,
     UpdateDateColumn,
     ManyToOne,
-    OneToMany,
     JoinColumn,
 } from "typeorm";
-import type { PointOfSale } from "./PointOfSale";
-import type { User } from "./User";
-import type { Transaction } from "./Transaction";
+import { PointOfSale } from "./PointOfSale";
+import { User } from "./User";
 
 export enum CashSessionStatus {
     OPEN = 'OPEN',
@@ -64,18 +62,18 @@ export class CashSession {
     updatedAt!: Date;
 
     // Relations
-    @ManyToOne('PointOfSale', 'cashSessions', { onDelete: 'CASCADE' })
+    @ManyToOne(() => PointOfSale, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'pointOfSaleId' })
     pointOfSale?: PointOfSale;
 
-    @ManyToOne('User', { onDelete: 'SET NULL' })
+    @ManyToOne(() => User, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'openedById' })
     openedBy?: User;
 
-    @ManyToOne('User', { onDelete: 'SET NULL' })
+    @ManyToOne(() => User, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'closedById' })
     closedBy?: User;
 
-    @OneToMany('Transaction', 'cashSession')
-    transactions?: Transaction[];
+    // Note: Transaction has ManyToOne to CashSession
+    // We don't define inverse OneToMany here to avoid circular metadata issues
 }
