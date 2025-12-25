@@ -423,6 +423,14 @@ body {
     @apply border border-primary text-primary bg-transparent opacity-50 cursor-not-allowed active:scale-100;
   }
 
+  .icon-button-ghost {
+    @apply inline-flex items-center justify-center align-middle p-2 gap-0 leading-none rounded-full transition-all duration-200 ease-in-out border border-transparent outline-none cursor-pointer active:scale-90 bg-transparent text-primary hover:border-primary hover:bg-transparent;
+  }
+
+  .icon-button-ghost:disabled {
+    @apply bg-transparent text-primary opacity-50 cursor-not-allowed active:scale-100 hover:border-transparent;
+  }
+
   /* Fallback disabled class for all variants */
   .icon-button-disabled {
     @apply opacity-50 cursor-not-allowed;

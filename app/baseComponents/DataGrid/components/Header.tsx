@@ -1,14 +1,14 @@
 'use client'
 import React, { useState, useCallback } from 'react';
-import IconButton from '../../IconButton/IconButton';
+import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import Toolbar from './Toolbar';
-import { TextField } from '../../TextField/TextField';
+import { TextField } from '@/app/baseComponents/TextField/TextField';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { useRouter } from 'next/navigation';
 import { ColHeader } from './ColHeader';
 import { calculateColumnStyles, useScreenSize } from '../utils/columnStyles';
 import type { DataGridColumn } from '../DataGrid';
-import Dialog from '../../Dialog/Dialog';
+import Dialog from '@/app/baseComponents/Dialog/Dialog';
 
 interface HeaderProps {
   title: string;
@@ -62,7 +62,7 @@ const Header: React.FC<HeaderProps> = ({ title, filterMode = false, onToggleFilt
 
   // border-b border-gray-300 bg-gray-100
   return (
-    <div className="w-full px-4 py-4" data-test-id="data-grid-header">
+    <div className="w-full py-4 px-3" data-test-id="data-grid-header">
       {/* Primera fila: Add button + Title + (Toolbar + Search en desktop) */}
       <div className="flex items-center w-full">
         {/* Add button - usa onAddClick si está definido, sino abre el modal interno */}
@@ -70,8 +70,7 @@ const Header: React.FC<HeaderProps> = ({ title, filterMode = false, onToggleFilt
           <div className="flex items-center mr-4">
             <IconButton 
               icon="add" 
-              variant="outlined" 
-              shape="circular" 
+              variant="ghost" 
               size="md"
               onClick={onAddClick || (() => setIsCreateModalOpen(true))}
               data-test-id="add-button"
@@ -134,7 +133,7 @@ const Header: React.FC<HeaderProps> = ({ title, filterMode = false, onToggleFilt
         <Dialog 
           open={isCreateModalOpen} 
           onClose={() => setIsCreateModalOpen(false)} 
-          size="md"
+          size="lg"
           scroll="body"
           hideActions={true}
           title={createFormTitle}

@@ -3,7 +3,7 @@ import React from 'react';
 import { useState } from 'react';
 import { calculateColumnStyles } from '../utils/columnStyles';
 import type { DataGridColumn } from '../DataGrid';
-import IconButton from '../../IconButton/IconButton';
+import IconButton from '@/app/baseComponents/IconButton/IconButton';
 
 interface BodyProps {
   columns?: DataGridColumn[];

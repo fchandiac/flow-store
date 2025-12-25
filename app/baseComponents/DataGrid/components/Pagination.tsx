@@ -67,8 +67,8 @@ const Pagination: React.FC<PaginationProps> = ({ total, totalGeneral, mobileMode
   return (
     <div className="flex items-center justify-between p-2" data-test-id="data-grid-pagination">
       {/* Izquierda: Filas por página */}
-      <div className="flex items-center gap-3">
-        <div className="text-xs text-foreground font-normal">Filas por página:</div>
+      <div className="flex items-center gap-3 flex-shrink-0">
+        <span className="text-xs text-foreground font-normal whitespace-nowrap">Filas por página:</span>
         <Select
           options={limitOptions}
           placeholder=""

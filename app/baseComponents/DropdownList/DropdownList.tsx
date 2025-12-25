@@ -16,7 +16,7 @@ interface DropdownListProps {
   onHoverChange?: (index: number) => void;
   renderItems?: boolean; // If true, DropdownList renders items internally
   // Reference to the trigger element for portal positioning
-  anchorRef?: React.RefObject<HTMLElement>;
+  anchorRef?: React.RefObject<HTMLElement | null>;
   // Use portal mode (renders at body level to escape overflow constraints)
   usePortal?: boolean;
 }

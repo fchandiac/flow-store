@@ -1,8 +1,8 @@
 'use client'
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState, useEffect } from 'react';
 import type { DataGridColumn } from '../DataGrid';
-import IconButton from '../../IconButton/IconButton';
-import { TextField } from '../../TextField/TextField';
+import IconButton from '@/app/baseComponents/IconButton/IconButton';
+import { TextField } from '@/app/baseComponents/TextField/TextField';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 interface ColHeaderProps {
@@ -11,11 +11,27 @@ interface ColHeaderProps {
   filterMode?: boolean;
 }
 
+// Parse filters from URL format: "column1-value1,column2-value2"
+function parseFiltersFromUrl(filtersParam: string): Record<string, string> {
+  if (!filtersParam) return {};
+  
+  const filters: Record<string, string> = {};
+  const filterPairs = filtersParam.split(',');
+  
+  filterPairs.forEach(pair => {
+    const [column, ...valueParts] = pair.split('-');
+    if (column && valueParts.length > 0) {
+      filters[column] = decodeURIComponent(valueParts.join('-')); // Decode to handle special chars
+    }
+  });
+  
+  return filters;
+}
+
 export const ColHeader: React.FC<ColHeaderProps> = ({ column, computedStyle, filterMode = false }) => {
   const { headerName, headerAlign, align, width, flex, minWidth, maxWidth, field, filterable = true } = column;
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [localFilterValue, setLocalFilterValue] = useState('');
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   // Get current sort state from URL
@@ -26,32 +42,29 @@ export const ColHeader: React.FC<ColHeaderProps> = ({ column, computedStyle, fil
   // Show sort icon only if sort parameters exist in URL
   const shouldShowSortIcon = currentSort || currentSortField;
 
-  // Get current filter value for this column
+  // Get current filter value for this column from URL
   const filtersParam = searchParams.get('filters') || '';
   const currentFilters = parseFiltersFromUrl(filtersParam);
-  const filterValue = currentFilters[field] || '';
+  const filterValueFromUrl = currentFilters[field] || '';
 
-  // Parse filters from URL format: "column1-value1,column2-value2"
-  function parseFiltersFromUrl(filtersParam: string): Record<string, string> {
-    if (!filtersParam) return {};
-    
-    const filters: Record<string, string> = {};
-    const filterPairs = filtersParam.split(',');
-    
-    filterPairs.forEach(pair => {
-      const [column, ...valueParts] = pair.split('-');
-      if (column && valueParts.length > 0) {
-        filters[column] = decodeURIComponent(valueParts.join('-')); // Decode to handle special chars
-      }
-    });
-    
-    return filters;
-  }
+  // Local state for the input - initialize from URL
+  const [localFilterValue, setLocalFilterValue] = useState(filterValueFromUrl);
+  
+  // Track if we're in the middle of typing (debounce pending)
+  const isTypingRef = useRef(false);
+
+  // Sync local state with URL only when URL changes externally (not from our own typing)
+  useEffect(() => {
+    if (!isTypingRef.current) {
+      setLocalFilterValue(filterValueFromUrl);
+    }
+  }, [filterValueFromUrl]);
 
   // Handle filter change with debounce
   const handleFilterChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const value = e.target.value;
     setLocalFilterValue(value);
+    isTypingRef.current = true;
 
     // Clear previous timer
     if (debounceTimer.current) {
@@ -60,6 +73,8 @@ export const ColHeader: React.FC<ColHeaderProps> = ({ column, computedStyle, fil
 
     // Set new timer for 300ms debounce
     debounceTimer.current = setTimeout(() => {
+      isTypingRef.current = false;
+      
       const params = new URLSearchParams(searchParams.toString());
       // Update filters parameter
       const currentFilters = parseFiltersFromUrl(filtersParam);
@@ -168,7 +183,7 @@ export const ColHeader: React.FC<ColHeaderProps> = ({ column, computedStyle, fil
         )}
         {filterMode && filterable ? (
             <div className={`relative w-full flex-1 flex items-center ${actualHeaderAlign === 'center' ? 'justify-center' : actualHeaderAlign === 'right' ? 'justify-end' : 'justify-start'}`}>
-              {(localFilterValue || filterValue) && (
+              {localFilterValue && (
                 <label
                   className={`absolute left-0 text-[10px] text-foreground bg-white px-0 pointer-events-none z-10 transition-all duration-200 w-full ${actualHeaderAlign === 'center' ? 'text-center' : actualHeaderAlign === 'right' ? 'text-right' : 'text-left'}`}
                   style={{lineHeight:1, top: '2px'}}>
@@ -177,10 +192,10 @@ export const ColHeader: React.FC<ColHeaderProps> = ({ column, computedStyle, fil
               )}
               <input
                 type="text"
-                value={localFilterValue || filterValue}
+                value={localFilterValue}
                 onChange={handleFilterChange}
                 placeholder={headerName}
-                className={`w-full text-xs h-[28px] bg-white outline-none p-0 ${(localFilterValue || filterValue) ? 'text-secondary pt-3' : ''} ${actualHeaderAlign === 'center' ? 'text-center' : actualHeaderAlign === 'right' ? 'text-right' : 'text-left'}`}
+                className={`w-full text-xs h-[28px] bg-white outline-none p-0 ${localFilterValue ? 'text-secondary pt-3' : ''} ${actualHeaderAlign === 'center' ? 'text-center' : actualHeaderAlign === 'right' ? 'text-right' : 'text-left'}`}
                 aria-label={headerName}
                 style={{ minWidth: 0, border: 'none' }}
               />

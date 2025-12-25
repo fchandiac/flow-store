@@ -4,7 +4,7 @@ type IconButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | number;
 
 interface IconButtonProps {
 	icon: string; // nombre del icono material-symbols
-	variant?: "containedPrimary" | "containedSecondary" | "text" | "basic" | "basicSecondary" | "outlined";
+	variant?: "containedPrimary" | "containedSecondary" | "text" | "basic" | "basicSecondary" | "outlined" | "ghost";
 	size?: IconButtonSize;
 	disabled?: boolean;
 	isLoading?: boolean;
@@ -21,6 +21,7 @@ const variantClasses: Record<string, string> = {
 	basic: "icon-button-basic",
 	basicSecondary: "icon-button-basic-secondary",
 	outlined: "icon-button-outlined",
+	ghost: "icon-button-ghost",
 };
 
 const sizeMap: Record<Exclude<IconButtonSize, number>, string> = {

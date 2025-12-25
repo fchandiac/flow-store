@@ -51,13 +51,14 @@ const Footer: React.FC<FooterProps> = ({ total = 0, totalGeneral }) => {
         </div>
         {/* Fila inferior: Selector de filas y recuento */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="text-xs text-foreground">Filas por página:</div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <span className="text-xs text-foreground whitespace-nowrap">Filas por página:</span>
             <Select
               options={limitOptions}
               placeholder=""
               value={limit}
-              onChange={(newLimit) => newLimit && handleLimitChange(Number(newLimit))}
+              onChange={(newLimit: string | number | null) => newLimit && handleLimitChange(Number(newLimit))}
+              variant="minimal"
             />
           </div>
           <div className="text-xs text-muted-foreground">
