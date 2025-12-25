@@ -121,7 +121,7 @@
   --color-background: #ffffff;
   --color-foreground: #131615;
   --color-border: #c1c1c2;
-  --color-accent: #184367;
+  --color-accent: #2563a8;
   --color-secondary: #56D2E3;
   --color-muted: #6b7280;
   --color-success: #4CAF50;
@@ -210,6 +210,12 @@ body {
 
   .btn-outlined {
     @apply border-[1px] border-foreground text-foreground bg-transparent font-light rounded-md text-sm px-4 py-2 text-center hover:bg-accent hover:text-background transition-colors duration-200 active:scale-90 active:shadow-inner;
+    min-width: max-content;
+    white-space: nowrap;
+  }
+
+  .btn-outlined-secondary {
+    @apply border-[1px] border-secondary text-secondary bg-transparent font-light rounded-md text-sm px-4 py-2 text-center hover:bg-secondary hover:text-background transition-colors duration-200 active:scale-90 active:shadow-inner;
     min-width: max-content;
     white-space: nowrap;
   }

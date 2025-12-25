@@ -1,6 +1,6 @@
 import React from "react";
 
-export type ButtonVariant = "primary" | "secondary" | "outlined" | "text";
+export type ButtonVariant = "primary" | "secondary" | "outlined" | "outlinedSecondary" | "text";
 export type ButtonSize = "sm" | "md" | "lg";
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -16,6 +16,7 @@ const variantClasses: Record<string, string> = {
   primary: "btn-contained-primary cursor-pointer",
   secondary: "btn-contained-secondary cursor-pointer",
   outlined: "btn-outlined cursor-pointer",
+  outlinedSecondary: "btn-outlined-secondary cursor-pointer",
   text: "btn-text cursor-pointer",
 };
 
@@ -29,6 +30,7 @@ const disabledClasses: Record<string, string> = {
   primary: "btn-contained-primary opacity-50 cursor-not-allowed",
   secondary: "btn-contained-secondary opacity-50 cursor-not-allowed",
   outlined: "btn-outlined opacity-50 cursor-not-allowed",
+  outlinedSecondary: "btn-outlined-secondary opacity-50 cursor-not-allowed",
   text: "btn-text opacity-50 cursor-not-allowed",
 };
 

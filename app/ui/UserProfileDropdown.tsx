@@ -52,10 +52,9 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '
             <button
               type="button"
               onClick={handleLogout}
-              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-md hover:bg-accent transition-colors"
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left rounded-md text-primary hover:scale-105 transition-transform"
               data-test-id="logout-button"
             >
-              <span className="material-symbols-outlined text-lg">logout</span>
               Cerrar sesión
             </button>
           </div>
