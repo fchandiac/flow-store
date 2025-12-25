@@ -277,11 +277,8 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     
     useEffect(() => {
       if (position && map) {
-        // Centrar el mapa en la nueva posición con animación suave
-        map.flyTo([position.lat, position.lng], zoom, {
-          animate: true,
-          duration: 1.5
-        });
+        // Centrar el mapa en la nueva posición sin animación
+        map.setView([position.lat, position.lng], zoom);
       }
     }, [position, map]);
     
