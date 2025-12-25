@@ -16,8 +16,8 @@ export class Branch {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
 
-    @Column({ type: 'uuid' })
-    companyId!: string;
+    @Column({ type: 'uuid', nullable: true })
+    companyId?: string;
 
     @Column({ type: 'varchar', length: 255 })
     name!: string;
@@ -47,7 +47,7 @@ export class Branch {
     deletedAt?: Date;
 
     // Relations - unidirectional to avoid circular metadata issues
-    @ManyToOne(() => Company, { onDelete: 'CASCADE' })
+    @ManyToOne(() => Company, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'companyId' })
     company?: Company;
 

@@ -100,11 +100,13 @@ export async function login(data: LoginDTO): Promise<AuthResult> {
         
         const cookieStore = await cookies();
         cookieStore.set(SESSION_COOKIE, JSON.stringify(sessionData), {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
+            httpOnly: false, // false para que JavaScript pueda acceder (necesario para Electron)
+            secure: false, // false para localhost/desarrollo
             sameSite: 'lax',
             maxAge: SESSION_DURATION / 1000,
-            path: '/'
+            path: '/',
+            // Para Electron: asegurar que las cookies persistan
+            expires: new Date(Date.now() + SESSION_DURATION),
         });
         
         // Registrar auditoría

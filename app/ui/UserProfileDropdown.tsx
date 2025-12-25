@@ -1,15 +1,25 @@
 'use client'
 import React, { useState, useRef, useEffect } from 'react';
-import { signOut, useSession } from 'next-auth/react';
+import { logout } from '@/app/actions/auth.server';
+import { getCurrentSession } from '@/app/actions/auth.server';
 
 interface UserProfileDropdownProps {
   className?: string;
 }
 
 const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '' }) => {
-  const { data: session } = useSession();
+  const [session, setSession] = useState<any>(null);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Cargar sesión al montar el componente
+  useEffect(() => {
+    const loadSession = async () => {
+      const currentSession = await getCurrentSession();
+      setSession(currentSession);
+    };
+    loadSession();
+  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -24,10 +34,13 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '
   }, []);
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: '/login' });
+    await logout();
+    // Limpiar localStorage para evitar restauración automática de sesión
+    localStorage.removeItem('flow_session');
+    window.location.href = '/';
   };
 
-  const userName = session?.user?.name || 'Usuario';
+  const userName = session?.personName || session?.userName || 'Usuario';
   const userInitial = userName.charAt(0).toUpperCase();
 
   return (

@@ -18,11 +18,18 @@ export class AuthHelper {
   }
 
   /**
-   * Realizar login con username y password
+   * Realizar login con username y password usando sistema personalizado
    */
   async login(username: string, password: string): Promise<void> {
+    // Primero verificar si ya estamos logueados (en página protegida)
+    const currentUrl = this.page.url();
+    if (currentUrl.includes('/admin') || currentUrl.includes('/pointOfSale')) {
+      console.log('[AuthHelper] Already logged in, skipping login process');
+      return;
+    }
+
     // Esperar a que la página de login esté cargada
-    await this.page.waitForSelector('input[name="username"]', {
+    await this.page.waitForSelector('input[data-test-id="login-username"]', {
       state: 'visible',
       timeout: 10000,
     });
@@ -31,31 +38,26 @@ export class AuthHelper {
     await this.page.waitForLoadState('domcontentloaded');
     await this.page.waitForTimeout(500);
 
-    // Llenar el formulario de login usando type en lugar de fill para ser más robusto
-    const usernameInput = this.page.locator('input[name="username"]');
+    // Llenar el formulario de login usando los data-test-id
+    const usernameInput = this.page.locator('input[data-test-id="login-username"]');
     await usernameInput.clear();
     await usernameInput.type(username, { delay: 50 });
 
-    const passwordInput = this.page.locator('input[name="password"]');
+    const passwordInput = this.page.locator('input[data-test-id="login-password"]');
     await passwordInput.clear();
     await passwordInput.type(password, { delay: 50 });
 
-    // Esperar a que el botón de submit esté listo
-    const submitButton = this.page.locator('button[type="submit"]');
-    await submitButton.waitFor({ state: 'visible', timeout: 5000 });
-    await this.page.waitForTimeout(500);
-
     // Hacer click en el botón de login
+    const submitButton = this.page.locator('button[type="submit"]');
     await submitButton.click();
 
     // Esperar a que se complete la navegación después del login
-    // Ahora que usamos redirect: false, esperamos la redirección manual del cliente
     try {
-      await this.page.waitForURL(/\/home/, {
+      await this.page.waitForURL(/\/admin/, {
         timeout: 15000,
       });
     } catch (error) {
-      // Verificar si hay errores en el formulario en lugar de redirección
+      // Verificar si hay errores en el formulario
       const errorElement = await this.page.locator('.alert-error').count();
       if (errorElement > 0) {
         const errorText = await this.page.locator('.alert-error').textContent();
@@ -138,6 +140,11 @@ export class AuthHelper {
       await sidebarLogoutButton.click();
     }
 
+    // Limpiar localStorage después del logout para evitar restauración automática
+    await this.page.evaluate(() => {
+      localStorage.removeItem('flow_session');
+    });
+
     // Esperar a que se complete la navegación después del logout
     console.log('[AuthHelper] Waiting for redirect after logout...');
     await this.page.waitForTimeout(1500); // Esperar más tiempo para que se complete la redirección
@@ -145,24 +152,16 @@ export class AuthHelper {
     const urlAfterLogout = this.page.url();
     console.log('[AuthHelper] URL after logout:', urlAfterLogout);
 
-    // Si no estamos en la página de login, navegar a ella manualmente
-    // Verificar si ya estamos en una página de login (con o sin query parameters)
-    const isAtLoginPage = urlAfterLogout === '/' || 
-                         urlAfterLogout.startsWith('http://localhost:3000/?') || 
-                         urlAfterLogout.includes('/api/auth/signin') ||
-                         urlAfterLogout.includes('login');
-    
-    if (!isAtLoginPage) {
-      console.log('[AuthHelper] Not at login page, navigating to /');
-      await this.page.goto('http://localhost:3000/', { waitUntil: 'domcontentloaded' });
+    // Navegar a la página de login si no estamos ahí
+    if (!urlAfterLogout.endsWith('/') && !urlAfterLogout.includes('/?')) {
+      console.log('[AuthHelper] Navigating to login page...');
+      await this.page.goto('/');
+      await this.page.waitForTimeout(1000);
     }
-
-    // Esperar un poco para que la página de login se cargue completamente
-    await this.page.waitForTimeout(1000);
 
     // Verificar que estamos en la página de login
     console.log('[AuthHelper] Waiting for login form to appear...');
-    await this.page.waitForSelector('input[name="username"]', {
+    await this.page.waitForSelector('input[data-test-id="login-username"]', {
       state: 'visible',
       timeout: 10000,
     });

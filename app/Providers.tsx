@@ -1,6 +1,5 @@
 "use client";
 
-import { SessionProvider } from "next-auth/react";
 import { ReactNode, useEffect } from "react";
 import { AlertProvider } from "./state/contexts/AlertContext";
 import { PermissionsProvider } from "./state/contexts/PermissionsContext";
@@ -14,14 +13,12 @@ function AuthPersistenceHandler() {
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <SessionProvider>
+    <PermissionsProvider>
       <AuthPersistenceHandler />
-      <PermissionsProvider>
-        <AlertProvider>
-          {children}
-        </AlertProvider>
-      </PermissionsProvider>
-    </SessionProvider>
+      <AlertProvider>
+        {children}
+      </AlertProvider>
+    </PermissionsProvider>
   );
 }
 

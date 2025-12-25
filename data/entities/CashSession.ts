@@ -22,8 +22,8 @@ export class CashSession {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
 
-    @Column({ type: 'uuid' })
-    pointOfSaleId!: string;
+    @Column({ type: 'uuid', nullable: true })
+    pointOfSaleId?: string;
 
     @Column({ type: 'uuid', nullable: true })
     openedById?: string;
@@ -62,7 +62,7 @@ export class CashSession {
     updatedAt!: Date;
 
     // Relations
-    @ManyToOne(() => PointOfSale, { onDelete: 'CASCADE' })
+    @ManyToOne(() => PointOfSale, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'pointOfSaleId' })
     pointOfSale?: PointOfSale;
 

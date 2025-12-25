@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { TextField } from "@/app/baseComponents/TextField/TextField";
 import { Button } from "@/app/baseComponents/Button/Button";
 import Alert from "@/app/baseComponents/Alert/Alert";
 import { login } from "@/app/actions/auth.server";
+import { restoreSessionFromStorage } from "@/app/lib/authStorage";
 
 /**
  * Página de Login
@@ -18,6 +19,41 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Verificar si hay una sesión guardada y redirigir automáticamente
+    useEffect(() => {
+        const checkStoredSession = async () => {
+            // Intentar restaurar la sesión desde localStorage
+            const sessionRestored = restoreSessionFromStorage();
+            
+            if (sessionRestored) {
+                // Si se restauró la sesión, verificar que sea válida
+                try {
+                    const response = await fetch('/api/auth/check-session', {
+                        method: 'GET',
+                        credentials: 'include',
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.authenticated) {
+                            // Redirigir según rol
+                            if (data.user?.rol === 'ADMIN') {
+                                router.push('/admin');
+                            } else {
+                                router.push('/pointOfSale');
+                            }
+                            return;
+                        }
+                    }
+                } catch (error) {
+                    console.error('[Login] Error checking stored session:', error);
+                }
+            }
+        };
+        
+        checkStoredSession();
+    }, [router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();

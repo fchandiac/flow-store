@@ -23,8 +23,8 @@ export class Storage {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
 
-    @Column({ type: 'uuid' })
-    branchId!: string;
+    @Column({ type: 'uuid', nullable: true })
+    branchId?: string;
 
     @Column({ type: 'varchar', length: 255 })
     name!: string;
@@ -57,7 +57,7 @@ export class Storage {
     deletedAt?: Date;
 
     // Relations
-    @ManyToOne(() => Branch, { onDelete: 'CASCADE' })
+    @ManyToOne(() => Branch, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'branchId' })
     branch?: Branch;
 }

@@ -198,11 +198,11 @@ export const authOptions: NextAuthOptions = {
     },
     async redirect({ url, baseUrl }) {
       // Si la URL incluye callbackUrl, usarla
-      if (url.includes('/home') || url.includes('callbackUrl')) {
+      if (url.includes('/admin') || url.includes('/pointOfSale') || url.includes('callbackUrl')) {
         return url;
       }
-      // Por defecto, redirigir a /home después del login
-      return `${baseUrl}/home`;
+      // Por defecto, redirigir a /admin después del login (para usuarios admin)
+      return `${baseUrl}/admin`;
     },
     async session({ session, token }) {
       // Debug: inspect session & token when session callback runs

@@ -35,7 +35,7 @@ export class AppHelper {
       ...process.env,
       NODE_ENV: 'test',
       CONFIG_PATH: path.join(process.cwd(), 'app.config.json'),
-      NEXTAUTH_URL: 'http://localhost:3000',
+      NEXTAUTH_URL: 'http://localhost:3002', // Match the port where the app runs
       NEXTAUTH_SECRET: 'test-secret-key-for-e2e-tests',
     };
 

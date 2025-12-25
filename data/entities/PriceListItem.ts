@@ -20,11 +20,11 @@ export class PriceListItem {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
 
-    @Column({ type: 'uuid' })
-    priceListId!: string;
+    @Column({ type: 'uuid', nullable: true })
+    priceListId?: string;
 
-    @Column({ type: 'uuid' })
-    productId!: string;
+    @Column({ type: 'uuid', nullable: true })
+    productId?: string;
 
     @Column({ type: 'uuid', nullable: true })
     productVariantId?: string;
@@ -48,15 +48,15 @@ export class PriceListItem {
     deletedAt?: Date;
 
     // Relations
-    @ManyToOne(() => PriceList, { onDelete: 'CASCADE' })
+    @ManyToOne(() => PriceList, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'priceListId' })
     priceList?: PriceList;
 
-    @ManyToOne(() => Product, { onDelete: 'CASCADE' })
+    @ManyToOne(() => Product, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'productId' })
     product?: Product;
 
-    @ManyToOne(() => ProductVariant, { onDelete: 'CASCADE' })
+    @ManyToOne(() => ProductVariant, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'productVariantId' })
     productVariant?: ProductVariant;
 }

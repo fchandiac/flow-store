@@ -1,20 +1,39 @@
 // authStorage.ts - Client-side session persistence for Electron
-// This ensures NextAuth session survives app restarts by syncing cookies with localStorage
+// This ensures session survives app restarts by syncing cookies with localStorage
 
-import { useSession } from 'next-auth/react';
 import { useEffect } from 'react';
 
-const SESSION_COOKIE_KEY = 'next-auth-session-token';
+const SESSION_COOKIE_KEY = 'flow_session';
+
+// Function to restore session synchronously (for immediate use)
+export function restoreSessionFromStorage() {
+  if (typeof window !== 'undefined') {
+    try {
+      const storedSession = localStorage.getItem(SESSION_COOKIE_KEY);
+      if (storedSession) {
+        // Set the cookie in document.cookie to restore the session
+        document.cookie = `${SESSION_COOKIE_KEY}=${encodeURIComponent(storedSession)}; path=/; max-age=${24 * 60 * 60}; samesite=lax`;
+        console.debug('[authStorage] Session restored from localStorage');
+        return true;
+      }
+    } catch (error) {
+      console.error('[authStorage] Failed to restore session:', error);
+    }
+  }
+  return false;
+}
 
 export function useAuthPersistence() {
-  const { data: session, status } = useSession();
+  // Restore session cookie from localStorage on app start
+  useEffect(() => {
+    restoreSessionFromStorage();
+  }, []);
 
-  // Save session cookie to localStorage when session changes
+  // Save session cookie to localStorage when it changes
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      if (status === 'authenticated' && session) {
+      const saveSessionToStorage = () => {
         try {
-          // Get the session cookie from document.cookie
           const cookies = document.cookie.split(';');
           const sessionCookie = cookies.find(cookie =>
             cookie.trim().startsWith(`${SESSION_COOKIE_KEY}=`)
@@ -22,40 +41,26 @@ export function useAuthPersistence() {
 
           if (sessionCookie) {
             const cookieValue = sessionCookie.split('=')[1];
-            localStorage.setItem(SESSION_COOKIE_KEY, cookieValue);
-            console.debug('[authStorage] Session cookie saved to localStorage');
+            localStorage.setItem(SESSION_COOKIE_KEY, decodeURIComponent(cookieValue));
+            console.debug('[authStorage] Session saved to localStorage');
+          } else {
+            // If no session cookie, clear localStorage
+            localStorage.removeItem(SESSION_COOKIE_KEY);
           }
         } catch (error) {
-          console.error('[authStorage] Failed to save session cookie:', error);
+          console.error('[authStorage] Failed to save session:', error);
         }
-      } else if (status === 'unauthenticated') {
-        // Clear localStorage on logout
-        try {
-          localStorage.removeItem(SESSION_COOKIE_KEY);
-          console.debug('[authStorage] Session cookie cleared from localStorage');
-        } catch (error) {
-          console.error('[authStorage] Failed to clear session cookie:', error);
-        }
-      }
-    }
-  }, [session, status]);
+      };
 
-  // Restore session cookie from localStorage on app start
-  useEffect(() => {
-    if (typeof window !== 'undefined' && status === 'loading') {
-      try {
-        const storedCookie = localStorage.getItem(SESSION_COOKIE_KEY);
-        if (storedCookie) {
-          // Set the cookie in document.cookie
-          document.cookie = `${SESSION_COOKIE_KEY}=${storedCookie}; path=/; max-age=${30 * 24 * 60 * 60}; samesite=lax`;
-          console.debug('[authStorage] Session cookie restored from localStorage');
-        }
-      } catch (error) {
-        console.error('[authStorage] Failed to restore session cookie:', error);
-        localStorage.removeItem(SESSION_COOKIE_KEY);
-      }
+      // Save immediately
+      saveSessionToStorage();
+
+      // Set up an interval to check for cookie changes (since we can't listen to cookie changes directly)
+      const interval = setInterval(saveSessionToStorage, 1000);
+
+      return () => clearInterval(interval);
     }
-  }, [status]);
+  }, []);
 }
 
 // Utility function to check if running in Electron

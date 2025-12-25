@@ -24,8 +24,8 @@ export class ProductVariant {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
 
-    @Column({ type: 'uuid' })
-    productId!: string;
+    @Column({ type: 'uuid', nullable: true })
+    productId?: string;
 
     @Column({ type: 'varchar', length: 100, unique: true })
     sku!: string;
@@ -114,7 +114,7 @@ export class ProductVariant {
     deletedAt?: Date;
 
     // Relations
-    @ManyToOne(() => Product, { onDelete: 'CASCADE' })
+    @ManyToOne(() => Product, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'productId' })
     product?: Product;
 }

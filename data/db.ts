@@ -129,7 +129,7 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
         username: appConfig?.dataBase?.username || "root",
         password: appConfig?.dataBase?.password || "",
         database: appConfig?.dataBase?.name || "next-start",
-        synchronize: appConfig?.database?.synchronize ?? false, // Usar configuración del archivo, por defecto false
+        synchronize: process.env.NODE_ENV === 'test' ? false : (appConfig?.database?.synchronize ?? false), // Desactivar synchronize en tests
         logging: appConfig?.database?.logging ?? false,
         ssl: appConfig?.database?.ssl || appConfig?.dataBase?.ssl ? {
           rejectUnauthorized: appConfig?.database?.ssl?.rejectUnauthorized ?? false

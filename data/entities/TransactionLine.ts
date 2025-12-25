@@ -24,8 +24,8 @@ export class TransactionLine {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
 
-    @Column({ type: 'uuid' })
-    transactionId!: string;
+    @Column({ type: 'uuid', nullable: true })
+    transactionId?: string;
 
     @Column({ type: 'uuid' })
     productId!: string;
@@ -94,7 +94,7 @@ export class TransactionLine {
     createdAt!: Date;
 
     // Relations
-    @ManyToOne(() => Transaction, { onDelete: 'CASCADE' })
+    @ManyToOne(() => Transaction, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'transactionId' })
     transaction?: Transaction;
 
