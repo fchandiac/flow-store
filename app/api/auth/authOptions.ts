@@ -178,7 +178,7 @@ export const authOptions: NextAuthOptions = {
     sessionToken: {
       name: `next-auth.session-token`,
       options: {
-        httpOnly: true,
+        httpOnly: false, // false for Electron to allow client-side access
         sameSite: 'lax',
         path: '/',
         secure: false, // false for Electron/localhost
@@ -186,6 +186,8 @@ export const authOptions: NextAuthOptions = {
       },
     },
   },
+  // For Electron: disable secure cookies to allow localStorage fallback
+  useSecureCookies: false,
   pages: {
     signIn: "/", // Custom sign in page (we'll use the home page)
   },
@@ -203,6 +205,14 @@ export const authOptions: NextAuthOptions = {
       return `${baseUrl}/home`;
     },
     async session({ session, token }) {
+      // Debug: inspect session & token when session callback runs
+      try {
+        console.debug('[authOptions.session] session callback invoked. token.sub=', token?.sub, ' token.userId=', token?.userId);
+        // log a small subset to avoid dumping secrets
+        console.debug('[authOptions.session] token keys:', Object.keys(token || {}));
+      } catch (err) {
+        console.debug('[authOptions.session] debug log error:', err);
+      }
       if (session.user) {
         (session.user as any).id = token.userId || token.sub;
         (session.user as any).name = token.name;
@@ -219,6 +229,17 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async jwt({ token, user }) {
+      // Debug: inspect token / user when jwt callback runs
+      try {
+        if (user) {
+          console.debug('[authOptions.jwt] jwt callback invoked after login. user.id=', (user as any).id, ' user.email=', (user as any).email);
+        } else {
+          console.debug('[authOptions.jwt] jwt callback invoked (no user). token.sub=', token?.sub);
+        }
+        console.debug('[authOptions.jwt] token keys before processing:', Object.keys(token || {}));
+      } catch (err) {
+        console.debug('[authOptions.jwt] debug log error:', err);
+      }
       if (user) {
         token.userId = user.id;
         token.sub = user.id;
@@ -256,6 +277,12 @@ export const authOptions: NextAuthOptions = {
         token.permissions = [];
       }
 
+      // Debug: final token keys returned by jwt callback
+      try {
+        console.debug('[authOptions.jwt] token keys after processing:', Object.keys(token || {}));
+      } catch (err) {
+        console.debug('[authOptions.jwt] debug log error (post):', err);
+      }
       return token;
     },
   },

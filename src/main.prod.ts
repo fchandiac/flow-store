@@ -16,6 +16,10 @@ let mainWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
 let nextServerProcess: ChildProcess | null = null;
 
+// Ensure stable userData path (Option A) - store profile in user's home
+const fixedUserData = path.join(app.getPath('home'), '.flow-store');
+app.setPath('userData', fixedUserData);
+
 // Setup comprehensive file logging for production debugging
 const userDataPath = app.getPath('userData');
 const logFile = path.join(userDataPath, 'main.log');

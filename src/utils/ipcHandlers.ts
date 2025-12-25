@@ -13,21 +13,24 @@ export interface SilentPrintResult {
   error?: string;
 }
 
-export const closeAppHandler = async (): Promise<void> => {
-  // Clear session cookies before closing app
-  try {
-    const mainWindow = BrowserWindow.getFocusedWindow();
-    if (mainWindow) {
-      const session = mainWindow.webContents.session;
-      await session.clearStorageData({
-        storages: ['cookies', 'localstorage']
-      });
-      console.log('[ipcHandlers] Cookies y almacenamiento local limpiados exitosamente');
+export const closeAppHandler = async (_event?: any, opts?: { clearStorage?: boolean }): Promise<void> => {
+  // By default do NOT clear cookies/localstorage on app close to preserve user session.
+  // If opts.clearStorage === true, then clear storage explicitly.
+  if (opts?.clearStorage) {
+    try {
+      const mainWindow = BrowserWindow.getFocusedWindow();
+      if (mainWindow) {
+        const session = mainWindow.webContents.session;
+        await session.clearStorageData({
+          storages: ['cookies', 'localstorage']
+        });
+        console.log('[ipcHandlers] Cookies y almacenamiento local limpiados exitosamente');
+      }
+    } catch (error) {
+      console.error('[ipcHandlers] Error clearing cookies:', error);
     }
-  } catch (error) {
-    console.error('[ipcHandlers] Error clearing cookies:', error);
   }
-  
+
   app.quit();
 };
 

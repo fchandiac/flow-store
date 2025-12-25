@@ -6,6 +6,15 @@ import { createAppMenu } from './utils/appUtils';
 import { closeAppHandler, openLocationSettingsHandler, silentPrintHandler } from './utils/ipcHandlers';
 import { spawn, ChildProcess } from 'child_process';
 
+// Ensure stable userData path (Option A) - store profile in user's home
+const fixedUserData = path.join(app.getPath('home'), '.flow-store');
+app.setPath('userData', fixedUserData);
+console.log('[main.dev] userData path set to:', fixedUserData);
+
+// Log cookies directory
+const cookiesPath = path.join(fixedUserData, 'Cookies');
+console.log('[main.dev] Cookies will be stored in:', cookiesPath);
+
 let mainWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
 let nextDevProcess: ChildProcess | null = null;
@@ -22,6 +31,7 @@ app.on('ready', async () => {
   createAppMenu();
 
   // Configurar variables de entorno globales para NextAuth
+  // Usar un puerto dinámico disponible (probe entre 3000 y 3010)
   const port = await getAvailablePort(3000, 3010);
   process.env.NEXTAUTH_URL = `http://localhost:${port}`;
   process.env.NEXTAUTH_SECRET = 'super-secret-key-for-development-at-least-32-chars-long';
