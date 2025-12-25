@@ -157,8 +157,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   const [cursorState, setCursorState] = useState<CursorState>('default');
   const [showClickEffect, setShowClickEffect] = useState(false);
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
-  const [locationError, setLocationError] = useState<string | null>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [isUserInteraction, setIsUserInteraction] = useState(false);
 
   // Determinar si es modo edición (permite interacción)
   const isEditable = mode === 'edit' || mode === 'update';
@@ -239,6 +238,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   const handleMapClick = (e: L.LeafletMouseEvent) => {
     if (!isEditable) return; // No hacer nada en modo viewer
     
+    setIsUserInteraction(true); // Marcar que es interacción del usuario
     const newPosition = { lat: e.latlng.lat, lng: e.latlng.lng };
     setPosition(newPosition);
     onChange?.(newPosition);
@@ -276,11 +276,15 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     const map = (require('react-leaflet') as any).useMap();
     
     useEffect(() => {
-      if (position && map) {
-        // Centrar el mapa en la nueva posición sin animación
+      if (position && map && !isUserInteraction) {
+        // Solo centrar si NO es una interacción del usuario
         map.setView([position.lat, position.lng], zoom);
       }
-    }, [position, map]);
+      // Resetear la bandera de interacción del usuario después de un breve delay
+      if (isUserInteraction) {
+        setTimeout(() => setIsUserInteraction(false), 100);
+      }
+    }, [position, map, isUserInteraction]);
     
     return null;
   };
