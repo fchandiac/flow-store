@@ -3,15 +3,16 @@
 import React, { useState } from 'react';
 import Badge from '@/app/baseComponents/Badge/Badge';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
+import LocationPickerWrapper from '@/app/baseComponents/LocationPicker/LocationPickerWrapper';
 import DeleteBranchDialog from './DeleteBranchDialog';
 import UpdateBranchDialog from './UpdateBranchDialog';
 
 export interface BranchType {
     id: string;
     name: string;
-    code?: string;
     address?: string;
     phone?: string;
+    location?: { lat: number; lng: number };
     isActive: boolean;
     isHeadquarters: boolean;
     companyId: string;
@@ -28,30 +29,39 @@ const BranchCard: React.FC<BranchCardProps> = ({ branch, 'data-test-id': dataTes
 
     return (
         <article 
-            className="border border-neutral-200 bg-white rounded-lg shadow-sm p-4 flex flex-col justify-between min-w-[260px]" 
+            className="border border-neutral-200 bg-white rounded-lg shadow-sm overflow-hidden flex flex-col min-w-[260px]" 
             data-test-id={dataTestId}
         >
-            <div className="flex flex-col gap-3">
-                {/* Header con icono y badges */}
-                <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="h-12 w-12 rounded-full bg-neutral-100 border-2 border-secondary flex items-center justify-center">
-                            <span 
-                                className="material-symbols-outlined text-secondary" 
-                                style={{ fontSize: '1.5rem' }}
-                            >
-                                store
-                            </span>
-                        </div>
-                        <div>
-                            <h3 className="font-semibold text-neutral-800">{branch.name}</h3>
-                            {branch.code && (
-                                <span className="text-sm text-neutral-500">Código: {branch.code}</span>
-                            )}
-                        </div>
-                    </div>
-                </div>
+            {/* Header: Nombre y dirección */}
+            <div className="p-4 pb-3">
+                <h3 className="font-semibold text-neutral-800 text-lg">{branch.name}</h3>
+                {branch.address && (
+                    <p className="text-sm text-neutral-500 mt-1 flex items-center gap-1">
+                        <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>
+                            location_on
+                        </span>
+                        {branch.address}
+                    </p>
+                )}
+            </div>
 
+            {/* Mapa - full width, sin bordes redondeados */}
+            {branch.location && (
+                <div className="w-full">
+                    <LocationPickerWrapper
+                        initialLat={branch.location.lat}
+                        initialLng={branch.location.lng}
+                        viewOnly={true}
+                        variant="flat"
+                        rounded="none"
+                        zoom={15}
+                        height={20} // 20vh fixed height to avoid layout overflow
+                    />
+                </div>
+            )}
+
+            {/* Footer: Badges y acciones */}
+            <div className="p-4 pt-3 flex items-center justify-between">
                 {/* Badges */}
                 <div className="flex flex-wrap gap-2">
                     {branch.isHeadquarters && (
@@ -62,45 +72,25 @@ const BranchCard: React.FC<BranchCardProps> = ({ branch, 'data-test-id': dataTes
                     </Badge>
                 </div>
 
-                {/* Info */}
-                <div className="space-y-1 text-sm text-neutral-600">
-                    {branch.address && (
-                        <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-neutral-400" style={{ fontSize: '1rem' }}>
-                                location_on
-                            </span>
-                            <span>{branch.address}</span>
-                        </div>
-                    )}
-                    {branch.phone && (
-                        <div className="flex items-center gap-2">
-                            <span className="material-symbols-outlined text-neutral-400" style={{ fontSize: '1rem' }}>
-                                phone
-                            </span>
-                            <span>{branch.phone}</span>
-                        </div>
+                {/* Acciones */}
+                <div className="flex gap-1">
+                    <IconButton
+                        icon="edit"
+                        variant="ghost"
+                        aria-label="Editar sucursal"
+                        onClick={() => setOpenUpdateDialog(true)}
+                        data-test-id={`${dataTestId}-edit-button`}
+                    />
+                    {!branch.isHeadquarters && (
+                        <IconButton
+                            icon="delete"
+                            variant="ghost"
+                            aria-label="Eliminar sucursal"
+                            onClick={() => setOpenDeleteDialog(true)}
+                            data-test-id={`${dataTestId}-delete-button`}
+                        />
                     )}
                 </div>
-            </div>
-
-            {/* Acciones */}
-            <div className="flex justify-end gap-2 mt-2">
-                <IconButton
-                    icon="edit"
-                    variant="basicSecondary"
-                    aria-label="Editar sucursal"
-                    onClick={() => setOpenUpdateDialog(true)}
-                    data-test-id={`${dataTestId}-edit-button`}
-                />
-                {!branch.isHeadquarters && (
-                    <IconButton
-                        icon="delete"
-                        variant="basicSecondary"
-                        aria-label="Eliminar sucursal"
-                        onClick={() => setOpenDeleteDialog(true)}
-                        data-test-id={`${dataTestId}-delete-button`}
-                    />
-                )}
             </div>
 
             {/* Dialogs */}

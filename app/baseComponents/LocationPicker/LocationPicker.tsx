@@ -64,6 +64,12 @@ interface LocationPickerProps {
   className?: string;
   /** Permite arrastrar el marcador para reposicionarlo (default: true) */
   draggable?: boolean;
+  /** Modo solo visualización - deshabilita click, drag y muestra solo el mapa (default: false) */
+  viewOnly?: boolean;
+  /** Zoom inicial del mapa (default: 13) */
+  zoom?: number;
+  /** Altura del mapa en vh. Si no se especifica, usa aspect-ratio 16:9 */
+  height?: number;
 }
 
 const roundedClasses: Record<LocationPickerRounded, string> = {
@@ -139,6 +145,9 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   rounded = 'md',
   className = '',
   draggable = true,
+  viewOnly = false,
+  zoom = 13,
+  height,
 }) => {
   const [position, setPosition] = useState<{ lat: number; lng: number } | null>(
     initialLat && initialLng ? { lat: initialLat, lng: initialLng } : null
@@ -155,6 +164,8 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   }, [initialLat, initialLng, position]);
 
   const handleMapClick = (e: L.LeafletMouseEvent) => {
+    if (viewOnly) return; // No hacer nada en modo viewOnly
+    
     const newPosition = { lat: e.latlng.lat, lng: e.latlng.lng };
     setPosition(newPosition);
     onChange?.(newPosition);
@@ -175,13 +186,13 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   const MapEvents = () => {
     const map = (require('react-leaflet') as any).useMapEvents({
       click: (e: L.LeafletMouseEvent) => {
-        handleMapClick(e);
+        if (!viewOnly) handleMapClick(e);
       },
-      mousedown: () => setCursorState('grabbing'),
-      mouseup: () => setCursorState('targeting'),
-      dragstart: () => setCursorState('grabbing'),
-      dragend: () => setCursorState('targeting'),
-      mouseover: () => setCursorState('targeting'),
+      mousedown: () => !viewOnly && setCursorState('grabbing'),
+      mouseup: () => !viewOnly && setCursorState('targeting'),
+      dragstart: () => !viewOnly && setCursorState('grabbing'),
+      dragend: () => !viewOnly && setCursorState('targeting'),
+      mouseover: () => !viewOnly && setCursorState('targeting'),
       mouseout: () => setCursorState('default'),
     });
     return null;
@@ -191,17 +202,24 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     'location-container overflow-hidden relative',
     variantClasses[variant],
     roundedClasses[rounded],
+    viewOnly ? 'pointer-events-none' : '',
     className,
   ].filter(Boolean).join(' ');
+
+  // Si se pasa height, usar vh; si no, usar aspect-ratio 16:9
+  // Usamos zIndex 0 para evitar que el mapa tape elementos del footer
+  const containerStyle: React.CSSProperties = height 
+    ? { zIndex: 0, height: `${height}vh`, width: '100%' }
+    : { zIndex: 0, aspectRatio: '16/9', width: '100%' };
 
   return (
     <div 
       ref={containerRef}
       className={containerClasses} 
-      style={{ zIndex: 1, height: '100%', width: '100%' }}
+      style={containerStyle}
     >
       {/* Click ripple effect */}
-      {showClickEffect && clickPosition && (
+      {(!viewOnly && showClickEffect) && clickPosition && (
         <div
           className="absolute pointer-events-none z-[1000]"
           style={{
@@ -218,22 +236,29 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
       
       <MapContainer
         center={[initialLat, initialLng]}
-        zoom={13}
+        zoom={zoom}
         style={{ height: '100%', width: '100%' }}
         attributionControl={false}
-        className={cursorClasses[cursorState]}
+        className={viewOnly ? 'cursor-default' : cursorClasses[cursorState]}
+        dragging={!viewOnly}
+        zoomControl={!viewOnly}
+        scrollWheelZoom={!viewOnly}
+        doubleClickZoom={!viewOnly}
+        touchZoom={!viewOnly}
       >
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <MapEvents />
+        {!viewOnly && <MapEvents />}
         {position && (
           <DraggableMarker 
             position={position}
-            draggable={draggable}
+            draggable={!viewOnly && draggable}
             onDragEnd={(newPos) => {
-              setPosition(newPos);
-              onChange?.(newPos);
+              if (!viewOnly) {
+                setPosition(newPos);
+                onChange?.(newPos);
+              }
             }}
           />
         )}

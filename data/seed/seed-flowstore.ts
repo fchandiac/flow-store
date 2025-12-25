@@ -114,9 +114,9 @@ async function seedFlowStore() {
       branch.id = uuidv4();
       branch.companyId = company.id;
       branch.name = 'Local Mall Plaza';
-      branch.code = 'JOY-001';
       branch.address = 'Mall Plaza Vespucio, Local 234';
       branch.phone = '+56 9 8765 4321';
+      branch.location = { lat: -33.5206, lng: -70.6025 }; // Mall Plaza Vespucio
       branch.isActive = true;
       branch.isHeadquarters = true;
       branch = await db.getRepository(Branch).save(branch);

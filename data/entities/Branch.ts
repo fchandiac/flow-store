@@ -22,14 +22,14 @@ export class Branch {
     @Column({ type: 'varchar', length: 255 })
     name!: string;
 
-    @Column({ type: 'varchar', length: 50, nullable: true })
-    code?: string;
-
     @Column({ type: 'varchar', length: 500, nullable: true })
     address?: string;
 
     @Column({ type: 'varchar', length: 20, nullable: true })
     phone?: string;
+
+    @Column({ type: 'json', nullable: true })
+    location?: { lat: number; lng: number };
 
     @Column({ type: 'boolean', default: true })
     isActive!: boolean;

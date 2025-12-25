@@ -26,9 +26,9 @@ const CreateBranchDialog: React.FC<CreateBranchDialogProps> = ({
 
     const [formData, setFormData] = useState({
         name: '',
-        code: '',
         address: '',
         phone: '',
+        location: null as { lat: number; lng: number } | null,
         isHeadquarters: false,
     });
 
@@ -47,11 +47,6 @@ const CreateBranchDialog: React.FC<CreateBranchDialogProps> = ({
             required: true,
         },
         {
-            name: 'code',
-            label: 'Código',
-            type: 'text',
-        },
-        {
             name: 'address',
             label: 'Dirección',
             type: 'text',
@@ -60,6 +55,11 @@ const CreateBranchDialog: React.FC<CreateBranchDialogProps> = ({
             name: 'phone',
             label: 'Teléfono',
             type: 'text',
+        },
+        {
+            name: 'location',
+            label: 'Ubicación',
+            type: 'location',
         },
         {
             name: 'isHeadquarters',
@@ -88,9 +88,9 @@ const CreateBranchDialog: React.FC<CreateBranchDialogProps> = ({
         try {
             const result = await createBranch({
                 name: formData.name,
-                code: formData.code || undefined,
                 address: formData.address || undefined,
                 phone: formData.phone || undefined,
+                location: formData.location || undefined,
                 isHeadquarters: formData.isHeadquarters,
             });
 
@@ -98,9 +98,9 @@ const CreateBranchDialog: React.FC<CreateBranchDialogProps> = ({
                 success('Sucursal creada correctamente');
                 setFormData({
                     name: '',
-                    code: '',
                     address: '',
                     phone: '',
+                    location: null,
                     isHeadquarters: false,
                 });
 
@@ -122,9 +122,9 @@ const CreateBranchDialog: React.FC<CreateBranchDialogProps> = ({
     const handleClose = () => {
         setFormData({
             name: '',
-            code: '',
             address: '',
             phone: '',
+            location: null,
             isHeadquarters: false,
         });
         setErrors([]);

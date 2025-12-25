@@ -110,9 +110,18 @@ const CreateBaseForm: React.FC<CreateBaseFormProps> = ({
 	const renderField = (field: BaseFormField) => (
 		<div key={field.name} className="mb-0">
 			{field.type === "location" ? (
-				<LocationPickerWrapper
-					onChange={coords => onChange(field.name, coords)}
-				/>
+				<div>
+					<label className="block text-sm font-medium text-gray-700 mb-2">
+						{field.label}
+					</label>
+					<div className="h-[250px]">
+						<LocationPickerWrapper
+							initialLat={values[field.name]?.lat}
+							initialLng={values[field.name]?.lng}
+							onChange={coords => onChange(field.name, coords)}
+						/>
+					</div>
+				</div>
 			) : field.type === "range" ? (
 				<RangeSlider
 					min={field.min ?? 0}

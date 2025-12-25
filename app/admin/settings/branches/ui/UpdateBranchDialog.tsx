@@ -7,6 +7,7 @@ import { TextField } from '@/app/baseComponents/TextField/TextField';
 import Switch from '@/app/baseComponents/Switch/Switch';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
+import LocationPickerWrapper from '@/app/baseComponents/LocationPicker/LocationPickerWrapper';
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { updateBranch } from '@/app/actions/branches';
 import { BranchType } from './BranchCard';
@@ -32,9 +33,9 @@ const UpdateBranchDialog: React.FC<UpdateBranchDialogProps> = ({
 
     const [formData, setFormData] = useState({
         name: branch.name,
-        code: branch.code || '',
         address: branch.address || '',
         phone: branch.phone || '',
+        location: branch.location || null as { lat: number; lng: number } | null,
         isHeadquarters: branch.isHeadquarters,
         isActive: branch.isActive,
     });
@@ -42,9 +43,9 @@ const UpdateBranchDialog: React.FC<UpdateBranchDialogProps> = ({
     useEffect(() => {
         setFormData({
             name: branch.name,
-            code: branch.code || '',
             address: branch.address || '',
             phone: branch.phone || '',
+            location: branch.location || null,
             isHeadquarters: branch.isHeadquarters,
             isActive: branch.isActive,
         });
@@ -74,9 +75,9 @@ const UpdateBranchDialog: React.FC<UpdateBranchDialogProps> = ({
         try {
             const result = await updateBranch(branch.id, {
                 name: formData.name,
-                code: formData.code || undefined,
                 address: formData.address || undefined,
                 phone: formData.phone || undefined,
+                location: formData.location || undefined,
                 isHeadquarters: formData.isHeadquarters,
                 isActive: formData.isActive,
             });
@@ -101,9 +102,9 @@ const UpdateBranchDialog: React.FC<UpdateBranchDialogProps> = ({
     const handleClose = () => {
         setFormData({
             name: branch.name,
-            code: branch.code || '',
             address: branch.address || '',
             phone: branch.phone || '',
+            location: branch.location || null,
             isHeadquarters: branch.isHeadquarters,
             isActive: branch.isActive,
         });
@@ -139,14 +140,6 @@ const UpdateBranchDialog: React.FC<UpdateBranchDialogProps> = ({
                     />
                     
                     <TextField
-                        label="Código"
-                        value={formData.code}
-                        onChange={(e) => handleChange('code', e.target.value)}
-                        placeholder="SUC-001"
-                        data-test-id="update-branch-code"
-                    />
-                    
-                    <TextField
                         label="Dirección"
                         value={formData.address}
                         onChange={(e) => handleChange('address', e.target.value)}
@@ -159,6 +152,19 @@ const UpdateBranchDialog: React.FC<UpdateBranchDialogProps> = ({
                         onChange={(e) => handleChange('phone', e.target.value)}
                         data-test-id="update-branch-phone"
                     />
+
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                            Ubicación
+                        </label>
+                        <div className="h-[250px]">
+                            <LocationPickerWrapper
+                                initialLat={formData.location?.lat}
+                                initialLng={formData.location?.lng}
+                                onChange={(coords) => handleChange('location', coords)}
+                            />
+                        </div>
+                    </div>
                     
                     <div>
                         <Switch

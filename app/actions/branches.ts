@@ -15,17 +15,17 @@ interface GetBranchesParams {
 
 interface CreateBranchDTO {
     name: string;
-    code?: string;
     address?: string;
     phone?: string;
+    location?: { lat: number; lng: number };
     isHeadquarters?: boolean;
 }
 
 interface UpdateBranchDTO {
     name?: string;
-    code?: string;
     address?: string;
     phone?: string;
+    location?: { lat: number; lng: number };
     isActive?: boolean;
     isHeadquarters?: boolean;
 }
@@ -84,16 +84,6 @@ export async function createBranch(data: CreateBranchDTO): Promise<BranchResult>
             return { success: false, error: 'Compañía no configurada' };
         }
         
-        // Verificar código único si se proporciona
-        if (data.code) {
-            const existing = await repo.findOne({ 
-                where: { code: data.code, deletedAt: IsNull() } 
-            });
-            if (existing) {
-                return { success: false, error: 'El código ya está en uso' };
-            }
-        }
-        
         // Si esta sucursal será casa matriz, quitar el flag de las demás
         if (data.isHeadquarters) {
             await repo.update(
@@ -105,9 +95,9 @@ export async function createBranch(data: CreateBranchDTO): Promise<BranchResult>
         const branch = repo.create({
             companyId: company.id,
             name: data.name,
-            code: data.code,
             address: data.address,
             phone: data.phone,
+            location: data.location,
             isHeadquarters: data.isHeadquarters ?? false,
             isActive: true
         });
@@ -141,16 +131,6 @@ export async function updateBranch(id: string, data: UpdateBranchDTO): Promise<B
             return { success: false, error: 'Sucursal no encontrada' };
         }
         
-        // Verificar código único si se cambia
-        if (data.code && data.code !== branch.code) {
-            const existing = await repo.findOne({ 
-                where: { code: data.code, deletedAt: IsNull() } 
-            });
-            if (existing) {
-                return { success: false, error: 'El código ya está en uso' };
-            }
-        }
-        
         // Si esta sucursal será casa matriz, quitar el flag de las demás
         if (data.isHeadquarters === true && !branch.isHeadquarters) {
             await repo.update(
@@ -160,9 +140,9 @@ export async function updateBranch(id: string, data: UpdateBranchDTO): Promise<B
         }
 
         if (data.name !== undefined) branch.name = data.name;
-        if (data.code !== undefined) branch.code = data.code;
         if (data.address !== undefined) branch.address = data.address;
         if (data.phone !== undefined) branch.phone = data.phone;
+        if (data.location !== undefined) branch.location = data.location;
         if (data.isActive !== undefined) branch.isActive = data.isActive;
         if (data.isHeadquarters !== undefined) branch.isHeadquarters = data.isHeadquarters;
         
