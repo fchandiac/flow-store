@@ -62,6 +62,8 @@ export interface DataGridProps {
   expandable?: boolean; // Habilita filas expandibles
   expandableRowContent?: (row: any) => React.ReactNode; // Contenido del panel expandido
   defaultExpandedRowIds?: (string | number)[]; // IDs de filas expandidas por defecto
+  // Header slots
+  headerActions?: React.ReactNode; // Componentes adicionales en el header (ej: filtros externos)
 }
 
 const DataGrid: React.FC<DataGridProps> = ({
@@ -87,6 +89,7 @@ const DataGrid: React.FC<DataGridProps> = ({
   expandable = false,
   expandableRowContent,
   defaultExpandedRowIds = [],
+  headerActions,
 }) => {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -155,6 +158,7 @@ const DataGrid: React.FC<DataGridProps> = ({
         onAddClick={onAddClick}
         screenWidth={screenWidth}
         onExportExcel={onExportExcel}
+        headerActions={headerActions}
       />
       {/* Scrollable container for columns header and body */}
       <div className={`${DataGridStyles.scrollContainer} relative`}>

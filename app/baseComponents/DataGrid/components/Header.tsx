@@ -20,9 +20,10 @@ interface HeaderProps {
   onAddClick?: () => void; // Callback para el botón + (abre diálogo externo)
   screenWidth?: number;
   onExportExcel?: () => Promise<void>;
+  headerActions?: React.ReactNode; // Slot para componentes adicionales (ej: filtros externos)
 }
 
-const Header: React.FC<HeaderProps> = ({ title, filterMode = false, onToggleFilterMode, columns = [], createForm, createFormTitle, onAddClick, screenWidth = 1024, onExportExcel }) => {
+const Header: React.FC<HeaderProps> = ({ title, filterMode = false, onToggleFilterMode, columns = [], createForm, createFormTitle, onAddClick, screenWidth = 1024, onExportExcel, headerActions }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -62,7 +63,7 @@ const Header: React.FC<HeaderProps> = ({ title, filterMode = false, onToggleFilt
 
   // border-b border-gray-300 bg-gray-100
   return (
-    <div className="w-full py-4 px-3" data-test-id="data-grid-header">
+    <div className="w-full" data-test-id="data-grid-header">
       {/* Primera fila: Add button + Title + (Toolbar + Search en desktop) */}
       <div className="flex items-center w-full">
         {/* Add button - usa onAddClick si está definido, sino abre el modal interno */}
@@ -79,9 +80,19 @@ const Header: React.FC<HeaderProps> = ({ title, filterMode = false, onToggleFilt
         )}
         
         {/* Title */}
-        <div className="flex-1 text-lg font-semibold text-gray-800 mr-4">
+        <div className="text-lg font-semibold text-gray-800">
           {title}
         </div>
+
+        {/* Header Actions Slot - componentes externos como filtros, centrados en el espacio disponible */}
+        {headerActions && (
+          <div className="hidden sm:flex flex-1 items-center justify-center gap-3" data-test-id="header-actions-slot">
+            {headerActions}
+          </div>
+        )}
+
+        {/* Spacer para empujar toolbar a la derecha (solo si no hay headerActions) */}
+        {!headerActions && <div className="flex-1" />}
         
         {/* Toolbar y Search - solo visible en sm y superior */}
         <div className="hidden sm:flex items-center gap-4">
@@ -107,7 +118,14 @@ const Header: React.FC<HeaderProps> = ({ title, filterMode = false, onToggleFilt
         </div>
       </div>
       
-      {/* Segunda fila: Toolbar + Search - solo visible en móvil (menor a sm) */}
+      {/* Segunda fila: Header Actions (móvil) - solo si hay headerActions */}
+      {headerActions && (
+        <div className="flex sm:hidden items-center gap-3 mt-3" data-test-id="header-actions-slot-mobile">
+          {headerActions}
+        </div>
+      )}
+
+      {/* Tercera fila: Toolbar + Search - solo visible en móvil (menor a sm) */}
       <div className="flex sm:hidden items-center justify-end gap-4 mt-3">
         {/* Toolbar */}
         <div>

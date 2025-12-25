@@ -3,10 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
-import { TextField } from '@/app/baseComponents/TextField/TextField';
-import Switch from '@/app/baseComponents/Switch/Switch';
-import { Button } from '@/app/baseComponents/Button/Button';
-import Alert from '@/app/baseComponents/Alert/Alert';
+import CreateBaseForm, { BaseFormField } from '@/app/baseComponents/BaseForm/CreateBaseForm';
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { createBranch } from '@/app/actions/branches';
 
@@ -22,7 +19,7 @@ const CreateBranchDialog: React.FC<CreateBranchDialogProps> = ({
     'data-test-id': dataTestId 
 }) => {
     const router = useRouter();
-    const { success, error: showError } = useAlert();
+    const { success } = useAlert();
     
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<string[]>([]);
@@ -42,12 +39,44 @@ const CreateBranchDialog: React.FC<CreateBranchDialogProps> = ({
         }));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        
+    const fields: BaseFormField[] = [
+        {
+            name: 'name',
+            label: 'Nombre',
+            type: 'text',
+            required: true,
+        },
+        {
+            name: 'code',
+            label: 'Código',
+            type: 'text',
+        },
+        {
+            name: 'address',
+            label: 'Dirección',
+            type: 'text',
+        },
+        {
+            name: 'phone',
+            label: 'Teléfono',
+            type: 'text',
+        },
+        {
+            name: 'isHeadquarters',
+            label: 'Es Casa Matriz',
+            type: 'switch',
+            labelPosition: 'left',
+        },
+    ];
+
+    const validate = (values: Record<string, any>): string[] => {
         const validationErrors: string[] = [];
-        if (!formData.name.trim()) validationErrors.push('El nombre es requerido');
-        
+        if (!values.name?.trim()) validationErrors.push('El nombre es requerido');
+        return validationErrors;
+    };
+
+    const handleSubmit = async () => {
+        const validationErrors = validate(formData);
         if (validationErrors.length > 0) {
             setErrors(validationErrors);
             return;
@@ -106,82 +135,26 @@ const CreateBranchDialog: React.FC<CreateBranchDialogProps> = ({
         <Dialog 
             open={open} 
             onClose={handleClose} 
-            title="Crear Sucursal"
+            title=""
+            hideActions={true}
             data-test-id={dataTestId}
         >
-            <form onSubmit={handleSubmit} className="space-y-6">
-                {errors.length > 0 && (
-                    <Alert variant="error">
-                        <ul className="list-disc list-inside">
-                            {errors.map((err, i) => (
-                                <li key={i}>{err}</li>
-                            ))}
-                        </ul>
-                    </Alert>
-                )}
-
-                <div className="space-y-4">
-                    <TextField
-                        label="Nombre"
-                        value={formData.name}
-                        onChange={(e) => handleChange('name', e.target.value)}
-                        required
-                        data-test-id="create-branch-name"
-                    />
-                    
-                    <TextField
-                        label="Código"
-                        value={formData.code}
-                        onChange={(e) => handleChange('code', e.target.value)}
-                        placeholder="SUC-001"
-                        data-test-id="create-branch-code"
-                    />
-                    
-                    <TextField
-                        label="Dirección"
-                        value={formData.address}
-                        onChange={(e) => handleChange('address', e.target.value)}
-                        data-test-id="create-branch-address"
-                    />
-                    
-                    <TextField
-                        label="Teléfono"
-                        value={formData.phone}
-                        onChange={(e) => handleChange('phone', e.target.value)}
-                        data-test-id="create-branch-phone"
-                    />
-                    
-                    <div>
-                        <Switch
-                            label="Es Casa Matriz"
-                            checked={formData.isHeadquarters}
-                            onChange={(checked) => handleChange('isHeadquarters', checked)}
-                            data-test-id="create-branch-headquarters"
-                        />
-                        {formData.isHeadquarters && (
-                            <p className="text-xs text-amber-600 mt-1">
-                                Solo puede haber una casa matriz. Si existe otra, dejará de serlo.
-                            </p>
-                        )}
-                    </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4 border-t border-neutral-200">
-                    <Button
-                        variant="outlined"
-                        onClick={handleClose}
-                        disabled={isSubmitting}
-                    >
-                        Cancelar
-                    </Button>
-                    <Button
-                        type="submit"
-                        disabled={isSubmitting}
-                    >
-                        {isSubmitting ? 'Creando...' : 'Crear Sucursal'}
-                    </Button>
-                </div>
-            </form>
+            <CreateBaseForm
+                fields={fields}
+                values={formData}
+                onChange={handleChange}
+                onSubmit={handleSubmit}
+                isSubmitting={isSubmitting}
+                submitLabel="Crear Sucursal"
+                title="Crear Nueva Sucursal"
+                subtitle="Completa los datos para registrar una nueva sucursal en el sistema"
+                errors={errors}
+                validate={validate}
+                cancelButton={true}
+                cancelButtonText="Cancelar"
+                onCancel={handleClose}
+                data-test-id="create-branch-form"
+            />
         </Dialog>
     );
 };

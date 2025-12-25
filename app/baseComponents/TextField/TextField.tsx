@@ -450,10 +450,10 @@ export const TextField: React.FC<TextFieldProps> = ({
       {/* Placeholder personalizado para campos requeridos */}
       {required && !shrink && showPlaceholder && (
         <div
-          className={`absolute left-3 pointer-events-none text-sm font-light text-gray-400 transition-opacity duration-300 ${shrink ? 'opacity-0' : 'opacity-100'}`}
+          className={`absolute pointer-events-none text-sm font-light text-gray-400 transition-opacity duration-300 ${shrink ? 'opacity-0' : 'opacity-100'}`}
           style={{
             backgroundColor: "var(--color-background)",
-            paddingLeft: ((typeof startIcon === 'string' && startIcon.length > 0) || startAdornment) ? '36px' : '12px',
+            left: ((typeof startIcon === 'string' && startIcon.length > 0) || startAdornment) ? '36px' : '12px',
             paddingRight: (endIcon || (type === "password" && passwordVisibilityToggle)) ? '40px' : '12px',
             top: isTextArea ? '1.25rem' : '50%',
             transform: isTextArea ? 'none' : 'translateY(-50%)'

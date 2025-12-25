@@ -362,28 +362,6 @@ export default function ProductsPage() {
 
     return (
         <div className="p-6 h-full flex flex-col">
-            {/* Filtros */}
-            <div className="flex flex-wrap items-center gap-4 mb-4">
-                <div className="w-48">
-                    <Select
-                        label="Categoría"
-                        options={[{ id: '', label: 'Todas' }, ...categories]}
-                        value={categoryFilter}
-                        onChange={(val) => updateFilter('categoryId', String(val || ''))}
-                        data-test-id="filter-category"
-                    />
-                </div>
-                <div className="w-36">
-                    <Select
-                        label="Estado"
-                        options={statusOptions}
-                        value={statusFilter}
-                        onChange={(val) => updateFilter('status', String(val || ''))}
-                        data-test-id="filter-status"
-                    />
-                </div>
-            </div>
-
             {/* DataGrid - Lista de productos */}
             <div className="flex-1">
                 <DataGrid
@@ -398,6 +376,28 @@ export default function ProductsPage() {
                     expandableRowContent={(row: ProductWithDefaultVariant) => (
                         <VariantsPanel product={row} onUpdate={loadProducts} />
                     )}
+                    headerActions={
+                        <>
+                            <div className="w-48">
+                                <Select
+                                    label="Categoría"
+                                    options={[{ id: '', label: 'Todas' }, ...categories]}
+                                    value={categoryFilter}
+                                    onChange={(val) => updateFilter('categoryId', String(val || ''))}
+                                    data-test-id="filter-category"
+                                />
+                            </div>
+                            <div className="w-36">
+                                <Select
+                                    label="Estado"
+                                    options={statusOptions}
+                                    value={statusFilter}
+                                    onChange={(val) => updateFilter('status', String(val || ''))}
+                                    data-test-id="filter-status"
+                                />
+                            </div>
+                        </>
+                    }
                 />
             </div>
 
