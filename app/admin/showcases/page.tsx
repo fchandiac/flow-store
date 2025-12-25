@@ -120,6 +120,11 @@ function LocationPickerShowcase() {
                                             <td className="p-2 text-muted-foreground">'none' | 'sm' | 'md' | 'lg' | 'full'</td>
                                             <td className="p-2">Border radius (default: 'md')</td>
                                         </tr>
+                                        <tr className="border-b border-gray-100">
+                                            <td className="p-2 font-mono text-primary">draggable</td>
+                                            <td className="p-2 text-muted-foreground">boolean</td>
+                                            <td className="p-2">Permite arrastrar el marcador (default: true)</td>
+                                        </tr>
                                         <tr>
                                             <td className="p-2 font-mono text-primary">className</td>
                                             <td className="p-2 text-muted-foreground">string</td>
