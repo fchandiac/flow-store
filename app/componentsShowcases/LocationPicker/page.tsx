@@ -191,159 +191,178 @@ function LocationPickerShowcaseInner({ isElectron }: { isElectron: boolean }) {
           </Alert>
         )}
 
-        {/* Basic Usage */}
+        {/* Mode Examples */}
         <div className="bg-white rounded-lg border border-gray-300 p-8 mb-8">
           <h2 className="text-2xl font-semibold mb-6" style={{ color: 'var(--color-primary)' }}>
-            Uso Básico
+            Modos de Operación
           </h2>
-          <div className="space-y-4">
-            {isLoadingLocation ? (
-              <div className="w-full h-96 border border-gray-300 rounded-lg flex items-center justify-center bg-gray-50">
-                <DotProgress />
-              </div>
-            ) : (
-              <LocationPicker
-                onChange={handleLocationChange}
-                initialLat={initialLocation.lat}
-                initialLng={initialLocation.lng}
-              />
-            )}
+          
+          {/* Viewer Mode */}
+          <div className="mb-8">
+            <h3 className="text-lg font-medium mb-4">Modo Viewer (Solo Visualización)</h3>
+            <p className="text-sm mb-4" style={{ color: 'var(--color-muted)' }}>
+              Modo de solo lectura para mostrar ubicaciones sin posibilidad de edición.
+            </p>
+            <LocationPicker
+              mode="viewer"
+              initialLat={-33.4489}
+              initialLng={-70.6693}
+              zoom={12}
+            />
+          </div>
+
+          {/* Edit Mode */}
+          <div className="mb-8">
+            <h3 className="text-lg font-medium mb-4">Modo Edit (Edición con Geolocalización Automática)</h3>
+            <p className="text-sm mb-4" style={{ color: 'var(--color-muted)' }}>
+              Obtiene automáticamente la ubicación actual del usuario al cargar y permite edición manual.
+            </p>
+            <LocationPicker
+              mode="edit"
+              onChange={handleLocationChange}
+              initialLat={initialLocation.lat}
+              initialLng={initialLocation.lng}
+              zoom={13}
+            />
             {selectedLocation && (
-              <div className="mt-4 p-4 bg-gray-100 rounded">
-                <h3 className="font-semibold mb-2">Ubicación Seleccionada:</h3>
-                <p>Latitud: {selectedLocation.lat.toFixed(6)}</p>
-                <p>Longitud: {selectedLocation.lng.toFixed(6)}</p>
+              <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded">
+                <h4 className="font-semibold mb-2 text-blue-800">Ubicación Editada:</h4>
+                <p className="text-blue-700">Latitud: {selectedLocation.lat.toFixed(6)}</p>
+                <p className="text-blue-700">Longitud: {selectedLocation.lng.toFixed(6)}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Update Mode */}
+          <div className="mb-8">
+            <h3 className="text-lg font-medium mb-4">Modo Update (Actualización desde Props)</h3>
+            <p className="text-sm mb-4" style={{ color: 'var(--color-muted)' }}>
+              Recibe una ubicación externa por props y permite editarla. Útil para formularios de edición.
+            </p>
+            <LocationPicker
+              mode="update"
+              externalPosition={{ lat: -36.1431, lng: -71.8267 }}
+              onChange={handleLocationChangeParral}
+              zoom={14}
+            />
+            {selectedLocationParral && (
+              <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded">
+                <h4 className="font-semibold mb-2 text-green-800">Ubicación Actualizada:</h4>
+                <p className="text-green-700">Latitud: {selectedLocationParral.lat.toFixed(6)}</p>
+                <p className="text-green-700">Longitud: {selectedLocationParral.lng.toFixed(6)}</p>
               </div>
             )}
           </div>
         </div>
 
-        {/* Preloaded Location Example */}
-        <div className="bg-white rounded-lg border border-gray-300 p-8 mb-8">
-          <h2 className="text-2xl font-semibold mb-6" style={{ color: 'var(--color-primary)' }}>
-            Con Ubicación Precargada (Parral, Maule)
-          </h2>
-          <div className="space-y-4">
-            <LocationPicker
-              onChange={handleLocationChangeParral}
-              initialLat={-36.1431}
-              initialLng={-71.8267}
-            />
-            {selectedLocationParral && (
-              <div className="mt-4 p-4 bg-gray-100 rounded">
-                <h3 className="font-semibold mb-2">Ubicación Seleccionada:</h3>
-                <p>Latitud: {selectedLocationParral.lat.toFixed(6)}</p>
-                <p>Longitud: {selectedLocationParral.lng.toFixed(6)}</p>
-              </div>
-            )}
-            <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
-              Este mapa se inicializa automáticamente centrado en Parral, Región del Maule, Chile.
-            </p>
-          </div>
-        </div>
 
         {/* Usage Examples */}
         <div className="bg-white rounded-lg border border-gray-300 p-8 mb-8">
           <h2 className="text-xl font-semibold mb-6" style={{ color: 'var(--color-primary)' }}>
-            Ejemplos de Uso
+            Ejemplos de Código
           </h2>
 
           <div className="space-y-8">
             <div>
-              <h3 className="font-semibold mb-3">Uso Básico</h3>
+              <h3 className="font-semibold mb-3">Modo Viewer (Solo Lectura)</h3>
+              <pre className="bg-gray-100 p-4 rounded overflow-x-auto text-xs mb-2">
+{`import LocationPicker from '@/app/baseComponents/LocationPicker/LocationPicker';
+
+function ViewLocation() {
+  return (
+    <LocationPicker
+      mode="viewer"
+      initialLat={-33.4489}
+      initialLng={-70.6693}
+      zoom={12}
+    />
+  );
+}`}
+              </pre>
+              <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
+                Muestra una ubicación sin posibilidad de edición. Ideal para vistas de detalle.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-3">Modo Edit (Creación con Geolocalización)</h3>
               <pre className="bg-gray-100 p-4 rounded overflow-x-auto text-xs mb-2">
 {`import { useState } from 'react';
 import LocationPicker from '@/app/baseComponents/LocationPicker/LocationPicker';
 
-function MyComponent() {
-  const [location, setLocation] = useState(null);
+function CreateLocation() {
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   return (
     <LocationPicker
+      mode="edit"
       onChange={setLocation}
-    />
-  );
-}`}
-              </pre>
-              <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
-                Componente básico que permite seleccionar una ubicación haciendo clic en el mapa.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-3">Con Ubicación Actual</h3>
-              <pre className="bg-gray-100 p-4 rounded overflow-x-auto text-xs mb-2">
-{`import { useState, useEffect } from 'react';
-import LocationPicker from '@/app/baseComponents/LocationPicker/LocationPicker';
-
-function MyComponent() {
-  const [currentLocation, setCurrentLocation] = useState({ lat: -33.4489, lng: -70.6693 });
-
-  useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setCurrentLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude
-          });
-        },
-        (error) => console.warn('Geolocalización no disponible:', error)
-      );
-    }
-  }, []);
-
-  return (
-    <LocationPicker
-      onChange={(coords) => console.log(coords)}
-      initialLat={currentLocation.lat}
-      initialLng={currentLocation.lng}
-    />
-  );
-}`}
-              </pre>
-              <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
-                Obtiene automáticamente la ubicación actual del usuario usando la Geolocation API nativa del navegador.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="font-semibold mb-3">Con Ubicación Inicial Personalizada</h3>
-              <pre className="bg-gray-100 p-4 rounded overflow-x-auto text-xs mb-2">
-{`import LocationPicker from '@/app/baseComponents/LocationPicker/LocationPicker';
-
-function MyComponent() {
-  return (
-    <LocationPicker
-      onChange={(coords) => console.log(coords)}
       initialLat={-33.4489}
       initialLng={-70.6693}
+      zoom={13}
     />
   );
 }`}
               </pre>
               <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
-                Inicializa el mapa centrado en coordenadas específicas (Santiago de Chile en este ejemplo).
+                Crea nuevas ubicaciones obteniendo automáticamente la ubicación actual del usuario.
               </p>
             </div>
 
             <div>
-              <h3 className="font-semibold mb-3">Con Ubicación Precargada (Parral, Maule)</h3>
+              <h3 className="font-semibold mb-3">Modo Update (Edición de Ubicación Existente)</h3>
               <pre className="bg-gray-100 p-4 rounded overflow-x-auto text-xs mb-2">
-{`import LocationPicker from '@/app/baseComponents/LocationPicker/LocationPicker';
+{`import { useState } from 'react';
+import LocationPicker from '@/app/baseComponents/LocationPicker/LocationPicker';
 
-function MyComponent() {
+function EditLocation({ existingLocation }: { existingLocation: { lat: number; lng: number } }) {
+  const [location, setLocation] = useState(existingLocation);
+
   return (
     <LocationPicker
-      onChange={(coords) => console.log(coords)}
-      initialLat={-36.1431}
-      initialLng={-71.8267}
+      mode="update"
+      externalPosition={existingLocation}
+      onChange={setLocation}
+      zoom={14}
     />
   );
 }`}
               </pre>
               <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
-                Inicializa el mapa centrado en Parral, Región del Maule, Chile. Útil para aplicaciones que necesitan ubicaciones específicas predefinidas.
+                Edita una ubicación existente recibida por props. Útil en formularios de edición.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold mb-3">Props Comunes</h3>
+              <pre className="bg-gray-100 p-4 rounded overflow-x-auto text-xs mb-2">
+{`interface LocationPickerProps {
+  // Modo de operación
+  mode?: 'viewer' | 'edit' | 'update';
+  
+  // Callbacks
+  onChange?: (position: { lat: number; lng: number } | null) => void;
+  
+  // Posicionamiento
+  initialLat?: number;
+  initialLng?: number;
+  externalPosition?: { lat: number; lng: number };
+  
+  // Configuración visual
+  zoom?: number;
+  height?: number; // en vh
+  variant?: 'flat' | 'outlined';
+  rounded?: 'none' | 'sm' | 'md' | 'lg' | 'full';
+  
+  // Comportamiento
+  draggable?: boolean;
+  
+  // Estilos
+  className?: string;
+}`}
+              </pre>
+              <p className="text-sm" style={{ color: 'var(--color-muted)' }}>
+                Interface completa del componente con todas las props disponibles.
               </p>
             </div>
           </div>

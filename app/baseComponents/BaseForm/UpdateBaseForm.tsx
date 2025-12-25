@@ -167,8 +167,8 @@ const UpdateBaseForm: React.FC<UpdateBaseFormProps> = ({
 			const coordinates = isLatLng(fieldValue) ? fieldValue : { lat: 0, lng: 0 };
 			return (
 				<LocationPickerWrapper
-					initialLat={coordinates.lat}
-					initialLng={coordinates.lng}
+					mode="update"
+					externalPosition={coordinates}
 					onChange={(coords: { lat: number; lng: number } | null) => handleChange(field.name, coords ?? coordinates)}
 				/>
 			);

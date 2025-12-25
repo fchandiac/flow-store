@@ -108,16 +108,17 @@ const CreateBaseForm: React.FC<CreateBaseFormProps> = ({
 
 	// Función para renderizar un campo individual
 	const renderField = (field: BaseFormField) => (
-		<div key={field.name} className="mb-0">
+		<div key={field.name} className={field.type === "location" ? "mb-6" : "mb-0"}>
 			{field.type === "location" ? (
 				<div>
 					<label className="block text-sm font-medium text-gray-700 mb-2">
 						{field.label}
 					</label>
-					<div className="h-[250px]">
+					<div className="relative z-10">
 						<LocationPickerWrapper
-							initialLat={values[field.name]?.lat}
-							initialLng={values[field.name]?.lng}
+							mode="edit"
+							initialLat={values[field.name]?.lat || -33.4489}
+							initialLng={values[field.name]?.lng || -70.6693}
 							onChange={coords => onChange(field.name, coords)}
 						/>
 					</div>

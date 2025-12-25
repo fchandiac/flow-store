@@ -138,6 +138,7 @@ const CreateBranchDialog: React.FC<CreateBranchDialogProps> = ({
             title=""
             hideActions={true}
             data-test-id={dataTestId}
+            scroll='body'
         >
             <CreateBaseForm
                 fields={fields}

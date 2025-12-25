@@ -51,7 +51,7 @@ const BranchCard: React.FC<BranchCardProps> = ({ branch, 'data-test-id': dataTes
                     <LocationPickerWrapper
                         initialLat={branch.location.lat}
                         initialLng={branch.location.lng}
-                        viewOnly={true}
+                        mode="viewer"
                         variant="flat"
                         rounded="none"
                         zoom={15}
