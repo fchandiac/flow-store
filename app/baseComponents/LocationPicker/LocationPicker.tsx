@@ -271,6 +271,23 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
     return null;
   };
 
+  // Component to handle map centering when position changes
+  const MapCenterController = () => {
+    const map = (require('react-leaflet') as any).useMap();
+    
+    useEffect(() => {
+      if (position && map) {
+        // Centrar el mapa en la nueva posición con animación suave
+        map.flyTo([position.lat, position.lng], zoom, {
+          animate: true,
+          duration: 1.5
+        });
+      }
+    }, [position, map]);
+    
+    return null;
+  };
+
   const containerClasses = [
     'location-container overflow-hidden relative',
     variantClasses[variant],
@@ -335,6 +352,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {isEditable && <MapEvents />}
+        <MapCenterController />
         {position && (
           <DraggableMarker 
             position={position}
