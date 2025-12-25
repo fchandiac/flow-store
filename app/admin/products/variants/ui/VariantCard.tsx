@@ -69,12 +69,16 @@ const VariantCard: React.FC<VariantCardProps> = ({
                     <div className="flex items-center gap-1 flex-shrink-0">
                         <IconButton
                             icon="edit"
+                            variant="basicSecondary"
+                            size="xs"
                             onClick={() => setOpenUpdateDialog(true)}
                             data-test-id={`edit-variant-${variant.id}`}
                         />
                         {!variant.isDefault && (
                             <IconButton
                                 icon="delete"
+                                variant="basicSecondary"
+                                size="xs"
                                 onClick={() => setOpenDeleteDialog(true)}
                                 data-test-id={`delete-variant-${variant.id}`}
                             />

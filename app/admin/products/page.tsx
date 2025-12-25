@@ -6,7 +6,8 @@ import DataGrid, { DataGridColumn } from '@/app/baseComponents/DataGrid/DataGrid
 import Select, { Option } from '@/app/baseComponents/Select/Select';
 import Badge from '@/app/baseComponents/Badge/Badge';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
-import { getProducts, ProductWithDefaultVariant } from '@/app/actions/products';
+import { Button } from '@/app/baseComponents/Button/Button';
+import { getProducts, ProductWithDefaultVariant, VariantSummary } from '@/app/actions/products';
 import { getCategories } from '@/app/actions/categories';
 import { ProductType } from '@/data/entities/Product';
 import { 
@@ -16,6 +17,119 @@ import {
     type ProductToEdit,
     type ProductToDelete 
 } from './ui';
+import {
+    VariantCard,
+    CreateVariantDialog,
+    type VariantType
+} from './variants/ui';
+
+/**
+ * Convierte VariantSummary a VariantType para usar los componentes existentes
+ */
+const toVariantType = (variant: VariantSummary, productId: string): VariantType => ({
+    id: variant.id,
+    productId,
+    sku: variant.sku,
+    barcode: variant.barcode,
+    basePrice: variant.basePrice,
+    baseCost: variant.baseCost,
+    unitOfMeasure: variant.unitOfMeasure,
+    attributeValues: variant.attributeValues,
+    displayName: variant.attributeValues && Object.keys(variant.attributeValues).length > 0
+        ? Object.values(variant.attributeValues).join(', ')
+        : 'Default',
+    trackInventory: true,
+    allowNegativeStock: false,
+    isDefault: variant.isDefault,
+    isActive: variant.isActive
+});
+
+/**
+ * Panel expandible con UI completa de variantes (CRUD)
+ */
+const VariantsPanel = ({ 
+    product, 
+    onUpdate 
+}: { 
+    product: ProductWithDefaultVariant;
+    onUpdate: () => void;
+}) => {
+    const [openCreateDialog, setOpenCreateDialog] = useState(false);
+
+    if (!product.variants || product.variants.length === 0) {
+        return (
+            <div className="text-center py-6 text-neutral-500">
+                <span className="material-symbols-outlined mb-2" style={{ fontSize: '2rem' }}>
+                    style
+                </span>
+                <p>Este producto no tiene variantes</p>
+                <p className="text-sm mt-1">Agrega variantes como tallas, colores o materiales</p>
+                <Button
+                    variant="outlined"
+                    size="sm"
+                    className="mt-4"
+                    onClick={() => setOpenCreateDialog(true)}
+                >
+                    <span className="material-symbols-outlined mr-1" style={{ fontSize: '1rem' }}>
+                        add
+                    </span>
+                    Agregar Variante
+                </Button>
+                <CreateVariantDialog
+                    open={openCreateDialog}
+                    onClose={() => {
+                        setOpenCreateDialog(false);
+                        onUpdate();
+                    }}
+                    productId={product.id}
+                    productName={product.name}
+                />
+            </div>
+        );
+    }
+
+    return (
+        <>
+            {/* Header con botón agregar */}
+            <div className="flex justify-between items-center mb-4">
+                <h4 className="text-sm font-medium text-neutral-600">
+                    Variantes del producto ({product.variants.length})
+                </h4>
+                <Button
+                    variant="outlined"
+                    size="sm"
+                    onClick={() => setOpenCreateDialog(true)}
+                >
+                    <span className="material-symbols-outlined mr-1" style={{ fontSize: '1rem' }}>
+                        add
+                    </span>
+                    Agregar Variante
+                </Button>
+            </div>
+
+            {/* Grid de variantes */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {product.variants.map((variant) => (
+                    <VariantCard
+                        key={variant.id}
+                        variant={toVariantType(variant, product.id)}
+                        data-test-id={`variant-card-${variant.id}`}
+                    />
+                ))}
+            </div>
+
+            <CreateVariantDialog
+                open={openCreateDialog}
+                onClose={() => {
+                    setOpenCreateDialog(false);
+                    onUpdate();
+                }}
+                productId={product.id}
+                productName={product.name}
+            />
+        </>
+    );
+};
 
 interface CategoryOption extends Option {
     id: string;
@@ -146,7 +260,7 @@ export default function ProductsPage() {
                         <span className="font-medium text-foreground">{row.name}</span>
                         {row.hasVariants && (
                             <Badge variant="info">
-                                {row.variantCount} variantes
+                                {row.variantCount}
                             </Badge>
                         )}
                     </div>
@@ -223,14 +337,14 @@ export default function ProductsPage() {
                     <IconButton
                         icon="edit"
                         variant="basicSecondary"
-                        size="sm"
+                        size="xs"
                         onClick={() => handleEdit(row)}
                         title="Editar"
                     />
                     <IconButton
                         icon="delete"
                         variant="basicSecondary"
-                        size="sm"
+                        size="xs"
                         onClick={() => handleDeleteClick(row)}
                         title="Eliminar"
                     />
@@ -279,7 +393,11 @@ export default function ProductsPage() {
                     totalRows={totalRows}
                     onAddClick={() => setCreateDialogOpen(true)}
                     data-test-id="products-grid"
-                    height="calc(100vh - 280px)"
+                    height="80vh"
+                    expandable={true}
+                    expandableRowContent={(row: ProductWithDefaultVariant) => (
+                        <VariantsPanel product={row} onUpdate={loadProducts} />
+                    )}
                 />
             </div>
 

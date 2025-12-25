@@ -3,6 +3,7 @@ import React from 'react';
 import { useState } from 'react';
 import { calculateColumnStyles } from '../utils/columnStyles';
 import type { DataGridColumn } from '../DataGrid';
+import IconButton from '../../IconButton/IconButton';
 
 interface BodyProps {
   columns?: DataGridColumn[];
@@ -44,19 +45,21 @@ const Body: React.FC<BodyProps> = ({
               {/* Expand/Collapse button */}
               {expandable && (
                 <div
-                  className="w-10 min-w-[40px] px-1 py-2 border-b border-gray-200 flex items-center justify-center cursor-pointer"
+                  className="w-10 min-w-[40px] px-1 py-1 border-b border-gray-200 flex items-center justify-center"
                   style={{
                     backgroundColor: hoveredRowId === rowId ? 'var(--color-hover, #f5f5f5)' : 'transparent',
                   }}
                   onMouseEnter={() => setHoveredRowId(rowId)}
                   onMouseLeave={() => setHoveredRowId(null)}
-                  onClick={() => onToggleExpand?.(rowId)}
                 >
-                  <span 
-                    className={`material-icons text-gray-500 text-lg transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
-                  >
-                    expand_more
-                  </span>
+                  <IconButton
+                    icon="expand_more"
+                    variant="basic"
+                    size="xs"
+                    onClick={() => onToggleExpand?.(rowId)}
+                    className={`transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`}
+                    ariaLabel={isExpanded ? 'Colapsar fila' : 'Expandir fila'}
+                  />
                 </div>
               )}
               {visibleColumns.map((column, colIndex) => {
@@ -70,7 +73,7 @@ const Body: React.FC<BodyProps> = ({
                   return (
                     <div
                       key={`${column.field}-${rowId}`}
-                      className={`px-3 py-2 border-b border-gray-200 text-xs flex items-center ${
+                      className={`px-3 py-1 border-b border-gray-200 text-xs flex items-center ${
                         align === 'center' ? 'justify-center' : align === 'right' ? 'justify-end' : 'justify-start'
                       }`}
                       style={{
@@ -90,7 +93,7 @@ const Body: React.FC<BodyProps> = ({
                   return (
                     <div
                       key={`${column.field}-${rowId}`}
-                      className={`px-3 py-2 border-b border-gray-200 text-xs flex items-center ${
+                      className={`px-3 py-1 border-b border-gray-200 text-xs flex items-center ${
                         align === 'center' ? 'justify-center' : align === 'right' ? 'justify-end' : 'justify-start'
                       }`}
                       style={{
@@ -108,7 +111,7 @@ const Body: React.FC<BodyProps> = ({
                 return (
                   <div
                     key={`${column.field}-${rowId}`}
-                    className={`px-3 py-2 border-b border-gray-200 text-xs flex items-center ${
+                    className={`px-3 py-1 border-b border-gray-200 text-xs flex items-center ${
                       align === 'center' ? 'justify-center' : align === 'right' ? 'justify-end' : 'justify-start'
                     }`}
                     style={{

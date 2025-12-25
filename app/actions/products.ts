@@ -76,6 +76,21 @@ interface ProductResult {
 }
 
 /**
+ * Resumen de variante para mostrar en panel expandible
+ */
+export interface VariantSummary {
+    id: string;
+    sku: string;
+    barcode?: string;
+    basePrice: number;
+    baseCost: number;
+    unitOfMeasure: string;
+    attributeValues?: Record<string, string>;
+    isDefault: boolean;
+    isActive: boolean;
+}
+
+/**
  * Producto con datos de su variante default (para productos simples)
  */
 export interface ProductWithDefaultVariant {
@@ -99,6 +114,8 @@ export interface ProductWithDefaultVariant {
     baseCost?: number;
     unitOfMeasure?: string;
     variantCount: number;
+    // Todas las variantes del producto
+    variants: VariantSummary[];
 }
 
 /**
@@ -173,7 +190,19 @@ export async function getProducts(params?: GetProductsParams): Promise<ProductWi
             unitOfMeasure: defaultVariant?.unitOfMeasure,
             trackInventory: defaultVariant?.trackInventory,
             allowNegativeStock: defaultVariant?.allowNegativeStock,
-            variantCount: variants.length
+            variantCount: variants.length,
+            // Todas las variantes
+            variants: variants.map(v => ({
+                id: v.id,
+                sku: v.sku,
+                barcode: v.barcode,
+                basePrice: Number(v.basePrice),
+                baseCost: Number(v.baseCost),
+                unitOfMeasure: v.unitOfMeasure,
+                attributeValues: v.attributeValues,
+                isDefault: v.isDefault,
+                isActive: v.isActive
+            }))
         });
     }
     
@@ -548,7 +577,18 @@ export async function searchProducts(query: string, limit: number = 20): Promise
             unitOfMeasure: defaultVariant?.unitOfMeasure,
             trackInventory: defaultVariant?.trackInventory,
             allowNegativeStock: defaultVariant?.allowNegativeStock,
-            variantCount: variants.length
+            variantCount: variants.length,
+            variants: variants.map(v => ({
+                id: v.id,
+                sku: v.sku,
+                barcode: v.barcode,
+                basePrice: Number(v.basePrice),
+                baseCost: Number(v.baseCost),
+                unitOfMeasure: v.unitOfMeasure,
+                attributeValues: v.attributeValues,
+                isDefault: v.isDefault,
+                isActive: v.isActive
+            }))
         });
     }
     

@@ -64,6 +64,11 @@ const menuItems: SideBarMenuItem[] = [
         label: 'Auditoría', 
         url: '/admin/audit'
     },
+    { 
+        id: 'showcases',
+        label: 'Showcases', 
+        url: '/admin/showcases'
+    },
 ];
 
 export default function AdminLayout({
