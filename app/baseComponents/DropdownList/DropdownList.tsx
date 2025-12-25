@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 // Option row style for dropdown
 export const dropdownOptionClass = "dropdown-option";
@@ -14,6 +15,10 @@ interface DropdownListProps {
   highlightedIndex?: number;
   onHoverChange?: (index: number) => void;
   renderItems?: boolean; // If true, DropdownList renders items internally
+  // Reference to the trigger element for portal positioning
+  anchorRef?: React.RefObject<HTMLElement>;
+  // Use portal mode (renders at body level to escape overflow constraints)
+  usePortal?: boolean;
 }
 
 const DropdownList: React.FC<DropdownListProps> = ({ 
@@ -25,14 +30,58 @@ const DropdownList: React.FC<DropdownListProps> = ({
   dropUp = false,
   highlightedIndex = -1,
   onHoverChange,
+  anchorRef,
+  usePortal = false,
 }) => {
   const [hoveredIndex, setHoveredIndex] = useState<number>(-1);
+  const [position, setPosition] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [mounted, setMounted] = useState(false);
+  const dropdownRef = useRef<HTMLUListElement>(null);
+
+  // Handle client-side mounting for portal
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Calculate position when using portal mode
+  useEffect(() => {
+    if (!usePortal || !open || !anchorRef?.current) {
+      setPosition(null);
+      return;
+    }
+
+    const updatePosition = () => {
+      if (!anchorRef.current) return;
+      
+      const rect = anchorRef.current.getBoundingClientRect();
+      const dropdownHeight = dropdownRef.current?.offsetHeight || 224; // max-h-56 = 224px
+      const viewportHeight = window.innerHeight;
+      
+      // Check if dropdown would overflow bottom of viewport
+      const spaceBelow = viewportHeight - rect.bottom;
+      const spaceAbove = rect.top;
+      const shouldDropUp = dropUp || (spaceBelow < dropdownHeight && spaceAbove > spaceBelow);
+      
+      setPosition({
+        top: shouldDropUp ? rect.top - dropdownHeight - 4 : rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+      });
+    };
+
+    updatePosition();
+
+    // Update position on scroll or resize
+    window.addEventListener('scroll', updatePosition, true);
+    window.addEventListener('resize', updatePosition);
+    
+    return () => {
+      window.removeEventListener('scroll', updatePosition, true);
+      window.removeEventListener('resize', updatePosition);
+    };
+  }, [open, usePortal, anchorRef, dropUp]);
 
   if (!open) return null;
-
-  const dropStyle = dropUp 
-    ? { bottom: '100%', top: 'auto', marginBottom: '0.25rem', marginTop: 0 } 
-    : { marginTop: '0.25rem' };
 
   const handleMouseEnter = (index: number) => {
     setHoveredIndex(index);
@@ -74,15 +123,37 @@ const DropdownList: React.FC<DropdownListProps> = ({
       })
     : children;
 
-  return (
+  // Base styles for non-portal mode
+  const dropStyle = dropUp 
+    ? { bottom: '100%', top: 'auto', marginBottom: '0.25rem', marginTop: 0 } 
+    : { marginTop: '0.25rem' };
+
+  // Portal styles (fixed positioning)
+  const portalStyle: React.CSSProperties = position ? {
+    position: 'fixed',
+    top: position.top,
+    left: position.left,
+    width: position.width,
+    zIndex: 9999, // Maximum z-index to ensure it's above everything
+  } : {};
+
+  const dropdownElement = (
     <ul
-      className={`dropdown-list ${className}`}
-      style={dropUp || Object.keys(style || {}).length > 0 ? { ...dropStyle, ...style } : { ...dropStyle }}
+      ref={dropdownRef}
+      className={`dropdown-list ${usePortal ? 'dropdown-list-portal' : ''} ${className}`}
+      style={usePortal && position ? { ...portalStyle, ...style } : (dropUp || Object.keys(style || {}).length > 0 ? { ...dropStyle, ...style } : { ...dropStyle })}
       data-test-id={testId || "dropdown-list"}
     >
       {childrenWithHover}
     </ul>
   );
+
+  // Use portal for rendering outside the DOM hierarchy
+  if (usePortal && mounted) {
+    return createPortal(dropdownElement, document.body);
+  }
+
+  return dropdownElement;
 };
 
 export default DropdownList;

@@ -13,67 +13,115 @@ interface GetProductsParams {
     categoryId?: string;
     isActive?: boolean;
     productType?: ProductType;
-    includeVariants?: boolean;
 }
 
-interface CreateProductDTO {
+/**
+ * DTO para crear un producto simple (sin variantes múltiples)
+ * Se crea automáticamente una variante "default" con los datos de SKU/precio
+ */
+interface CreateSimpleProductDTO {
     name: string;
-    sku: string;
-    barcode?: string;
     description?: string;
+    brand?: string;
     categoryId?: string;
     productType?: ProductType;
-    unitOfMeasure?: string;
+    taxIds?: string[];
+    imagePath?: string;
+    metadata?: Record<string, any>;
+    // Datos de la variante default
+    sku: string;
+    barcode?: string;
     basePrice: number;
     baseCost?: number;
-    taxIds?: string[];  // Array de IDs de impuestos
+    unitOfMeasure?: string;
     trackInventory?: boolean;
+    allowNegativeStock?: boolean;
     minimumStock?: number;
     maximumStock?: number;
     reorderPoint?: number;
+}
+
+/**
+ * DTO para crear un producto con variantes (hasVariants = true)
+ * NO incluye SKU/precio - esos se agregan después vía variantes
+ */
+interface CreateProductWithVariantsDTO {
+    name: string;
+    description?: string;
+    brand?: string;
+    categoryId?: string;
+    productType?: ProductType;
+    taxIds?: string[];
     imagePath?: string;
-    attributes?: Record<string, any>;
+    metadata?: Record<string, any>;
 }
 
 interface UpdateProductDTO {
     name?: string;
-    sku?: string;
-    barcode?: string;
     description?: string;
+    brand?: string;
     categoryId?: string;
     productType?: ProductType;
-    unitOfMeasure?: string;
-    basePrice?: number;
-    baseCost?: number;
-    taxIds?: string[];  // Array de IDs de impuestos
-    trackInventory?: boolean;
-    minimumStock?: number;
-    maximumStock?: number;
-    reorderPoint?: number;
+    taxIds?: string[];
     imagePath?: string;
-    attributes?: Record<string, any>;
+    metadata?: Record<string, any>;
     isActive?: boolean;
 }
 
 interface ProductResult {
     success: boolean;
     product?: Product;
+    variant?: ProductVariant; // Para productos simples, incluye la variante default
     error?: string;
 }
 
 /**
- * Obtiene productos con filtros opcionales
+ * Producto con datos de su variante default (para productos simples)
  */
-export async function getProducts(params?: GetProductsParams): Promise<Product[]> {
+export interface ProductWithDefaultVariant {
+    id: string;
+    name: string;
+    description?: string;
+    brand?: string;
+    categoryId?: string;
+    categoryName?: string;
+    productType: ProductType;
+    hasVariants: boolean;
+    isActive: boolean;
+    imagePath?: string;
+    createdAt: Date;
+    // Datos de variante default (si es producto simple)
+    sku?: string;
+    trackInventory?: boolean;
+    allowNegativeStock?: boolean;
+    barcode?: string;
+    basePrice?: number;
+    baseCost?: number;
+    unitOfMeasure?: string;
+    variantCount: number;
+}
+
+/**
+ * Obtiene productos con datos de variante default para productos simples
+ */
+export async function getProducts(params?: GetProductsParams): Promise<ProductWithDefaultVariant[]> {
     const ds = await getDb();
-    const repo = ds.getRepository(Product);
+    const productRepo = ds.getRepository(Product);
+    const variantRepo = ds.getRepository(ProductVariant);
     
-    const queryBuilder = repo.createQueryBuilder('product')
+    const queryBuilder = productRepo.createQueryBuilder('product')
+        .leftJoinAndSelect('product.category', 'category')
         .where('product.deletedAt IS NULL');
     
     if (params?.search) {
+        // Buscar en producto y en variantes
         queryBuilder.andWhere(
-            '(product.name LIKE :search OR product.sku LIKE :search OR product.barcode LIKE :search)',
+            `(product.name LIKE :search OR product.brand LIKE :search OR EXISTS (
+                SELECT 1 FROM product_variants pv 
+                WHERE pv.productId = product.id 
+                AND pv.deletedAt IS NULL 
+                AND (pv.sku LIKE :search OR pv.barcode LIKE :search)
+            ))`,
             { search: `%${params.search}%` }
         );
     }
@@ -90,61 +138,154 @@ export async function getProducts(params?: GetProductsParams): Promise<Product[]
         queryBuilder.andWhere('product.productType = :productType', { productType: params.productType });
     }
     
-    if (params?.includeVariants) {
-        queryBuilder.leftJoinAndSelect('product.variants', 'variants', 'variants.deletedAt IS NULL');
-    }
-    
-    queryBuilder.leftJoinAndSelect('product.category', 'category');
     queryBuilder.orderBy('product.name', 'ASC');
     
     const products = await queryBuilder.getMany();
-    return JSON.parse(JSON.stringify(products));
+    
+    // Para cada producto, obtener info de variantes
+    const result: ProductWithDefaultVariant[] = [];
+    
+    for (const product of products) {
+        const variants = await variantRepo.find({
+            where: { productId: product.id, deletedAt: IsNull() },
+            order: { isDefault: 'DESC', sku: 'ASC' }
+        });
+        
+        const defaultVariant = variants.find(v => v.isDefault) || variants[0];
+        
+        result.push({
+            id: product.id,
+            name: product.name,
+            description: product.description,
+            brand: product.brand,
+            categoryId: product.categoryId,
+            categoryName: product.category?.name,
+            productType: product.productType,
+            hasVariants: product.hasVariants,
+            isActive: product.isActive,
+            imagePath: product.imagePath,
+            createdAt: product.createdAt,
+            // Datos de variante default
+            sku: defaultVariant?.sku,
+            barcode: defaultVariant?.barcode,
+            basePrice: defaultVariant ? Number(defaultVariant.basePrice) : undefined,
+            baseCost: defaultVariant ? Number(defaultVariant.baseCost) : undefined,
+            unitOfMeasure: defaultVariant?.unitOfMeasure,
+            trackInventory: defaultVariant?.trackInventory,
+            allowNegativeStock: defaultVariant?.allowNegativeStock,
+            variantCount: variants.length
+        });
+    }
+    
+    return JSON.parse(JSON.stringify(result));
 }
 
 /**
- * Obtiene un producto por ID
+ * Obtiene un producto por ID con sus variantes
  */
-export async function getProductById(id: string): Promise<Product | null> {
+export async function getProductById(id: string): Promise<(Product & { variants?: ProductVariant[] }) | null> {
     const ds = await getDb();
-    const repo = ds.getRepository(Product);
+    const productRepo = ds.getRepository(Product);
+    const variantRepo = ds.getRepository(ProductVariant);
     
-    const product = await repo.findOne({
+    const product = await productRepo.findOne({
         where: { id, deletedAt: IsNull() },
         relations: ['category']
     });
-    return product ? JSON.parse(JSON.stringify(product)) : null;
-}
-
-/**
- * Obtiene un producto por SKU
- */
-export async function getProductBySku(sku: string): Promise<Product | null> {
-    const ds = await getDb();
-    const repo = ds.getRepository(Product);
     
-    const product = await repo.findOne({
-        where: { sku, deletedAt: IsNull() },
-        relations: ['category']
+    if (!product) return null;
+    
+    const variants = await variantRepo.find({
+        where: { productId: id, deletedAt: IsNull() },
+        order: { isDefault: 'DESC', sku: 'ASC' }
     });
-    return product ? JSON.parse(JSON.stringify(product)) : null;
+    
+    return JSON.parse(JSON.stringify({ ...product, variants }));
 }
 
 /**
- * Crea un nuevo producto
+ * Crea un producto simple (una única variante default)
  */
-export async function createProduct(data: CreateProductDTO): Promise<ProductResult> {
-    try {
-        const ds = await getDb();
-        const repo = ds.getRepository(Product);
+export async function createSimpleProduct(data: CreateSimpleProductDTO): Promise<ProductResult> {
+    const ds = await getDb();
+    
+    return await ds.transaction(async (manager) => {
+        const productRepo = manager.getRepository(Product);
+        const variantRepo = manager.getRepository(ProductVariant);
         
         // Verificar SKU único
-        const existingSku = await repo.findOne({
+        const existingSku = await variantRepo.findOne({
             where: { sku: data.sku }
         });
         
         if (existingSku) {
             return { success: false, error: 'El SKU ya está en uso' };
         }
+        
+        // Verificar categoría si se proporciona
+        if (data.categoryId) {
+            const categoryRepo = manager.getRepository(Category);
+            const category = await categoryRepo.findOne({
+                where: { id: data.categoryId, deletedAt: IsNull() }
+            });
+            if (!category) {
+                return { success: false, error: 'Categoría no encontrada' };
+            }
+        }
+        
+        // Crear producto maestro
+        const product = productRepo.create({
+            name: data.name,
+            description: data.description,
+            brand: data.brand,
+            categoryId: data.categoryId,
+            productType: data.productType || ProductType.PHYSICAL,
+            taxIds: data.taxIds,
+            imagePath: data.imagePath,
+            metadata: data.metadata,
+            hasVariants: false, // Producto simple
+            isActive: true
+        });
+        
+        await productRepo.save(product);
+        
+        // Crear variante default
+        const variant = variantRepo.create({
+            productId: product.id,
+            sku: data.sku,
+            barcode: data.barcode,
+            basePrice: data.basePrice,
+            baseCost: data.baseCost || 0,
+            unitOfMeasure: data.unitOfMeasure || 'UN',
+            trackInventory: data.trackInventory ?? true,
+            allowNegativeStock: data.allowNegativeStock ?? false,
+            minimumStock: data.minimumStock || 0,
+            maximumStock: data.maximumStock || 0,
+            reorderPoint: data.reorderPoint || 0,
+            isDefault: true,
+            isActive: true
+        });
+        
+        await variantRepo.save(variant);
+        
+        revalidatePath('/admin/products');
+        
+        return { 
+            success: true, 
+            product: JSON.parse(JSON.stringify(product)),
+            variant: JSON.parse(JSON.stringify(variant))
+        };
+    });
+}
+
+/**
+ * Crea un producto con variantes múltiples
+ * Solo crea el producto maestro, las variantes se agregan después
+ */
+export async function createProductWithVariants(data: CreateProductWithVariantsDTO): Promise<ProductResult> {
+    try {
+        const ds = await getDb();
+        const productRepo = ds.getRepository(Product);
         
         // Verificar categoría si se proporciona
         if (data.categoryId) {
@@ -157,32 +298,25 @@ export async function createProduct(data: CreateProductDTO): Promise<ProductResu
             }
         }
         
-        const product = repo.create({
+        const product = productRepo.create({
             name: data.name,
-            sku: data.sku,
-            barcode: data.barcode,
             description: data.description,
+            brand: data.brand,
             categoryId: data.categoryId,
             productType: data.productType || ProductType.PHYSICAL,
-            unitOfMeasure: data.unitOfMeasure,
-            basePrice: data.basePrice,
-            baseCost: data.baseCost || 0,
-            taxIds: data.taxIds,  // Array de IDs de impuestos
-            trackInventory: data.trackInventory ?? true,
-            minimumStock: data.minimumStock || 0,
-            maximumStock: data.maximumStock || 0,
-            reorderPoint: data.reorderPoint || 0,
+            taxIds: data.taxIds,
             imagePath: data.imagePath,
-            attributes: data.attributes,
+            metadata: data.metadata,
+            hasVariants: true, // Producto con variantes múltiples
             isActive: true
         });
         
-        await repo.save(product);
+        await productRepo.save(product);
         revalidatePath('/admin/products');
         
         return { success: true, product: JSON.parse(JSON.stringify(product)) };
     } catch (error) {
-        console.error('Error creating product:', error);
+        console.error('Error creating product with variants:', error);
         return { 
             success: false, 
             error: error instanceof Error ? error.message : 'Error al crear el producto' 
@@ -191,14 +325,14 @@ export async function createProduct(data: CreateProductDTO): Promise<ProductResu
 }
 
 /**
- * Actualiza un producto
+ * Actualiza un producto maestro
  */
 export async function updateProduct(id: string, data: UpdateProductDTO): Promise<ProductResult> {
     try {
         const ds = await getDb();
-        const repo = ds.getRepository(Product);
+        const productRepo = ds.getRepository(Product);
         
-        const product = await repo.findOne({
+        const product = await productRepo.findOne({
             where: { id, deletedAt: IsNull() }
         });
         
@@ -206,36 +340,18 @@ export async function updateProduct(id: string, data: UpdateProductDTO): Promise
             return { success: false, error: 'Producto no encontrado' };
         }
         
-        // Verificar SKU único si cambia
-        if (data.sku && data.sku !== product.sku) {
-            const existingSku = await repo.findOne({
-                where: { sku: data.sku }
-            });
-            if (existingSku) {
-                return { success: false, error: 'El SKU ya está en uso' };
-            }
-        }
-        
         // Actualizar campos
         if (data.name !== undefined) product.name = data.name;
-        if (data.sku !== undefined) product.sku = data.sku;
-        if (data.barcode !== undefined) product.barcode = data.barcode;
         if (data.description !== undefined) product.description = data.description;
+        if (data.brand !== undefined) product.brand = data.brand;
         if (data.categoryId !== undefined) product.categoryId = data.categoryId;
         if (data.productType !== undefined) product.productType = data.productType;
-        if (data.unitOfMeasure !== undefined) product.unitOfMeasure = data.unitOfMeasure;
-        if (data.basePrice !== undefined) product.basePrice = data.basePrice;
-        if (data.baseCost !== undefined) product.baseCost = data.baseCost;
         if (data.taxIds !== undefined) product.taxIds = data.taxIds;
-        if (data.trackInventory !== undefined) product.trackInventory = data.trackInventory;
-        if (data.minimumStock !== undefined) product.minimumStock = data.minimumStock;
-        if (data.maximumStock !== undefined) product.maximumStock = data.maximumStock;
-        if (data.reorderPoint !== undefined) product.reorderPoint = data.reorderPoint;
         if (data.imagePath !== undefined) product.imagePath = data.imagePath;
-        if (data.attributes !== undefined) product.attributes = data.attributes;
+        if (data.metadata !== undefined) product.metadata = data.metadata;
         if (data.isActive !== undefined) product.isActive = data.isActive;
         
-        await repo.save(product);
+        await productRepo.save(product);
         revalidatePath('/admin/products');
         
         return { success: true, product: JSON.parse(JSON.stringify(product)) };
@@ -249,14 +365,31 @@ export async function updateProduct(id: string, data: UpdateProductDTO): Promise
 }
 
 /**
- * Elimina un producto (soft delete)
+ * Actualiza un producto simple (producto + variante default)
  */
-export async function deleteProduct(id: string): Promise<{ success: boolean; error?: string }> {
-    try {
-        const ds = await getDb();
-        const repo = ds.getRepository(Product);
+export async function updateSimpleProduct(
+    id: string, 
+    productData: UpdateProductDTO,
+    variantData?: {
+        sku?: string;
+        barcode?: string;
+        basePrice?: number;
+        baseCost?: number;
+        unitOfMeasure?: string;
+        trackInventory?: boolean;
+        allowNegativeStock?: boolean;
+        minimumStock?: number;
+        maximumStock?: number;
+        reorderPoint?: number;
+    }
+): Promise<ProductResult> {
+    const ds = await getDb();
+    
+    return await ds.transaction(async (manager) => {
+        const productRepo = manager.getRepository(Product);
+        const variantRepo = manager.getRepository(ProductVariant);
         
-        const product = await repo.findOne({
+        const product = await productRepo.findOne({
             where: { id, deletedAt: IsNull() }
         });
         
@@ -264,7 +397,91 @@ export async function deleteProduct(id: string): Promise<{ success: boolean; err
             return { success: false, error: 'Producto no encontrado' };
         }
         
-        await repo.softRemove(product);
+        // Actualizar producto
+        if (productData.name !== undefined) product.name = productData.name;
+        if (productData.description !== undefined) product.description = productData.description;
+        if (productData.brand !== undefined) product.brand = productData.brand;
+        if (productData.categoryId !== undefined) product.categoryId = productData.categoryId;
+        if (productData.productType !== undefined) product.productType = productData.productType;
+        if (productData.taxIds !== undefined) product.taxIds = productData.taxIds;
+        if (productData.imagePath !== undefined) product.imagePath = productData.imagePath;
+        if (productData.metadata !== undefined) product.metadata = productData.metadata;
+        if (productData.isActive !== undefined) product.isActive = productData.isActive;
+        
+        await productRepo.save(product);
+        
+        // Actualizar variante default si hay datos
+        if (variantData && !product.hasVariants) {
+            const defaultVariant = await variantRepo.findOne({
+                where: { productId: id, isDefault: true, deletedAt: IsNull() }
+            });
+            
+            if (defaultVariant) {
+                // Verificar SKU único si cambia
+                if (variantData.sku && variantData.sku !== defaultVariant.sku) {
+                    const existingSku = await variantRepo.findOne({
+                        where: { sku: variantData.sku }
+                    });
+                    if (existingSku) {
+                        return { success: false, error: 'El SKU ya está en uso' };
+                    }
+                }
+                
+                if (variantData.sku !== undefined) defaultVariant.sku = variantData.sku;
+                if (variantData.barcode !== undefined) defaultVariant.barcode = variantData.barcode;
+                if (variantData.basePrice !== undefined) defaultVariant.basePrice = variantData.basePrice;
+                if (variantData.baseCost !== undefined) defaultVariant.baseCost = variantData.baseCost;
+                if (variantData.unitOfMeasure !== undefined) defaultVariant.unitOfMeasure = variantData.unitOfMeasure;
+                if (variantData.trackInventory !== undefined) defaultVariant.trackInventory = variantData.trackInventory;
+                if (variantData.allowNegativeStock !== undefined) defaultVariant.allowNegativeStock = variantData.allowNegativeStock;
+                if (variantData.minimumStock !== undefined) defaultVariant.minimumStock = variantData.minimumStock;
+                if (variantData.maximumStock !== undefined) defaultVariant.maximumStock = variantData.maximumStock;
+                if (variantData.reorderPoint !== undefined) defaultVariant.reorderPoint = variantData.reorderPoint;
+                
+                await variantRepo.save(defaultVariant);
+                
+                return { 
+                    success: true, 
+                    product: JSON.parse(JSON.stringify(product)),
+                    variant: JSON.parse(JSON.stringify(defaultVariant))
+                };
+            }
+        }
+        
+        revalidatePath('/admin/products');
+        
+        return { success: true, product: JSON.parse(JSON.stringify(product)) };
+    });
+}
+
+/**
+ * Elimina un producto (soft delete) y todas sus variantes
+ */
+export async function deleteProduct(id: string): Promise<{ success: boolean; error?: string }> {
+    try {
+        const ds = await getDb();
+        const productRepo = ds.getRepository(Product);
+        const variantRepo = ds.getRepository(ProductVariant);
+        
+        const product = await productRepo.findOne({
+            where: { id, deletedAt: IsNull() }
+        });
+        
+        if (!product) {
+            return { success: false, error: 'Producto no encontrado' };
+        }
+        
+        // Soft delete variantes
+        const variants = await variantRepo.find({
+            where: { productId: id, deletedAt: IsNull() }
+        });
+        
+        for (const variant of variants) {
+            await variantRepo.softRemove(variant);
+        }
+        
+        // Soft delete producto
+        await productRepo.softRemove(product);
         revalidatePath('/admin/products');
         
         return { success: true };
@@ -278,22 +495,62 @@ export async function deleteProduct(id: string): Promise<{ success: boolean; err
 }
 
 /**
- * Busca productos por texto
+ * Busca productos/variantes por texto
  */
-export async function searchProducts(query: string, limit: number = 20): Promise<Product[]> {
+export async function searchProducts(query: string, limit: number = 20): Promise<ProductWithDefaultVariant[]> {
     const ds = await getDb();
-    const repo = ds.getRepository(Product);
+    const productRepo = ds.getRepository(Product);
+    const variantRepo = ds.getRepository(ProductVariant);
     
-    const products = await repo.createQueryBuilder('product')
+    const products = await productRepo.createQueryBuilder('product')
+        .leftJoinAndSelect('product.category', 'category')
         .where('product.deletedAt IS NULL')
         .andWhere('product.isActive = true')
         .andWhere(
-            '(product.name LIKE :query OR product.sku LIKE :query OR product.barcode LIKE :query)',
+            `(product.name LIKE :query OR product.brand LIKE :query OR EXISTS (
+                SELECT 1 FROM product_variants pv 
+                WHERE pv.productId = product.id 
+                AND pv.deletedAt IS NULL 
+                AND (pv.sku LIKE :query OR pv.barcode LIKE :query)
+            ))`,
             { query: `%${query}%` }
         )
-        .leftJoinAndSelect('product.category', 'category')
         .orderBy('product.name', 'ASC')
         .limit(limit)
         .getMany();
-    return JSON.parse(JSON.stringify(products));
+    
+    const result: ProductWithDefaultVariant[] = [];
+    
+    for (const product of products) {
+        const variants = await variantRepo.find({
+            where: { productId: product.id, deletedAt: IsNull() },
+            order: { isDefault: 'DESC', sku: 'ASC' }
+        });
+        
+        const defaultVariant = variants.find(v => v.isDefault) || variants[0];
+        
+        result.push({
+            id: product.id,
+            name: product.name,
+            description: product.description,
+            brand: product.brand,
+            categoryId: product.categoryId,
+            categoryName: product.category?.name,
+            productType: product.productType,
+            hasVariants: product.hasVariants,
+            isActive: product.isActive,
+            imagePath: product.imagePath,
+            createdAt: product.createdAt,
+            sku: defaultVariant?.sku,
+            barcode: defaultVariant?.barcode,
+            basePrice: defaultVariant ? Number(defaultVariant.basePrice) : undefined,
+            baseCost: defaultVariant ? Number(defaultVariant.baseCost) : undefined,
+            unitOfMeasure: defaultVariant?.unitOfMeasure,
+            trackInventory: defaultVariant?.trackInventory,
+            allowNegativeStock: defaultVariant?.allowNegativeStock,
+            variantCount: variants.length
+        });
+    }
+    
+    return JSON.parse(JSON.stringify(result));
 }

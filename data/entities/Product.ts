@@ -17,6 +17,11 @@ export enum ProductType {
     DIGITAL = 'DIGITAL',
 }
 
+/**
+ * Product es el producto maestro/padre.
+ * NO contiene SKU, precio ni costo - esos datos viven en ProductVariant.
+ * Todo producto debe tener al menos una variante (se crea automáticamente para productos simples).
+ */
 @Entity("products")
 export class Product {
     @PrimaryGeneratedColumn("uuid")
@@ -28,46 +33,21 @@ export class Product {
     @Column({ type: 'varchar', length: 255 })
     name!: string;
 
-    @Column({ type: 'varchar', length: 100, unique: true })
-    sku!: string;
-
-    @Column({ type: 'varchar', length: 50, nullable: true })
-    barcode?: string;
-
     @Column({ type: 'text', nullable: true })
     description?: string;
+
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    brand?: string;
 
     @Column({ type: 'enum', enum: ProductType, default: ProductType.PHYSICAL })
     productType!: ProductType;
 
-    @Column({ type: 'varchar', length: 20, nullable: true })
-    unitOfMeasure?: string;
-
-    @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
-    basePrice!: number;
-
-    @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
-    baseCost!: number;
-
     /**
-     * Array de IDs de impuestos aplicables a este producto
-     * Ej: ["uuid-iva-19", "uuid-impuesto-especial"]
+     * Array de IDs de impuestos aplicables por defecto a las variantes
      * Las variantes pueden sobreescribir esto con su propio taxIds
      */
     @Column({ type: 'json', nullable: true })
     taxIds?: string[];
-
-    @Column({ type: 'boolean', default: true })
-    trackInventory!: boolean;
-
-    @Column({ type: 'int', default: 0 })
-    minimumStock!: number;
-
-    @Column({ type: 'int', default: 0 })
-    maximumStock!: number;
-
-    @Column({ type: 'int', default: 0 })
-    reorderPoint!: number;
 
     @Column({ type: 'varchar', length: 500, nullable: true })
     imagePath?: string;
@@ -75,8 +55,15 @@ export class Product {
     @Column({ type: 'boolean', default: true })
     isActive!: boolean;
 
+    /**
+     * Indica si el producto tiene múltiples variantes definidas por el usuario.
+     * Si false, tiene una única variante "default" creada automáticamente.
+     */
+    @Column({ type: 'boolean', default: false })
+    hasVariants!: boolean;
+
     @Column({ type: 'json', nullable: true })
-    attributes?: Record<string, any>;
+    metadata?: Record<string, any>;
 
     @CreateDateColumn()
     createdAt!: Date;

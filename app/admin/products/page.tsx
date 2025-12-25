@@ -6,7 +6,7 @@ import DataGrid, { DataGridColumn } from '@/app/baseComponents/DataGrid/DataGrid
 import Select, { Option } from '@/app/baseComponents/Select/Select';
 import Badge from '@/app/baseComponents/Badge/Badge';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
-import { getProducts } from '@/app/actions/products';
+import { getProducts, ProductWithDefaultVariant } from '@/app/actions/products';
 import { getCategories } from '@/app/actions/categories';
 import { ProductType } from '@/data/entities/Product';
 import { 
@@ -16,23 +16,6 @@ import {
     type ProductToEdit,
     type ProductToDelete 
 } from './ui';
-
-interface ProductRow {
-    id: string;
-    name: string;
-    sku: string;
-    barcode?: string;
-    description?: string;
-    categoryId?: string;
-    categoryName?: string;
-    productType: ProductType;
-    unitOfMeasure?: string;
-    basePrice: number;
-    baseCost: number;
-    trackInventory: boolean;
-    minimumStock: number;
-    isActive: boolean;
-}
 
 interface CategoryOption extends Option {
     id: string;
@@ -44,19 +27,18 @@ interface CategoryOption extends Option {
  * Ruta: /admin/products
  * CRUD de productos con DataGrid
  * 
- * Según guía UI 03-inventario-ui.md:
- * - DataGrid con columnas: Producto, SKU, Categoría, Stock, Precio
- * - Filtros: Categoría, Estado, Storage
- * - Indicadores de stock: ● Verde (normal), ⚠ Amarillo (bajo), ❌ Rojo (sin stock)
- * - Botón "+ Nuevo" para crear
- * - Acciones: Editar, Eliminar
+ * Modelo actualizado:
+ * - Product = datos maestros (nombre, marca, categoría)
+ * - ProductVariant = SKU, precios, inventario
+ * - Productos simples tienen una variante "default" creada automáticamente
+ * - Productos con variantes muestran indicador de cantidad
  */
 export default function ProductsPage() {
     const searchParams = useSearchParams();
     const router = useRouter();
 
     // State
-    const [products, setProducts] = useState<ProductRow[]>([]);
+    const [products, setProducts] = useState<ProductWithDefaultVariant[]>([]);
     const [categories, setCategories] = useState<CategoryOption[]>([]);
     const [totalRows, setTotalRows] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -97,24 +79,8 @@ export default function ProductsPage() {
             if (statusFilter === 'inactive') params.isActive = false;
 
             const data = await getProducts(params);
-            const rows: ProductRow[] = data.map(p => ({
-                id: p.id,
-                name: p.name,
-                sku: p.sku,
-                barcode: p.barcode,
-                description: p.description,
-                categoryId: p.categoryId,
-                categoryName: p.category?.name || '-',
-                productType: p.productType,
-                unitOfMeasure: p.unitOfMeasure,
-                basePrice: Number(p.basePrice),
-                baseCost: Number(p.baseCost),
-                trackInventory: p.trackInventory,
-                minimumStock: p.minimumStock,
-                isActive: p.isActive,
-            }));
-            setProducts(rows);
-            setTotalRows(rows.length);
+            setProducts(data);
+            setTotalRows(data.length);
         } catch (err) {
             console.error('Error loading products:', err);
         } finally {
@@ -127,13 +93,30 @@ export default function ProductsPage() {
     }, [loadProducts]);
 
     // Open edit dialog
-    const handleEdit = (product: ProductRow) => {
-        setProductToEdit(product);
+    const handleEdit = (product: ProductWithDefaultVariant) => {
+        setProductToEdit({
+            id: product.id,
+            name: product.name,
+            description: product.description,
+            brand: product.brand,
+            categoryId: product.categoryId,
+            productType: product.productType,
+            trackInventory: product.trackInventory,
+            allowNegativeStock: product.allowNegativeStock,
+            hasVariants: product.hasVariants,
+            isActive: product.isActive,
+            // Datos de variante default
+            sku: product.sku,
+            barcode: product.barcode,
+            basePrice: product.basePrice,
+            baseCost: product.baseCost,
+            unitOfMeasure: product.unitOfMeasure,
+        });
         setUpdateDialogOpen(true);
     };
 
     // Open delete confirmation
-    const handleDeleteClick = (product: ProductRow) => {
+    const handleDeleteClick = (product: ProductWithDefaultVariant) => {
         setProductToDelete({ id: product.id, name: product.name });
         setDeleteDialogOpen(true);
     };
@@ -150,7 +133,7 @@ export default function ProductsPage() {
         router.replace(`?${params.toString()}`);
     };
 
-    // DataGrid columns - siguiendo guía 03-inventario-ui.md
+    // DataGrid columns
     const columns: DataGridColumn[] = [
         {
             field: 'name',
@@ -159,9 +142,26 @@ export default function ProductsPage() {
             minWidth: 200,
             renderCell: ({ row }) => (
                 <div className="flex flex-col py-1">
-                    <span className="font-medium text-foreground">{row.name}</span>
-                    <span className="text-xs text-muted-foreground">{row.sku}</span>
+                    <div className="flex items-center gap-2">
+                        <span className="font-medium text-foreground">{row.name}</span>
+                        {row.hasVariants && (
+                            <Badge variant="info">
+                                {row.variantCount} variantes
+                            </Badge>
+                        )}
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                        {row.sku || 'Sin SKU (agregar variantes)'}
+                    </span>
                 </div>
+            ),
+        },
+        {
+            field: 'brand',
+            headerName: 'Marca',
+            width: 120,
+            renderCell: ({ value }) => (
+                <span className="text-muted-foreground">{value || '-'}</span>
             ),
         },
         {
@@ -169,6 +169,7 @@ export default function ProductsPage() {
             headerName: 'Categoría',
             flex: 1,
             minWidth: 120,
+            renderCell: ({ value }) => value || '-',
         },
         {
             field: 'basePrice',
@@ -176,8 +177,12 @@ export default function ProductsPage() {
             width: 100,
             align: 'right',
             headerAlign: 'right',
-            renderCell: ({ value }) => (
-                <span className="font-medium">${Number(value).toLocaleString('es-CL')}</span>
+            renderCell: ({ row }) => (
+                row.basePrice !== undefined ? (
+                    <span className="font-medium">${Number(row.basePrice).toLocaleString('es-CL')}</span>
+                ) : (
+                    <span className="text-muted-foreground text-xs">Ver variantes</span>
+                )
             ),
         },
         {
@@ -186,8 +191,12 @@ export default function ProductsPage() {
             width: 100,
             align: 'right',
             headerAlign: 'right',
-            renderCell: ({ value }) => (
-                <span className="text-muted-foreground">${Number(value).toLocaleString('es-CL')}</span>
+            renderCell: ({ row }) => (
+                row.baseCost !== undefined ? (
+                    <span className="text-muted-foreground">${Number(row.baseCost).toLocaleString('es-CL')}</span>
+                ) : (
+                    <span className="text-muted-foreground text-xs">-</span>
+                )
             ),
         },
         {
@@ -239,7 +248,7 @@ export default function ProductsPage() {
 
     return (
         <div className="p-6 h-full flex flex-col">
-            {/* Filtros - según guía: [Categoría ▾] [Estado ▾] */}
+            {/* Filtros */}
             <div className="flex flex-wrap items-center gap-4 mb-4">
                 <div className="w-48">
                     <Select

@@ -4,6 +4,7 @@ import { getDb } from '@/data/db';
 import { PriceList, PriceListType } from '@/data/entities/PriceList';
 import { PriceListItem } from '@/data/entities/PriceListItem';
 import { Product } from '@/data/entities/Product';
+import { ProductVariant } from '@/data/entities/ProductVariant';
 import { revalidatePath } from 'next/cache';
 import { IsNull, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 
@@ -300,12 +301,22 @@ export async function getProductPrice(
         }
     }
     
-    // Fallback: usar precio base del producto
-    const product = await productRepo.findOne({
-        where: { id: productId, deletedAt: IsNull() }
+    // Fallback: usar precio base de la variante default del producto
+    const variantRepo = ds.getRepository(ProductVariant);
+    const defaultVariant = await variantRepo.findOne({
+        where: { productId, isDefault: true, deletedAt: IsNull() }
     });
     
-    return product?.basePrice || null;
+    if (defaultVariant) {
+        return Number(defaultVariant.basePrice);
+    }
+    
+    // Si no hay variante default, buscar cualquier variante
+    const anyVariant = await variantRepo.findOne({
+        where: { productId, deletedAt: IsNull() }
+    });
+    
+    return anyVariant ? Number(anyVariant.basePrice) : null;
 }
 
 /**

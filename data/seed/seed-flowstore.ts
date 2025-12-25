@@ -9,6 +9,9 @@ import { PriceList, PriceListType } from '../entities/PriceList';
 import { Storage, StorageType } from '../entities/Storage';
 import { PointOfSale } from '../entities/PointOfSale';
 import { Permission, Ability, ALL_ABILITIES } from '../entities/Permission';
+import { Attribute } from '../entities/Attribute';
+import { Product, ProductType } from '../entities/Product';
+import { ProductVariant } from '../entities/ProductVariant';
 import * as crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -18,26 +21,28 @@ function hashPassword(password: string): string {
 }
 
 /**
- * Seed mínimo para inicializar FlowStore
- * Crea los datos básicos necesarios para comenzar a usar el sistema:
+ * Seed para FlowStore - Joyería
+ * Crea los datos básicos necesarios para una joyería:
  * - Empresa y sucursal principal
  * - Impuestos (IVA 19% y Exento)
- * - Categorías básicas
+ * - Categorías de joyería
+ * - Atributos para variantes (Material, Talla, Piedra, Quilates)
  * - Lista de precios por defecto
  * - Bodega principal
  * - Punto de venta
  * - Usuario administrador
+ * - Productos de ejemplo
  * 
  * Uso: npm run seed:flowstore
  */
 async function seedFlowStore() {
   const db = await getDb();
 
-  console.log('\n🏪 FlowStore - Seed Inicial');
+  console.log('\n💎 FlowStore Joyería - Seed Inicial');
   console.log('═══════════════════════════════════════════════════════════');
 
   // Limpiar permisos con ability vacío o nulo (datos corruptos)
-  console.log('\n🧹 Limpiando datos corruptos en permisos...');
+  console.log('\n🧹 Limpiando datos corruptos...');
   try {
     await db.query("DELETE FROM permissions WHERE ability IS NULL OR ability = ''");
     console.log('   ✓ Datos corruptos limpiados');
@@ -45,8 +50,6 @@ async function seedFlowStore() {
     console.log('   ⚠ No se pudieron limpiar datos (tabla puede no existir aún)');
   }
 
-  // No usamos synchronize() aquí porque puede causar conflictos con índices
-  // La tabla permissions ya debe existir (creada manualmente o por migrations)
   console.log('\n🔄 Verificando conexión a base de datos...');
   try {
     await db.query('SELECT 1');
@@ -58,25 +61,41 @@ async function seedFlowStore() {
 
   try {
     // ============================================
-    // 1. EMPRESA
+    // 1. EMPRESA - JOYERÍA
     // ============================================
     console.log('\n🏢 Creando empresa...');
     
-    let company = await db.getRepository(Company).findOne({ where: { name: 'FlowStore Demo' } });
+    let company = await db.getRepository(Company).findOne({ where: { name: 'Joyería Brillante' } });
     
     if (!company) {
-      company = new Company();
-      company.id = uuidv4();
-      company.name = 'FlowStore Demo';
-      company.defaultCurrency = 'CLP';
-      company.isActive = true;
-      company.settings = {
-        allowNegativeStock: false,
-        requireCustomerForSale: false,
-        defaultPaymentMethod: 'CASH',
-      };
-      company = await db.getRepository(Company).save(company);
-      console.log(`   ✓ Empresa creada: ${company.name}`);
+      // Buscar cualquier empresa existente para actualizar
+      const companies = await db.getRepository(Company).find({ take: 1 });
+      if (companies.length > 0) {
+        company = companies[0];
+        company.name = 'Joyería Brillante';
+        company.defaultCurrency = 'CLP';
+        company.isActive = true;
+        company.settings = {
+          allowNegativeStock: false,
+          requireCustomerForSale: false,
+          defaultPaymentMethod: 'CASH',
+        };
+        await db.getRepository(Company).save(company);
+        console.log(`   ✓ Empresa actualizada: ${company.name}`);
+      } else {
+        company = new Company();
+        company.id = uuidv4();
+        company.name = 'Joyería Brillante';
+        company.defaultCurrency = 'CLP';
+        company.isActive = true;
+        company.settings = {
+          allowNegativeStock: false,
+          requireCustomerForSale: false,
+          defaultPaymentMethod: 'CASH',
+        };
+        company = await db.getRepository(Company).save(company);
+        console.log(`   ✓ Empresa creada: ${company.name}`);
+      }
     } else {
       console.log(`   ⚠ Empresa ya existe: ${company.name}`);
     }
@@ -87,17 +106,17 @@ async function seedFlowStore() {
     console.log('\n🏬 Creando sucursal principal...');
     
     let branch = await db.getRepository(Branch).findOne({ 
-      where: { companyId: company.id, code: 'SUC-001' } 
+      where: { companyId: company.id } 
     });
     
     if (!branch) {
       branch = new Branch();
       branch.id = uuidv4();
       branch.companyId = company.id;
-      branch.name = 'Sucursal Principal';
-      branch.code = 'SUC-001';
-      branch.address = 'Av. Principal 123';
-      branch.phone = '+56 9 1234 5678';
+      branch.name = 'Local Mall Plaza';
+      branch.code = 'JOY-001';
+      branch.address = 'Mall Plaza Vespucio, Local 234';
+      branch.phone = '+56 9 8765 4321';
       branch.isActive = true;
       branch.isHeadquarters = true;
       branch = await db.getRepository(Branch).save(branch);
@@ -150,17 +169,25 @@ async function seedFlowStore() {
     }
 
     // ============================================
-    // 4. CATEGORÍAS BÁSICAS
+    // 4. CATEGORÍAS DE JOYERÍA
     // ============================================
-    console.log('\n📁 Creando categorías...');
+    console.log('\n📁 Creando categorías de joyería...');
+    
+    // Eliminar categorías antiguas de supermercado
+    await db.query("DELETE FROM categories WHERE code LIKE 'CAT-%'");
     
     const categoriesData = [
-      { code: 'CAT-GENERAL', name: 'General', description: 'Productos generales', sortOrder: 0 },
-      { code: 'CAT-ALIMENTOS', name: 'Alimentos', description: 'Productos alimenticios', sortOrder: 1 },
-      { code: 'CAT-BEBIDAS', name: 'Bebidas', description: 'Bebidas y líquidos', sortOrder: 2 },
-      { code: 'CAT-LIMPIEZA', name: 'Limpieza', description: 'Productos de limpieza', sortOrder: 3 },
-      { code: 'CAT-OTROS', name: 'Otros', description: 'Otros productos', sortOrder: 99 },
+      { code: 'ANI', name: 'Anillos', description: 'Anillos de compromiso, alianzas y más', sortOrder: 1 },
+      { code: 'COL', name: 'Collares', description: 'Collares y cadenas', sortOrder: 2 },
+      { code: 'ARE', name: 'Aros', description: 'Aros y pendientes', sortOrder: 3 },
+      { code: 'PUL', name: 'Pulseras', description: 'Pulseras y brazaletes', sortOrder: 4 },
+      { code: 'REL', name: 'Relojes', description: 'Relojes de lujo', sortOrder: 5 },
+      { code: 'DIJ', name: 'Dijes', description: 'Dijes y colgantes', sortOrder: 6 },
+      { code: 'SET', name: 'Sets', description: 'Conjuntos y sets de joyería', sortOrder: 7 },
+      { code: 'ACC', name: 'Accesorios', description: 'Cajas, limpiadores y accesorios', sortOrder: 8 },
     ];
+    
+    const createdCategories: Record<string, Category> = {};
     
     for (const catData of categoriesData) {
       let category = await db.getRepository(Category).findOne({ where: { code: catData.code } });
@@ -177,14 +204,73 @@ async function seedFlowStore() {
       } else {
         console.log(`   ⚠ Categoría ya existe: ${category.name}`);
       }
+      createdCategories[catData.code] = category;
     }
 
     // ============================================
-    // 5. LISTA DE PRECIOS POR DEFECTO
+    // 5. ATRIBUTOS PARA VARIANTES DE JOYERÍA
+    // ============================================
+    console.log('\n💍 Creando atributos para variantes...');
+    
+    const attributesData = [
+      { 
+        name: 'Material', 
+        description: 'Metal o material de la joya',
+        options: ['Oro 18K', 'Oro 14K', 'Oro Blanco', 'Oro Rosa', 'Plata 925', 'Platino', 'Acero'],
+        displayOrder: 1 
+      },
+      { 
+        name: 'Talla', 
+        description: 'Talla de anillo',
+        options: ['5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16'],
+        displayOrder: 2 
+      },
+      { 
+        name: 'Piedra', 
+        description: 'Tipo de piedra preciosa',
+        options: ['Diamante', 'Rubí', 'Esmeralda', 'Zafiro', 'Amatista', 'Topacio', 'Perla', 'Sin piedra'],
+        displayOrder: 3 
+      },
+      { 
+        name: 'Quilates', 
+        description: 'Peso en quilates de la piedra',
+        options: ['0.25ct', '0.50ct', '0.75ct', '1.00ct', '1.50ct', '2.00ct', 'N/A'],
+        displayOrder: 4 
+      },
+      { 
+        name: 'Largo', 
+        description: 'Largo de cadenas y collares',
+        options: ['40cm', '45cm', '50cm', '55cm', '60cm'],
+        displayOrder: 5 
+      },
+    ];
+    
+    const createdAttributes: Record<string, Attribute> = {};
+    
+    for (const attrData of attributesData) {
+      let attribute = await db.getRepository(Attribute).findOne({ where: { name: attrData.name } });
+      if (!attribute) {
+        attribute = new Attribute();
+        attribute.id = uuidv4();
+        attribute.name = attrData.name;
+        attribute.description = attrData.description;
+        attribute.options = attrData.options;
+        attribute.displayOrder = attrData.displayOrder;
+        attribute.isActive = true;
+        await db.getRepository(Attribute).save(attribute);
+        console.log(`   ✓ Atributo creado: ${attribute.name} (${attribute.options.length} opciones)`);
+      } else {
+        console.log(`   ⚠ Atributo ya existe: ${attribute.name}`);
+      }
+      createdAttributes[attrData.name] = attribute;
+    }
+
+    // ============================================
+    // 6. LISTA DE PRECIOS POR DEFECTO
     // ============================================
     console.log('\n📋 Creando lista de precios...');
     
-    let priceList = await db.getRepository(PriceList).findOne({ where: { name: 'Precio Público', isDefault: true } });
+    let priceList = await db.getRepository(PriceList).findOne({ where: { isDefault: true } });
     if (!priceList) {
       priceList = new PriceList();
       priceList.id = uuidv4();
@@ -202,19 +288,19 @@ async function seedFlowStore() {
     }
 
     // ============================================
-    // 6. BODEGA PRINCIPAL
+    // 7. BODEGA PRINCIPAL
     // ============================================
     console.log('\n📦 Creando bodega...');
     
     let storage = await db.getRepository(Storage).findOne({ 
-      where: { branchId: branch.id, code: 'BOD-001' } 
+      where: { branchId: branch.id } 
     });
     if (!storage) {
       storage = new Storage();
       storage.id = uuidv4();
       storage.branchId = branch.id;
-      storage.name = 'Bodega Principal';
-      storage.code = 'BOD-001';
+      storage.name = 'Vitrina Principal';
+      storage.code = 'VIT-001';
       storage.type = StorageType.WAREHOUSE;
       storage.isDefault = true;
       storage.isActive = true;
@@ -225,18 +311,18 @@ async function seedFlowStore() {
     }
 
     // ============================================
-    // 7. PUNTO DE VENTA
+    // 8. PUNTO DE VENTA
     // ============================================
     console.log('\n🖥️  Creando punto de venta...');
     
     let pointOfSale = await db.getRepository(PointOfSale).findOne({ 
-      where: { branchId: branch.id, name: 'Caja 1' } 
+      where: { branchId: branch.id } 
     });
     if (!pointOfSale) {
       pointOfSale = new PointOfSale();
       pointOfSale.id = uuidv4();
       pointOfSale.branchId = branch.id;
-      pointOfSale.name = 'Caja 1';
+      pointOfSale.name = 'Caja Principal';
       pointOfSale.isActive = true;
       await db.getRepository(PointOfSale).save(pointOfSale);
       console.log(`   ✓ Punto de venta creado: ${pointOfSale.name}`);
@@ -245,7 +331,7 @@ async function seedFlowStore() {
     }
 
     // ============================================
-    // 8. USUARIO ADMINISTRADOR
+    // 9. USUARIO ADMINISTRADOR
     // ============================================
     console.log('\n👤 Creando usuario administrador...');
     
@@ -257,9 +343,9 @@ async function seedFlowStore() {
       adminPerson.id = uuidv4();
       adminPerson.type = PersonType.NATURAL;
       adminPerson.firstName = 'Administrador';
-      adminPerson.lastName = 'Sistema';
+      adminPerson.lastName = 'Joyería';
       adminPerson.documentNumber = '11111111-1';
-      adminPerson.email = 'admin@flowstore.local';
+      adminPerson.email = 'admin@joyeriabrillante.cl';
       adminPerson.phone = '+56 9 0000 0000';
       await db.getRepository(Person).save(adminPerson);
       
@@ -268,26 +354,28 @@ async function seedFlowStore() {
       adminUser.id = uuidv4();
       adminUser.userName = 'admin';
       adminUser.pass = hashPassword('890890');
-      adminUser.mail = 'admin@flowstore.local';
+      adminUser.mail = 'admin@joyeriabrillante.cl';
       adminUser.rol = UserRole.ADMIN;
       adminUser.person = adminPerson;
       await db.getRepository(User).save(adminUser);
       
       console.log(`   ✓ Usuario creado: ${adminUser.userName}`);
     } else {
-      console.log(`   ⚠ Usuario ya existe: ${adminUser.userName}`);
+      // Actualizar contraseña por si cambió
+      adminUser.pass = hashPassword('890890');
+      await db.getRepository(User).save(adminUser);
+      console.log(`   ✓ Usuario actualizado: ${adminUser.userName} (contraseña: 890890)`);
     }
 
     // ============================================
-    // 9. PERMISOS PARA ADMIN (TODOS LOS PERMISOS)
+    // 10. PERMISOS PARA ADMIN
     // ============================================
-    console.log('\n🔐 Asignando todos los permisos al administrador...');
+    console.log('\n🔐 Asignando permisos al administrador...');
     
     const permissionRepo = db.getRepository(Permission);
     let permissionsCreated = 0;
     let permissionsSkipped = 0;
     
-    // Asignar TODOS los permisos al usuario admin
     for (const ability of ALL_ABILITIES) {
       const existingPermission = await permissionRepo.findOne({
         where: { userId: adminUser.id, ability }
@@ -307,12 +395,102 @@ async function seedFlowStore() {
     }
     
     if (permissionsCreated > 0) {
-      console.log(`   ✓ ${permissionsCreated} permisos asignados al administrador`);
+      console.log(`   ✓ ${permissionsCreated} permisos asignados`);
     }
     if (permissionsSkipped > 0) {
       console.log(`   ⚠ ${permissionsSkipped} permisos ya existían`);
     }
-    console.log(`   📊 Total de permisos del sistema: ${ALL_ABILITIES.length}`);
+
+    // ============================================
+    // 11. PRODUCTOS DE EJEMPLO (JOYERÍA)
+    // ============================================
+    console.log('\n💎 Creando productos de ejemplo...');
+    
+    const productsData = [
+      {
+        name: 'Anillo Solitario Clásico',
+        description: 'Elegante anillo solitario con diamante central',
+        brand: 'Brillante',
+        categoryCode: 'ANI',
+        sku: 'ANI-SOL-001',
+        basePrice: 1890000,
+        baseCost: 950000,
+      },
+      {
+        name: 'Collar Cadena Veneciana',
+        description: 'Delicada cadena veneciana en oro',
+        brand: 'Brillante',
+        categoryCode: 'COL',
+        sku: 'COL-VEN-001',
+        basePrice: 450000,
+        baseCost: 220000,
+      },
+      {
+        name: 'Aros Perla Cultivada',
+        description: 'Aros clásicos con perla cultivada',
+        brand: 'Brillante',
+        categoryCode: 'ARE',
+        sku: 'ARE-PER-001',
+        basePrice: 180000,
+        baseCost: 85000,
+      },
+      {
+        name: 'Pulsera Tenis Diamantes',
+        description: 'Elegante pulsera tenis con diamantes',
+        brand: 'Brillante',
+        categoryCode: 'PUL',
+        sku: 'PUL-TEN-001',
+        basePrice: 2500000,
+        baseCost: 1200000,
+      },
+      {
+        name: 'Alianza Matrimonial',
+        description: 'Alianza clásica para matrimonio',
+        brand: 'Brillante',
+        categoryCode: 'ANI',
+        sku: 'ANI-ALI-001',
+        basePrice: 350000,
+        baseCost: 170000,
+      },
+    ];
+
+    for (const prodData of productsData) {
+      let product = await db.getRepository(Product).findOne({ 
+        where: { name: prodData.name } 
+      });
+      
+      if (!product) {
+        const category = createdCategories[prodData.categoryCode];
+        
+        product = new Product();
+        product.id = uuidv4();
+        product.name = prodData.name;
+        product.description = prodData.description;
+        product.brand = prodData.brand;
+        product.categoryId = category?.id;
+        product.productType = ProductType.PHYSICAL;
+        product.isActive = true;
+        await db.getRepository(Product).save(product);
+        
+        // Crear variante default
+        const variant = new ProductVariant();
+        variant.id = uuidv4();
+        variant.productId = product.id;
+        variant.sku = prodData.sku;
+        variant.basePrice = prodData.basePrice;
+        variant.baseCost = prodData.baseCost;
+        variant.unitOfMeasure = 'UN';
+        variant.isDefault = true;
+        variant.isActive = true;
+        variant.trackInventory = true;
+        variant.allowNegativeStock = false;
+        await db.getRepository(ProductVariant).save(variant);
+        
+        console.log(`   ✓ Producto creado: ${product.name} ($${prodData.basePrice.toLocaleString()})`);
+      } else {
+        console.log(`   ⚠ Producto ya existe: ${product.name}`);
+      }
+    }
 
     // ============================================
     // RESUMEN
@@ -320,15 +498,16 @@ async function seedFlowStore() {
     console.log('\n═══════════════════════════════════════════════════════════');
     console.log('✅ Seed completado exitosamente!');
     console.log('───────────────────────────────────────────────────────────');
-    console.log('\n📊 Resumen de datos creados:');
+    console.log('\n📊 Resumen de datos:');
     console.log(`   • Empresa: ${company.name}`);
     console.log(`   • Sucursal: ${branch.name}`);
     console.log(`   • Impuestos: IVA 19%, Exento`);
-    console.log(`   • Categorías: ${categoriesData.length} categorías`);
+    console.log(`   • Categorías: ${categoriesData.length} categorías de joyería`);
+    console.log(`   • Atributos: ${attributesData.length} atributos para variantes`);
+    console.log(`   • Productos: ${productsData.length} productos de ejemplo`);
     console.log(`   • Lista de precios: ${priceList.name}`);
     console.log(`   • Bodega: ${storage.name}`);
     console.log(`   • Punto de venta: ${pointOfSale.name}`);
-    console.log(`   • Permisos: ${ALL_ABILITIES.length} permisos asignados al admin`);
     console.log('\n🔑 Credenciales de acceso:');
     console.log('   Usuario: admin');
     console.log('   Contraseña: 890890');

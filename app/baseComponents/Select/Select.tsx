@@ -31,6 +31,7 @@ const Select: React.FC<SelectProps> = ({ label, options, placeholder, value = nu
   const selected = options.find(opt => opt.id === value);
   const shrink = focused || selected;
   const onChangeRef = useRef(onChange);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Update ref when onChange changes
   useEffect(() => {
@@ -102,7 +103,7 @@ const Select: React.FC<SelectProps> = ({ label, options, placeholder, value = nu
   }, [highlightedIndex, open]);
 
   return (
-    <div className="select-container">
+    <div className="select-container" ref={containerRef}>
       {variant === 'minimal' ? (
         // Variante Minimal: Sin iconos, solo texto clickeable
         <div
@@ -160,6 +161,8 @@ const Select: React.FC<SelectProps> = ({ label, options, placeholder, value = nu
             testId="select-list"
             highlightedIndex={highlightedIndex}
             onHoverChange={(idx) => {}}
+            usePortal={true}
+            anchorRef={containerRef}
           >
             {options.map((opt, idx) => (
               <li
@@ -269,6 +272,8 @@ const Select: React.FC<SelectProps> = ({ label, options, placeholder, value = nu
             testId="select-list"
             highlightedIndex={highlightedIndex}
             onHoverChange={(idx) => {}}
+            usePortal={true}
+            anchorRef={containerRef}
           >
             {options.map((opt, idx) => (
               <li

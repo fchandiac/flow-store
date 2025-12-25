@@ -15,6 +15,7 @@ import { Supplier } from "./entities/Supplier";
 import { Category } from "./entities/Category";
 import { Product } from "./entities/Product";
 import { ProductVariant } from "./entities/ProductVariant";
+import { Attribute } from "./entities/Attribute";
 import { PriceList } from "./entities/PriceList";
 import { PriceListItem } from "./entities/PriceListItem";
 import { Tax } from "./entities/Tax";
@@ -137,7 +138,7 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
           User, Person, Audit, Permission,
           Company, Branch, Storage, PointOfSale, CashSession,
           Customer, Supplier,
-          Category, Product, ProductVariant,
+          Category, Product, ProductVariant, Attribute,
           PriceList, PriceListItem, Tax,
           Transaction, TransactionLine
         ],

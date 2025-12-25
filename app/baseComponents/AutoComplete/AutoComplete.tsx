@@ -65,6 +65,7 @@ const AutoComplete = <T = Option,>({
   const [isNavigating, setIsNavigating] = useState(false);
   const [validationTriggered, setValidationTriggered] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const disabled = (props as any).disabled;
 
   // Sync inputValue with value prop
@@ -142,7 +143,7 @@ const AutoComplete = <T = Option,>({
   };
 
   return (
-    <div className="autocomplete-container" data-test-id={props["data-test-id"] || "auto-complete-root"} data-has-options={options.length > 0 ? "true" : "false"}>
+    <div className="autocomplete-container" ref={containerRef} data-test-id={props["data-test-id"] || "auto-complete-root"} data-has-options={options.length > 0 ? "true" : "false"}>
       <div
         className="relative w-full border border-border rounded-md focus-within:border-primary"
         onFocus={() => { setFocused(true); setOpen(true); setIsNavigating(false); }}
@@ -204,6 +205,8 @@ const AutoComplete = <T = Option,>({
         onHoverChange={(idx) => {
           // DropdownList now handles hover, we just track it if needed
         }}
+        usePortal={true}
+        anchorRef={containerRef}
       >
         {filteredOptions.map((opt, idx) => {
           const optValue = getValue(opt);
