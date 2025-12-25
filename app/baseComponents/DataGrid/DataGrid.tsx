@@ -58,6 +58,10 @@ export interface DataGridProps {
   limit?: number;
   onExportExcel?: () => Promise<void>; // Callback para exportar a Excel
   showBorder?: boolean;
+  // Expandable rows
+  expandable?: boolean; // Habilita filas expandibles
+  expandableRowContent?: (row: any) => React.ReactNode; // Contenido del panel expandido
+  defaultExpandedRowIds?: (string | number)[]; // IDs de filas expandidas por defecto
 }
 
 const DataGrid: React.FC<DataGridProps> = ({
@@ -80,12 +84,16 @@ const DataGrid: React.FC<DataGridProps> = ({
   limit = 25,
   onExportExcel,
   showBorder = false,
+  expandable = false,
+  expandableRowContent,
+  defaultExpandedRowIds = [],
 }) => {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [data, setData] = useState<any[]>(rows || []);
   const [loading, setLoading] = useState(false);
   const [total, setTotal] = useState(totalRows || (rows ? rows.length : 0));
+  const [expandedRowIds, setExpandedRowIds] = useState<Set<string | number>>(new Set(defaultExpandedRowIds));
   // Inicializar filterMode basado en si hay filtros activos en la URL
   const [filterMode, setFilterMode] = useState(() => {
     const filtration = searchParams.get('filtration') === 'true';
@@ -96,6 +104,19 @@ const DataGrid: React.FC<DataGridProps> = ({
   const { width: screenWidth, isMobile } = useScreenSize();
 
   const toggleFilterMode = () => setFilterMode((v) => !v);
+
+  // Toggle expandir/colapsar una fila
+  const toggleRowExpanded = (rowId: string | number) => {
+    setExpandedRowIds(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(rowId)) {
+        newSet.delete(rowId);
+      } else {
+        newSet.add(rowId);
+      }
+      return newSet;
+    });
+  };
 
   // Update data when rows prop changes (server-side updates)
   useEffect(() => {
@@ -144,6 +165,10 @@ const DataGrid: React.FC<DataGridProps> = ({
             minWidth: 'max-content'
           }}
         >
+          {/* Expand column header placeholder */}
+          {expandable && (
+            <div className="w-10 min-w-[40px] border-b border-gray-200" />
+          )}
           {columns.filter((c) => !c.hide).map((column, i) => {
             const columnStyles = calculateColumnStyles(columns, screenWidth);
             const style = columnStyles[i];
@@ -159,7 +184,16 @@ const DataGrid: React.FC<DataGridProps> = ({
           })}
         </div>
         {/* Body */}
-        <Body columns={columns} rows={loading ? [] : data} filterMode={filterMode} screenWidth={screenWidth} />
+        <Body 
+          columns={columns} 
+          rows={loading ? [] : data} 
+          filterMode={filterMode} 
+          screenWidth={screenWidth}
+          expandable={expandable}
+          expandedRowIds={expandedRowIds}
+          onToggleExpand={toggleRowExpanded}
+          expandableRowContent={expandableRowContent}
+        />
       </div>
       {/* Footer - siempre pegado abajo */}
       <Footer total={total} totalGeneral={totalGeneral}/>
