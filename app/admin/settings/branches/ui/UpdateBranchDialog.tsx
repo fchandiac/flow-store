@@ -157,9 +157,9 @@ const UpdateBranchDialog: React.FC<UpdateBranchDialogProps> = ({
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Ubicación
                         </label>
-                        <div className="h-[250px]">
+                        <div className="h-[250px] relative z-10">
                             <LocationPickerWrapper
-                                mode="update"
+                                mode={formData.location ? "update" : "edit"}
                                 externalPosition={formData.location || undefined}
                                 onChange={(coords) => handleChange('location', coords)}
                             />

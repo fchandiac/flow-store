@@ -140,6 +140,30 @@ const DraggableMarker = ({
   );
 };
 
+/**
+ * Componente interno para manejar el centrado inicial del mapa
+ */
+const MapController = ({ 
+  positionToCenter, 
+  zoom,
+  hasCenteredRef 
+}: { 
+  positionToCenter: { lat: number; lng: number } | null; 
+  zoom: number;
+  hasCenteredRef: React.MutableRefObject<boolean>;
+}) => {
+  const map = (require('react-leaflet') as any).useMap();
+
+  useEffect(() => {
+    if (positionToCenter && !hasCenteredRef.current && map) {
+      map.setView([positionToCenter.lat, positionToCenter.lng], zoom);
+      hasCenteredRef.current = true;
+    }
+  }, [positionToCenter, zoom, map, hasCenteredRef]);
+
+  return null;
+};
+
 const LocationPicker: React.FC<LocationPickerProps> = ({ 
   onChange, 
   initialLat = 19.4326, 
@@ -157,20 +181,25 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   const [cursorState, setCursorState] = useState<CursorState>('default');
   const [showClickEffect, setShowClickEffect] = useState(false);
   const [clickPosition, setClickPosition] = useState<{ x: number; y: number } | null>(null);
-  const [isUserInteraction, setIsUserInteraction] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const hasCenteredInitially = useRef(false);
+  const [positionToCenter, setPositionToCenter] = useState<{ lat: number; lng: number } | null>(null);
 
   // Determinar si es modo edición (permite interacción)
   const isEditable = mode === 'edit' || mode === 'update';
   
   // Determinar posición inicial basada en el modo
   useEffect(() => {
+    // Resetear el flag de centrado cuando cambian las props iniciales
+    hasCenteredInitially.current = false;
+    
     if (mode === 'update' && externalPosition) {
       // Modo update: usar posición externa
       setPosition(externalPosition);
+      // No necesitamos setPositionToCenter porque el center del MapContainer ya está en externalPosition
     } else if (mode === 'edit' && !position) {
       // Modo edit: intentar obtener ubicación actual del usuario
-
-      // Verificar que estamos en el cliente
       if (typeof window === 'undefined') {
         return;
       }
@@ -183,11 +212,14 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
       return () => clearTimeout(timer);
     } else if (initialLat && initialLng && !position) {
       // Usar coordenadas iniciales si no hay posición
-      setPosition({ lat: initialLat, lng: initialLng });
+      const initialPos = { lat: initialLat, lng: initialLng };
+      setPosition(initialPos);
+      setPositionToCenter(initialPos);
     } else if (!position) {
       // Última opción: usar ubicación por defecto si no hay nada
       const defaultPos = { lat: -33.4489, lng: -70.6693 }; // Santiago, Chile
       setPosition(defaultPos);
+      setPositionToCenter(defaultPos);
       onChange?.(defaultPos);
     }
   }, [mode, externalPosition, initialLat, initialLng, position]);
@@ -205,6 +237,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
       (position) => {
         const newPos = { lat: position.coords.latitude, lng: position.coords.longitude };
         setPosition(newPos);
+        setPositionToCenter(newPos);
         onChange?.(newPos);
       },
       (error) => {
@@ -225,6 +258,7 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
         // Si falla la geolocalización, usar una ubicación por defecto
         const fallbackPos = { lat: -33.4489, lng: -70.6693 }; // Santiago, Chile
         setPosition(fallbackPos);
+        setPositionToCenter(fallbackPos);
         onChange?.(fallbackPos);
       },
       {
@@ -238,7 +272,6 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
   const handleMapClick = (e: L.LeafletMouseEvent) => {
     if (!isEditable) return; // No hacer nada en modo viewer
     
-    setIsUserInteraction(true); // Marcar que es interacción del usuario
     const newPosition = { lat: e.latlng.lat, lng: e.latlng.lng };
     setPosition(newPosition);
     onChange?.(newPosition);
@@ -268,24 +301,6 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
       mouseover: () => isEditable && setCursorState('targeting'),
       mouseout: () => setCursorState('default'),
     });
-    return null;
-  };
-
-  // Component to handle map centering when position changes
-  const MapCenterController = () => {
-    const map = (require('react-leaflet') as any).useMap();
-    
-    useEffect(() => {
-      if (position && map && !isUserInteraction) {
-        // Solo centrar si NO es una interacción del usuario
-        map.setView([position.lat, position.lng], zoom);
-      }
-      // Resetear la bandera de interacción del usuario después de un breve delay
-      if (isUserInteraction) {
-        setTimeout(() => setIsUserInteraction(false), 100);
-      }
-    }, [position, map, isUserInteraction]);
-    
     return null;
   };
 
@@ -338,7 +353,11 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
       )}
       
       <MapContainer
-        center={position ? [position.lat, position.lng] : [initialLat, initialLng]}
+        center={
+          mode === 'update' && externalPosition
+            ? [externalPosition.lat, externalPosition.lng]
+            : [initialLat || -33.4489, initialLng || -70.6693]
+        }
         zoom={zoom}
         style={{ height: '100%', width: '100%' }}
         attributionControl={false}
@@ -352,13 +371,17 @@ const LocationPicker: React.FC<LocationPickerProps> = ({
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        <MapController 
+          positionToCenter={positionToCenter} 
+          zoom={zoom} 
+          hasCenteredRef={hasCenteredInitially} 
+        />
         {isEditable && <MapEvents />}
-        <MapCenterController />
         {position && (
           <DraggableMarker 
             position={position}
             draggable={isEditable && draggable}
-            onDragEnd={(newPos) => {
+            onDragEnd={(newPos: { lat: number; lng: number }) => {
               if (isEditable) {
                 setPosition(newPos);
                 onChange?.(newPos);

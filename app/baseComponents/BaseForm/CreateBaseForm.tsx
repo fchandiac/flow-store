@@ -115,12 +115,20 @@ const CreateBaseForm: React.FC<CreateBaseFormProps> = ({
 						{field.label}
 					</label>
 					<div className="relative z-10">
-						<LocationPickerWrapper
-							mode="edit"
-							initialLat={values[field.name]?.lat || -33.4489}
-							initialLng={values[field.name]?.lng || -70.6693}
-							onChange={coords => onChange(field.name, coords)}
-						/>
+						{values[field.name] ? (
+							<LocationPickerWrapper
+								mode="update"
+								externalPosition={values[field.name]}
+								onChange={coords => onChange(field.name, coords)}
+							/>
+						) : (
+							<LocationPickerWrapper
+								mode="edit"
+								initialLat={-33.4489}
+								initialLng={-70.6693}
+								onChange={coords => onChange(field.name, coords)}
+							/>
+						)}
 					</div>
 				</div>
 			) : field.type === "range" ? (
