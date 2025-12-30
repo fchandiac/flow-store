@@ -30,6 +30,7 @@ const menuItems: SideBarMenuItem[] = [
             { id: 'variants', label: 'Variantes', url: '/admin/products/variants' },
             { id: 'categories', label: 'Categorías', url: '/admin/products/categories' },
             { id: 'stock', label: 'Stock', url: '/admin/inventory' },
+            { id: 'purchase-orders', label: 'Órdenes de compra', url: '/admin/purchase-orders' },
             { id: 'suppliers', label: 'Proveedores', url: '/admin/suppliers' },
         ]
     },
