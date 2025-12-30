@@ -7,12 +7,13 @@ import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { deleteCustomer } from '@/app/actions/customers';
-import { CustomerType } from './CustomerCard';
+import type { CustomerWithPerson } from './types';
 
 interface DeleteCustomerDialogProps {
     open: boolean;
     onClose: () => void;
-    customer: CustomerType;
+    customer: CustomerWithPerson;
+    onSuccess?: () => Promise<void> | void;
     'data-test-id'?: string;
 }
 
@@ -20,10 +21,11 @@ const DeleteCustomerDialog: React.FC<DeleteCustomerDialogProps> = ({
     open, 
     onClose,
     customer,
+    onSuccess,
     'data-test-id': dataTestId 
 }) => {
     const router = useRouter();
-    const { success, error: showError } = useAlert();
+    const { success } = useAlert();
     
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<string[]>([]);
@@ -40,18 +42,19 @@ const DeleteCustomerDialog: React.FC<DeleteCustomerDialogProps> = ({
             const result = await deleteCustomer(customer.id);
 
             if (result.success) {
-                success('Cliente eliminado correctamente');
-                setTimeout(() => {
-                    onClose();
+                if (onSuccess) {
+                    await onSuccess();
+                } else {
+                    success('Cliente eliminado correctamente');
                     router.refresh();
-                    setIsSubmitting(false);
-                }, 300);
+                }
+                onClose();
             } else {
                 setErrors([result.error || 'Error al eliminar el cliente']);
-                setIsSubmitting(false);
             }
         } catch (err: any) {
             setErrors([err?.message || 'Error al eliminar el cliente']);
+        } finally {
             setIsSubmitting(false);
         }
     };

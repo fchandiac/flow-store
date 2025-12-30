@@ -1,19 +1,22 @@
-import React from 'react';
-import { getCustomers } from '@/app/actions/customers';
-import { CustomerList } from './ui';
+'use client';
+
+import CustomersDataGrid from "./ui/CustomersDataGrid";
 
 /**
  * Gestión de Clientes
  * Ruta: /admin/customers
  * CRUD de clientes (extensión de Person)
  */
-export default async function CustomersPage() {
-    const result = await getCustomers();
-    const customers = result.data || [];
-
+export default function CustomersPage() {
     return (
-        <div className="flex flex-col h-full">
-            <CustomerList customers={customers} />
+        <div className="p-6 space-y-6">
+            <div>
+                <h1 className="text-2xl font-bold">Clientes</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                    Administra información de clientes, líneas de crédito y contactos comerciales.
+                </p>
+            </div>
+            <CustomersDataGrid />
         </div>
     );
 }

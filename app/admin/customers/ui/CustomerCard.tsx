@@ -5,35 +5,10 @@ import Badge from '@/app/baseComponents/Badge/Badge';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import DeleteCustomerDialog from './DeleteCustomerDialog';
 import UpdateCustomerDialog from './UpdateCustomerDialog';
-
-export interface PersonType {
-    id: string;
-    type: 'NATURAL' | 'COMPANY';
-    firstName: string;
-    lastName?: string;
-    businessName?: string;
-    documentType?: string;
-    documentNumber?: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-}
-
-export interface CustomerType {
-    id: string;
-    personId: string;
-    code?: string;
-    customerType: 'RETAIL' | 'WHOLESALE' | 'VIP';
-    creditLimit: number;
-    currentBalance: number;
-    defaultPaymentTermDays: number;
-    isActive: boolean;
-    notes?: string;
-    person: PersonType;
-}
+import type { CustomerWithPerson } from './types';
 
 interface CustomerCardProps {
-    customer: CustomerType;
+    customer: CustomerWithPerson;
     'data-test-id'?: string;
 }
 

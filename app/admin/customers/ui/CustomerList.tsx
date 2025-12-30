@@ -3,11 +3,12 @@
 import { useState } from 'react';
 import { Button } from '@/app/baseComponents/Button/Button';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
-import CustomerCard, { CustomerType } from './CustomerCard';
+import CustomerCard from './CustomerCard';
 import CreateCustomerDialog from './CreateCustomerDialog';
+import type { CustomerWithPerson } from './types';
 
 interface CustomerListProps {
-    customers: CustomerType[];
+    customers: CustomerWithPerson[];
     'data-test-id'?: string;
 }
 

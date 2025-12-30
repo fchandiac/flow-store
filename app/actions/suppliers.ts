@@ -57,16 +57,56 @@ interface UpdateSupplierDTO {
     notes?: string;
 }
 
+type PlainSupplier = Supplier & { person: Person | null };
+
 interface SupplierResult {
     success: boolean;
-    supplier?: Supplier;
+    supplier?: PlainSupplier;
     error?: string;
 }
+
+const toPlainSupplier = (supplier: Supplier): PlainSupplier => {
+    if (typeof structuredClone === 'function') {
+        const cloned = structuredClone({
+            ...supplier,
+            person: supplier.person ? structuredClone({ ...supplier.person }) : null,
+        });
+
+        if (Object.getPrototypeOf(cloned) === null) {
+            Object.setPrototypeOf(cloned, Object.prototype);
+        }
+
+        if (cloned.person && Object.getPrototypeOf(cloned.person) === null) {
+            Object.setPrototypeOf(cloned.person, Object.prototype);
+        }
+
+        return cloned as PlainSupplier;
+    }
+
+    const plainSupplier = {
+        ...supplier,
+        person: supplier.person ? { ...supplier.person } : null,
+    };
+    const jsonCloned = JSON.parse(JSON.stringify(plainSupplier));
+    const normalizedSupplier = Object.assign({}, jsonCloned);
+    const normalizedPerson = jsonCloned.person && typeof jsonCloned.person === 'object'
+        ? Object.assign({}, jsonCloned.person)
+        : null;
+
+    return {
+        ...normalizedSupplier,
+        person: normalizedPerson,
+    } as PlainSupplier;
+};
+
+const cloneSupplier = (supplier: Supplier | null | undefined): PlainSupplier | null => {
+    return supplier ? toPlainSupplier(supplier) : null;
+};
 
 /**
  * Obtiene proveedores con filtros opcionales
  */
-export async function getSuppliers(params?: GetSuppliersParams): Promise<Supplier[]> {
+export async function getSuppliers(params?: GetSuppliersParams): Promise<PlainSupplier[]> {
     const ds = await getDb();
     const repo = ds.getRepository(Supplier);
     
@@ -91,33 +131,38 @@ export async function getSuppliers(params?: GetSuppliersParams): Promise<Supplie
     
     queryBuilder.orderBy('person.firstName', 'ASC');
     
-    return queryBuilder.getMany();
+    const suppliers = await queryBuilder.getMany();
+    return suppliers.map(toPlainSupplier);
 }
 
 /**
  * Obtiene un proveedor por ID
  */
-export async function getSupplierById(id: string): Promise<Supplier | null> {
+export async function getSupplierById(id: string): Promise<PlainSupplier | null> {
     const ds = await getDb();
     const repo = ds.getRepository(Supplier);
     
-    return repo.findOne({
+    const supplier = await repo.findOne({
         where: { id, deletedAt: IsNull() },
         relations: ['person']
     });
+
+    return cloneSupplier(supplier);
 }
 
 /**
  * Obtiene un proveedor por código
  */
-export async function getSupplierByCode(code: string): Promise<Supplier | null> {
+export async function getSupplierByCode(code: string): Promise<PlainSupplier | null> {
     const ds = await getDb();
     const repo = ds.getRepository(Supplier);
     
-    return repo.findOne({
+    const supplier = await repo.findOne({
         where: { code, deletedAt: IsNull() },
         relations: ['person']
     });
+
+    return cloneSupplier(supplier);
 }
 
 /**
@@ -177,8 +222,9 @@ export async function createSupplier(data: CreateSupplierDTO): Promise<SupplierR
         });
         
         revalidatePath('/admin/suppliers');
-        
-        return { success: true, supplier: savedSupplier! };
+
+        const plainSupplier = cloneSupplier(savedSupplier)!;
+        return { success: true, supplier: plainSupplier };
     } catch (error) {
         console.error('Error creating supplier:', error);
         return { 
@@ -245,9 +291,16 @@ export async function updateSupplier(id: string, data: UpdateSupplierDTO): Promi
         if (data.notes !== undefined) supplier.notes = data.notes;
         
         await supplierRepo.save(supplier);
+
+        const updatedSupplier = await supplierRepo.findOne({
+            where: { id },
+            relations: ['person']
+        });
+
         revalidatePath('/admin/suppliers');
         
-        return { success: true, supplier };
+        const plainSupplier = cloneSupplier(updatedSupplier)!;
+        return { success: true, supplier: plainSupplier };
     } catch (error) {
         console.error('Error updating supplier:', error);
         return { 
@@ -289,11 +342,11 @@ export async function deleteSupplier(id: string): Promise<{ success: boolean; er
 /**
  * Busca proveedores por texto
  */
-export async function searchSuppliers(query: string, limit: number = 20): Promise<Supplier[]> {
+export async function searchSuppliers(query: string, limit: number = 20): Promise<PlainSupplier[]> {
     const ds = await getDb();
     const repo = ds.getRepository(Supplier);
     
-    return repo.createQueryBuilder('supplier')
+    const suppliers = await repo.createQueryBuilder('supplier')
         .leftJoinAndSelect('supplier.person', 'person')
         .where('supplier.deletedAt IS NULL')
         .andWhere('supplier.isActive = true')
@@ -304,6 +357,8 @@ export async function searchSuppliers(query: string, limit: number = 20): Promis
         .orderBy('person.firstName', 'ASC')
         .limit(limit)
         .getMany();
+
+    return suppliers.map(toPlainSupplier);
 }
 
 /**
@@ -334,8 +389,14 @@ export async function updateSupplierBalance(
         }
         
         await repo.save(supplier);
+
+        const savedSupplier = await repo.findOne({
+            where: { id },
+            relations: ['person']
+        });
         
-        return { success: true, supplier };
+        const plainSupplier = cloneSupplier(savedSupplier)!;
+        return { success: true, supplier: plainSupplier };
     } catch (error) {
         console.error('Error updating supplier balance:', error);
         return { 

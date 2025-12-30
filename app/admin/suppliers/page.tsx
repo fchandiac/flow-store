@@ -1,5 +1,7 @@
 'use client';
 
+import SuppliersDataGrid from "./ui/SuppliersDataGrid";
+
 /**
  * Gestión de Proveedores
  * Ruta: /admin/suppliers
@@ -7,9 +9,14 @@
  */
 export default function SuppliersPage() {
     return (
-        <div className="p-6">
-            <h1 className="text-2xl font-bold mb-6">Proveedores</h1>
-            {/* TODO: Implementar DataGrid de proveedores con CRUD */}
+        <div className="p-6 space-y-6">
+            <div>
+                <h1 className="text-2xl font-bold">Proveedores</h1>
+                <p className="text-sm text-muted-foreground mt-1">
+                    Administra proveedores, líneas de crédito y datos de contacto.
+                </p>
+            </div>
+            <SuppliersDataGrid />
         </div>
     );
 }

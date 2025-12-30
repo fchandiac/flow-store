@@ -182,7 +182,7 @@ async function seedFlowStore() {
       { code: 'ARE', name: 'Aros', description: 'Aros y pendientes', sortOrder: 3 },
       { code: 'PUL', name: 'Pulseras', description: 'Pulseras y brazaletes', sortOrder: 4 },
       { code: 'REL', name: 'Relojes', description: 'Relojes de lujo', sortOrder: 5 },
-      { code: 'DIJ', name: 'Dijes', description: 'Dijes y colgantes', sortOrder: 6 },
+      { code: 'CAD', name: 'Cadenas', description: 'Cadenas y collares finos', sortOrder: 6 },
       { code: 'SET', name: 'Sets', description: 'Conjuntos y sets de joyería', sortOrder: 7 },
       { code: 'ACC', name: 'Accesorios', description: 'Cajas, limpiadores y accesorios', sortOrder: 8 },
     ];

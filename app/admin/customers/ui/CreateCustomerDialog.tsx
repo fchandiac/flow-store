@@ -13,6 +13,7 @@ import { createCustomer } from '@/app/actions/customers';
 interface CreateCustomerDialogProps {
     open: boolean;
     onClose: () => void;
+    onSuccess?: () => Promise<void> | void;
     'data-test-id'?: string;
 }
 
@@ -30,10 +31,11 @@ const customerTypeOptions = [
 const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({ 
     open, 
     onClose,
+    onSuccess,
     'data-test-id': dataTestId 
 }) => {
     const router = useRouter();
-    const { success, error: showError } = useAlert();
+    const { success } = useAlert();
     
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<string[]>([]);
@@ -52,7 +54,7 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
         // Datos de cliente
         code: '',
         customerType: 'RETAIL',
-        creditLimit: '0',
+        creditLimit: '',
         defaultPaymentTermDays: '0',
         notes: '',
     });
@@ -102,19 +104,20 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
             });
 
             if (result.success) {
-                success('Cliente creado correctamente');
                 resetForm();
-                setTimeout(() => {
-                    onClose();
+                if (onSuccess) {
+                    await onSuccess();
+                } else {
+                    success('Cliente creado correctamente');
                     router.refresh();
-                    setIsSubmitting(false);
-                }, 300);
+                }
+                onClose();
             } else {
                 setErrors([result.error || 'Error al crear el cliente']);
-                setIsSubmitting(false);
             }
         } catch (err: any) {
             setErrors([err?.message || 'Error al crear el cliente']);
+        } finally {
             setIsSubmitting(false);
         }
     };
@@ -132,7 +135,7 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
             address: '',
             code: '',
             customerType: 'RETAIL',
-            creditLimit: '0',
+            creditLimit: '',
             defaultPaymentTermDays: '0',
             notes: '',
         });
@@ -266,7 +269,8 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
                     <div className="grid grid-cols-2 gap-4">
                         <TextField
                             label="Límite de Crédito"
-                            type="number"
+                            type="currency"
+                            currencySymbol="$"
                             value={formData.creditLimit}
                             onChange={(e) => handleChange('creditLimit', e.target.value)}
                             data-test-id="create-customer-credit-limit"

@@ -173,7 +173,7 @@ export default function CreateProductDialog({ open, onClose, onSuccess, categori
                                 required
                                 value={formData.name}
                                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                placeholder="Ej: Coca-Cola 600ml"
+                                placeholder="Nombre del producto"
                                 data-test-id="input-name"
                             />
                         </div>
@@ -181,7 +181,7 @@ export default function CreateProductDialog({ open, onClose, onSuccess, categori
                             label="Marca"
                             value={formData.brand}
                             onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                            placeholder="Ej: Coca-Cola"
+                            placeholder="Marca"
                             data-test-id="input-brand"
                         />
                         <Select
@@ -203,7 +203,7 @@ export default function CreateProductDialog({ open, onClose, onSuccess, categori
                                 label="Descripción"
                                 value={formData.description}
                                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                                placeholder="Descripción del producto"
+                                placeholder="Descripción"
                                 rows={2}
                                 data-test-id="input-description"
                             />
@@ -225,14 +225,14 @@ export default function CreateProductDialog({ open, onClose, onSuccess, categori
                                     required
                                     value={formData.sku}
                                     onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                                    placeholder="Ej: CC600ML"
+                                    placeholder="SKU"
                                     data-test-id="input-sku"
                                 />
                                 <TextField
                                     label="Código de barras"
                                     value={formData.barcode}
                                     onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                                    placeholder="Ej: 7501055303045"
+                                    placeholder="Código de barras"
                                     data-test-id="input-barcode"
                                 />
                             </div>

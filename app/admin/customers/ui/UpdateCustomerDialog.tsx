@@ -10,12 +10,13 @@ import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { updateCustomer } from '@/app/actions/customers';
-import { CustomerType } from './CustomerCard';
+import type { CustomerWithPerson } from './types';
 
 interface UpdateCustomerDialogProps {
     open: boolean;
     onClose: () => void;
-    customer: CustomerType;
+    customer: CustomerWithPerson;
+    onSuccess?: () => Promise<void> | void;
     'data-test-id'?: string;
 }
 
@@ -29,10 +30,11 @@ const UpdateCustomerDialog: React.FC<UpdateCustomerDialogProps> = ({
     open, 
     onClose,
     customer,
+    onSuccess,
     'data-test-id': dataTestId 
 }) => {
     const router = useRouter();
-    const { success, error: showError } = useAlert();
+    const { success } = useAlert();
     
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<string[]>([]);
@@ -85,18 +87,19 @@ const UpdateCustomerDialog: React.FC<UpdateCustomerDialogProps> = ({
             });
 
             if (result.success) {
-                success('Cliente actualizado correctamente');
-                setTimeout(() => {
-                    onClose();
+                if (onSuccess) {
+                    await onSuccess();
+                } else {
+                    success('Cliente actualizado correctamente');
                     router.refresh();
-                    setIsSubmitting(false);
-                }, 300);
+                }
+                onClose();
             } else {
                 setErrors([result.error || 'Error al actualizar el cliente']);
-                setIsSubmitting(false);
             }
         } catch (err: any) {
             setErrors([err?.message || 'Error al actualizar el cliente']);
+        } finally {
             setIsSubmitting(false);
         }
     };
@@ -170,7 +173,8 @@ const UpdateCustomerDialog: React.FC<UpdateCustomerDialogProps> = ({
                     <div className="grid grid-cols-2 gap-4">
                         <TextField
                             label="Límite de Crédito"
-                            type="number"
+                            type="currency"
+                            currencySymbol="$"
                             value={formData.creditLimit}
                             onChange={(e) => handleChange('creditLimit', e.target.value)}
                             data-test-id="update-customer-credit-limit"
