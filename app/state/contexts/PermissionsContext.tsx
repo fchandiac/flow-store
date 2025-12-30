@@ -1,7 +1,9 @@
 'use client';
 
-import React, { createContext, useContext, useMemo } from 'react';
-import { AbilityValue, ABILITY_VALUES } from '@/lib/permissions';
+import React, { createContext, useCallback, useContext, useMemo } from 'react';
+import type { Session } from 'next-auth';
+import { useSession } from 'next-auth/react';
+import { AbilityValue, ABILITY_VALUES, validAbilities } from '@/lib/permissions';
 
 type PermissionsContextValue = {
   permissions: AbilityValue[];
@@ -12,32 +14,57 @@ type PermissionsContextValue = {
 
 const PermissionsContext = createContext<PermissionsContextValue | undefined>(undefined);
 
-/**
- * PermissionsProvider - MODO DESARROLLO
- * 
- * Durante el desarrollo, TODOS los permisos están habilitados.
- * La lógica de permisos real se implementará al final del proceso.
- * 
- * TODO: Reactivar lógica de permisos real cuando sea necesario
- */
 export const PermissionsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // DESARROLLO: Todos los permisos habilitados
-  const allPermissions = useMemo<AbilityValue[]>(() => {
-    return [...ABILITY_VALUES];
-  }, []);
+  const { data: session, status } = useSession();
 
-  const value = useMemo<PermissionsContextValue>(() => {
-    // Durante desarrollo, siempre retorna true
-    const has = (_ability: AbilityValue) => true;
-    const hasAny = (_abilities: AbilityValue[]) => true;
+  const { role, permissions: rawPermissions } = useMemo(() => {
+    if (!session?.user) {
+      return {
+        role: undefined as string | undefined,
+        permissions: [] as unknown[],
+      };
+    }
+
+    const user = session.user as Session['user'] & {
+      role?: string;
+      permissions?: unknown;
+    };
 
     return {
-      permissions: allPermissions,
-      has,
-      hasAny,
-      isLoading: false,
+      role: user.role ?? undefined,
+      permissions: Array.isArray(user.permissions) ? user.permissions : [],
     };
-  }, [allPermissions]);
+  }, [session]);
+
+  const resolvedPermissions = useMemo<AbilityValue[]>(() => {
+    if (role === 'ADMIN') {
+      return [...ABILITY_VALUES];
+    }
+
+    const filtered = (rawPermissions as unknown[])
+      .map((value) => String(value).toUpperCase())
+      .filter((value): value is AbilityValue => validAbilities.has(value as AbilityValue));
+
+    return Array.from(new Set(filtered));
+  }, [rawPermissions, role]);
+
+  const has = useCallback((ability: AbilityValue) => {
+    if (role === 'ADMIN') {
+      return true;
+    }
+    return resolvedPermissions.includes(ability);
+  }, [resolvedPermissions, role]);
+
+  const hasAny = useCallback((abilities: AbilityValue[]) => {
+    return abilities.some((ability) => has(ability));
+  }, [has]);
+
+  const value = useMemo<PermissionsContextValue>(() => ({
+    permissions: resolvedPermissions,
+    has,
+    hasAny,
+    isLoading: status === 'loading',
+  }), [resolvedPermissions, has, hasAny, status]);
 
   return (
     <PermissionsContext.Provider value={value}>

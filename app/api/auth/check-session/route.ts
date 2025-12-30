@@ -1,30 +1,32 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentSession } from '@/app/actions/auth.server';
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/authOptions';
 
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    const session = await getCurrentSession();
+    const session = await getServerSession(authOptions);
 
-    if (session) {
-      return NextResponse.json({
-        authenticated: true,
-        user: {
-          id: session.id,
-          userName: session.userName,
-          rol: session.rol,
-          personName: session.personName,
-        }
-      });
-    } else {
-      return NextResponse.json({
-        authenticated: false
-      });
+    if (!session?.user) {
+      return NextResponse.json({ authenticated: false });
     }
+
+    const user = session.user as Record<string, unknown>;
+
+    return NextResponse.json({
+      authenticated: true,
+      user: {
+        id: user.id,
+        userName: user.userName ?? user.name,
+        rol: user.role,
+        personName: user.personName ?? user.name,
+        email: user.email,
+      },
+    });
   } catch (error) {
     console.error('[check-session] Error:', error);
     return NextResponse.json({
       authenticated: false,
-      error: 'Error checking session'
+      error: 'Error checking session',
     }, { status: 500 });
   }
 }

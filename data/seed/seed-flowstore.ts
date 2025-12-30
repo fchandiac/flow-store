@@ -12,12 +12,12 @@ import { Permission, Ability, ALL_ABILITIES } from '../entities/Permission';
 import { Attribute } from '../entities/Attribute';
 import { Product, ProductType } from '../entities/Product';
 import { ProductVariant } from '../entities/ProductVariant';
-import * as crypto from 'crypto';
 import { v4 as uuidv4 } from 'uuid';
+import bcrypt from 'bcryptjs';
 
-// Helper para hashear contraseñas (debe coincidir con auth.server.ts)
+// Helper para hashear contraseñas (debe coincidir con authOptions.ts)
 function hashPassword(password: string): string {
-    return crypto.createHash('sha256').update(password).digest('hex');
+  return bcrypt.hashSync(password, 12);
 }
 
 /**

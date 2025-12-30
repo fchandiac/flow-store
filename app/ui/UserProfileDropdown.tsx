@@ -1,25 +1,15 @@
 'use client'
-import React, { useState, useRef, useEffect } from 'react';
-import { logout } from '@/app/actions/auth.server';
-import { getCurrentSession } from '@/app/actions/auth.server';
+import React, { useEffect, useRef, useState } from 'react';
+import { signOut, useSession } from 'next-auth/react';
 
 interface UserProfileDropdownProps {
   className?: string;
 }
 
 const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '' }) => {
-  const [session, setSession] = useState<any>(null);
+  const { data: session } = useSession();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Cargar sesión al montar el componente
-  useEffect(() => {
-    const loadSession = async () => {
-      const currentSession = await getCurrentSession();
-      setSession(currentSession);
-    };
-    loadSession();
-  }, []);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -34,14 +24,14 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '
   }, []);
 
   const handleLogout = async () => {
-    await logout();
-    // Limpiar localStorage para evitar restauración automática de sesión
-    localStorage.removeItem('flow_session');
-    window.location.href = '/';
+    await signOut({ callbackUrl: '/' });
   };
 
-  const userName = session?.personName || session?.userName || 'Usuario';
-  const userInitial = userName.charAt(0).toUpperCase();
+  const user = session?.user as Record<string, unknown> | undefined;
+  const userName = (user?.personName as string | undefined)
+    || (user?.name as string | undefined)
+    || (user?.userName as string | undefined)
+    || 'Usuario';
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
@@ -59,7 +49,7 @@ const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({ className = '
         <div className="absolute right-0 top-full mt-2 w-48 rounded-lg bg-background shadow-lg border border-border z-50">
           <div className="p-3 border-b border-border">
             <p className="text-sm font-medium text-foreground truncate">{userName}</p>
-            <p className="text-xs text-muted-foreground truncate">{session?.user?.email}</p>
+            <p className="text-xs text-muted-foreground truncate">{(user?.email as string | undefined) ?? ''}</p>
           </div>
           <div className="p-1">
             <button

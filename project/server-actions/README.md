@@ -27,7 +27,7 @@ export async function myServerAction(data: InputDTO) {
 
 ```
 app/actions/
-├── auth.server.ts          # Autenticación (sufijo .server para claridad)
+├── auth.server.ts          # Helpers de sesión NextAuth (sufijo .server para claridad)
 ├── transactions.ts         # Transacciones
 ├── products.ts             # Productos
 ├── [entidad].ts            # Un archivo por entidad
@@ -66,7 +66,7 @@ export async function deleteEntity(id: string): Promise<void> { ... }
 ### Autenticación
 | Archivo | Entidad | Descripción |
 |---------|---------|-------------|
-| [auth.server.ts](./auth.md) | User/Session | Login, logout, sesión |
+| [auth.server.ts](./auth.md) | User/Session | Helpers de sesión NextAuth |
 
 ### Organización
 | Archivo | Entidad | Descripción |

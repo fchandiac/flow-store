@@ -67,7 +67,7 @@ La documentación de Server Actions se encuentra en [server-actions/](server-act
 | Action | Entidad | Descripción |
 |--------|---------|-------------|
 | [transactions.ts](server-actions/transactions.md) | Transaction | Ventas, compras, movimientos (inmutables) |
-| [auth.server.ts](server-actions/auth.md) | User/Session | Login, logout, sesión |
+| [auth.server.ts](server-actions/auth.md) | User/Session | Helpers de sesión NextAuth |
 | [companies.ts](server-actions/companies.md) | Company | Configuración de empresa |
 | [branches.ts](server-actions/branches.md) | Branch | Gestión de sucursales |
 | [storages.ts](server-actions/storages.md) | Storage | Gestión de almacenes |

@@ -1,24 +1,19 @@
 "use client";
 
-import { ReactNode, useEffect } from "react";
+import { ReactNode } from "react";
+import { SessionProvider } from "next-auth/react";
 import { AlertProvider } from "./state/contexts/AlertContext";
 import { PermissionsProvider } from "./state/contexts/PermissionsContext";
-import { useAuthPersistence } from "./lib/authStorage";
-
-// Component to handle auth persistence
-function AuthPersistenceHandler() {
-  useAuthPersistence();
-  return null;
-}
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <PermissionsProvider>
-      <AuthPersistenceHandler />
+    <SessionProvider refetchOnWindowFocus={false}>
       <AlertProvider>
-        {children}
+        <PermissionsProvider>
+          {children}
+        </PermissionsProvider>
       </AlertProvider>
-    </PermissionsProvider>
+    </SessionProvider>
   );
 }
 

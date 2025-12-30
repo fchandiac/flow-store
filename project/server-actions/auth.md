@@ -7,316 +7,82 @@
 
 ## Descripción
 
-Server actions para autenticación y manejo de sesiones de usuario.
+Helpers de servidor que exponen la sesión de NextAuth a otras server actions o scripts. El login, logout y la auditoría de accesos se manejan directamente en `authOptions` dentro de NextAuth.
 
 ---
 
 ## Funciones
 
-### login
+### getCurrentSession
 
-Autentica un usuario con credenciales.
+Devuelve información básica de la sesión activa obtenida desde NextAuth.
 
-```typescript
-'use server'
+```ts
+import { getCurrentSession } from '@/app/actions/auth.server';
 
-interface LoginCredentials {
-    userName: string;
-    password: string;
-}
-
-interface LoginResult {
-    success: boolean;
-    user?: {
-        id: string;
-        userName: string;
-        mail: string;
-        rol: UserRole;
-        person?: Person;
-    };
-    error?: string;
-}
-
-export async function login(credentials: LoginCredentials): Promise<LoginResult>
-```
-
-**Uso:**
-```tsx
-const result = await login({
-    userName: 'admin',
-    password: 'mypassword'
-});
-
-if (result.success) {
-    router.push('/admin/dashboard');
-} else {
-    setError(result.error);
+const session = await getCurrentSession();
+if (!session) {
+  redirect('/');
 }
 ```
 
----
+**Firma:**
 
-### logout
+```ts
+interface SessionInfo {
+  id: string;
+  userName: string;
+  name?: string | null;
+  email?: string | null;
+  rol: UserRole;
+  permissions: string[];
+}
 
-Cierra la sesión del usuario actual.
-
-```typescript
-export async function logout(): Promise<{ success: boolean }>
+export async function getCurrentSession(): Promise<SessionInfo | null>;
 ```
-
-**Uso:**
-```tsx
-await logout();
-router.push('/');
-```
-
----
 
 ### getCurrentUser
 
-Obtiene el usuario autenticado actual.
+Busca el usuario asociado a la sesión actual en la base de datos (incluye relaciones como `person`). Ideal para server actions que necesitan loader completo del usuario.
 
-```typescript
-interface CurrentUser {
-    id: string;
-    userName: string;
-    mail: string;
-    rol: UserRole;
-    person?: {
-        id: string;
-        firstName: string;
-        lastName: string;
-    };
-    permissions?: Permission[];
-}
-
-export async function getCurrentUser(): Promise<CurrentUser | null>
-```
-
-**Uso:**
-```tsx
+```ts
 const user = await getCurrentUser();
 if (!user) {
-    redirect('/');
+  throw new Error('Sesión inválida');
+}
+```
+
+### isAuthenticated
+
+Atajo que indica si hay sesión válida.
+
+```ts
+if (!(await isAuthenticated())) {
+  return { success: false, error: 'No autorizado' };
 }
 ```
 
 ---
 
-### validateSession
+## Flujo de autenticación
 
-Valida que la sesión actual sea válida.
-
-```typescript
-export async function validateSession(): Promise<boolean>
-```
-
----
-
-### changePassword
-
-Cambia la contraseña del usuario actual.
-
-```typescript
-interface ChangePasswordDTO {
-    currentPassword: string;
-    newPassword: string;
-}
-
-interface ChangePasswordResult {
-    success: boolean;
-    error?: string;
-}
-
-export async function changePassword(data: ChangePasswordDTO): Promise<ChangePasswordResult>
-```
-
-**Uso:**
-```tsx
-const result = await changePassword({
-    currentPassword: 'oldpass',
-    newPassword: 'newpass123'
-});
-
-if (result.success) {
-    toast.success('Contraseña actualizada');
-}
-```
+1. **Credenciales**: `app/api/auth/authOptions.ts` usa `CredentialsProvider` para validar usuario/contraseña con bcrypt (migrando hashes SHA256 existentes a bcrypt automáticamente).
+2. **Sesión JWT**: NextAuth guarda los datos en un JWT firmado y los expone mediante `getServerSession`.
+3. **Server Actions**: `auth.server.ts` reutiliza `getServerSession(authOptions)` para exponer información consumible por otras server actions.
+4. **Cliente**: Componentes React utilizan `useSession`, `signIn` y `signOut` directamente desde NextAuth.
 
 ---
 
-### checkPermission
+## Requisitos
 
-Verifica si el usuario tiene un permiso específico.
-
-```typescript
-interface PermissionCheck {
-    resource: string;
-    action: 'create' | 'read' | 'update' | 'delete';
-}
-
-export async function checkPermission(check: PermissionCheck): Promise<boolean>
-```
-
-**Uso:**
-```tsx
-const canCreate = await checkPermission({
-    resource: 'products',
-    action: 'create'
-});
-
-if (!canCreate) {
-    toast.error('No tienes permisos para crear productos');
-    return;
-}
-```
+- Variables de entorno: `NEXTAUTH_SECRET` y `NEXTAUTH_URL` deben estar configuradas.
+- Hashes de usuario: todos los seeds y scripts deben producir contraseñas con `bcrypt.hash(..., 12)` para alinearse con el flujo de autorización.
 
 ---
 
-## Implementación Interna
+## Recursos Relacionados
 
-```typescript
-'use server'
-
-import { getDataSource } from '@/data/db';
-import { User } from '@/data/entities/User';
-import { compare, hash } from 'bcryptjs';
-import { cookies } from 'next/headers';
-import { SignJWT, jwtVerify } from 'jose';
-
-const JWT_SECRET = new TextEncoder().encode(process.env.NEXTAUTH_SECRET);
-
-export async function login(credentials: LoginCredentials): Promise<LoginResult> {
-    try {
-        const ds = await getDataSource();
-        const userRepo = ds.getRepository(User);
-        
-        // Buscar usuario
-        const user = await userRepo.findOne({
-            where: { userName: credentials.userName },
-            relations: ['person', 'permissions']
-        });
-        
-        if (!user) {
-            return { success: false, error: 'Usuario no encontrado' };
-        }
-        
-        // Verificar contraseña
-        const valid = await compare(credentials.password, user.pass);
-        if (!valid) {
-            return { success: false, error: 'Contraseña incorrecta' };
-        }
-        
-        // Crear token JWT
-        const token = await new SignJWT({ 
-            userId: user.id,
-            userName: user.userName,
-            rol: user.rol 
-        })
-            .setProtectedHeader({ alg: 'HS256' })
-            .setExpirationTime('8h')
-            .sign(JWT_SECRET);
-        
-        // Guardar en cookie
-        cookies().set('auth-token', token, {
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax',
-            maxAge: 8 * 60 * 60 // 8 horas
-        });
-        
-        // Registrar en auditoría
-        await logAudit({
-            userId: user.id,
-            action: 'LOGIN',
-            entityName: 'User',
-            entityId: user.id
-        });
-        
-        return {
-            success: true,
-            user: {
-                id: user.id,
-                userName: user.userName,
-                mail: user.mail,
-                rol: user.rol,
-                person: user.person
-            }
-        };
-        
-    } catch (error) {
-        console.error('Login error:', error);
-        return { success: false, error: 'Error de autenticación' };
-    }
-}
-
-export async function getCurrentUser(): Promise<CurrentUser | null> {
-    try {
-        const cookieStore = cookies();
-        const token = cookieStore.get('auth-token')?.value;
-        
-        if (!token) return null;
-        
-        const { payload } = await jwtVerify(token, JWT_SECRET);
-        
-        const ds = await getDataSource();
-        const user = await ds.getRepository(User).findOne({
-            where: { id: payload.userId as string },
-            relations: ['person', 'permissions']
-        });
-        
-        return user;
-        
-    } catch {
-        return null;
-    }
-}
-```
-
----
-
-## Integración con NextAuth (Alternativa)
-
-Si se usa NextAuth.js:
-
-```typescript
-// app/api/auth/[...nextauth]/route.ts
-import NextAuth from 'next-auth';
-import CredentialsProvider from 'next-auth/providers/credentials';
-
-export const authOptions = {
-    providers: [
-        CredentialsProvider({
-            name: 'credentials',
-            credentials: {
-                userName: { label: 'Usuario', type: 'text' },
-                password: { label: 'Contraseña', type: 'password' }
-            },
-            async authorize(credentials) {
-                const result = await login(credentials);
-                if (result.success) {
-                    return result.user;
-                }
-                return null;
-            }
-        })
-    ],
-    callbacks: {
-        async jwt({ token, user }) {
-            if (user) {
-                token.id = user.id;
-                token.rol = user.rol;
-            }
-            return token;
-        },
-        async session({ session, token }) {
-            session.user.id = token.id;
-            session.user.rol = token.rol;
-            return session;
-        }
-    }
-};
-
-const handler = NextAuth(authOptions);
-export { handler as GET, handler as POST };
-```
+- `app/api/auth/authOptions.ts`: configuración principal de NextAuth.
+- `app/Providers.tsx`: registra `SessionProvider` en el árbol de React.
+- `app/state/contexts/PermissionsContext.tsx`: deriva habilidades desde la sesión.
+- `app/api/auth/check-session/route.ts`: endpoint que reutiliza NextAuth para exponer información de sesión al cliente.

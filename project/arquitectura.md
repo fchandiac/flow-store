@@ -54,7 +54,7 @@ flow-store/
 │   ├── global.css              # Estilos globales
 │   │
 │   ├── actions/                # 🔥 SERVER ACTIONS
-│   │   ├── auth.server.ts      # Autenticación
+│   │   ├── auth.server.ts      # Helpers de sesión NextAuth
 │   │   ├── transactions.ts     # Transacciones
 │   │   ├── products.ts         # Productos
 │   │   └── ...                 # Un archivo por entidad

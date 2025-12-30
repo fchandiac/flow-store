@@ -3,6 +3,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { AuditActionType } from "../../../data/entities/audit.types";
 import moment from "moment-timezone";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 const APP_TIMEZONE = 'America/Santiago';
 
@@ -109,7 +110,25 @@ export const authOptions: NextAuthOptions = {
           console.log("User found. Verifying password...");
           console.log("User pass hash:", user.pass);
           console.log("Password provided:", credentials.password);
-          const isValid = await bcrypt.compare(credentials.password, user.pass);
+          let isValid = false;
+
+          if (user.pass?.startsWith('$2')) {
+            isValid = await bcrypt.compare(credentials.password, user.pass);
+          } else if (user.pass) {
+            const legacyHash = crypto.createHash('sha256').update(credentials.password).digest('hex');
+            if (legacyHash === user.pass) {
+              isValid = true;
+              try {
+                const upgradedHash = await bcrypt.hash(credentials.password, 12);
+                user.pass = upgradedHash;
+                await userRepo.save(user);
+                console.log('[authorize] Password hash upgraded to bcrypt for user', user.userName);
+              } catch (upgradeError) {
+                console.error('[authorize] Failed upgrading legacy password hash:', upgradeError);
+              }
+            }
+          }
+
           console.log("Password comparison result:", isValid);
 
           if (!isValid) {
@@ -134,11 +153,12 @@ export const authOptions: NextAuthOptions = {
           
           return {
             id: user.id,
-            name: user.person?.firstName ? `${user.person.firstName} ${user.person.lastName || ''}`.trim() : '',
+            name: user.person?.firstName ? `${user.person.firstName} ${user.person.lastName || ''}`.trim() : user.userName,
             email: user.mail,
             role: user.rol,
             permissions: abilities,
-          };
+            userName: user.userName,
+          } as any;
         } catch (error: any) {
           console.error("Auth error:", error);
           
@@ -169,25 +189,11 @@ export const authOptions: NextAuthOptions = {
   ],
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 24 * 60 * 60, // 24 horas
   },
   jwt: {
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 24 * 60 * 60,
   },
-  cookies: {
-    sessionToken: {
-      name: `next-auth.session-token`,
-      options: {
-        httpOnly: false, // false for Electron to allow client-side access
-        sameSite: 'lax',
-        path: '/',
-        secure: false, // false for Electron/localhost
-        maxAge: 30 * 24 * 60 * 60, // 30 days - persistent cookie
-      },
-    },
-  },
-  // For Electron: disable secure cookies to allow localStorage fallback
-  useSecureCookies: false,
   pages: {
     signIn: "/", // Custom sign in page (we'll use the home page)
   },
@@ -197,12 +203,25 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async redirect({ url, baseUrl }) {
-      // Si la URL incluye callbackUrl, usarla
-      if (url.includes('/admin') || url.includes('/pointOfSale') || url.includes('callbackUrl')) {
-        return url;
+      try {
+        const parsedUrl = new URL(url, baseUrl);
+        const callbackUrl = parsedUrl.searchParams.get('callbackUrl');
+
+        if (callbackUrl) {
+          return callbackUrl.startsWith('http') ? callbackUrl : `${baseUrl}${callbackUrl}`;
+        }
+
+        if (url.startsWith('/')) {
+          return `${baseUrl}${url}`;
+        }
+
+        if (url.startsWith(baseUrl)) {
+          return url;
+        }
+      } catch (error) {
+        console.warn('[authOptions.redirect] Fallback redirect due to error:', error);
       }
-      // Por defecto, redirigir a /admin después del login (para usuarios admin)
-      return `${baseUrl}/admin`;
+      return `${baseUrl}/pointOfSale`;
     },
     async session({ session, token }) {
       // Debug: inspect session & token when session callback runs
@@ -217,6 +236,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).id = token.userId || token.sub;
         (session.user as any).name = token.name;
         (session.user as any).email = token.email;
+        (session.user as any).userName = token.userName ?? (session.user as any).userName;
         if (token.role) {
           (session.user as any).role = token.role;
         }
@@ -247,6 +267,7 @@ export const authOptions: NextAuthOptions = {
         token.email = user.email;
         token.role = (user as any).role ?? (user as any).rol ?? token.role;
         token.permissions = Array.isArray((user as any).permissions) ? (user as any).permissions : token.permissions;
+        token.userName = (user as any).userName ?? token.userName;
       }
 
       if (token.sub) {
@@ -259,6 +280,9 @@ export const authOptions: NextAuthOptions = {
           const dbUser = await userRepo.findOne({ where: { id: token.sub } });
           if (dbUser?.rol) {
             token.role = dbUser.rol;
+          }
+          if (dbUser?.userName) {
+            token.userName = dbUser.userName;
           }
 
           // Siempre cargar permisos desde la BD para mantenerlos actualizados

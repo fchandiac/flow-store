@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { Session } from "next-auth";
+import { signIn, useSession } from "next-auth/react";
 import { TextField } from "@/app/baseComponents/TextField/TextField";
 import { Button } from "@/app/baseComponents/Button/Button";
 import Alert from "@/app/baseComponents/Alert/Alert";
-import { login } from "@/app/actions/auth.server";
-import { restoreSessionFromStorage } from "@/app/lib/authStorage";
 
 /**
  * Página de Login
@@ -15,47 +15,27 @@ import { restoreSessionFromStorage } from "@/app/lib/authStorage";
  */
 export default function LoginPage() {
     const router = useRouter();
+    const { data: session, status } = useSession();
     const [userName, setUserName] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Verificar si hay una sesión guardada y redirigir automáticamente
-    useEffect(() => {
-        const checkStoredSession = async () => {
-            // Intentar restaurar la sesión desde localStorage
-            const sessionRestored = restoreSessionFromStorage();
-            
-            if (sessionRestored) {
-                // Si se restauró la sesión, verificar que sea válida
-                try {
-                    const response = await fetch('/api/auth/check-session', {
-                        method: 'GET',
-                        credentials: 'include',
-                    });
-                    
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.authenticated) {
-                            // Redirigir según rol
-                            if (data.user?.rol === 'ADMIN') {
-                                router.push('/admin');
-                            } else {
-                                router.push('/pointOfSale');
-                            }
-                            return;
-                        }
-                    }
-                } catch (error) {
-                    console.error('[Login] Error checking stored session:', error);
-                }
-            }
-        };
-        
-        checkStoredSession();
-    }, [router]);
+    const resolvePostLoginRoute = useCallback((activeSession?: Session | null) => {
+        const role = (activeSession?.user as { role?: string } | undefined)?.role;
+        if (role === "ADMIN") {
+            return "/admin";
+        }
+        return "/pointOfSale";
+    }, []);
 
-    const handleSubmit = async (e: React.FormEvent) => {
+    useEffect(() => {
+        if (status === "authenticated") {
+            router.replace(resolvePostLoginRoute(session));
+        }
+    }, [status, router, resolvePostLoginRoute, session]);
+
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         
         if (!userName || !password) {
@@ -67,24 +47,33 @@ export default function LoginPage() {
         setError("");
 
         try {
-            const result = await login({ username: userName, password });
+            const response = await signIn("credentials", {
+                redirect: false,
+                username: userName,
+                password,
+            });
 
-            if (!result.success) {
-                setError(result.error || "Usuario o contraseña incorrectos");
+            if (!response) {
+                setError("No se pudo procesar la autenticación");
                 setIsSubmitting(false);
                 return;
             }
 
-            // Redirección según rol
-            if (result.user?.rol === 'ADMIN') {
-                router.push('/admin');
-            } else {
-                router.push('/pointOfSale');
+            if (response.error) {
+                const message =
+                    response.error === "CredentialsSignin"
+                        ? "Usuario o contraseña incorrectos"
+                        : response.error;
+                setError(message);
+                setIsSubmitting(false);
+                return;
             }
+            router.replace(resolvePostLoginRoute(session));
         } catch (err) {
             console.error('[Login] Error:', err);
             setError("Error al procesar la autenticación");
             setIsSubmitting(false);
+            return;
         }
     };
 

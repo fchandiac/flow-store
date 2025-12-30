@@ -1,8 +1,9 @@
-import React, { useState, useTransition, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+'use client';
+
+import React, { useState } from 'react';
+import { signOut, useSession } from 'next-auth/react';
 // Logo removed from sidebar per request
 import { Button } from '../Button/Button';
-import { logout, getCurrentSession } from '@/app/actions/auth.server';
 
 export interface SideBarMenuItem {
   id?: string;
@@ -31,18 +32,7 @@ const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0';
 const APP_RELEASE = process.env.NEXT_PUBLIC_APP_RELEASE || '21-Diciembre-2025';
 
 const SideBar: React.FC<SideBarProps> = ({ menuItems, className, style, onClose, logoUrl }) => {
-  const router = useRouter();
-  const [session, setSession] = useState<any>(null);
-  const [isPending, startTransition] = useTransition();
-
-  // Cargar sesión al montar el componente
-  useEffect(() => {
-    const loadSession = async () => {
-      const currentSession = await getCurrentSession();
-      setSession(currentSession);
-    };
-    loadSession();
-  }, []);
+  const { data: session } = useSession();
 
   // Track which parent items are open using their id or label
   const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
@@ -153,15 +143,19 @@ const SideBar: React.FC<SideBarProps> = ({ menuItems, className, style, onClose,
         <div className="text-xs text-gray-500" data-test-id="side-bar-app-release">Release: {APP_RELEASE}</div>
       </div>
 
-      {session && (() => {
-        const u = session as { userName?: string; rol?: string };
+      {session?.user && (() => {
+        const user = session.user as Record<string, unknown>;
+        const displayName = (user.userName as string | undefined)
+          || (user.name as string | undefined)
+          || 'Usuario';
+        const roleKey = (user.role as string | undefined)?.toLowerCase();
         return (
           <div className="w-full px-6 mb-6">
             <div className="flex items-center border border-gray-300 rounded-lg px-3 py-2 gap-3" style={{ background: 'transparent', borderWidth: '0.3px' }}>
               <span className="material-symbols-outlined text-black text-3xl">person</span>
               <div className="flex flex-col min-w-0">
-                <span className="text-base font-bold truncate">{u.userName}</span>
-                <span className="text-xs opacity-60 capitalize truncate">{ROLE_LABELS[u.rol as keyof typeof ROLE_LABELS] || u.rol}</span>
+                <span className="text-base font-bold truncate">{displayName}</span>
+                <span className="text-xs opacity-60 capitalize truncate">{roleKey ? ROLE_LABELS[roleKey] ?? roleKey : ''}</span>
               </div>
             </div>
           </div>
@@ -179,10 +173,7 @@ const SideBar: React.FC<SideBarProps> = ({ menuItems, className, style, onClose,
           variant="outlined"
           className="w-full"
           onClick={async () => {
-            await logout();
-            // Limpiar localStorage para evitar restauración automática de sesión
-            localStorage.removeItem('flow_session');
-            window.location.href = '/';
+            await signOut({ callbackUrl: '/' });
           }}
           data-test-id="side-bar-logout-btn"
         >
