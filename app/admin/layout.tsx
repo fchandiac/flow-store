@@ -18,20 +18,20 @@ const menuItems: SideBarMenuItem[] = [
         id: 'ventas',
         label: 'Ventas',
         children: [
-            { id: 'transactions', label: 'Transacciones', url: '/admin/transactions' },
-            { id: 'customers', label: 'Clientes', url: '/admin/customers' },
+            { id: 'transactions', label: 'Transacciones', url: '/admin/sales/transactions' },
+            { id: 'customers', label: 'Clientes', url: '/admin/sales/customers' },
         ]
     },
     { 
         id: 'inventario',
         label: 'Inventario',
         children: [
-            { id: 'products', label: 'Productos', url: '/admin/products' },
-            { id: 'variants', label: 'Variantes', url: '/admin/products/variants' },
-            { id: 'categories', label: 'Categorías', url: '/admin/products/categories' },
+            { id: 'products', label: 'Productos', url: '/admin/inventory/products' },
+            { id: 'variants', label: 'Variantes', url: '/admin/inventory/products/variants' },
+            { id: 'categories', label: 'Categorías', url: '/admin/inventory/products/categories' },
             { id: 'stock', label: 'Stock', url: '/admin/inventory' },
-            { id: 'purchase-orders', label: 'Órdenes de compra', url: '/admin/purchase-orders' },
-            { id: 'suppliers', label: 'Proveedores', url: '/admin/suppliers' },
+            { id: 'purchase-orders', label: 'Órdenes de compra', url: '/admin/inventory/purchase-orders' },
+            { id: 'suppliers', label: 'Proveedores', url: '/admin/inventory/suppliers' },
         ]
     },
     { 
@@ -55,7 +55,7 @@ const menuItems: SideBarMenuItem[] = [
             { id: 'branches', label: 'Sucursales', url: '/admin/settings/branches' },
             { id: 'storages', label: 'Almacenes', url: '/admin/settings/storages' },
             { id: 'points-of-sale', label: 'Puntos de Venta', url: '/admin/settings/points-of-sale' },
-            { id: 'users', label: 'Usuarios', url: '/admin/users' },
+            { id: 'users', label: 'Usuarios', url: '/admin/settings/users' },
             { id: 'taxes', label: 'Impuestos', url: '/admin/settings/taxes' },
             { id: 'price-lists', label: 'Listas de Precios', url: '/admin/settings/price-lists' },
             { id: 'attributes', label: 'Atributos', url: '/admin/settings/attributes' },

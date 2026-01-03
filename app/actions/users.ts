@@ -169,7 +169,7 @@ export async function createUserWithPerson(data: CreateUserDTO, currentUserId?: 
         });
         
         await userRepo.save(user);
-        revalidatePath('/admin/users');
+        revalidatePath('/admin/settings/users');
         
         const result = {
             id: user.id,
@@ -254,7 +254,7 @@ export async function updateUserWithPerson(
         }
         
         await userRepo.save(user);
-        revalidatePath('/admin/users');
+        revalidatePath('/admin/settings/users');
         
         const result = {
             id: user.id,
@@ -306,7 +306,7 @@ export async function deleteUser(id: string, currentUserId?: string): Promise<{ 
         }
         
         await repo.softRemove(user);
-        revalidatePath('/admin/users');
+        revalidatePath('/admin/settings/users');
         
         return { success: true };
     } catch (error) {

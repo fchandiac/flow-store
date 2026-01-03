@@ -4,7 +4,7 @@ import { CategoryList } from './ui';
 
 /**
  * Gestión de Categorías
- * Ruta: /admin/products/categories
+ * Ruta: /admin/inventory/products/categories
  * CRUD de categorías de productos
  */
 export default async function CategoriesPage() {

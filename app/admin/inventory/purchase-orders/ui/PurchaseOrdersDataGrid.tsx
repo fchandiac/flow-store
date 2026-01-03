@@ -171,7 +171,7 @@ const PurchaseOrdersDataGrid = () => {
     const headerActions = useMemo(() => (
         <div className="flex items-center gap-3">
             {loading && <DotProgress totalSteps={3} size={10} />}
-            <Link href="/admin/purchase-orders/new" className="inline-flex">
+            <Link href="/admin/inventory/purchase-orders/new" className="inline-flex">
                 <Button size="sm">Nueva orden</Button>
             </Link>
         </div>

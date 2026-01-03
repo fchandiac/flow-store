@@ -324,7 +324,7 @@ export async function createSimpleProduct(data: CreateSimpleProductDTO): Promise
             await priceListItemRepo.save(priceListItem);
         }
         
-        revalidatePath('/admin/products');
+        revalidatePath('/admin/inventory/products');
         
         return { 
             success: true, 
@@ -368,7 +368,7 @@ export async function createProductWithVariants(data: CreateProductWithVariantsD
         });
         
         await productRepo.save(product);
-        revalidatePath('/admin/products');
+        revalidatePath('/admin/inventory/products');
         
         return { success: true, product: JSON.parse(JSON.stringify(product)) };
     } catch (error) {
@@ -408,7 +408,7 @@ export async function updateProduct(id: string, data: UpdateProductDTO): Promise
         if (data.isActive !== undefined) product.isActive = data.isActive;
         
         await productRepo.save(product);
-        revalidatePath('/admin/products');
+        revalidatePath('/admin/inventory/products');
         
         return { success: true, product: JSON.parse(JSON.stringify(product)) };
     } catch (error) {
@@ -504,7 +504,7 @@ export async function updateSimpleProduct(
             }
         }
         
-        revalidatePath('/admin/products');
+        revalidatePath('/admin/inventory/products');
         
         return { success: true, product: JSON.parse(JSON.stringify(product)) };
     });
@@ -538,7 +538,7 @@ export async function deleteProduct(id: string): Promise<{ success: boolean; err
         
         // Soft delete producto
         await productRepo.softRemove(product);
-        revalidatePath('/admin/products');
+        revalidatePath('/admin/inventory/products');
         
         return { success: true };
     } catch (error) {

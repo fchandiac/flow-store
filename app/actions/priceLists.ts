@@ -355,7 +355,7 @@ export async function createPriceListItem(data: CreatePriceListItemDTO): Promise
         });
         
         await repo.save(item);
-        revalidatePath('/admin/products');
+        revalidatePath('/admin/inventory/products');
         
         return { success: true, item };
     } catch (error) {
@@ -388,7 +388,7 @@ export async function updatePriceListItem(id: string, data: UpdatePriceListItemD
         if (data.discountPercentage !== undefined) item.discountPercentage = data.discountPercentage;
         
         await repo.save(item);
-        revalidatePath('/admin/products');
+        revalidatePath('/admin/inventory/products');
         
         return { success: true, item };
     } catch (error) {
@@ -417,7 +417,7 @@ export async function deletePriceListItem(id: string): Promise<{ success: boolea
         }
         
         await repo.softRemove(item);
-        revalidatePath('/admin/products');
+        revalidatePath('/admin/inventory/products');
         
         return { success: true };
     } catch (error) {

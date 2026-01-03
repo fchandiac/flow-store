@@ -221,7 +221,7 @@ export async function createSupplier(data: CreateSupplierDTO): Promise<SupplierR
             relations: ['person']
         });
         
-        revalidatePath('/admin/suppliers');
+        revalidatePath('/admin/inventory/suppliers');
 
         const plainSupplier = cloneSupplier(savedSupplier)!;
         return { success: true, supplier: plainSupplier };
@@ -297,7 +297,7 @@ export async function updateSupplier(id: string, data: UpdateSupplierDTO): Promi
             relations: ['person']
         });
 
-        revalidatePath('/admin/suppliers');
+        revalidatePath('/admin/inventory/suppliers');
         
         const plainSupplier = cloneSupplier(updatedSupplier)!;
         return { success: true, supplier: plainSupplier };
@@ -327,7 +327,7 @@ export async function deleteSupplier(id: string): Promise<{ success: boolean; er
         }
         
         await repo.softRemove(supplier);
-        revalidatePath('/admin/suppliers');
+        revalidatePath('/admin/inventory/suppliers');
         
         return { success: true };
     } catch (error) {

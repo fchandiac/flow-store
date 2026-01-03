@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation';
 import type { PropsWithChildren } from 'react';
 
 const tabs = [
-    { href: '/admin/purchase-orders', label: 'Listado' },
-    { href: '/admin/purchase-orders/new', label: 'Nueva orden' },
+    { href: '/admin/inventory/purchase-orders', label: 'Listado' },
+    { href: '/admin/inventory/purchase-orders/new', label: 'Nueva orden' },
 ];
 
 export default function PurchaseOrdersLayout({ children }: PropsWithChildren) {
@@ -21,7 +21,7 @@ export default function PurchaseOrdersLayout({ children }: PropsWithChildren) {
                 </p>
                 <nav className="flex items-center gap-2 mt-4 border-b border-border pb-2">
                     {tabs.map((tab) => {
-                        const isActive = pathname === tab.href || (tab.href !== '/admin/purchase-orders' && pathname.startsWith(tab.href));
+                        const isActive = pathname === tab.href || (tab.href !== '/admin/inventory/purchase-orders' && pathname.startsWith(tab.href));
                         return (
                             <Link
                                 key={tab.href}

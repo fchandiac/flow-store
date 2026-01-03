@@ -4,7 +4,7 @@ import CustomersDataGrid from "./ui/CustomersDataGrid";
 
 /**
  * Gestión de Clientes
- * Ruta: /admin/customers
+ * Ruta: /admin/sales/customers
  * CRUD de clientes (extensión de Person)
  */
 export default function CustomersPage() {

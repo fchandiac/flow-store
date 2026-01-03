@@ -50,7 +50,7 @@ const UserList: React.FC<UserListProps> = ({ users }) => {
             params.delete('search');
         }
         
-        const pathname = typeof window !== 'undefined' ? window.location.pathname : '/admin/users';
+        const pathname = typeof window !== 'undefined' ? window.location.pathname : '/admin/settings/users';
         router.replace(`${pathname}?${params.toString()}`);
         router.refresh();
     };

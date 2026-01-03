@@ -4,7 +4,7 @@ import SuppliersDataGrid from "./ui/SuppliersDataGrid";
 
 /**
  * Gestión de Proveedores
- * Ruta: /admin/suppliers
+ * Ruta: /admin/inventory/suppliers
  * CRUD de proveedores (extensión de Person)
  */
 export default function SuppliersPage() {

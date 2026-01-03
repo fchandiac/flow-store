@@ -4,7 +4,7 @@ import { VariantsList } from './ui';
 
 /**
  * Gestión de Variantes de Productos
- * Ruta: /admin/products/variants
+ * Ruta: /admin/inventory/products/variants
  * 
  * Muestra productos con sus variantes en cards desplegables.
  * Cada producto es expandible para ver/editar sus variantes.

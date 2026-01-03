@@ -310,7 +310,7 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
         // Recargar con relaciones
         const savedTransaction = await getTransactionById(transaction.id);
         
-        revalidatePath('/transactions');
+        revalidatePath('/admin/sales/transactions');
         revalidatePath('/admin/reports');
         
         return { success: true, transaction: savedTransaction as Transaction };

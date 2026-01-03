@@ -195,7 +195,7 @@ export async function deletePurchaseOrder(id: string): Promise<PurchaseOrderActi
     order.status = TransactionStatus.CANCELLED;
     await repo.save(order);
 
-    revalidatePath('/admin/purchase-orders');
+    revalidatePath('/admin/inventory/purchase-orders');
     return { success: true, orderId: order.id };
 }
 
@@ -344,7 +344,7 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderDTO): Promise
             await repo.update(result.transaction.id, { metadata });
         }
 
-        revalidatePath('/admin/purchase-orders');
+        revalidatePath('/admin/inventory/purchase-orders');
         return { success: true, orderId: result.transaction?.id };
     } catch (err) {
         console.error('Error creating purchase order:', err);

@@ -104,7 +104,7 @@ export async function createAttribute(data: CreateAttributeDTO): Promise<Attribu
         
         await repo.save(attribute);
         revalidatePath('/admin/settings/attributes');
-        revalidatePath('/admin/products');
+        revalidatePath('/admin/inventory/products');
         
         return { success: true, attribute: JSON.parse(JSON.stringify(attribute)) };
     } catch (error) {
@@ -165,7 +165,7 @@ export async function updateAttribute(id: string, data: UpdateAttributeDTO): Pro
         
         await repo.save(attribute);
         revalidatePath('/admin/settings/attributes');
-        revalidatePath('/admin/products');
+        revalidatePath('/admin/inventory/products');
         
         return { success: true, attribute: JSON.parse(JSON.stringify(attribute)) };
     } catch (error) {
@@ -197,7 +197,7 @@ export async function deleteAttribute(id: string): Promise<{ success: boolean; e
         
         await repo.softRemove(attribute);
         revalidatePath('/admin/settings/attributes');
-        revalidatePath('/admin/products');
+        revalidatePath('/admin/inventory/products');
         
         return { success: true };
     } catch (error) {
@@ -241,7 +241,7 @@ export async function addOptionToAttribute(
         await repo.save(attribute);
         
         revalidatePath('/admin/settings/attributes');
-        revalidatePath('/admin/products');
+        revalidatePath('/admin/inventory/products');
         
         return { success: true, attribute: JSON.parse(JSON.stringify(attribute)) };
     } catch (error) {
@@ -282,7 +282,7 @@ export async function removeOptionFromAttribute(
         await repo.save(attribute);
         
         revalidatePath('/admin/settings/attributes');
-        revalidatePath('/admin/products');
+        revalidatePath('/admin/inventory/products');
         
         return { success: true, attribute: JSON.parse(JSON.stringify(attribute)) };
     } catch (error) {

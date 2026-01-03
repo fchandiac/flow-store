@@ -5,7 +5,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * Gestión de Usuarios
- * Ruta: /admin/users
+ * Ruta: /admin/settings/users
  * CRUD de usuarios del sistema con tarjetas
  * 
  * Patrón UI:

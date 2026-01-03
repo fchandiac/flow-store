@@ -140,7 +140,7 @@ interface CategoryOption extends Option {
 
 /**
  * Catálogo de Productos
- * Ruta: /admin/products
+ * Ruta: /admin/inventory/products
  * CRUD de productos con DataGrid
  * 
  * Modelo actualizado:

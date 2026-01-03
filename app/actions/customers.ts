@@ -216,7 +216,7 @@ export async function createCustomer(data: CreateCustomerDTO): Promise<CustomerR
             relations: ['person']
         });
         
-        revalidatePath('/admin/customers');
+        revalidatePath('/admin/sales/customers');
         
         return JSON.parse(JSON.stringify({ success: true, customer: savedCustomer! }));
     } catch (error) {
@@ -264,7 +264,7 @@ export async function updateCustomer(id: string, data: UpdateCustomerDTO): Promi
         if (data.isActive !== undefined) customer.isActive = data.isActive;
         
         await repo.save(customer);
-        revalidatePath('/admin/customers');
+        revalidatePath('/admin/sales/customers');
         
         return JSON.parse(JSON.stringify({ success: true, customer }));
     } catch (error) {
@@ -303,7 +303,7 @@ export async function deleteCustomer(id: string): Promise<{ success: boolean; er
         }
         
         await repo.softDelete(id);
-        revalidatePath('/admin/customers');
+        revalidatePath('/admin/sales/customers');
         
         return { success: true };
     } catch (error) {

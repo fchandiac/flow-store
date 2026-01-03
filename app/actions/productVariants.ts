@@ -290,8 +290,8 @@ export async function createVariant(data: CreateVariantDTO): Promise<VariantResu
             await productRepo.save(product);
         }
         
-        revalidatePath('/admin/products');
-        revalidatePath('/admin/products/variants');
+        revalidatePath('/admin/inventory/products');
+        revalidatePath('/admin/inventory/products/variants');
         
         return JSON.parse(JSON.stringify({ success: true, variant }));
     } catch (error) {
@@ -347,8 +347,8 @@ export async function updateVariant(id: string, data: UpdateVariantDTO): Promise
         if (data.isActive !== undefined) variant.isActive = data.isActive;
         
         await repo.save(variant);
-        revalidatePath('/admin/products');
-        revalidatePath('/admin/products/variants');
+        revalidatePath('/admin/inventory/products');
+        revalidatePath('/admin/inventory/products/variants');
         
         return JSON.parse(JSON.stringify({ success: true, variant }));
     } catch (error) {
@@ -417,8 +417,8 @@ export async function deleteVariant(id: string): Promise<{ success: boolean; err
             }
         }
         
-        revalidatePath('/admin/products');
-        revalidatePath('/admin/products/variants');
+        revalidatePath('/admin/inventory/products');
+        revalidatePath('/admin/inventory/products/variants');
         
         return { success: true };
     } catch (error) {
@@ -494,8 +494,8 @@ export async function createBulkVariants(
             await productRepo.save(product);
         }
         
-        revalidatePath('/admin/products');
-        revalidatePath('/admin/products/variants');
+        revalidatePath('/admin/inventory/products');
+        revalidatePath('/admin/inventory/products/variants');
         
         return { success: true, variants: JSON.parse(JSON.stringify(createdVariants)) };
     } catch (error) {
