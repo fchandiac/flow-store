@@ -4,6 +4,8 @@ import { getDb } from '@/data/db';
 import { Product, ProductType } from '@/data/entities/Product';
 import { ProductVariant } from '@/data/entities/ProductVariant';
 import { Category } from '@/data/entities/Category';
+import { PriceList } from '@/data/entities/PriceList';
+import { PriceListItem } from '@/data/entities/PriceListItem';
 import { revalidatePath } from 'next/cache';
 import { IsNull } from 'typeorm';
 
@@ -39,6 +41,7 @@ interface CreateSimpleProductDTO {
     minimumStock?: number;
     maximumStock?: number;
     reorderPoint?: number;
+    priceListId?: string;
 }
 
 /**
@@ -261,6 +264,17 @@ export async function createSimpleProduct(data: CreateSimpleProductDTO): Promise
                 return { success: false, error: 'Categoría no encontrada' };
             }
         }
+
+        if (data.priceListId) {
+            const priceListRepo = manager.getRepository(PriceList);
+            const priceList = await priceListRepo.findOne({
+                where: { id: data.priceListId, deletedAt: IsNull(), isActive: true }
+            });
+
+            if (!priceList) {
+                return { success: false, error: 'Lista de precios no encontrada o inactiva' };
+            }
+        }
         
         // Crear producto maestro
         const product = productRepo.create({
@@ -291,11 +305,24 @@ export async function createSimpleProduct(data: CreateSimpleProductDTO): Promise
             minimumStock: data.minimumStock || 0,
             maximumStock: data.maximumStock || 0,
             reorderPoint: data.reorderPoint || 0,
+            taxIds: data.taxIds && data.taxIds.length > 0 ? data.taxIds : undefined,
             isDefault: true,
             isActive: true
         });
         
         await variantRepo.save(variant);
+
+        if (data.priceListId) {
+            const priceListItemRepo = manager.getRepository(PriceListItem);
+            const priceListItem = priceListItemRepo.create({
+                priceListId: data.priceListId,
+                productId: product.id,
+                productVariantId: variant.id,
+                price: data.basePrice,
+            });
+
+            await priceListItemRepo.save(priceListItem);
+        }
         
         revalidatePath('/admin/products');
         

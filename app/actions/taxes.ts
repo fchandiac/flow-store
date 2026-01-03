@@ -44,10 +44,12 @@ export async function getTaxes(includeInactive: boolean = false): Promise<Tax[]>
         where.isActive = true;
     }
     
-    return repo.find({
+    const taxes = await repo.find({
         where,
         order: { isDefault: 'DESC', name: 'ASC' }
     });
+
+    return taxes.map((tax) => JSON.parse(JSON.stringify(tax)));
 }
 
 /**

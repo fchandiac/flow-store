@@ -4,7 +4,7 @@ import { getDb } from "@/data/db";
 import { Branch } from "@/data/entities/Branch";
 import { Product } from "@/data/entities/Product";
 import { ProductVariant } from "@/data/entities/ProductVariant";
-import { Storage } from "@/data/entities/Storage";
+import { Storage, StorageCategory } from "@/data/entities/Storage";
 import {
     Transaction,
     TransactionStatus,
@@ -15,7 +15,7 @@ import { TransactionLine } from "@/data/entities/TransactionLine";
 export interface InventoryStorageBreakdown {
     storageId: string;
     storageName: string;
-    branchId?: string;
+    branchId?: string | null;
     branchName?: string;
     quantity: number;
 }
@@ -76,7 +76,7 @@ export interface InventoryRowDTO {
 
 export interface InventoryFiltersDTO {
     branches: { id: string; name: string; isHeadquarters: boolean }[];
-    storages: { id: string; name: string; code?: string | null; branchId?: string | null; branchName?: string | null }[];
+    storages: { id: string; name: string; code?: string | null; branchId?: string | null; branchName?: string | null; category: StorageCategory }[];
 }
 
 export interface GetInventoryStockParams {
@@ -137,6 +137,7 @@ export async function getInventoryFilters(): Promise<InventoryFiltersDTO> {
             code: storage.code,
             branchId: storage.branchId ?? null,
             branchName: storage.branch?.name ?? null,
+            category: storage.category,
         })),
     };
 

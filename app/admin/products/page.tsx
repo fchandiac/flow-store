@@ -9,6 +9,8 @@ import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import { Button } from '@/app/baseComponents/Button/Button';
 import { getProducts, ProductWithDefaultVariant, VariantSummary } from '@/app/actions/products';
 import { getCategories } from '@/app/actions/categories';
+import { getPriceLists } from '@/app/actions/priceLists';
+import { getTaxes } from '@/app/actions/taxes';
 import { ProductType } from '@/data/entities/Product';
 import { 
     CreateProductDialog, 
@@ -154,6 +156,8 @@ export default function ProductsPage() {
     // State
     const [products, setProducts] = useState<ProductWithDefaultVariant[]>([]);
     const [categories, setCategories] = useState<CategoryOption[]>([]);
+    const [priceLists, setPriceLists] = useState<Array<{ id: string; name: string; currency: string; isDefault: boolean }>>([]);
+    const [taxes, setTaxes] = useState<Array<{ id: string; name: string; code: string; rate: number; isDefault: boolean }>>([]);
     const [totalRows, setTotalRows] = useState(0);
     const [loading, setLoading] = useState(true);
     
@@ -171,15 +175,36 @@ export default function ProductsPage() {
 
     // Load categories
     useEffect(() => {
-        async function loadCategories() {
+        async function loadReferenceData() {
             try {
-                const cats = await getCategories({ isActive: true });
-                setCategories(cats.map(c => ({ id: c.id, label: c.name })));
+                const [cats, lists, taxesResult] = await Promise.all([
+                    getCategories({ isActive: true }),
+                    getPriceLists(true),
+                    getTaxes(),
+                ]);
+
+                setCategories(cats.map((c) => ({ id: c.id, label: c.name })));
+
+                setPriceLists(lists.map((list) => ({
+                    id: list.id,
+                    name: list.name,
+                    currency: list.currency,
+                    isDefault: Boolean(list.isDefault),
+                })));
+
+                setTaxes(taxesResult.map((tax) => ({
+                    id: tax.id,
+                    name: tax.name,
+                    code: tax.code,
+                    rate: Number(tax.rate),
+                    isDefault: Boolean(tax.isDefault),
+                })));
             } catch (err) {
-                console.error('Error loading categories:', err);
+                console.error('Error loading reference data:', err);
             }
         }
-        loadCategories();
+
+        loadReferenceData();
     }, []);
 
     // Load products
@@ -292,11 +317,17 @@ export default function ProductsPage() {
             align: 'right',
             headerAlign: 'right',
             renderCell: ({ row }) => (
-                row.basePrice !== undefined ? (
-                    <span className="font-medium">${Number(row.basePrice).toLocaleString('es-CL')}</span>
-                ) : (
-                    <span className="text-muted-foreground text-xs">Ver variantes</span>
-                )
+                row.variantCount > 1
+                    ? (
+                        <span className="text-muted-foreground text-xs">Ver variantes</span>
+                    )
+                    : row.basePrice !== undefined
+                        ? (
+                            <span className="font-medium">${Number(row.basePrice).toLocaleString('es-CL')}</span>
+                        )
+                        : (
+                            <span className="text-muted-foreground text-xs">Ver variantes</span>
+                        )
             ),
         },
         {
@@ -306,11 +337,17 @@ export default function ProductsPage() {
             align: 'right',
             headerAlign: 'right',
             renderCell: ({ row }) => (
-                row.baseCost !== undefined ? (
-                    <span className="text-muted-foreground">${Number(row.baseCost).toLocaleString('es-CL')}</span>
-                ) : (
-                    <span className="text-muted-foreground text-xs">-</span>
-                )
+                row.variantCount > 1
+                    ? (
+                        <span className="text-muted-foreground text-xs">Ver variantes</span>
+                    )
+                    : row.baseCost !== undefined
+                        ? (
+                            <span className="text-muted-foreground">${Number(row.baseCost).toLocaleString('es-CL')}</span>
+                        )
+                        : (
+                            <span className="text-muted-foreground text-xs">-</span>
+                        )
             ),
         },
         {
@@ -407,6 +444,8 @@ export default function ProductsPage() {
                 onClose={() => setCreateDialogOpen(false)}
                 onSuccess={loadProducts}
                 categories={categories}
+                priceLists={priceLists}
+                taxes={taxes}
             />
 
             <UpdateProductDialog

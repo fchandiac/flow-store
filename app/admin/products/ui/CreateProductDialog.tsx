@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
 import Select, { Option } from '@/app/baseComponents/Select/Select';
@@ -19,6 +19,23 @@ interface CreateProductDialogProps {
     onClose: () => void;
     onSuccess: () => void;
     categories: CategoryOption[];
+    priceLists: PriceListSummary[];
+    taxes: TaxSummary[];
+}
+
+interface PriceListSummary {
+    id: string;
+    name: string;
+    currency: string;
+    isDefault?: boolean;
+}
+
+interface TaxSummary {
+    id: string;
+    name: string;
+    code: string;
+    rate: number;
+    isDefault?: boolean;
 }
 
 const productTypeOptions: Option[] = [
@@ -27,7 +44,7 @@ const productTypeOptions: Option[] = [
     { id: ProductType.DIGITAL, label: 'Digital' },
 ];
 
-const initialFormData = {
+const getInitialFormData = () => ({
     // Datos del producto maestro
     name: '',
     description: '',
@@ -37,6 +54,8 @@ const initialFormData = {
     trackInventory: true,
     allowNegativeStock: false,
     isActive: true,
+    taxIds: [] as string[],
+    priceListId: '',
     // Datos de la variante (para producto simple)
     sku: '',
     barcode: '',
@@ -48,15 +67,15 @@ const initialFormData = {
     reorderPoint: '0',
     // Control de variantes
     hasVariants: false,
-};
+});
 
-export default function CreateProductDialog({ open, onClose, onSuccess, categories }: CreateProductDialogProps) {
-    const [formData, setFormData] = useState(initialFormData);
+export default function CreateProductDialog({ open, onClose, onSuccess, categories, priceLists, taxes }: CreateProductDialogProps) {
+    const [formData, setFormData] = useState(getInitialFormData);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const resetForm = () => {
-        setFormData(initialFormData);
+        setFormData(getInitialFormData());
         setError(null);
     };
 
@@ -64,6 +83,42 @@ export default function CreateProductDialog({ open, onClose, onSuccess, categori
         resetForm();
         onClose();
     };
+
+    useEffect(() => {
+        if (!open) return;
+
+        const defaultPriceList = priceLists.find((list) => list.isDefault);
+        const defaultTaxIds = taxes.filter((tax) => tax.isDefault).map((tax) => tax.id);
+
+        setFormData((prev) => {
+            let updated = prev;
+            let changed = false;
+
+            if (!prev.hasVariants && !prev.priceListId && defaultPriceList) {
+                updated = { ...updated, priceListId: defaultPriceList.id };
+                changed = true;
+            }
+
+            if (prev.taxIds.length === 0 && defaultTaxIds.length > 0) {
+                updated = updated === prev ? { ...updated } : updated;
+                updated.taxIds = defaultTaxIds;
+                changed = true;
+            }
+
+            return changed ? updated : prev;
+        });
+    }, [open, priceLists, taxes]);
+
+    useEffect(() => {
+        if (formData.hasVariants && formData.priceListId) {
+            setFormData((prev) => ({ ...prev, priceListId: '' }));
+        }
+    }, [formData.hasVariants, formData.priceListId]);
+
+    const priceListOptions = useMemo(() => priceLists.map((list) => ({
+        id: list.id,
+        label: `${list.name} · ${list.currency}${list.isDefault ? ' (Predeterminada)' : ''}`,
+    })), [priceLists]);
 
     const handleSave = async () => {
         setSaving(true);
@@ -79,6 +134,7 @@ export default function CreateProductDialog({ open, onClose, onSuccess, categori
                     brand: formData.brand || undefined,
                     categoryId: formData.categoryId || undefined,
                     productType: formData.productType,
+                    taxIds: formData.taxIds.length > 0 ? formData.taxIds : undefined,
                 });
 
                 if (result.success) {
@@ -96,6 +152,7 @@ export default function CreateProductDialog({ open, onClose, onSuccess, categori
                     brand: formData.brand || undefined,
                     categoryId: formData.categoryId || undefined,
                     productType: formData.productType,
+                    taxIds: formData.taxIds.length > 0 ? formData.taxIds : undefined,
                     // Datos de la variante default
                     sku: formData.sku,
                     barcode: formData.barcode || undefined,
@@ -107,6 +164,7 @@ export default function CreateProductDialog({ open, onClose, onSuccess, categori
                     minimumStock: parseInt(formData.minimumStock) || 0,
                     maximumStock: parseInt(formData.maximumStock) || 0,
                     reorderPoint: parseInt(formData.reorderPoint) || 0,
+                    priceListId: formData.priceListId || undefined,
                 });
 
                 if (result.success) {
@@ -125,7 +183,42 @@ export default function CreateProductDialog({ open, onClose, onSuccess, categori
     };
 
     // Validación: nombre siempre requerido, SKU solo si no tiene variantes
-    const isValid = formData.name && (formData.hasVariants || formData.sku);
+    const requiresPriceList = !formData.hasVariants && priceLists.length > 0;
+    const hasValidPriceList = !requiresPriceList || Boolean(formData.priceListId);
+    const isValid = Boolean(formData.name) && (formData.hasVariants || formData.sku) && hasValidPriceList;
+
+    const handleToggleTax = (taxId: string, checked: boolean) => {
+        setFormData((prev) => {
+            const nextIds = checked
+                ? Array.from(new Set([...prev.taxIds, taxId]))
+                : prev.taxIds.filter((id) => id !== taxId);
+            return { ...prev, taxIds: nextIds };
+        });
+    };
+
+    const taxesSection = (
+        <div>
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                Impuestos aplicables
+            </h3>
+            {taxes.length === 0 ? (
+                <div className="p-3 rounded-md border border-dashed border-border text-xs text-muted-foreground">
+                    No hay impuestos activos configurados. Podrás asignarlos más tarde.
+                </div>
+            ) : (
+                <div className="space-y-2">
+                    {taxes.map((tax) => (
+                        <Switch
+                            key={tax.id}
+                            label={`${tax.name} (${tax.code}) · ${tax.rate}%`}
+                            checked={formData.taxIds.includes(tax.id)}
+                            onChange={(checked) => handleToggleTax(tax.id, checked)}
+                        />
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 
     return (
         <Dialog
@@ -211,6 +304,8 @@ export default function CreateProductDialog({ open, onClose, onSuccess, categori
                     </div>
                 </div>
 
+                {formData.hasVariants && taxesSection}
+
                 {/* DATOS DE VARIANTE - Solo si NO tiene variantes múltiples */}
                 {!formData.hasVariants && (
                     <>
@@ -238,6 +333,8 @@ export default function CreateProductDialog({ open, onClose, onSuccess, categori
                             </div>
                         </div>
 
+                        {taxesSection}
+
                         {/* PRECIOS */}
                         <div>
                             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
@@ -259,6 +356,23 @@ export default function CreateProductDialog({ open, onClose, onSuccess, categori
                                     onChange={(e) => setFormData({ ...formData, baseCost: e.target.value })}
                                     data-test-id="input-cost"
                                 />
+                            </div>
+                            <div className="md:w-80">
+                                {priceLists.length === 0 ? (
+                                    <div className="p-3 rounded-md border border-dashed border-border text-xs text-muted-foreground">
+                                        No hay listas de precios activas. Podrás asociar el producto más tarde.
+                                    </div>
+                                ) : (
+                                    <Select
+                                        label="Lista de precios inicial"
+                                        options={priceListOptions}
+                                        value={formData.priceListId || null}
+                                        onChange={(val) => setFormData({ ...formData, priceListId: val ? String(val) : '' })}
+                                        required={requiresPriceList}
+                                        allowClear
+                                        data-test-id="select-price-list"
+                                    />
+                                )}
                             </div>
                         </div>
                     </>

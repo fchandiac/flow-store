@@ -23,6 +23,7 @@ Obtiene todos los almacenes.
 interface GetStoragesParams {
     branchId?: string;
     type?: StorageType;
+    category?: StorageCategory;
     includeInactive?: boolean;
 }
 
@@ -38,7 +39,7 @@ const storages = await getStorages();
 const branchStorages = await getStorages({ branchId: branch.id });
 
 // Solo almacenes centrales
-const centralStorages = await getStorages({ type: StorageType.CENTRAL });
+const centralStorages = await getStorages({ category: StorageCategory.CENTRAL });
 ```
 
 ---
@@ -62,8 +63,9 @@ interface CreateStorageDTO {
     name: string;
     code: string;
     type: StorageType;
-    branchId?: string;  // Requerido si type = IN_BRANCH
-    address?: string;
+    category: StorageCategory;
+    branchId?: string;  // Requerido si category = IN_BRANCH
+    location?: string;
 }
 
 interface StorageResult {
@@ -81,7 +83,8 @@ export async function createStorage(data: CreateStorageDTO): Promise<StorageResu
 const result = await createStorage({
     name: 'Bodega Principal',
     code: 'BOD-001',
-    type: StorageType.IN_BRANCH,
+    type: StorageType.STORE,
+    category: StorageCategory.IN_BRANCH,
     branchId: branch.id
 });
 
@@ -89,8 +92,9 @@ const result = await createStorage({
 const result = await createStorage({
     name: 'Centro de Distribución',
     code: 'CD-001',
-    type: StorageType.CENTRAL,
-    address: 'Zona Industrial 456'
+    type: StorageType.WAREHOUSE,
+    category: StorageCategory.CENTRAL,
+    location: 'Zona Industrial 456'
 });
 ```
 
@@ -104,7 +108,7 @@ Actualiza un almacén existente.
 interface UpdateStorageDTO {
     name?: string;
     code?: string;
-    address?: string;
+    location?: string;
     isActive?: boolean;
 }
 

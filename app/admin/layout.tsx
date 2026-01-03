@@ -53,6 +53,7 @@ const menuItems: SideBarMenuItem[] = [
         children: [
             { id: 'company', label: 'Empresa', url: '/admin/settings/company' },
             { id: 'branches', label: 'Sucursales', url: '/admin/settings/branches' },
+            { id: 'storages', label: 'Almacenes', url: '/admin/settings/storages' },
             { id: 'points-of-sale', label: 'Puntos de Venta', url: '/admin/settings/points-of-sale' },
             { id: 'users', label: 'Usuarios', url: '/admin/users' },
             { id: 'taxes', label: 'Impuestos', url: '/admin/settings/taxes' },

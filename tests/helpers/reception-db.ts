@@ -4,7 +4,7 @@ import { User, UserRole } from '../../data/entities/User';
 import { Season } from '../../data/entities/Season';
 import { Producer } from '../../data/entities/Producer';
 import { Tray } from '../../data/entities/Tray';
-import { Storage, StorageType } from '../../data/entities/Storage';
+import { Storage, StorageCategory, StorageType } from '../../data/entities/Storage';
 import { Pallet } from '../../data/entities/Pallet';
 import { Format } from '../../data/entities/Format';
 import { Variety, Currency } from '../../data/entities/Variety';
@@ -134,6 +134,7 @@ export const seedReceptionBaseData = async (db: DataSource): Promise<ReceptionFi
     storageRepo.create({
       name: 'Cámara Test',
       type: StorageType.COLD_ROOM,
+      category: StorageCategory.CENTRAL,
       capacityPallets: 200,
       location: 'Planta Test',
       active: true,

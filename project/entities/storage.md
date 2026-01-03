@@ -10,9 +10,16 @@ La entidad `Storage` representa un almacén o bodega donde se gestiona el invent
 
 ```typescript
 enum StorageType {
-    IN_BRANCH = 'IN_BRANCH',   // Bodega dentro de sucursal
-    CENTRAL = 'CENTRAL',       // Centro de distribución
-    EXTERNAL = 'EXTERNAL'      // Almacén externo/tercero
+    WAREHOUSE = 'WAREHOUSE',
+    STORE = 'STORE',
+    COLD_ROOM = 'COLD_ROOM',
+    TRANSIT = 'TRANSIT'
+}
+
+enum StorageCategory {
+    IN_BRANCH = 'IN_BRANCH',   // Bodegas dentro de sucursal
+    CENTRAL = 'CENTRAL',       // Centros de distribución
+    EXTERNAL = 'EXTERNAL'      // Almacenes de terceros
 }
 
 @Entity("storages")
@@ -20,29 +27,23 @@ export class Storage {
     @PrimaryGeneratedColumn("uuid")
     id: string;
 
-    @Column({ type: "uuid" })
-    companyId: string;
-
     @Column({ type: "uuid", nullable: true })
-    branchId?: string;  // Solo para IN_BRANCH
+    branchId?: string;  // Requerido para IN_BRANCH
 
     @Column({ type: "varchar", length: 255 })
     name: string;
 
-    @Column({ type: "varchar", length: 20, unique: true })
-    code: string;
+    @Column({ type: "varchar", length: 50, nullable: true })
+    code?: string;
 
-    @Column({ type: "enum", enum: StorageType })
+    @Column({ type: "enum", enum: StorageType, default: StorageType.WAREHOUSE })
     type: StorageType;
 
-    @Column({ type: "boolean", default: true })
-    allowsSales: boolean;
+    @Column({ type: "enum", enum: StorageCategory, default: StorageCategory.IN_BRANCH })
+    category: StorageCategory;
 
-    @Column({ type: "boolean", default: true })
-    allowsReceipts: boolean;
-
-    @Column({ type: "text", nullable: true })
-    address?: string;
+    @Column({ type: "boolean", default: false })
+    isDefault: boolean;
 
     @Column({ type: "boolean", default: true })
     isActive: boolean;
@@ -56,10 +57,6 @@ export class Storage {
     @DeleteDateColumn()
     deletedAt?: Date;
 
-    // Relaciones
-    @ManyToOne(() => Company)
-    company: Company;
-
     @ManyToOne(() => Branch, { nullable: true })
     branch?: Branch;
 }
@@ -72,15 +69,13 @@ export class Storage {
 ```
 Storage
 ├── id: UUID (PK)
-├── companyId: UUID (FK → Company)
 ├── branchId: UUID (FK → Branch, nullable)
 ├── name: varchar(255)
-├── code: varchar(20) UNIQUE
-├── type: enum(IN_BRANCH, CENTRAL, EXTERNAL)
-├── allowsSales: boolean
-├── allowsReceipts: boolean
-├── address: text (nullable)
+├── code: varchar(50)
+├── type: enum(WAREHOUSE, STORE, COLD_ROOM, TRANSIT)
+├── category: enum(IN_BRANCH, CENTRAL, EXTERNAL)
 ├── isActive: boolean
+├── isDefault: boolean
 ├── createdAt: timestamp
 ├── updatedAt: timestamp
 └── deletedAt: timestamp (soft delete)
@@ -92,9 +87,9 @@ Storage
 
 | Tipo | branchId | Descripción | Ejemplo |
 |------|----------|-------------|---------|
-| `IN_BRANCH` | Requerido | Bodega dentro de sucursal | Trastienda, Vitrina |
-| `CENTRAL` | NULL | Centro de distribución | Bodega central |
-| `EXTERNAL` | NULL | Almacén de terceros | Proveedor, 3PL |
+| `IN_BRANCH` | Requerido | Operan dentro de una sucursal específica | Vitrina, piso de ventas |
+| `CENTRAL` | NULL | Centros de distribución o logística central | CEDIS principal |
+| `EXTERNAL` | NULL | Almacenes operados por terceros o consignaciones | Operador logístico |
 
 ---
 
@@ -117,7 +112,6 @@ GROUP BY product_variant_id;
 ## 6. Relaciones
 
 ```
-Company (1) ──────── (N) Storage
 Branch (1) ──────── (N) Storage (solo IN_BRANCH)
 Storage (1) ──────── (N) Transaction
 ```

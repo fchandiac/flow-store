@@ -18,13 +18,19 @@ export enum StorageType {
     TRANSIT = 'TRANSIT',
 }
 
+export enum StorageCategory {
+    IN_BRANCH = 'IN_BRANCH',
+    CENTRAL = 'CENTRAL',
+    EXTERNAL = 'EXTERNAL',
+}
+
 @Entity("storages")
 export class Storage {
     @PrimaryGeneratedColumn("uuid")
     id!: string;
 
     @Column({ type: 'uuid', nullable: true })
-    branchId?: string;
+    branchId?: string | null;
 
     @Column({ type: 'varchar', length: 255 })
     name!: string;
@@ -34,6 +40,9 @@ export class Storage {
 
     @Column({ type: 'enum', enum: StorageType, default: StorageType.WAREHOUSE })
     type!: StorageType;
+
+    @Column({ type: 'enum', enum: StorageCategory, default: StorageCategory.IN_BRANCH })
+    category!: StorageCategory;
 
     @Column({ type: 'int', nullable: true })
     capacity?: number;

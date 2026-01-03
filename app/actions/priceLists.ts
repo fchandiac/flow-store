@@ -69,10 +69,12 @@ export async function getPriceLists(activeOnly: boolean = false): Promise<PriceL
         where.isActive = true;
     }
     
-    return repo.find({
+    const lists = await repo.find({
         where,
         order: { priority: 'DESC', name: 'ASC' }
     });
+
+    return lists.map((list) => JSON.parse(JSON.stringify(list)));
 }
 
 /**
@@ -108,13 +110,15 @@ export async function getActivePriceLists(): Promise<PriceList[]> {
     const repo = ds.getRepository(PriceList);
     const now = new Date();
     
-    return repo.createQueryBuilder('priceList')
+    const lists = await repo.createQueryBuilder('priceList')
         .where('priceList.deletedAt IS NULL')
         .andWhere('priceList.isActive = true')
         .andWhere('(priceList.validFrom IS NULL OR priceList.validFrom <= :now)', { now })
         .andWhere('(priceList.validUntil IS NULL OR priceList.validUntil >= :now)', { now })
         .orderBy('priceList.priority', 'DESC')
         .getMany();
+
+    return lists.map((list) => JSON.parse(JSON.stringify(list)));
 }
 
 /**

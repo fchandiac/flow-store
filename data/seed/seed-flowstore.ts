@@ -6,7 +6,7 @@ import { Branch } from '../entities/Branch';
 import { Tax, TaxType } from '../entities/Tax';
 import { Category } from '../entities/Category';
 import { PriceList, PriceListType } from '../entities/PriceList';
-import { Storage, StorageType } from '../entities/Storage';
+import { Storage, StorageCategory, StorageType } from '../entities/Storage';
 import { PointOfSale } from '../entities/PointOfSale';
 import { Permission, Ability, ALL_ABILITIES } from '../entities/Permission';
 import { Attribute } from '../entities/Attribute';
@@ -302,6 +302,7 @@ async function seedFlowStore() {
       storage.name = 'Vitrina Principal';
       storage.code = 'VIT-001';
       storage.type = StorageType.WAREHOUSE;
+      storage.category = StorageCategory.IN_BRANCH;
       storage.isDefault = true;
       storage.isActive = true;
       await db.getRepository(Storage).save(storage);
