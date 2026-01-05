@@ -232,6 +232,11 @@ export async function searchPurchaseOrdersForReception(
 
     const orders = await queryBuilder.getMany();
 
+    // Si no hay órdenes, retornar array vacío
+    if (orders.length === 0) {
+        return [];
+    }
+
     // Cargar líneas
     const lineRepo = ds.getRepository(TransactionLine);
     const orderIds = orders.map((o) => o.id);
