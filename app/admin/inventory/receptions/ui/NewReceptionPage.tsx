@@ -234,7 +234,7 @@ export default function NewReceptionPage() {
         }
 
         if (!storageId) {
-            error('Debe seleccionar una bodega');
+            error('Debe seleccionar un almacén');
             return;
         }
 
@@ -325,11 +325,11 @@ export default function NewReceptionPage() {
                         />
 
                         <Select
-                            label="Bodega *"
+                            label="Almacén *"
                             options={storages}
                             value={storageId ?? ''}
                             onChange={(value) => setStorageId(value as string)}
-                            placeholder="Seleccionar bodega"
+                            placeholder="Seleccionar almacén"
                         />
 
                         <TextField

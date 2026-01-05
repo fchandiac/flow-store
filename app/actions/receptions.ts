@@ -162,17 +162,23 @@ export async function getReceptions(params?: GetReceptionsParams): Promise<Recep
     const receptions = await queryBuilder.getMany();
 
     // Contar líneas por recepción
-    const lineRepo = ds.getRepository(TransactionLine);
-    const receptionIds = receptions.map((r) => r.id);
-    const lineCounts = await lineRepo
-        .createQueryBuilder('line')
-        .select('line.transactionId', 'transactionId')
-        .addSelect('COUNT(line.id)', 'count')
-        .where('line.transactionId IN (:...ids)', { ids: receptionIds })
-        .groupBy('line.transactionId')
-        .getRawMany();
+    const lineCountMap = new Map<string, number>();
+    
+    if (receptions.length > 0) {
+        const lineRepo = ds.getRepository(TransactionLine);
+        const receptionIds = receptions.map((r) => r.id);
+        const lineCounts = await lineRepo
+            .createQueryBuilder('line')
+            .select('line.transactionId', 'transactionId')
+            .addSelect('COUNT(line.id)', 'count')
+            .where('line.transactionId IN (:...ids)', { ids: receptionIds })
+            .groupBy('line.transactionId')
+            .getRawMany();
 
-    const lineCountMap = new Map(lineCounts.map((lc) => [lc.transactionId, parseInt(lc.count)]));
+        lineCounts.forEach((lc) => {
+            lineCountMap.set(lc.transactionId, parseInt(lc.count));
+        });
+    }
 
     const results: ReceptionListItem[] = receptions.map((reception) => {
         const supplier = reception.supplier;

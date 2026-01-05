@@ -94,10 +94,10 @@ export default function ReceptionsDataGrid() {
         },
         {
             field: 'storageName',
-            headerName: 'Bodega',
+            headerName: 'Almacén',
             width: 160,
             renderCell: (params) => (
-                <div className="text-sm text-gray-600">{params.row.storageName ?? 'Sin bodega'}</div>
+                <div className="text-sm text-gray-600">{params.row.storageName ?? 'Sin almacén'}</div>
             ),
         },
         {
