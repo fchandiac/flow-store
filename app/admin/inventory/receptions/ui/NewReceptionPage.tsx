@@ -53,7 +53,11 @@ const currencyFormatter = new Intl.NumberFormat('es-CL', {
     maximumFractionDigits: 0,
 });
 
-export default function NewReceptionPage() {
+interface NewReceptionPageProps {
+    onSuccess?: () => void;
+}
+
+export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const router = useRouter();
     const { success, error } = useAlert();
 
@@ -222,6 +226,21 @@ export default function NewReceptionPage() {
         setLines(lines.filter((_, i) => i !== index));
     };
 
+    // Limpiar formulario
+    const resetForm = () => {
+        setSupplierId(null);
+        setStorageId(null);
+        setReceptionDate('');
+        setReference('');
+        setNotes('');
+        setSelectedPurchaseOrder(null);
+        setPurchaseOrderSearch('');
+        setPurchaseOrderResults([]);
+        setProductSearch('');
+        setProductResults([]);
+        setLines([]);
+    };
+
     // Calcular totales
     const subtotal = lines.reduce((sum, line) => sum + line.receivedQuantity * line.unitPrice, 0);
     const total = subtotal;
@@ -285,7 +304,10 @@ export default function NewReceptionPage() {
                         ? `Recepción creada con ${result.discrepancies.length} discrepancia(s)`
                         : 'Recepción creada exitosamente'
                 );
-                router.push('/admin/inventory/receptions');
+                resetForm();
+                if (onSuccess) {
+                    onSuccess();
+                }
             } else {
                 error(result.error ?? 'Error al crear la recepción');
             }

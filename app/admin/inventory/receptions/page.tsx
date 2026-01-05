@@ -38,7 +38,7 @@ export default function ReceptionsPage() {
             {/* Content */}
             <div className="flex-1 overflow-hidden">
                 {activeTab === 'list' && <ReceptionsDataGrid />}
-                {activeTab === 'new' && <NewReceptionPage />}
+                {activeTab === 'new' && <NewReceptionPage onSuccess={() => setActiveTab('list')} />}
             </div>
         </div>
     );
