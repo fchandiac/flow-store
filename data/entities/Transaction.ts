@@ -44,6 +44,8 @@ export enum TransactionType {
 export enum TransactionStatus {
     DRAFT = 'DRAFT',
     CONFIRMED = 'CONFIRMED',
+    PARTIALLY_RECEIVED = 'PARTIALLY_RECEIVED',
+    RECEIVED = 'RECEIVED',
     CANCELLED = 'CANCELLED',
 }
 
