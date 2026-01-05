@@ -187,7 +187,7 @@ export async function getReceptions(params?: GetReceptionsParams): Promise<Recep
             subtotal: Number(reception.subtotal),
             createdAt: reception.createdAt.toISOString(),
             lineCount: lineCountMap.get(reception.id) ?? 0,
-            userName: reception.user?.name ?? null,
+            userName: reception.user?.userName ?? null,
             purchaseOrderId: metadata?.purchaseOrderId ?? null,
             purchaseOrderNumber: metadata?.purchaseOrderNumber ?? null,
             isDirect: metadata?.isDirect ?? false,
@@ -235,9 +235,11 @@ export async function searchPurchaseOrdersForReception(
 
     const linesByOrder = new Map<string, TransactionLine[]>();
     lines.forEach((line) => {
-        const existing = linesByOrder.get(line.transactionId) ?? [];
-        existing.push(line);
-        linesByOrder.set(line.transactionId, existing);
+        if (line.transactionId) {
+            const existing = linesByOrder.get(line.transactionId) ?? [];
+            existing.push(line);
+            linesByOrder.set(line.transactionId, existing);
+        }
     });
 
     const results: PurchaseOrderForReception[] = orders.map((order) => {
@@ -416,7 +418,7 @@ export async function createReceptionFromPurchaseOrder(
         }
 
         // Actualizar metadata
-        await transactionRepo.update(result.transaction.id, { metadata });
+        await transactionRepo.update(result.transaction.id, { metadata: metadata as any });
 
         // TODO: Actualizar estado de la orden de compra a PARTIALLY_RECEIVED o RECEIVED
 
@@ -521,7 +523,7 @@ export async function createDirectReception(
 
         // Actualizar metadata
         const transactionRepo = ds.getRepository(Transaction);
-        await transactionRepo.update(result.transaction.id, { metadata });
+        await transactionRepo.update(result.transaction.id, { metadata: metadata as any });
 
         revalidatePath('/admin/inventory/receptions');
 

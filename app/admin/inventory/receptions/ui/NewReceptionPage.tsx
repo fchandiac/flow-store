@@ -91,6 +91,7 @@ export default function NewReceptionPage() {
 
             setSuppliers(
                 suppliersData.map((s) => ({
+                    id: s.id,
                     value: s.id,
                     label: s.person?.businessName ?? s.person?.firstName ?? 'Proveedor',
                 }))
@@ -98,6 +99,7 @@ export default function NewReceptionPage() {
 
             setStorages(
                 filtersData.storages.map((s) => ({
+                    id: s.id,
                     value: s.id,
                     label: s.branchName ? `${s.name} · ${s.branchName}` : s.name,
                 }))
@@ -362,7 +364,7 @@ export default function NewReceptionPage() {
 
                             {loadingPurchaseOrders && (
                                 <div className="flex justify-center py-4">
-                                    <DotProgress size="sm" />
+                                    <DotProgress size={16} />
                                 </div>
                             )}
 
@@ -406,7 +408,7 @@ export default function NewReceptionPage() {
 
                             {loadingProducts && (
                                 <div className="flex justify-center py-4">
-                                    <DotProgress size="sm" />
+                                    <DotProgress size={16} />
                                 </div>
                             )}
 
@@ -449,7 +451,7 @@ export default function NewReceptionPage() {
                             )}
                         </div>
                         {hasDiscrepancies && (
-                            <Badge color="warning">Con Discrepancias</Badge>
+                            <Badge variant="warning">Con Discrepancias</Badge>
                         )}
                     </div>
                 </div>
@@ -489,6 +491,7 @@ export default function NewReceptionPage() {
                                                 label="Cantidad Esperada"
                                                 type="number"
                                                 value={line.expectedQuantity.toString()}
+                                                onChange={() => {}}
                                                 disabled
                                             />
                                         )}
@@ -501,8 +504,6 @@ export default function NewReceptionPage() {
                                                     receivedQuantity: parseFloat(e.target.value) || 0,
                                                 })
                                             }
-                                            min="0"
-                                            step="0.01"
                                         />
                                         <TextField
                                             label="Precio Unitario"
@@ -513,13 +514,12 @@ export default function NewReceptionPage() {
                                                     unitPrice: parseFloat(e.target.value) || 0,
                                                 })
                                             }
-                                            min="0"
                                         />
                                     </div>
 
                                     {line.expectedQuantity !== undefined &&
                                         line.receivedQuantity !== line.expectedQuantity && (
-                                            <Badge color="warning" size="sm">
+                                            <Badge variant="warning">
                                                 Diferencia:{' '}
                                                 {quantityFormatter.format(
                                                     line.receivedQuantity - line.expectedQuantity
@@ -545,14 +545,18 @@ export default function NewReceptionPage() {
 
                 {/* Resumen y acciones */}
                 <div className="bg-white border-t border-gray-200 p-4">
-                    <TextField
-                        label="Notas Generales"
-                        value={notes}
-                        onChange={(e) => setNotes(e.target.value)}
-                        placeholder="Observaciones generales de la recepción"
-                        multiline
-                        rows={2}
-                    />
+                    <div className="mb-3">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                            Notas Generales
+                        </label>
+                        <textarea
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                            placeholder="Observaciones generales de la recepción"
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            rows={2}
+                        />
+                    </div>
 
                     <div className="mt-4 space-y-2">
                         <div className="flex justify-between text-sm">
@@ -577,7 +581,7 @@ export default function NewReceptionPage() {
                     <div className="mt-4 flex gap-3">
                         <Button
                             onClick={() => router.push('/admin/inventory/receptions')}
-                            variant="outline"
+                            variant="outlined"
                             className="flex-1"
                             disabled={submitting}
                         >

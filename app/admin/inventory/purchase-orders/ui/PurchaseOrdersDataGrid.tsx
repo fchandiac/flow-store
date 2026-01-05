@@ -31,6 +31,8 @@ const dateFormatter = new Intl.DateTimeFormat('es-CL', {
 const statusVariant: Record<TransactionStatus, { label: string; variant: BadgeVariant }> = {
     [TransactionStatus.DRAFT]: { label: 'Borrador', variant: 'warning' },
     [TransactionStatus.CONFIRMED]: { label: 'Confirmada', variant: 'success' },
+    [TransactionStatus.PARTIALLY_RECEIVED]: { label: 'Parcialmente Recibida', variant: 'info' },
+    [TransactionStatus.RECEIVED]: { label: 'Recibida', variant: 'success' },
     [TransactionStatus.CANCELLED]: { label: 'Cancelada', variant: 'error' },
 };
 

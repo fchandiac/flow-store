@@ -1,12 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import DataGrid, {
-    type Column,
-    type FilterDef,
-} from '@/app/baseComponents/DataGrid/DataGrid';
-import Badge from '@/app/baseComponents/Badge/Badge';
+import DataGrid, { type DataGridColumn } from '@/app/baseComponents/DataGrid/DataGrid';
+import Badge, { type BadgeVariant } from '@/app/baseComponents/Badge/Badge';
 import { getReceptions, type ReceptionListItem } from '@/app/actions/receptions';
+import { TransactionStatus } from '@/data/entities/Transaction';
 
 const currencyFormatter = new Intl.NumberFormat('es-CL', {
     style: 'currency',
@@ -23,16 +21,20 @@ const dateFormatter = new Intl.DateTimeFormat('es-CL', {
     minute: '2-digit',
 });
 
-const statusLabels: Record<string, string> = {
-    DRAFT: 'Borrador',
-    CONFIRMED: 'Confirmada',
-    CANCELLED: 'Cancelada',
+const statusLabels: Record<TransactionStatus, string> = {
+    [TransactionStatus.DRAFT]: 'Borrador',
+    [TransactionStatus.CONFIRMED]: 'Confirmada',
+    [TransactionStatus.PARTIALLY_RECEIVED]: 'Parcialmente Recibida',
+    [TransactionStatus.RECEIVED]: 'Recibida',
+    [TransactionStatus.CANCELLED]: 'Cancelada',
 };
 
-const statusColors: Record<string, 'default' | 'success' | 'warning' | 'error'> = {
-    DRAFT: 'warning',
-    CONFIRMED: 'success',
-    CANCELLED: 'error',
+const statusColors: Record<TransactionStatus, BadgeVariant> = {
+    [TransactionStatus.DRAFT]: 'warning',
+    [TransactionStatus.CONFIRMED]: 'success',
+    [TransactionStatus.PARTIALLY_RECEIVED]: 'info',
+    [TransactionStatus.RECEIVED]: 'success',
+    [TransactionStatus.CANCELLED]: 'error',
 };
 
 export default function ReceptionsDataGrid() {
@@ -61,113 +63,107 @@ export default function ReceptionsDataGrid() {
         loadReceptions();
     }, [loadReceptions]);
 
-    const columns: Column<ReceptionListItem>[] = [
+    const columns: DataGridColumn[] = [
         {
-            key: 'documentNumber',
-            label: 'Número',
+            field: 'documentNumber',
+            headerName: 'Número',
             width: 140,
-            render: (row) => (
-                <div className="font-mono text-sm font-medium">{row.documentNumber}</div>
+            renderCell: (params) => (
+                <div className="font-mono text-sm font-medium">{params.row.documentNumber}</div>
             ),
         },
         {
-            key: 'createdAt',
-            label: 'Fecha',
+            field: 'createdAt',
+            headerName: 'Fecha',
             width: 160,
-            render: (row) => (
+            renderCell: (params) => (
                 <div className="text-sm text-gray-600">
-                    {dateFormatter.format(new Date(row.createdAt))}
+                    {dateFormatter.format(new Date(params.row.createdAt))}
                 </div>
             ),
         },
         {
-            key: 'supplierName',
-            label: 'Proveedor',
+            field: 'supplierName',
+            headerName: 'Proveedor',
             width: 200,
-            render: (row) => (
+            renderCell: (params) => (
                 <div className="text-sm font-medium text-gray-900">
-                    {row.supplierName ?? 'Sin proveedor'}
+                    {params.row.supplierName ?? 'Sin proveedor'}
                 </div>
             ),
         },
         {
-            key: 'storageName',
-            label: 'Bodega',
+            field: 'storageName',
+            headerName: 'Bodega',
             width: 160,
-            render: (row) => (
-                <div className="text-sm text-gray-600">{row.storageName ?? 'Sin bodega'}</div>
+            renderCell: (params) => (
+                <div className="text-sm text-gray-600">{params.row.storageName ?? 'Sin bodega'}</div>
             ),
         },
         {
-            key: 'purchaseOrderNumber',
-            label: 'Orden de Compra',
+            field: 'purchaseOrderNumber',
+            headerName: 'Orden de Compra',
             width: 140,
-            render: (row) =>
-                row.purchaseOrderNumber ? (
-                    <div className="font-mono text-sm text-blue-600">{row.purchaseOrderNumber}</div>
+            renderCell: (params) =>
+                params.row.purchaseOrderNumber ? (
+                    <div className="font-mono text-sm text-blue-600">{params.row.purchaseOrderNumber}</div>
                 ) : (
-                    <Badge color="default" size="sm">
+                    <Badge variant="secondary">
                         Directa
                     </Badge>
                 ),
         },
         {
-            key: 'lineCount',
-            label: 'Productos',
+            field: 'lineCount',
+            headerName: 'Productos',
             width: 100,
             align: 'center',
-            render: (row) => <div className="text-sm font-medium">{row.lineCount}</div>,
+            renderCell: (params) => <div className="text-sm font-medium">{params.row.lineCount}</div>,
         },
         {
-            key: 'total',
-            label: 'Total',
+            field: 'total',
+            headerName: 'Total',
             width: 130,
             align: 'right',
-            render: (row) => (
+            renderCell: (params) => (
                 <div className="text-sm font-semibold text-gray-900">
-                    {currencyFormatter.format(row.total)}
+                    {currencyFormatter.format(params.row.total)}
                 </div>
             ),
         },
         {
-            key: 'status',
-            label: 'Estado',
+            field: 'status',
+            headerName: 'Estado',
             width: 120,
-            render: (row) => (
-                <Badge color={statusColors[row.status] ?? 'default'} size="sm">
-                    {statusLabels[row.status] ?? row.status}
-                </Badge>
-            ),
+            renderCell: (params) => {
+                const status = params.row.status as TransactionStatus;
+                return (
+                    <Badge variant={statusColors[status] ?? 'secondary'}>
+                        {statusLabels[status] ?? status}
+                    </Badge>
+                );
+            },
         },
         {
-            key: 'hasDiscrepancies',
-            label: 'Discrepancias',
+            field: 'hasDiscrepancies',
+            headerName: 'Discrepancias',
             width: 120,
-            render: (row) =>
-                row.hasDiscrepancies ? (
-                    <Badge color="warning" size="sm">
+            renderCell: (params) =>
+                params.row.hasDiscrepancies ? (
+                    <Badge variant="warning">
                         Con diferencias
                     </Badge>
                 ) : (
-                    <Badge color="success" size="sm">
+                    <Badge variant="success">
                         Sin diferencias
                     </Badge>
                 ),
         },
         {
-            key: 'userName',
-            label: 'Usuario',
+            field: 'userName',
+            headerName: 'Usuario',
             width: 150,
-            render: (row) => <div className="text-sm text-gray-600">{row.userName ?? '-'}</div>,
-        },
-    ];
-
-    const filterDefs: FilterDef[] = [
-        {
-            key: 'search',
-            label: 'Buscar',
-            type: 'text',
-            placeholder: 'Buscar por número...',
+            renderCell: (params) => <div className="text-sm text-gray-600">{params.row.userName ?? '-'}</div>,
         },
     ];
 
@@ -175,12 +171,10 @@ export default function ReceptionsDataGrid() {
         <div className="h-full flex flex-col bg-gray-50">
             <DataGrid
                 columns={columns}
-                data={data}
-                loading={loading}
-                filterDefs={filterDefs}
-                onFiltersChange={setFilters}
-                onRefresh={loadReceptions}
-                emptyMessage="No hay recepciones registradas"
+                rows={data}
+                title="Recepciones"
+                search=""
+                totalRows={data.length}
             />
         </div>
     );
