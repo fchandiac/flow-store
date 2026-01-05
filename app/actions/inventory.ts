@@ -90,6 +90,7 @@ export interface GetInventoryStockParams {
 const MOVEMENT_DIRECTION: Record<TransactionType, InventoryMovementDirection | null> = {
     [TransactionType.SALE]: "OUT",
     [TransactionType.PURCHASE]: "IN",
+    [TransactionType.PURCHASE_ORDER]: null,  // Órdenes de compra no mueven inventario
     [TransactionType.SALE_RETURN]: "IN",
     [TransactionType.PURCHASE_RETURN]: "OUT",
     [TransactionType.TRANSFER_OUT]: "OUT",
