@@ -474,7 +474,9 @@ function getDocumentPrefix(type: TransactionType): string {
         case TransactionType.SALE:
             return 'VTA-';
         case TransactionType.PURCHASE:
-            return 'CMP-';
+            return 'REC-';
+        case TransactionType.PURCHASE_ORDER:
+            return 'OC-';
         case TransactionType.SALE_RETURN:
             return 'DVT-';
         case TransactionType.PURCHASE_RETURN:
@@ -501,7 +503,9 @@ function getStockChange(type: TransactionType, quantity: number): number {
         case TransactionType.SALE:
             return -quantity;           // Ventas reducen stock
         case TransactionType.PURCHASE:
-            return quantity;            // Compras aumentan stock
+            return quantity;            // Recepciones aumentan stock
+        case TransactionType.PURCHASE_ORDER:
+            return 0;                   // Órdenes de compra no mueven stock
         case TransactionType.SALE_RETURN:
             return quantity;            // Devoluciones de venta aumentan stock
         case TransactionType.PURCHASE_RETURN:

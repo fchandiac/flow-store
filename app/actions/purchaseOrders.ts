@@ -96,7 +96,7 @@ export async function getPurchaseOrders(params?: GetPurchaseOrdersParams): Promi
         .leftJoinAndSelect('order.branch', 'branch')
         .leftJoinAndSelect('order.user', 'user')
         .leftJoin(TransactionLine, 'line', 'line.transactionId = order.id')
-        .where('order.transactionType = :type', { type: TransactionType.PURCHASE })
+        .where('order.transactionType = :type', { type: TransactionType.PURCHASE_ORDER })
         .groupBy('order.id')
         .addGroupBy('supplier.id')
         .addGroupBy('supplierPerson.id')
@@ -310,7 +310,7 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderDTO): Promise
         });
 
         const result = await createTransaction({
-            transactionType: TransactionType.PURCHASE,
+            transactionType: TransactionType.PURCHASE_ORDER,
             storageId: data.storageId,
             supplierId: data.supplierId,
             userId: session.id,

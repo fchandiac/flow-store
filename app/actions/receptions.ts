@@ -105,8 +105,7 @@ export interface PurchaseOrderForReception {
 
 /**
  * Obtiene lista de recepciones con filtros
- * Solo lista transacciones que son RECEPCIONES (tienen metadata.receptionId)
- * NO lista órdenes de compra normales
+ * Lista transacciones de tipo PURCHASE (recepciones que mueven inventario)
  */
 export async function getReceptions(params?: GetReceptionsParams): Promise<ReceptionListItem[]> {
     const ds = await getDb();
@@ -120,9 +119,7 @@ export async function getReceptions(params?: GetReceptionsParams): Promise<Recep
         .leftJoinAndSelect('supplier.person', 'supplierPerson')
         .leftJoinAndSelect('reception.user', 'user')
         .where('reception.transactionType = :type', { type: TransactionType.PURCHASE })
-        .andWhere('reception.status = :status', { status: TransactionStatus.CONFIRMED })
-        // CRITICAL: Solo transacciones que sean recepciones (tienen receptionId en metadata)
-        .andWhere("JSON_EXTRACT(reception.metadata, '$.receptionId') IS NOT NULL");
+        .andWhere('reception.status = :status', { status: TransactionStatus.CONFIRMED });
 
     if (params?.search) {
         queryBuilder.andWhere('reception.documentNumber LIKE :search', {
@@ -210,8 +207,7 @@ export async function getReceptions(params?: GetReceptionsParams): Promise<Recep
 
 /**
  * Busca órdenes de compra disponibles para recepción
- * Solo lista ÓRDENES DE COMPRA puras (sin metadata.receptionId)
- * NO lista recepciones
+ * Lista transacciones de tipo PURCHASE_ORDER
  */
 export async function searchPurchaseOrdersForReception(
     search?: string
@@ -223,10 +219,8 @@ export async function searchPurchaseOrdersForReception(
         .createQueryBuilder('po')
         .leftJoinAndSelect('po.supplier', 'supplier')
         .leftJoinAndSelect('supplier.person', 'supplierPerson')
-        .where('po.transactionType = :type', { type: TransactionType.PURCHASE })
-        .andWhere('po.status = :status', { status: TransactionStatus.CONFIRMED })
-        // CRITICAL: Solo órdenes de compra que NO sean recepciones
-        .andWhere("JSON_EXTRACT(po.metadata, '$.receptionId') IS NULL");
+        .where('po.transactionType = :type', { type: TransactionType.PURCHASE_ORDER })
+        .andWhere('po.status = :status', { status: TransactionStatus.CONFIRMED });
 
     if (search) {
         queryBuilder.andWhere('po.documentNumber LIKE :search', {

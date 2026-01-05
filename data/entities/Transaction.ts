@@ -31,6 +31,7 @@ import { User } from "./User";
 export enum TransactionType {
     SALE = 'SALE',
     PURCHASE = 'PURCHASE',
+    PURCHASE_ORDER = 'PURCHASE_ORDER',
     SALE_RETURN = 'SALE_RETURN',
     PURCHASE_RETURN = 'PURCHASE_RETURN',
     TRANSFER_OUT = 'TRANSFER_OUT',
