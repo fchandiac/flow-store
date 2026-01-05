@@ -21,12 +21,9 @@ import {
 
 interface SupplierOption extends SelectOption {
     paymentTermDays?: number | null;
-    code?: string | null;
 }
 
-interface BranchOption extends SelectOption {
-    isHeadquarters?: boolean;
-}
+
 
 interface StorageOption extends SelectOption {
     branchId?: string | null;
@@ -62,7 +59,7 @@ const buildSupplierLabel = (supplier: Awaited<ReturnType<typeof getSuppliers>>[n
     if (person?.businessName) return person.businessName;
     const name = [person?.firstName, person?.lastName].filter(Boolean).join(' ');
     if (name) return name;
-    return supplier.code || 'Proveedor';
+    return 'Proveedor';
 };
 
 const buildBranchOptionLabel = (branch: Awaited<ReturnType<typeof getInventoryFilters>>['branches'][number]) => {
@@ -82,11 +79,9 @@ const NewPurchaseOrderPage = () => {
 
     const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
     const [categories, setCategories] = useState<SelectOption[]>([]);
-    const [branches, setBranches] = useState<BranchOption[]>([]);
     const [storages, setStorages] = useState<StorageOption[]>([]);
 
     const [supplierId, setSupplierId] = useState<string | null>(null);
-    const [branchId, setBranchId] = useState<string | null>(null);
     const [storageId, setStorageId] = useState<string | null>(null);
     const [categoryId, setCategoryId] = useState<string | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
@@ -115,7 +110,6 @@ const NewPurchaseOrderPage = () => {
                     id: supplier.id,
                     label: buildSupplierLabel(supplier),
                     paymentTermDays: supplier.defaultPaymentTermDays ?? null,
-                    code: supplier.code ?? null,
                 }))
             );
 
@@ -126,13 +120,7 @@ const NewPurchaseOrderPage = () => {
                 }))
             );
 
-            setBranches(
-                inventoryFilters.branches.map((branch) => ({
-                    id: branch.id,
-                    label: buildBranchOptionLabel(branch),
-                    isHeadquarters: branch.isHeadquarters,
-                }))
-            );
+
 
             setStorages(
                 inventoryFilters.storages.map((storage) => ({
@@ -151,10 +139,7 @@ const NewPurchaseOrderPage = () => {
         loadInitialData();
     }, [loadInitialData]);
 
-    const filteredStorages = useMemo(() => {
-        if (!branchId) return storages;
-        return storages.filter((storage) => storage.branchId === branchId);
-    }, [branchId, storages]);
+
 
     const loadProducts = useCallback(async (term: string, category: string | null) => {
         setLoadingProducts(true);
@@ -261,16 +246,16 @@ const NewPurchaseOrderPage = () => {
     }, [lines]);
 
     const isSubmitDisabled = useMemo(() => {
-        return submitting || !supplierId || !branchId || lines.length === 0;
-    }, [submitting, supplierId, branchId, lines.length]);
+        return submitting || !supplierId || !storageId || lines.length === 0;
+    }, [submitting, supplierId, storageId, lines.length]);
 
     const handleSubmit = useCallback(async () => {
         if (!supplierId) {
             error('Selecciona un proveedor');
             return;
         }
-        if (!branchId) {
-            error('Selecciona una sucursal para recibir la orden');
+        if (!storageId) {
+            error('Selecciona un almacén de destino');
             return;
         }
         if (lines.length === 0) {
@@ -282,8 +267,7 @@ const NewPurchaseOrderPage = () => {
         try {
             const result: PurchaseOrderActionResult = await createPurchaseOrder({
                 supplierId,
-                branchId,
-                storageId: storageId || undefined,
+                storageId,
                 reference: reference || undefined,
                 notes: notes || undefined,
                 expectedDate: expectedDate || undefined,
@@ -307,23 +291,13 @@ const NewPurchaseOrderPage = () => {
         } finally {
             setSubmitting(false);
         }
-    }, [supplierId, branchId, storageId, reference, notes, expectedDate, lines, success, error, router]);
+    }, [supplierId, storageId, reference, notes, expectedDate, lines, success, error, router]);
 
     return (
         <div className="space-y-6">
             <div className="grid grid-cols-1 lg:grid-cols-[320px,1fr] gap-6">
                 <aside className="space-y-4">
                     <div className="border border-border rounded-md p-4 space-y-3">
-                        <h2 className="text-sm font-semibold text-muted-foreground uppercase">Proveedor</h2>
-                        <Select
-                            label="Proveedor"
-                            options={suppliers}
-                            value={supplierId}
-                            onChange={(value) => setSupplierId(value ? String(value) : null)}
-                            allowClear
-                            variant="default"
-                            required
-                        />
                         <Select
                             label="Categoría"
                             options={categories}
@@ -411,55 +385,46 @@ const NewPurchaseOrderPage = () => {
                         </div>
                         <div className="flex flex-wrap gap-3">
                             <Select
-                                label="Sucursal destino"
-                                options={branches}
-                                value={branchId}
-                                onChange={(value) => {
-                                    const nextBranch = value ? String(value) : null;
-                                    setBranchId(nextBranch);
-                                    if (nextBranch && storageId) {
-                                        const storageBelongs = storages.some((storage) => storage.id === storageId && storage.branchId === nextBranch);
-                                        if (!storageBelongs) {
-                                            setStorageId(null);
-                                        }
-                                    }
-                                }}
-                                required
+                                label="Proveedor"
+                                options={suppliers}
+                                value={supplierId}
+                                onChange={(value) => setSupplierId(value ? String(value) : null)}
                                 allowClear
                                 variant="default"
+                                required
                             />
                             <Select
-                                label="Bodega"
-                                options={filteredStorages}
+                                label="Almacén destino"
+                                options={storages}
                                 value={storageId}
                                 onChange={(value) => setStorageId(value ? String(value) : null)}
                                 allowClear
                                 variant="default"
-                                disabled={filteredStorages.length === 0}
+                                required
+                                disabled={storages.length === 0}
                             />
+                            <TextField
+                                label="Referencia externa"
+                                value={reference}
+                                onChange={(event) => setReference(event.target.value)}
+                                placeholder="Referencia externa - número de cotización, contrato, etc."
+                            />
+                            <div className="flex flex-col gap-2 items-end">
+                                <label className="text-xs font-medium text-muted-foreground" htmlFor="expected-date">
+                                    Fecha esperada
+                                </label>
+                                <input
+                                    id="expected-date"
+                                    type="date"
+                                    value={expectedDate}
+                                    onChange={(event) => setExpectedDate(event.target.value)}
+                                    className="border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/40 text-right"
+                                />
+                            </div>
                         </div>
                     </header>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <TextField
-                            label="Referencia externa"
-                            value={reference}
-                            onChange={(event) => setReference(event.target.value)}
-                            placeholder="Número de cotización, contrato, etc."
-                        />
-                        <div className="flex flex-col gap-2">
-                            <label className="text-xs font-medium text-muted-foreground" htmlFor="expected-date">
-                                Fecha esperada
-                            </label>
-                            <input
-                                id="expected-date"
-                                type="date"
-                                value={expectedDate}
-                                onChange={(event) => setExpectedDate(event.target.value)}
-                                className="border border-border rounded-md px-3 py-2 text-sm text-foreground bg-background focus:outline-none focus:ring-2 focus:ring-primary/40"
-                            />
-                        </div>
-                    </div>
+                    {/* Se eliminó la fila extra de fecha esperada, ahora está junto a proveedor, almacén y referencia */}
 
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">

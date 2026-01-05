@@ -54,7 +54,7 @@ export const SuppliersDataGrid = () => {
         const nameParts = [supplier.person?.firstName, supplier.person?.lastName]
           .filter(Boolean)
           .join(" ");
-        const displayName = supplier.person?.businessName || nameParts || supplier.code || "Proveedor";
+        const displayName = supplier.person?.businessName || nameParts || "Proveedor";
         const contactName = nameParts || supplier.person?.businessName || "-";
         return {
           ...supplier,
@@ -118,12 +118,6 @@ export const SuppliersDataGrid = () => {
     );
 
     return [
-      {
-        field: "code",
-        headerName: "Código",
-        width: 120,
-        renderCell: ({ value }) => value || "-",
-      },
       {
         field: "displayName",
         headerName: "Proveedor",

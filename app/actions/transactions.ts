@@ -45,7 +45,7 @@ interface TransactionLineDTO {
 
 interface CreateTransactionDTO {
     transactionType: TransactionType;
-    branchId: string;
+    branchId?: string;
     pointOfSaleId?: string;
     cashSessionId?: string;
     storageId?: string;

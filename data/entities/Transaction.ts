@@ -84,8 +84,8 @@ export class Transaction {
     status!: TransactionStatus;
 
     // Referencias de ubicación
-    @Column({ type: 'uuid' })
-    branchId!: string;
+    @Column({ type: 'uuid', nullable: true })
+    branchId?: string;
 
     @Column({ type: 'uuid', nullable: true })
     pointOfSaleId?: string;

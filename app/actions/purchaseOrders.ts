@@ -21,7 +21,6 @@ export interface PurchaseOrderListItem {
     status: TransactionStatus;
     supplierId?: string | null;
     supplierName?: string | null;
-    supplierCode?: string | null;
     branchId: string;
     branchName?: string | null;
     total: number;
@@ -71,7 +70,6 @@ export interface PurchaseOrderLineInput {
 
 export interface CreatePurchaseOrderDTO {
     supplierId: string;
-    branchId: string;
     storageId?: string;
     reference?: string;
     notes?: string;
@@ -115,7 +113,6 @@ export async function getPurchaseOrders(params?: GetPurchaseOrdersParams): Promi
             'order.discountAmount AS discountAmount',
             'order.createdAt AS createdAt',
             'supplier.id AS supplierId',
-            'supplier.code AS supplierCode',
             'supplierPerson.businessName AS supplierBusinessName',
             'supplierPerson.firstName AS supplierFirstName',
             'supplierPerson.lastName AS supplierLastName',
@@ -152,7 +149,6 @@ export async function getPurchaseOrders(params?: GetPurchaseOrdersParams): Promi
         const supplierName =
             row['supplierBusinessName'] ||
             [row['supplierFirstName'], row['supplierLastName']].filter(Boolean).join(' ') ||
-            row['supplierCode'] ||
             null;
 
         const userName = row['userUserName'] || null;
@@ -163,7 +159,6 @@ export async function getPurchaseOrders(params?: GetPurchaseOrdersParams): Promi
             status: row['status'],
             supplierId: row['supplierId'] ?? null,
             supplierName,
-            supplierCode: row['supplierCode'] ?? null,
             branchId: row['branchId'],
             branchName: row['branchName'] ?? null,
             total: Number(row['total'] ?? 0),
@@ -262,17 +257,11 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderDTO): Promise
         const ds = await getDb();
         const variantRepo = ds.getRepository(ProductVariant);
         const supplierRepo = ds.getRepository(Supplier);
-        const branchRepo = ds.getRepository(Branch);
         const storageRepo = ds.getRepository(Storage);
 
         const supplier = await supplierRepo.findOne({ where: { id: data.supplierId } });
         if (!supplier) {
             return { success: false, error: 'Proveedor no encontrado' };
-        }
-
-        const branch = await branchRepo.findOne({ where: { id: data.branchId } });
-        if (!branch) {
-            return { success: false, error: 'Sucursal no encontrada' };
         }
 
         if (data.storageId) {
@@ -322,7 +311,6 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderDTO): Promise
 
         const result = await createTransaction({
             transactionType: TransactionType.PURCHASE,
-            branchId: data.branchId,
             storageId: data.storageId,
             supplierId: data.supplierId,
             userId: session.id,

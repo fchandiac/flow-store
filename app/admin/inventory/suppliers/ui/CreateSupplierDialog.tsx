@@ -24,7 +24,6 @@ interface CreateSupplierDialogProps {
 }
 
 interface FormState {
-  code: string;
   businessName: string;
   firstName: string;
   lastName: string;
@@ -43,7 +42,6 @@ interface FormState {
 }
 
 const initialFormState: FormState = {
-  code: "",
   businessName: "",
   firstName: "",
   lastName: "",
@@ -81,9 +79,6 @@ export const CreateSupplierDialog = ({ open, onClose, onSuccess }: CreateSupplie
 
   const validate = () => {
     const validationErrors: string[] = [];
-    if (!form.code.trim()) {
-      validationErrors.push("El código es obligatorio");
-    }
     const primaryName = form.firstName.trim() || form.businessName.trim();
     if (!primaryName) {
       validationErrors.push("Ingresa el nombre del contacto o la razón social");
@@ -113,7 +108,6 @@ export const CreateSupplierDialog = ({ open, onClose, onSuccess }: CreateSupplie
         email: form.email.trim() || undefined,
         phone: form.phone.trim() || undefined,
         address: form.address.trim() || undefined,
-        code: form.code.trim(),
         supplierType: form.supplierType,
         creditLimit: parseFloat(form.creditLimit.replace(/[^0-9.-]+/g, "")) || 0,
         defaultPaymentTermDays: parseInt(form.defaultPaymentTermDays, 10) || 0,
@@ -150,13 +144,7 @@ export const CreateSupplierDialog = ({ open, onClose, onSuccess }: CreateSupplie
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <TextField
-            label="Código"
-            value={form.code}
-            onChange={(e) => handleChange("code", e.target.value)}
-            required
-            data-test-id="create-supplier-code"
-          />
+          {/* Código field removed */}
           <Select
             label="Tipo de proveedor"
             options={supplierTypeOptions}

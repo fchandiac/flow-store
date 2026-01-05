@@ -27,9 +27,8 @@ const menuItems: SideBarMenuItem[] = [
         label: 'Inventario',
         children: [
             { id: 'products', label: 'Productos', url: '/admin/inventory/products' },
-            { id: 'variants', label: 'Variantes', url: '/admin/inventory/products/variants' },
             { id: 'categories', label: 'Categorías', url: '/admin/inventory/products/categories' },
-            { id: 'stock', label: 'Stock', url: '/admin/inventory' },
+            { id: 'stock', label: 'Stock', url: '/admin/inventory/stock' },
             { id: 'purchase-orders', label: 'Órdenes de compra', url: '/admin/inventory/purchase-orders' },
             { id: 'suppliers', label: 'Proveedores', url: '/admin/inventory/suppliers' },
         ]

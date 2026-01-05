@@ -26,8 +26,6 @@ export class Supplier {
     @Column({ type: 'uuid' })
     personId!: string;
 
-    @Column({ type: 'varchar', length: 50, unique: true, nullable: true })
-    code?: string;
 
     @Column({ type: 'enum', enum: SupplierType, default: SupplierType.LOCAL })
     supplierType!: SupplierType;

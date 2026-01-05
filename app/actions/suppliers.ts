@@ -24,7 +24,6 @@ interface CreateSupplierDTO {
     phone?: string;
     address?: string;
     // Supplier fields
-    code: string;
     supplierType?: SupplierType;
     creditLimit?: number;
     defaultPaymentTermDays?: number;
@@ -45,7 +44,6 @@ interface UpdateSupplierDTO {
     phone?: string;
     address?: string;
     // Supplier fields
-    code?: string;
     supplierType?: SupplierType;
     creditLimit?: number;
     currentBalance?: number;
@@ -116,7 +114,7 @@ export async function getSuppliers(params?: GetSuppliersParams): Promise<PlainSu
     
     if (params?.search) {
         queryBuilder.andWhere(
-            '(person.firstName LIKE :search OR person.lastName LIKE :search OR person.businessName LIKE :search OR supplier.code LIKE :search)',
+            '(person.firstName LIKE :search OR person.lastName LIKE :search OR person.businessName LIKE :search)',
             { search: `%${params.search}%` }
         );
     }
@@ -153,17 +151,7 @@ export async function getSupplierById(id: string): Promise<PlainSupplier | null>
 /**
  * Obtiene un proveedor por código
  */
-export async function getSupplierByCode(code: string): Promise<PlainSupplier | null> {
-    const ds = await getDb();
-    const repo = ds.getRepository(Supplier);
-    
-    const supplier = await repo.findOne({
-        where: { code, deletedAt: IsNull() },
-        relations: ['person']
-    });
 
-    return cloneSupplier(supplier);
-}
 
 /**
  * Crea un nuevo proveedor
@@ -174,14 +162,7 @@ export async function createSupplier(data: CreateSupplierDTO): Promise<SupplierR
         const supplierRepo = ds.getRepository(Supplier);
         const personRepo = ds.getRepository(Person);
         
-        // Verificar código único
-        const existingCode = await supplierRepo.findOne({
-            where: { code: data.code }
-        });
-        
-        if (existingCode) {
-            return { success: false, error: 'El código ya está en uso' };
-        }
+
         
         // Crear persona primero
         const person = personRepo.create({
@@ -201,7 +182,6 @@ export async function createSupplier(data: CreateSupplierDTO): Promise<SupplierR
         // Crear proveedor
         const supplier = supplierRepo.create({
             personId: person.id,
-            code: data.code,
             supplierType: data.supplierType || SupplierType.LOCAL,
             creditLimit: data.creditLimit || 0,
             currentBalance: 0,
@@ -252,15 +232,7 @@ export async function updateSupplier(id: string, data: UpdateSupplierDTO): Promi
             return { success: false, error: 'Proveedor no encontrado' };
         }
         
-        // Verificar código único si cambia
-        if (data.code && data.code !== supplier.code) {
-            const existingCode = await supplierRepo.findOne({
-                where: { code: data.code }
-            });
-            if (existingCode) {
-                return { success: false, error: 'El código ya está en uso' };
-            }
-        }
+
         
         // Actualizar campos de la persona
         const person = supplier.person;
@@ -279,7 +251,6 @@ export async function updateSupplier(id: string, data: UpdateSupplierDTO): Promi
         await personRepo.save(person);
         
         // Actualizar campos del proveedor
-        if (data.code !== undefined) supplier.code = data.code;
         if (data.supplierType !== undefined) supplier.supplierType = data.supplierType;
         if (data.creditLimit !== undefined) supplier.creditLimit = data.creditLimit;
         if (data.currentBalance !== undefined) supplier.currentBalance = data.currentBalance;
@@ -346,12 +317,13 @@ export async function searchSuppliers(query: string, limit: number = 20): Promis
     const ds = await getDb();
     const repo = ds.getRepository(Supplier);
     
+
     const suppliers = await repo.createQueryBuilder('supplier')
         .leftJoinAndSelect('supplier.person', 'person')
         .where('supplier.deletedAt IS NULL')
         .andWhere('supplier.isActive = true')
         .andWhere(
-            '(person.firstName LIKE :query OR person.lastName LIKE :query OR person.businessName LIKE :query OR supplier.code LIKE :query)',
+            '(person.firstName LIKE :query OR person.lastName LIKE :query OR person.businessName LIKE :query)',
             { query: `%${query}%` }
         )
         .orderBy('person.firstName', 'ASC')
