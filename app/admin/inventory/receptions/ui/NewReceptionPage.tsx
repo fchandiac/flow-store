@@ -66,7 +66,10 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
 
     const [supplierId, setSupplierId] = useState<string | null>(null);
     const [storageId, setStorageId] = useState<string | null>(null);
-    const [receptionDate, setReceptionDate] = useState('');
+    const [receptionDate, setReceptionDate] = useState(() => {
+        const today = new Date();
+        return today.toISOString().split('T')[0]; // YYYY-MM-DD
+    });
     const [reference, setReference] = useState('');
     const [notes, setNotes] = useState('');
 
@@ -205,7 +208,8 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const resetForm = async () => {
         setSupplierId(null);
         setStorageId(null);
-        setReceptionDate('');
+        const today = new Date();
+        setReceptionDate(today.toISOString().split('T')[0]);
         setReference('');
         setNotes('');
         setSelectedPurchaseOrder(null);
@@ -405,48 +409,48 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                         </div>
                     )}
 
-                    {/* Buscar productos (solo si no hay orden seleccionada) */}
-                    {!selectedPurchaseOrder && (
-                        <div className="space-y-3">
-                            <h3 className="text-sm font-semibold text-gray-700 uppercase">
-                                Agregar Productos
-                            </h3>
-                            <TextField
-                                label="Buscar Producto"
-                                value={productSearch}
-                                onChange={(e) => setProductSearch(e.target.value)}
-                                placeholder="Nombre, SKU, código de barras..."
-                            />
+                    {/* Buscar productos - siempre visible */}
+                    <div className="space-y-3">
+                        <h3 className="text-sm font-semibold text-gray-700 uppercase">
+                            Buscar Productos
+                        </h3>
+                        <TextField
+                            label="Buscar Producto"
+                            value={productSearch}
+                            onChange={(e) => setProductSearch(e.target.value)}
+                            placeholder="Nombre, SKU, código de barras..."
+                            disabled={!!selectedPurchaseOrder}
+                        />
 
-                            {loadingProducts && (
-                                <div className="flex justify-center py-4">
-                                    <DotProgress size={16} />
-                                </div>
-                            )}
+                        {loadingProducts && (
+                            <div className="flex justify-center py-4">
+                                <DotProgress size={16} />
+                            </div>
+                        )}
 
-                            {productResults.length > 0 && (
-                                <div className="space-y-2 max-h-64 overflow-y-auto">
-                                    {productResults.map((product) => (
-                                        <button
-                                            key={product.variantId}
-                                            onClick={() => handleAddProduct(product)}
-                                            className="w-full p-3 bg-gray-50 hover:bg-green-50 border border-gray-200 rounded text-left transition-colors"
-                                        >
-                                            <div className="font-medium text-sm text-gray-900">
-                                                {product.productName}
-                                            </div>
-                                            <div className="text-xs text-gray-600">
-                                                SKU: {product.sku}
-                                            </div>
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                {currencyFormatter.format(product.baseCost)}
-                                            </div>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
-                    )}
+                        {productResults.length > 0 && (
+                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                                {productResults.map((product) => (
+                                    <button
+                                        key={product.variantId}
+                                        onClick={() => handleAddProduct(product)}
+                                        className="w-full p-3 bg-gray-50 hover:bg-green-50 border border-gray-200 rounded text-left transition-colors"
+                                        disabled={!!selectedPurchaseOrder}
+                                    >
+                                        <div className="font-medium text-sm text-gray-900">
+                                            {product.productName}
+                                        </div>
+                                        <div className="text-xs text-gray-600">
+                                            SKU: {product.sku}
+                                        </div>
+                                        <div className="text-xs text-gray-500 mt-1">
+                                            {currencyFormatter.format(product.baseCost)}
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
