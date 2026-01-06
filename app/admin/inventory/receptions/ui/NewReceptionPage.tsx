@@ -71,7 +71,6 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const [notes, setNotes] = useState('');
 
     const [selectedPurchaseOrder, setSelectedPurchaseOrder] = useState<PurchaseOrderForReception | null>(null);
-    const [purchaseOrderSearch, setPurchaseOrderSearch] = useState('');
     const [purchaseOrderResults, setPurchaseOrderResults] = useState<PurchaseOrderForReception[]>([]);
     const [loadingPurchaseOrders, setLoadingPurchaseOrders] = useState(false);
 
@@ -82,15 +81,15 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const [lines, setLines] = useState<ReceptionLine[]>([]);
     const [submitting, setSubmitting] = useState(false);
 
-    const searchPOTimeout = useRef<NodeJS.Timeout | null>(null);
     const searchProductTimeout = useRef<NodeJS.Timeout | null>(null);
 
     // Cargar datos iniciales
     const loadInitialData = useCallback(async () => {
         try {
-            const [suppliersData, filtersData] = await Promise.all([
+            const [suppliersData, filtersData, pendingOrders] = await Promise.all([
                 getSuppliers(),
                 getInventoryFilters(),
+                searchPurchaseOrdersForReception(), // Sin parámetro, trae las últimas órdenes
             ]);
 
             setSuppliers(
@@ -108,6 +107,8 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                     label: s.branchName ? `${s.name} · ${s.branchName}` : s.name,
                 }))
             );
+
+            setPurchaseOrderResults(pendingOrders);
         } catch (err) {
             console.error('Error loading initial data:', err);
             error('Error al cargar datos iniciales');
@@ -117,30 +118,6 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     useEffect(() => {
         loadInitialData();
     }, [loadInitialData]);
-
-    // Búsqueda de órdenes de compra
-    useEffect(() => {
-        if (searchPOTimeout.current) {
-            clearTimeout(searchPOTimeout.current);
-        }
-
-        if (!purchaseOrderSearch.trim()) {
-            setPurchaseOrderResults([]);
-            return;
-        }
-
-        searchPOTimeout.current = setTimeout(async () => {
-            setLoadingPurchaseOrders(true);
-            try {
-                const results = await searchPurchaseOrdersForReception(purchaseOrderSearch);
-                setPurchaseOrderResults(results);
-            } catch (err) {
-                console.error('Error searching purchase orders:', err);
-            } finally {
-                setLoadingPurchaseOrders(false);
-            }
-        }, 300);
-    }, [purchaseOrderSearch]);
 
     // Búsqueda de productos
     useEffect(() => {
@@ -187,8 +164,6 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
         }));
 
         setLines(orderLines);
-        setPurchaseOrderSearch('');
-        setPurchaseOrderResults([]);
     };
 
     // Agregar producto manualmente
@@ -227,18 +202,24 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     };
 
     // Limpiar formulario
-    const resetForm = () => {
+    const resetForm = async () => {
         setSupplierId(null);
         setStorageId(null);
         setReceptionDate('');
         setReference('');
         setNotes('');
         setSelectedPurchaseOrder(null);
-        setPurchaseOrderSearch('');
-        setPurchaseOrderResults([]);
         setProductSearch('');
         setProductResults([]);
         setLines([]);
+        
+        // Recargar órdenes pendientes
+        try {
+            const pendingOrders = await searchPurchaseOrdersForReception();
+            setPurchaseOrderResults(pendingOrders);
+        } catch (err) {
+            console.error('Error reloading purchase orders:', err);
+        }
     };
 
     // Calcular totales
@@ -371,18 +352,12 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                         )}
                     </div>
 
-                    {/* Buscar orden de compra */}
+                    {/* Lista de órdenes de compra pendientes */}
                     {!selectedPurchaseOrder && (
                         <div className="space-y-3">
                             <h3 className="text-sm font-semibold text-gray-700 uppercase">
-                                Buscar Orden de Compra
+                                Órdenes de Compra Pendientes
                             </h3>
-                            <TextField
-                                label="Número de Orden"
-                                value={purchaseOrderSearch}
-                                onChange={(e) => setPurchaseOrderSearch(e.target.value)}
-                                placeholder="Buscar OC..."
-                            />
 
                             {loadingPurchaseOrders && (
                                 <div className="flex justify-center py-4">
@@ -390,23 +365,38 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                 </div>
                             )}
 
+                            {!loadingPurchaseOrders && purchaseOrderResults.length === 0 && (
+                                <div className="text-center py-8 text-gray-500 text-sm">
+                                    No hay órdenes pendientes
+                                </div>
+                            )}
+
                             {purchaseOrderResults.length > 0 && (
-                                <div className="space-y-2 max-h-64 overflow-y-auto">
+                                <div className="space-y-2 max-h-96 overflow-y-auto">
                                     {purchaseOrderResults.map((order) => (
                                         <button
                                             key={order.id}
                                             onClick={() => handleSelectPurchaseOrder(order)}
-                                            className="w-full p-3 bg-gray-50 hover:bg-blue-50 border border-gray-200 rounded text-left transition-colors"
+                                            className="w-full p-4 bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 rounded-lg text-left transition-all shadow-sm hover:shadow-md"
                                         >
-                                            <div className="font-mono text-sm font-medium text-blue-600">
-                                                {order.documentNumber}
+                                            <div className="flex items-start justify-between mb-2">
+                                                <div className="font-mono text-sm font-bold text-blue-600">
+                                                    {order.documentNumber}
+                                                </div>
+                                                <Badge variant="info">
+                                                    {order.lines.length} items
+                                                </Badge>
                                             </div>
-                                            <div className="text-sm text-gray-600">
+                                            <div className="text-sm font-medium text-gray-900 mb-1">
                                                 {order.supplierName}
                                             </div>
-                                            <div className="text-xs text-gray-500 mt-1">
-                                                {order.lines.length} productos ·{' '}
-                                                {currencyFormatter.format(order.total)}
+                                            <div className="flex items-center justify-between">
+                                                <div className="text-xs text-gray-500">
+                                                    {new Date(order.createdAt).toLocaleDateString('es-CL')}
+                                                </div>
+                                                <div className="text-sm font-semibold text-gray-900">
+                                                    {currencyFormatter.format(order.total)}
+                                                </div>
                                             </div>
                                         </button>
                                     ))}
