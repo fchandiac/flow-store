@@ -12,6 +12,7 @@ import { useAlert } from '@/app/state/hooks/useAlert';
 import { getSuppliers } from '@/app/actions/suppliers';
 import { getInventoryFilters } from '@/app/actions/inventory';
 import { searchProductsForPurchase, type PurchaseOrderProductResult } from '@/app/actions/purchaseOrders';
+import { getAttributes } from '@/app/actions/attributes';
 import {
     searchPurchaseOrdersForReception,
     createReceptionFromPurchaseOrder,
@@ -53,6 +54,24 @@ const currencyFormatter = new Intl.NumberFormat('es-CL', {
     maximumFractionDigits: 0,
 });
 
+const formatAttributeKey = (key: string) => {
+    const normalized = key.replace(/[_-]+/g, ' ').trim();
+    if (!normalized) return key;
+    return normalized.replace(/\b\w/g, (char) => char.toUpperCase());
+};
+
+const formatVariantAttributes = (
+    attributes: Record<string, string> | null | undefined,
+    attributeNames: Record<string, string>
+) => {
+    if (!attributes) return '';
+    const entries = Object.entries(attributes).filter(([, value]) => Boolean(value));
+    if (entries.length === 0) return '';
+    return entries
+        .map(([key, value]) => `${attributeNames[key] ?? formatAttributeKey(key)}: ${value}`)
+        .join(' · ');
+};
+
 interface NewReceptionPageProps {
     onSuccess?: () => void;
 }
@@ -63,6 +82,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
 
     const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
     const [storages, setStorages] = useState<StorageOption[]>([]);
+    const [attributeNames, setAttributeNames] = useState<Record<string, string>>({});
 
     const [supplierId, setSupplierId] = useState<string | null>(null);
     const [storageId, setStorageId] = useState<string | null>(null);
@@ -112,6 +132,14 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
             );
 
             setPurchaseOrderResults(pendingOrders);
+
+            try {
+                const attributesData = await getAttributes(true);
+                const attributeMap = Object.fromEntries(attributesData.map((attr) => [attr.id, attr.name]));
+                setAttributeNames(attributeMap);
+            } catch (attrErr) {
+                console.error('Error loading attributes:', attrErr);
+            }
         } catch (err) {
             console.error('Error loading initial data:', err);
             error('Error al cargar datos iniciales');
@@ -409,17 +437,21 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                         </div>
                     )}
 
-                    {/* Buscar productos - siempre visible */}
+                    {/* Buscar productos - siempre habilitado */}
                     <div className="space-y-3">
                         <h3 className="text-sm font-semibold text-gray-700 uppercase">
-                            Buscar Productos
+                            {selectedPurchaseOrder ? 'Agregar Productos Extras' : 'Buscar Productos'}
                         </h3>
+                        {selectedPurchaseOrder && (
+                            <p className="text-xs text-gray-500">
+                                Puedes agregar productos adicionales a la recepción
+                            </p>
+                        )}
                         <TextField
                             label="Buscar Producto"
                             value={productSearch}
                             onChange={(e) => setProductSearch(e.target.value)}
                             placeholder="Nombre, SKU, código de barras..."
-                            disabled={!!selectedPurchaseOrder}
                         />
 
                         {loadingProducts && (
@@ -430,24 +462,34 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
 
                         {productResults.length > 0 && (
                             <div className="space-y-2 max-h-64 overflow-y-auto">
-                                {productResults.map((product) => (
-                                    <button
-                                        key={product.variantId}
-                                        onClick={() => handleAddProduct(product)}
-                                        className="w-full p-3 bg-gray-50 hover:bg-green-50 border border-gray-200 rounded text-left transition-colors"
-                                        disabled={!!selectedPurchaseOrder}
-                                    >
-                                        <div className="font-medium text-sm text-gray-900">
-                                            {product.productName}
-                                        </div>
-                                        <div className="text-xs text-gray-600">
-                                            SKU: {product.sku}
-                                        </div>
-                                        <div className="text-xs text-gray-500 mt-1">
-                                            {currencyFormatter.format(product.baseCost)}
-                                        </div>
-                                    </button>
-                                ))}
+                                {productResults.map((product) => {
+                                    const variantAttributes = formatVariantAttributes(
+                                        product.attributeValues,
+                                        attributeNames
+                                    );
+                                    return (
+                                        <button
+                                            key={product.variantId}
+                                            onClick={() => handleAddProduct(product)}
+                                            className="w-full p-3 bg-gray-50 hover:bg-green-50 border border-gray-200 rounded text-left transition-colors"
+                                        >
+                                            <div className="font-medium text-sm text-gray-900">
+                                                {product.productName}
+                                            </div>
+                                            <div className="text-xs text-gray-600">
+                                                SKU: {product.sku}
+                                            </div>
+                                            {variantAttributes && (
+                                                <div className="text-xs text-gray-500">
+                                                    {variantAttributes}
+                                                </div>
+                                            )}
+                                            <div className="text-xs text-gray-500 mt-1">
+                                                {currencyFormatter.format(product.baseCost)}
+                                            </div>
+                                        </button>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
