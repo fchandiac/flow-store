@@ -316,6 +316,7 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderDTO): Promise
             userId: session.id,
             externalReference: data.reference,
             notes: data.notes,
+            status: TransactionStatus.DRAFT,
             lines,
         });
 

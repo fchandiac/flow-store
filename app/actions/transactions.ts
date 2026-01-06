@@ -58,6 +58,7 @@ interface CreateTransactionDTO {
     externalReference?: string;
     notes?: string;
     lines: TransactionLineDTO[];
+    status?: TransactionStatus;
 }
 
 interface TransactionResult {
@@ -248,7 +249,7 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
         // Crear transacción
         const transaction = transactionRepo.create({
             transactionType: data.transactionType,
-            status: TransactionStatus.CONFIRMED,
+            status: data.status ?? TransactionStatus.CONFIRMED,
             branchId: data.branchId,
             pointOfSaleId: data.pointOfSaleId,
             cashSessionId: data.cashSessionId,

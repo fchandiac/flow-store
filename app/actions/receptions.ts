@@ -220,7 +220,13 @@ export async function searchPurchaseOrdersForReception(
         .leftJoinAndSelect('po.supplier', 'supplier')
         .leftJoinAndSelect('supplier.person', 'supplierPerson')
         .where('po.transactionType = :type', { type: TransactionType.PURCHASE_ORDER })
-        .andWhere('po.status = :status', { status: TransactionStatus.CONFIRMED });
+        .andWhere('po.status IN (:...statuses)', {
+            statuses: [
+                TransactionStatus.DRAFT,
+                TransactionStatus.CONFIRMED,
+                TransactionStatus.PARTIALLY_RECEIVED,
+            ],
+        });
 
     if (search) {
         queryBuilder.andWhere('po.documentNumber LIKE :search', {
@@ -316,7 +322,7 @@ export async function createReceptionFromPurchaseOrder(
             return { success: false, error: 'Orden de compra no encontrada' };
         }
 
-        if (purchaseOrder.transactionType !== TransactionType.PURCHASE) {
+        if (purchaseOrder.transactionType !== TransactionType.PURCHASE_ORDER) {
             return { success: false, error: 'La transacción no es una orden de compra' };
         }
 
@@ -433,7 +439,30 @@ export async function createReceptionFromPurchaseOrder(
         // Actualizar metadata
         await transactionRepo.update(result.transaction.id, { metadata: metadata as any });
 
-        // TODO: Actualizar estado de la orden de compra a PARTIALLY_RECEIVED o RECEIVED
+        // Actualizar estado de la orden de compra a PARTIALLY_RECEIVED o RECEIVED
+        const nextStatus = discrepancies.length > 0
+            ? TransactionStatus.PARTIALLY_RECEIVED
+            : TransactionStatus.RECEIVED;
+
+        const orderMetadata: Record<string, any> = {
+            ...(purchaseOrder.metadata ?? {}),
+            lastReceptionId: result.transaction.id,
+            lastReceptionAt: metadata.receptionDate,
+            lastReceptionUserId: session.id,
+            lastReceptionHasDiscrepancies: discrepancies.length > 0,
+            receivedQuantitiesSnapshot: receivedQuantities,
+        };
+
+        if (discrepancies.length > 0) {
+            orderMetadata.lastReceptionDiscrepancies = discrepancies;
+        } else if ('lastReceptionDiscrepancies' in orderMetadata) {
+            delete orderMetadata.lastReceptionDiscrepancies;
+        }
+
+        await transactionRepo.update(purchaseOrder.id, {
+            status: nextStatus,
+            metadata: orderMetadata as any,
+        });
 
         revalidatePath('/admin/inventory/receptions');
         revalidatePath('/admin/inventory/purchase-orders');
