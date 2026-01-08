@@ -435,35 +435,35 @@ async function seedFlowStore() {
     const unitSeeds: UnitSeed[] = [
       {
         name: 'Unidad',
-        symbol: 'UN',
+        symbol: 'un',
         dimension: UnitDimension.COUNT,
         conversionFactor: 1,
         isBase: true,
-        baseSymbol: 'UN',
+        baseSymbol: 'un',
       },
       {
         name: 'Caja',
-        symbol: 'CJ',
+        symbol: 'cj',
         dimension: UnitDimension.COUNT,
         conversionFactor: 12,
         isBase: false,
-        baseSymbol: 'UN',
+        baseSymbol: 'un',
       },
       {
         name: 'Kilogramo',
-        symbol: 'KG',
+        symbol: 'kg',
         dimension: UnitDimension.MASS,
         conversionFactor: 1,
         isBase: true,
-        baseSymbol: 'KG',
+        baseSymbol: 'kg',
       },
       {
         name: 'Gramo',
-        symbol: 'G',
+        symbol: 'g',
         dimension: UnitDimension.MASS,
         conversionFactor: 0.001,
         isBase: false,
-        baseSymbol: 'KG',
+        baseSymbol: 'kg',
       },
     ];
 
@@ -578,7 +578,7 @@ async function seedFlowStore() {
       });
 
       const category = createdCategories[prodData.categoryCode];
-      const unit = unitsBySymbol.get('UN');
+      const unit = unitsBySymbol.get('un');
 
       if (!product) {
         product = new Product();

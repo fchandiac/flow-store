@@ -9,7 +9,7 @@ import Switch from '@/app/baseComponents/Switch/Switch';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
 import { useAlert } from '@/app/state/hooks/useAlert';
-import { getActiveUnits, UnitAdminSummary, UnitSummary, updateUnit } from '@/app/actions/units';
+import { UnitAdminSummary, updateUnit } from '@/app/actions/units';
 import { UnitDimension } from '@/data/entities/unit-dimension.enum';
 
 interface UpdateUnitDialogProps {
@@ -17,6 +17,7 @@ interface UpdateUnitDialogProps {
     onClose: () => void;
     unit: UnitAdminSummary | null;
     dimensionLabels: Record<UnitDimension, string>;
+    baseUnits: UnitAdminSummary[];
 }
 
 const defaultFormState = {
@@ -35,15 +36,13 @@ const dimensionOptions = [
     { id: UnitDimension.VOLUME, label: 'Volumen' },
 ];
 
-const UpdateUnitDialog: React.FC<UpdateUnitDialogProps> = ({ open, onClose, unit, dimensionLabels }) => {
+const UpdateUnitDialog: React.FC<UpdateUnitDialogProps> = ({ open, onClose, unit, dimensionLabels, baseUnits }) => {
     const router = useRouter();
     const { success, error } = useAlert();
 
     const [formData, setFormData] = useState(defaultFormState);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<string[]>([]);
-    const [loadingUnits, setLoadingUnits] = useState(false);
-    const [activeUnits, setActiveUnits] = useState<UnitSummary[]>([]);
 
     const resetState = () => {
         setFormData(defaultFormState);
@@ -68,30 +67,12 @@ const UpdateUnitDialog: React.FC<UpdateUnitDialogProps> = ({ open, onClose, unit
         }
     }, [open, unit]);
 
-    const loadUnits = async () => {
-        try {
-            setLoadingUnits(true);
-            const units = await getActiveUnits();
-            setActiveUnits(units);
-        } catch (err) {
-            setActiveUnits([]);
-        } finally {
-            setLoadingUnits(false);
-        }
-    };
-
-    useEffect(() => {
-        if (open) {
-            loadUnits();
-        }
-    }, [open]);
-
     const availableBaseUnits = useMemo(() => {
         if (!formData.dimension) {
-            return [] as UnitSummary[];
+            return [] as UnitAdminSummary[];
         }
-        return activeUnits.filter((candidate) => candidate.isBase && candidate.dimension === formData.dimension);
-    }, [activeUnits, formData.dimension]);
+        return baseUnits.filter((candidate) => candidate.isBase && candidate.active && candidate.dimension === formData.dimension);
+    }, [baseUnits, formData.dimension]);
 
     const selectableBaseUnits = useMemo(() => {
         const options = availableBaseUnits.map((candidate) => ({
@@ -234,7 +215,7 @@ const UpdateUnitDialog: React.FC<UpdateUnitDialogProps> = ({ open, onClose, unit
                 <Select
                     label="Dimensión"
                     value={formData.dimension}
-                    onChange={(value) => handleChange('dimension', value?.toString() || UnitDimension.COUNT)}
+                    onChange={(value) => handleChange('dimension', (value as UnitDimension) || UnitDimension.COUNT)}
                     options={dimensionOptions}
                     placeholder="Seleccionar dimensión"
                     data-test-id="update-unit-dimension"
@@ -275,13 +256,13 @@ const UpdateUnitDialog: React.FC<UpdateUnitDialogProps> = ({ open, onClose, unit
                         value={formData.baseUnitId}
                         onChange={(value) => handleChange('baseUnitId', value?.toString() || '')}
                         options={selectableBaseUnits}
-                        placeholder={loadingUnits ? 'Cargando unidades...' : 'Seleccionar unidad base'}
-                        disabled={loadingUnits || selectableBaseUnits.length === 0}
+                        placeholder="Seleccionar unidad base"
+                        disabled={selectableBaseUnits.length === 0}
                         data-test-id="update-unit-base"
                     />
                 )}
 
-                {!formData.isBase && selectableBaseUnits.length === 0 && !loadingUnits && (
+                {!formData.isBase && selectableBaseUnits.length === 0 && (
                     <Alert variant="warning">
                         No existen unidades base activas en la dimensión seleccionada. Crea o activa una unidad base para continuar.
                     </Alert>

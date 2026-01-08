@@ -1,4 +1,4 @@
-import { getUnitsForAdmin } from '@/app/actions/units';
+import { getUnitsForAdmin, UnitAdminSummary } from '@/app/actions/units';
 import { UnitsList } from './ui';
 
 export const dynamic = 'force-dynamic';
@@ -33,6 +33,15 @@ export default async function UnitsPage({ searchParams }: UnitsPageProps) {
         dimension: dimension || undefined,
     });
 
+    let baseUnits: UnitAdminSummary[] = [];
+
+    try {
+        const activeUnits = await getUnitsForAdmin({ status: 'active' });
+        baseUnits = activeUnits.filter((unit) => unit.isBase);
+    } catch (error) {
+        baseUnits = units.filter((unit) => unit.isBase && unit.active);
+    }
+
     return (
         <div className="p-6 space-y-6">
             <div>
@@ -43,6 +52,7 @@ export default async function UnitsPage({ searchParams }: UnitsPageProps) {
             </div>
             <UnitsList
                 units={units}
+                baseUnits={baseUnits}
                 initialSearch={search}
                 initialStatus={status}
                 initialDimension={dimension}

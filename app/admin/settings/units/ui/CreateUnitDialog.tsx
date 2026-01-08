@@ -9,12 +9,13 @@ import Switch from '@/app/baseComponents/Switch/Switch';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
 import { useAlert } from '@/app/state/hooks/useAlert';
-import { createUnit, getActiveUnits, UnitSummary } from '@/app/actions/units';
+import { createUnit, UnitAdminSummary } from '@/app/actions/units';
 import { UnitDimension } from '@/data/entities/unit-dimension.enum';
 
 interface CreateUnitDialogProps {
     open: boolean;
     onClose: () => void;
+    baseUnits: UnitAdminSummary[];
     dimensionLabels: Record<UnitDimension, string>;
 }
 
@@ -34,41 +35,23 @@ const initialFormState = {
     baseUnitId: '',
 };
 
-const CreateUnitDialog: React.FC<CreateUnitDialogProps> = ({ open, onClose, dimensionLabels }) => {
+const CreateUnitDialog: React.FC<CreateUnitDialogProps> = ({ open, onClose, dimensionLabels, baseUnits }) => {
     const router = useRouter();
     const { success } = useAlert();
 
     const [formData, setFormData] = useState(initialFormState);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<string[]>([]);
-    const [loadingUnits, setLoadingUnits] = useState(false);
-    const [activeUnits, setActiveUnits] = useState<UnitSummary[]>([]);
 
-    const availableBaseUnits = useMemo(() => {
-        if (!formData.dimension) {
-            return [] as UnitSummary[];
-        }
-        return activeUnits.filter((unit) => unit.isBase && unit.dimension === formData.dimension);
-    }, [activeUnits, formData.dimension]);
+    const activeBaseUnits = useMemo(
+        () => baseUnits.filter((unit) => unit.isBase && unit.active),
+        [baseUnits],
+    );
 
-    const loadUnits = async () => {
-        try {
-            setLoadingUnits(true);
-            const units = await getActiveUnits();
-            setActiveUnits(units);
-        } catch (err) {
-            // fallback to empty state
-            setActiveUnits([]);
-        } finally {
-            setLoadingUnits(false);
-        }
-    };
-
-    useEffect(() => {
-        if (open) {
-            loadUnits();
-        }
-    }, [open]);
+    const availableBaseUnits = useMemo(
+        () => activeBaseUnits.filter((unit) => unit.dimension === formData.dimension),
+        [activeBaseUnits, formData.dimension],
+    );
 
     useEffect(() => {
         if (!open) {
@@ -192,7 +175,7 @@ const CreateUnitDialog: React.FC<CreateUnitDialogProps> = ({ open, onClose, dime
                 <Select
                     label="Dimensión"
                     value={formData.dimension}
-                    onChange={(value) => handleChange('dimension', value?.toString() || UnitDimension.COUNT)}
+                    onChange={(value) => handleChange('dimension', (value as UnitDimension) || UnitDimension.COUNT)}
                     options={dimensionOptions}
                     placeholder="Seleccionar dimensión"
                     data-test-id="create-unit-dimension"
@@ -230,13 +213,13 @@ const CreateUnitDialog: React.FC<CreateUnitDialogProps> = ({ open, onClose, dime
                             id: unit.id,
                             label: `${unit.symbol} · ${unit.name}`,
                         }))}
-                        placeholder={loadingUnits ? 'Cargando unidades...' : 'Seleccionar unidad base'}
-                        disabled={loadingUnits || availableBaseUnits.length === 0}
+                        placeholder="Seleccionar unidad base"
+                        disabled={availableBaseUnits.length === 0}
                         data-test-id="create-unit-base"
                     />
                 )}
 
-                {!formData.isBase && availableBaseUnits.length === 0 && !loadingUnits && (
+                {!formData.isBase && availableBaseUnits.length === 0 && (
                     <Alert variant="warning">
                         No existen unidades base activas en la dimensión seleccionada. Crea primero una unidad base.
                     </Alert>

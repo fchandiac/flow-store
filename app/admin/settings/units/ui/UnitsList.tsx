@@ -23,6 +23,7 @@ type UnitStatusFilter = 'all' | 'active' | 'inactive';
 
 interface UnitsListProps {
     units: UnitAdminSummary[];
+    baseUnits: UnitAdminSummary[];
     initialSearch: string;
     initialStatus: UnitStatusFilter;
     initialDimension: string;
@@ -48,7 +49,7 @@ const emptyCopy: Record<UnitStatusFilter, string> = {
     inactive: 'No hay unidades inactivas para mostrar.',
 };
 
-const UnitsList: React.FC<UnitsListProps> = ({ units, initialSearch, initialStatus, initialDimension }) => {
+const UnitsList: React.FC<UnitsListProps> = ({ units, baseUnits, initialSearch, initialStatus, initialDimension }) => {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -172,6 +173,7 @@ const UnitsList: React.FC<UnitsListProps> = ({ units, initialSearch, initialStat
             <CreateUnitDialog
                 open={openCreateDialog}
                 onClose={() => setOpenCreateDialog(false)}
+                baseUnits={baseUnits}
                 dimensionLabels={dimensionLabels}
             />
 
@@ -180,6 +182,7 @@ const UnitsList: React.FC<UnitsListProps> = ({ units, initialSearch, initialStat
                 onClose={() => setUnitToEdit(null)}
                 unit={unitToEdit}
                 dimensionLabels={dimensionLabels}
+                baseUnits={baseUnits}
             />
         </div>
     );
