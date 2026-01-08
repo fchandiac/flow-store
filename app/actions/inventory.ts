@@ -252,7 +252,7 @@ export async function getInventoryStock(params?: GetInventoryStockParams): Promi
             attributeValues: variant.attributeValues ?? null,
             sku: variant.sku,
             barcode: variant.barcode ?? null,
-            unitOfMeasure: variant.unitOfMeasure,
+            unitOfMeasure: variant.unit?.symbol ?? '',
             baseCost,
             basePrice,
             trackInventory: variant.trackInventory,

@@ -1,16 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
-import Select from '@/app/baseComponents/Select/Select';
+import Select, { Option } from '@/app/baseComponents/Select/Select';
 import { Button } from '@/app/baseComponents/Button/Button';
-import Alert from '@/app/baseComponents/Alert/Alert';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
+import Alert from '@/app/baseComponents/Alert/Alert';
+import Switch from '@/app/baseComponents/Switch/Switch';
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { createVariant } from '@/app/actions/productVariants';
 import { getAttributes } from '@/app/actions/attributes';
+import { getPriceLists } from '@/app/actions/priceLists';
+import { getTaxes } from '@/app/actions/taxes';
+import { getActiveUnits } from '@/app/actions/units';
+import { computePriceWithTaxes } from '@/lib/pricing/priceCalculations';
 
 interface AttributeType {
     id: string;
@@ -43,6 +48,85 @@ const AttributeChip: React.FC<AttributeChipProps> = ({ attributeName, value, onR
         </button>
     </div>
 );
+
+interface PriceListOption extends Option {
+    id: string;
+    label: string;
+    currency: string;
+    isDefault?: boolean;
+}
+
+interface TaxOption {
+    id: string;
+    name: string;
+    code: string;
+    rate: number;
+    isDefault?: boolean;
+}
+
+interface UnitOption {
+    id: string;
+    name: string;
+    symbol: string;
+    dimension: string;
+    conversionFactor: number;
+    isBase: boolean;
+    baseUnitId: string;
+}
+
+interface PriceEntryState {
+    id: string;
+    priceListId: string;
+    grossPrice: string;
+    taxIds: string[];
+}
+
+const parseCurrencyInput = (value: string | number): number => {
+    if (typeof value === 'number') {
+        return Number.isFinite(value) ? value : 0;
+    }
+
+    const sanitized = value
+        .replace(/[^0-9,.-]/g, '')
+        .replace(/(,)(?=.*,)/g, '')
+        .replace(',', '.');
+
+    const parsed = parseFloat(sanitized);
+    return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const roundCurrencyValue = (value: number): number => Math.round(value * 100) / 100;
+
+const formatCurrencyByCode = (currency: string, value: number) => {
+    const normalized = Number.isFinite(value) ? value : 0;
+    const currencyCode = currency || 'CLP';
+
+    try {
+        return new Intl.NumberFormat('es-CL', {
+            style: 'currency',
+            currency: currencyCode,
+        }).format(normalized);
+    } catch {
+        return new Intl.NumberFormat('es-CL', {
+            style: 'currency',
+            currency: 'CLP',
+        }).format(normalized);
+    }
+};
+
+const getCurrencySymbol = (currency: string) => {
+    const currencyCode = currency || 'CLP';
+    try {
+        const parts = new Intl.NumberFormat('es-CL', {
+            style: 'currency',
+            currency: currencyCode,
+        }).formatToParts(1);
+        const symbolPart = parts.find((part) => part.type === 'currency');
+        return symbolPart?.value || '$';
+    } catch {
+        return '$';
+    }
+};
 
 // Dialog para agregar un atributo
 interface AddAttributeDialogProps {
@@ -168,28 +252,151 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
     const [errors, setErrors] = useState<string[]>([]);
     const [attributes, setAttributes] = useState<AttributeType[]>([]);
     const [showAddAttributeDialog, setShowAddAttributeDialog] = useState(false);
+    const [units, setUnits] = useState<UnitOption[]>([]);
+    const [priceLists, setPriceLists] = useState<PriceListOption[]>([]);
+    const [taxes, setTaxes] = useState<TaxOption[]>([]);
+    const [priceEntries, setPriceEntries] = useState<PriceEntryState[]>([]);
 
     const [formData, setFormData] = useState({
         sku: '',
         barcode: '',
-        basePrice: '',
-        baseCost: '',
-        unitOfMeasure: 'UN',
+        unitId: '',
     });
 
     // Estado para los valores de atributos seleccionados: { attributeId: "opción seleccionada" }
     const [attributeValues, setAttributeValues] = useState<Record<string, string>>({});
 
-    // Cargar atributos disponibles
+    const defaultTaxIds = useMemo(
+        () => taxes.filter((tax) => tax.isDefault).map((tax) => tax.id),
+        [taxes]
+    );
+
+    const usedPriceListIds = useMemo(() => {
+        const ids = new Set<string>();
+        priceEntries.forEach((entry) => {
+            if (entry.priceListId) {
+                ids.add(entry.priceListId);
+            }
+        });
+        return ids;
+    }, [priceEntries]);
+
+    const selectedUnit = useMemo(() => units.find((unit) => unit.id === formData.unitId) || null, [units, formData.unitId]);
+
+    const duplicatedPriceListIds = useMemo(() => {
+        const counts = new Map<string, number>();
+
+        priceEntries.forEach((entry) => {
+            if (!entry.priceListId) {
+                return;
+            }
+            const nextCount = (counts.get(entry.priceListId) || 0) + 1;
+            counts.set(entry.priceListId, nextCount);
+        });
+
+        return new Set(
+            Array.from(counts.entries())
+                .filter(([, count]) => count > 1)
+                .map(([priceListId]) => priceListId)
+        );
+    }, [priceEntries]);
+
+    useEffect(() => {
+        if (!open) return;
+        if (priceEntries.length > 0) return;
+        if (priceLists.length === 0) return;
+
+        const defaultList = priceLists.find((list) => list.isDefault) ?? priceLists[0];
+        setPriceEntries([createPriceEntry({ priceListId: defaultList?.id ?? '' })]);
+    }, [open, priceLists, priceEntries.length]);
+
+    useEffect(() => {
+        if (!open) return;
+        if (units.length === 0) return;
+
+        const preferredUnit = units.find((unit) => unit.isBase && unit.dimension === 'count')
+            ?? units.find((unit) => unit.isBase)
+            ?? units[0];
+
+        if (!preferredUnit) {
+            return;
+        }
+
+        setFormData((prev) => {
+            if (prev.unitId) {
+                return prev;
+            }
+            return {
+                ...prev,
+                unitId: preferredUnit.id,
+            };
+        });
+    }, [open, units]);
+
+    useEffect(() => {
+        if (!open) return;
+        if (defaultTaxIds.length === 0) return;
+
+        setPriceEntries((prev) => {
+            let changed = false;
+            const next = prev.map((entry) => {
+                if (entry.taxIds.length === 0) {
+                    changed = true;
+                    return {
+                        ...entry,
+                        taxIds: [...defaultTaxIds],
+                    };
+                }
+                return entry;
+            });
+            return changed ? next : prev;
+        });
+    }, [open, defaultTaxIds]);
+
+    // Cargar atributos, listas de precios e impuestos disponibles
     useEffect(() => {
         if (open) {
-            loadAttributes();
+            loadDialogData();
         }
     }, [open]);
 
-    const loadAttributes = async () => {
-        const attrs = await getAttributes();
+    const loadDialogData = async () => {
+        const [attrs, lists, taxesResult, unitsResult] = await Promise.all([
+            getAttributes(),
+            getPriceLists(true),
+            getTaxes(),
+            getActiveUnits(),
+        ]);
+
         setAttributes(attrs);
+        setPriceLists(
+            lists.map((list) => ({
+                id: list.id,
+                label: list.name,
+                currency: list.currency,
+                isDefault: Boolean(list.isDefault),
+            }))
+        );
+        setTaxes(
+            taxesResult.map((tax) => ({
+                id: tax.id,
+                name: tax.name,
+                code: tax.code,
+                rate: Number(tax.rate) || 0,
+                isDefault: Boolean(tax.isDefault),
+            }))
+        );
+        setUnits(
+            unitsResult.map((unit) => ({
+                id: unit.id,
+                name: unit.name,
+                symbol: unit.symbol,
+                dimension: unit.dimension,
+                conversionFactor: Number(unit.conversionFactor),
+                isBase: unit.isBase,
+                baseUnitId: unit.baseUnitId,
+            }))
+        );
     };
 
     const handleChange = (field: string, value: any) => {
@@ -214,16 +421,103 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
         });
     };
 
+    const createPriceEntry = (overrides?: Partial<PriceEntryState>): PriceEntryState => ({
+        id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+            ? crypto.randomUUID()
+            : Math.random().toString(36).slice(2),
+        priceListId: '',
+        grossPrice: '',
+        taxIds: [...defaultTaxIds],
+        ...overrides,
+    });
+
+    const handleAddPriceEntry = () => {
+        const usedIds = new Set(priceEntries.map((entry) => entry.priceListId).filter(Boolean));
+        const availableList = priceLists.find((list) => !usedIds.has(list.id));
+
+        setPriceEntries((prev) => [
+            ...prev,
+            createPriceEntry({ priceListId: availableList?.id ?? '' }),
+        ]);
+    };
+
+    const handleRemovePriceEntry = (entryId: string) => {
+        setPriceEntries((prev) => prev.filter((entry) => entry.id !== entryId));
+    };
+
+    const handleUpdatePriceEntry = (entryId: string, updates: Partial<PriceEntryState>) => {
+        setPriceEntries((prev) =>
+            prev.map((entry) =>
+                entry.id === entryId
+                    ? {
+                        ...entry,
+                        ...updates,
+                    }
+                    : entry
+            )
+        );
+    };
+
+    const handleTogglePriceEntryTax = (entryId: string, taxId: string, checked: boolean) => {
+        setPriceEntries((prev) =>
+            prev.map((entry) => {
+                if (entry.id !== entryId) {
+                    return entry;
+                }
+                const nextTaxIds = checked
+                    ? Array.from(new Set([...entry.taxIds, taxId]))
+                    : entry.taxIds.filter((id) => id !== taxId);
+                return {
+                    ...entry,
+                    taxIds: nextTaxIds,
+                };
+            })
+        );
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
         const validationErrors: string[] = [];
         if (!formData.sku.trim()) validationErrors.push('El SKU es requerido');
-        if (!formData.basePrice || parseFloat(formData.basePrice) < 0) {
-            validationErrors.push('El precio es requerido');
-        }
         if (Object.keys(attributeValues).length === 0) {
             validationErrors.push('Debe agregar al menos un atributo para la variante');
+        }
+        if (!formData.unitId) {
+            validationErrors.push('Debe seleccionar una unidad de medida');
+        }
+        if (priceEntries.length === 0) {
+            validationErrors.push('Debe definir al menos un precio de venta');
+        }
+
+        const priceListPayload = priceEntries.map((entry) => {
+            const grossPrice = roundCurrencyValue(parseCurrencyInput(entry.grossPrice));
+            return {
+                priceListId: entry.priceListId,
+                grossPrice,
+                taxIds: Array.from(new Set(entry.taxIds ?? [])),
+            };
+        });
+
+        const uniquePriceListIds = new Set<string>();
+        let hasDuplicatedList = false;
+
+        priceListPayload.forEach(({ priceListId, grossPrice }) => {
+            if (!priceListId) {
+                validationErrors.push('Cada precio debe asociarse a una lista de precios.');
+            } else if (uniquePriceListIds.has(priceListId)) {
+                hasDuplicatedList = true;
+            } else {
+                uniquePriceListIds.add(priceListId);
+            }
+
+            if (!Number.isFinite(grossPrice) || grossPrice <= 0) {
+                validationErrors.push('Todos los precios deben ser mayores a 0.');
+            }
+        });
+
+        if (hasDuplicatedList) {
+            validationErrors.push('No puede repetir la misma lista de precios más de una vez.');
         }
         
         if (validationErrors.length > 0) {
@@ -234,15 +528,30 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
         setIsSubmitting(true);
         setErrors([]);
 
+        const firstPriceEntry = priceListPayload[0];
+        const firstEntryTaxRates = (firstPriceEntry.taxIds || []).map((id) => {
+            const tax = taxes.find((item) => item.id === id);
+            return tax ? tax.rate : 0;
+        });
+        const firstComputed = computePriceWithTaxes({
+            grossPrice: firstPriceEntry.grossPrice,
+            taxRates: firstEntryTaxRates,
+        });
+
         try {
             const result = await createVariant({
                 productId,
                 sku: formData.sku.trim(),
                 barcode: formData.barcode.trim() || undefined,
-                basePrice: parseFloat(formData.basePrice) || 0,
-                baseCost: parseFloat(formData.baseCost) || 0,
-                unitOfMeasure: formData.unitOfMeasure || 'UN',
+                basePrice: firstComputed.netPrice,
+                baseCost: 0,
+                unitId: formData.unitId,
                 attributeValues: Object.keys(attributeValues).length > 0 ? attributeValues : undefined,
+                priceListItems: priceListPayload.map(({ priceListId, grossPrice, taxIds }) => ({
+                    priceListId,
+                    grossPrice,
+                    taxIds,
+                })),
             });
 
             if (result.success) {
@@ -264,14 +573,16 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
     };
 
     const resetForm = () => {
+        const preferredUnit = units.find((unit) => unit.isBase && unit.dimension === 'count')
+            ?? units.find((unit) => unit.isBase)
+            ?? units[0];
         setFormData({
             sku: '',
             barcode: '',
-            basePrice: '',
-            baseCost: '',
-            unitOfMeasure: 'UN',
+            unitId: preferredUnit?.id ?? '',
         });
         setAttributeValues({});
+        setPriceEntries([]);
     };
 
     const handleClose = () => {
@@ -293,6 +604,7 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
     };
 
     const selectedAttributeIds = Object.keys(attributeValues);
+    const canAddAnotherPriceEntry = priceLists.length > 0 && priceEntries.length < priceLists.length;
 
     return (
         <>
@@ -384,12 +696,12 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                     {/* Identificación */}
                     <div className="space-y-4">
                         <h4 className="font-medium text-neutral-700">Identificación</h4>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <TextField
                                 label="SKU"
                                 value={formData.sku}
                                 onChange={(e) => handleChange('sku', e.target.value)}
-                                placeholder="Ej: ANI-ORO18-T12"
+                                placeholder="SKU"
                                 required
                                 data-test-id="create-variant-sku"
                             />
@@ -400,35 +712,202 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                                 data-test-id="create-variant-barcode"
                             />
                         </div>
+                        <div className="space-y-2">
+                            <Select
+                                label="Unidad de Medida"
+                                value={formData.unitId || null}
+                                onChange={(id) =>
+                                    setFormData((prev) => ({
+                                        ...prev,
+                                        unitId: id ? id.toString() : '',
+                                    }))
+                                }
+                                options={units.map((unit) => ({
+                                    id: unit.id,
+                                    label: `${unit.symbol} · ${unit.name}`,
+                                }))}
+                                placeholder={units.length ? 'Selecciona unidad' : 'Sin unidades'}
+                                required
+                                data-test-id="create-variant-unit"
+                                disabled={units.length === 0}
+                            />
+                            {selectedUnit && (
+                                <p className="text-xs text-neutral-500">
+                                    Dimensión: {selectedUnit.dimension} · Conversión a base: {selectedUnit.conversionFactor}
+                                </p>
+                            )}
+                            {!units.length && (
+                                <p className="text-xs text-amber-700">
+                                    Aún no hay unidades registradas. Configura una unidad base en Configuración → Unidades.
+                                </p>
+                            )}
+                        </div>
                     </div>
 
-                    {/* Precios */}
+                    {/* Listas de precios */}
                     <div className="space-y-4">
-                        <h4 className="font-medium text-neutral-700">Precios</h4>
-                        <div className="grid grid-cols-3 gap-4">
-                            <TextField
-                                label="Precio de Venta"
-                                type="currency"
-                                value={formData.basePrice}
-                                onChange={(e) => handleChange('basePrice', e.target.value)}
-                                required
-                                data-test-id="create-variant-price"
-                            />
-                            <TextField
-                                label="Costo"
-                                type="currency"
-                                value={formData.baseCost}
-                                onChange={(e) => handleChange('baseCost', e.target.value)}
-                                data-test-id="create-variant-cost"
-                            />
-                            <TextField
-                                label="Unidad"
-                                value={formData.unitOfMeasure}
-                                onChange={(e) => handleChange('unitOfMeasure', e.target.value)}
-                                placeholder="UN, KG, LT"
-                                data-test-id="create-variant-unit"
-                            />
+                        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                            <h4 className="font-medium text-neutral-700">Listas de Precios</h4>
+                            <Button
+                                type="button"
+                                variant="outlined"
+                                size="sm"
+                                onClick={handleAddPriceEntry}
+                                disabled={!canAddAnotherPriceEntry}
+                            >
+                                <span className="material-symbols-outlined mr-1" style={{ fontSize: '1.25rem' }}>
+                                    add
+                                </span>
+                                Agregar precio
+                            </Button>
                         </div>
+
+                        {!priceLists.length ? (
+                            <Alert variant="warning">
+                                Debes crear al menos una lista de precios en Configuración → Listas de precios antes de agregar precios por variante.
+                            </Alert>
+                        ) : priceEntries.length === 0 ? (
+                            <div className="p-4 bg-neutral-50 border border-neutral-200 border-dashed rounded-lg text-center text-sm text-neutral-500">
+                                <span className="material-symbols-outlined text-neutral-400 mb-2" style={{ fontSize: '2rem' }}>
+                                    sell
+                                </span>
+                                <p>Agrega un precio seleccionando una lista y estableciendo un valor bruto para esta variante.</p>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                {priceEntries.map((entry, index) => {
+                                    const selectedList = priceLists.find((list) => list.id === entry.priceListId);
+                                    const currencyCode = selectedList?.currency || 'CLP';
+                                    const grossValue = roundCurrencyValue(parseCurrencyInput(entry.grossPrice));
+                                    const taxRates = entry.taxIds.map((taxId) => {
+                                        const tax = taxes.find((item) => item.id === taxId);
+                                        return tax ? Number(tax.rate) || 0 : 0;
+                                    });
+                                    const computedPrice = computePriceWithTaxes({
+                                        grossPrice: grossValue,
+                                        taxRates,
+                                    });
+                                    const appliedTaxes = taxes.filter((tax) => entry.taxIds.includes(tax.id));
+
+                                    const isDuplicatedList = Boolean(
+                                        entry.priceListId && duplicatedPriceListIds.has(entry.priceListId)
+                                    );
+
+                                    const availablePriceLists = priceLists.map((list) => {
+                                        const isUsedByOther = usedPriceListIds.has(list.id) && list.id !== entry.priceListId;
+                                        const usageSuffix = isUsedByOther ? ' (en uso)' : '';
+                                        return {
+                                            id: list.id,
+                                            label: `${list.label} (${list.currency})${usageSuffix}`,
+                                        };
+                                    });
+
+                                    return (
+                                        <div
+                                            key={entry.id}
+                                            className={`rounded-lg p-4 space-y-4 border ${
+                                                isDuplicatedList ? 'border-amber-400 bg-amber-50' : 'border-border bg-neutral-50'
+                                            }`}
+                                        >
+                                            <div className="flex items-start justify-between gap-4">
+                                                <div>
+                                                    <p className="text-sm font-medium text-neutral-800">
+                                                        {selectedList ? selectedList.label : `Precio ${index + 1}`}
+                                                    </p>
+                                                    <p className="text-xs text-neutral-500">
+                                                        {selectedList ? `Moneda: ${selectedList.currency}` : 'Selecciona una lista para habilitar el precio'}
+                                                    </p>
+                                                    {isDuplicatedList && (
+                                                        <p className="text-xs text-amber-700 mt-1">
+                                                            Esta lista está asignada en más de un precio. Ajusta antes de guardar.
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <IconButton
+                                                    icon="delete"
+                                                    variant="text"
+                                                    size="sm"
+                                                    onClick={() => handleRemovePriceEntry(entry.id)}
+                                                    title="Eliminar precio"
+                                                />
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <Select
+                                                    label="Lista de precios"
+                                                    value={entry.priceListId || null}
+                                                    onChange={(id) => handleUpdatePriceEntry(entry.id, { priceListId: id ? id.toString() : '' })}
+                                                    options={availablePriceLists}
+                                                    placeholder="Selecciona una lista"
+                                                    required
+                                                />
+                                                <TextField
+                                                    label="Precio bruto"
+                                                    type="currency"
+                                                    value={entry.grossPrice}
+                                                    onChange={(event) => handleUpdatePriceEntry(entry.id, { grossPrice: event.target.value })}
+                                                    currencySymbol={getCurrencySymbol(currencyCode)}
+                                                    allowDecimalComma
+                                                    data-test-id={`variant-price-entry-${index}`}
+                                                />
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <p className="text-xs font-medium text-neutral-600 uppercase tracking-wide">Impuestos</p>
+                                                {taxes.length === 0 ? (
+                                                    <p className="text-sm text-neutral-500">No hay impuestos configurados.</p>
+                                                ) : (
+                                                    <div className="flex flex-wrap gap-3">
+                                                        {taxes.map((tax) => (
+                                                            <Switch
+                                                                key={`${entry.id}-${tax.id}`}
+                                                                checked={entry.taxIds.includes(tax.id)}
+                                                                onChange={(checked) => handleTogglePriceEntryTax(entry.id, tax.id, checked)}
+                                                                label={`${tax.name} (${Number(tax.rate) || 0}%)`}
+                                                                labelPosition="right"
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
+                                                <div className="bg-white border border-border rounded-md p-3 flex flex-col gap-1">
+                                                    <span className="text-xs text-neutral-500 uppercase tracking-wide">Precio neto</span>
+                                                    <span className="font-medium text-neutral-800">{formatCurrencyByCode(currencyCode, computedPrice.netPrice)}</span>
+                                                </div>
+                                                <div className="bg-white border border-border rounded-md p-3 flex flex-col gap-1">
+                                                    <span className="text-xs text-neutral-500 uppercase tracking-wide">Precio bruto</span>
+                                                    <span className="font-medium text-neutral-800">{formatCurrencyByCode(currencyCode, computedPrice.grossPrice)}</span>
+                                                </div>
+                                                <div className="bg-white border border-border rounded-md p-3 flex flex-col gap-1">
+                                                    <span className="text-xs text-neutral-500 uppercase tracking-wide">Tasa total</span>
+                                                    <span className="font-medium text-neutral-800">{computedPrice.totalTaxRate}%</span>
+                                                </div>
+                                            </div>
+
+                                            {appliedTaxes.length > 0 && (
+                                                <p className="text-xs text-neutral-500">
+                                                    Impuestos aplicados: {appliedTaxes.map((tax) => `${tax.code || tax.name} (${Number(tax.rate) || 0}%)`).join(', ')}
+                                                </p>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {duplicatedPriceListIds.size > 0 && (
+                            <p className="text-xs text-amber-700">
+                                Existen listas de precios repetidas. Ajusta la selección antes de continuar.
+                            </p>
+                        )}
+
+                        {priceLists.length > 0 && priceEntries.length >= priceLists.length && (
+                            <p className="text-xs text-neutral-500">
+                                Ya utilizaste todas las listas de precios disponibles para esta variante.
+                            </p>
+                        )}
                     </div>
 
                     <div className="flex justify-end gap-3 pt-4 border-t border-neutral-200">

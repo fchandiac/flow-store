@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
@@ -11,6 +11,7 @@ import Alert from '@/app/baseComponents/Alert/Alert';
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { updateVariant } from '@/app/actions/productVariants';
 import { getAttributes } from '@/app/actions/attributes';
+import { getActiveUnits } from '@/app/actions/units';
 import { VariantType } from './VariantCard';
 
 interface AttributeType {
@@ -27,6 +28,16 @@ interface UpdateVariantDialogProps {
     'data-test-id'?: string;
 }
 
+interface UnitOption {
+    id: string;
+    name: string;
+    symbol: string;
+    dimension: string;
+    conversionFactor: number;
+    isBase: boolean;
+    baseUnitId: string;
+}
+
 const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({ 
     open, 
     onClose,
@@ -39,30 +50,46 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<string[]>([]);
     const [attributes, setAttributes] = useState<AttributeType[]>([]);
+    const [units, setUnits] = useState<UnitOption[]>([]);
 
     const [formData, setFormData] = useState({
         sku: '',
         barcode: '',
         basePrice: '',
         baseCost: '',
-        unitOfMeasure: '',
+        unitId: '',
         isActive: true,
     });
 
     // Estado para los valores de atributos seleccionados
     const [attributeValues, setAttributeValues] = useState<Record<string, string>>({});
 
-    // Cargar atributos disponibles
+    const loadDialogData = useCallback(async () => {
+        const [attrs, unitsResult] = await Promise.all([
+            getAttributes(),
+            getActiveUnits(),
+        ]);
+
+        setAttributes(attrs);
+        setUnits(
+            unitsResult.map((unit) => ({
+                id: unit.id,
+                name: unit.name,
+                symbol: unit.symbol,
+                dimension: unit.dimension,
+                conversionFactor: Number(unit.conversionFactor),
+                isBase: unit.isBase,
+                baseUnitId: unit.baseUnitId,
+            }))
+        );
+    }, []);
+
+    // Cargar atributos y unidades disponibles
     useEffect(() => {
         if (open) {
-            loadAttributes();
+            loadDialogData();
         }
-    }, [open]);
-
-    const loadAttributes = async () => {
-        const attrs = await getAttributes();
-        setAttributes(attrs);
-    };
+    }, [open, loadDialogData]);
 
     // Cargar datos del variant al abrir
     useEffect(() => {
@@ -72,7 +99,7 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
                 barcode: variant.barcode || '',
                 basePrice: String(variant.basePrice || 0),
                 baseCost: String(variant.baseCost || 0),
-                unitOfMeasure: variant.unitOfMeasure || 'UN',
+                unitId: variant.unitId || '',
                 isActive: variant.isActive,
             });
             
@@ -82,6 +109,25 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
             setErrors([]);
         }
     }, [open, variant]);
+
+    useEffect(() => {
+        if (!open) return;
+        if (formData.unitId) return;
+        if (units.length === 0) return;
+
+        const preferredUnit = units.find((unit) => unit.isBase && unit.dimension === 'count')
+            ?? units.find((unit) => unit.isBase)
+            ?? units[0];
+
+        if (!preferredUnit) {
+            return;
+        }
+
+        setFormData((prev) => ({
+            ...prev,
+            unitId: preferredUnit.id,
+        }));
+    }, [open, units, formData.unitId]);
 
     const handleChange = (field: string, value: any) => {
         setFormData(prev => ({
@@ -102,6 +148,11 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
         });
     };
 
+    const selectedUnit = useMemo(
+        () => units.find((unit) => unit.id === formData.unitId) ?? null,
+        [units, formData.unitId]
+    );
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
@@ -109,6 +160,9 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
         if (!formData.sku.trim()) validationErrors.push('El SKU es requerido');
         if (!formData.basePrice || parseFloat(formData.basePrice) < 0) {
             validationErrors.push('El precio es requerido');
+        }
+        if (!formData.unitId) {
+            validationErrors.push('Debe seleccionar una unidad de medida');
         }
         // No requerimos atributos para variante default
         if (!variant.isDefault && Object.keys(attributeValues).length === 0) {
@@ -129,7 +183,7 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
                 barcode: formData.barcode.trim() || undefined,
                 basePrice: parseFloat(formData.basePrice) || 0,
                 baseCost: parseFloat(formData.baseCost) || 0,
-                unitOfMeasure: formData.unitOfMeasure || 'UN',
+                unitId: formData.unitId,
                 attributeValues: Object.keys(attributeValues).length > 0 ? attributeValues : undefined,
                 isActive: formData.isActive,
             });
@@ -267,13 +321,30 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
                             onChange={(e) => handleChange('baseCost', e.target.value)}
                             data-test-id="update-variant-cost"
                         />
-                        <TextField
-                            label="Unidad"
-                            value={formData.unitOfMeasure}
-                            onChange={(e) => handleChange('unitOfMeasure', e.target.value)}
-                            placeholder="UN, KG, LT"
-                            data-test-id="update-variant-unit"
-                        />
+                        <div>
+                            <Select
+                                label="Unidad"
+                                value={formData.unitId}
+                                onChange={(id) => handleChange('unitId', id?.toString() || '')}
+                                options={units.map((unit) => ({
+                                    id: unit.id,
+                                    label: `${unit.symbol} · ${unit.name}`,
+                                }))}
+                                placeholder="Seleccionar unidad"
+                                data-test-id="update-variant-unit"
+                                disabled={units.length === 0}
+                            />
+                            {selectedUnit && (
+                                <p className="text-xs text-neutral-500 mt-1">
+                                    Dimensión: {selectedUnit.dimension}
+                                </p>
+                            )}
+                            {units.length === 0 && (
+                                <p className="text-xs text-amber-600 mt-1">
+                                    No hay unidades activas disponibles. Configúralas en Ajustes → Unidades.
+                                </p>
+                            )}
+                        </div>
                     </div>
                 </div>
 

@@ -231,7 +231,7 @@ export async function searchProductsForPurchase(params?: SearchPurchaseProductsP
             productName: product?.name ?? 'Producto',
             sku: variant.sku,
             barcode: variant.barcode ?? null,
-            unitOfMeasure: variant.unitOfMeasure,
+            unitOfMeasure: variant.unit?.symbol ?? '',
             baseCost: Number(variant.baseCost ?? 0),
             basePrice: Number(variant.basePrice ?? 0),
             trackInventory: variant.trackInventory,

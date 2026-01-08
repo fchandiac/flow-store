@@ -15,6 +15,8 @@ export * from './User';
 export * from './Category';
 export * from './Product';
 export * from './ProductVariant';
+export * from './Unit';
+export * from './unit-dimension.enum';
 export * from './Attribute';
 
 // Entidades de precios e impuestos

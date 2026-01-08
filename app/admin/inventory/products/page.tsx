@@ -34,6 +34,7 @@ const toVariantType = (variant: VariantSummary, productId: string): VariantType 
     barcode: variant.barcode,
     basePrice: variant.basePrice,
     baseCost: variant.baseCost,
+    unitId: variant.unitId,
     unitOfMeasure: variant.unitOfMeasure,
     attributeValues: variant.attributeValues,
     displayName: variant.attributeValues && Object.keys(variant.attributeValues).length > 0
@@ -239,6 +240,7 @@ export default function ProductsPage() {
             barcode: product.barcode,
             basePrice: product.basePrice,
             baseCost: product.baseCost,
+            unitId: product.unitId,
             unitOfMeasure: product.unitOfMeasure,
         });
         setUpdateDialogOpen(true);
@@ -299,46 +301,6 @@ export default function ProductsPage() {
             flex: 1,
             minWidth: 120,
             renderCell: ({ value }) => value || '-',
-        },
-        {
-            field: 'basePrice',
-            headerName: 'Precio',
-            width: 100,
-            align: 'right',
-            headerAlign: 'right',
-            renderCell: ({ row }) => (
-                row.variantCount > 1
-                    ? (
-                        <span className="text-muted-foreground text-xs">Ver variantes</span>
-                    )
-                    : row.basePrice !== undefined
-                        ? (
-                            <span className="font-medium">${Number(row.basePrice).toLocaleString('es-CL')}</span>
-                        )
-                        : (
-                            <span className="text-muted-foreground text-xs">Ver variantes</span>
-                        )
-            ),
-        },
-        {
-            field: 'baseCost',
-            headerName: 'Costo',
-            width: 100,
-            align: 'right',
-            headerAlign: 'right',
-            renderCell: ({ row }) => (
-                row.variantCount > 1
-                    ? (
-                        <span className="text-muted-foreground text-xs">Ver variantes</span>
-                    )
-                    : row.baseCost !== undefined
-                        ? (
-                            <span className="text-muted-foreground">${Number(row.baseCost).toLocaleString('es-CL')}</span>
-                        )
-                        : (
-                            <span className="text-muted-foreground text-xs">-</span>
-                        )
-            ),
         },
         {
             field: 'isActive',

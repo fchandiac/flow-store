@@ -7,6 +7,7 @@ import { Category } from '@/data/entities/Category';
 import { PriceList } from '@/data/entities/PriceList';
 import { PriceListItem } from '@/data/entities/PriceListItem';
 import { Tax } from '@/data/entities/Tax';
+import { Unit } from '@/data/entities/Unit';
 import { computePriceWithTaxes } from '@/lib/pricing/priceCalculations';
 import { revalidatePath } from 'next/cache';
 import { In, IsNull } from 'typeorm';
@@ -37,7 +38,7 @@ interface CreateSimpleProductDTO {
     barcode?: string;
     basePrice: number;
     baseCost?: number;
-    unitOfMeasure?: string;
+    unitId: string;
     trackInventory?: boolean;
     allowNegativeStock?: boolean;
     minimumStock?: number;
@@ -102,6 +103,7 @@ export interface VariantSummary {
     barcode?: string;
     basePrice: number;
     baseCost: number;
+    unitId: string;
     unitOfMeasure: string;
     attributeValues?: Record<string, string>;
     isDefault: boolean;
@@ -130,6 +132,7 @@ export interface ProductWithDefaultVariant {
     barcode?: string;
     basePrice?: number;
     baseCost?: number;
+    unitId?: string;
     unitOfMeasure?: string;
     variantCount: number;
     // Todas las variantes del producto
@@ -247,7 +250,8 @@ export async function getProducts(params?: GetProductsParams): Promise<ProductWi
             barcode: defaultVariant?.barcode,
             basePrice: defaultVariant ? Number(defaultVariant.basePrice) : undefined,
             baseCost: defaultVariant ? Number(defaultVariant.baseCost) : undefined,
-            unitOfMeasure: defaultVariant?.unitOfMeasure,
+            unitId: defaultVariant?.unitId,
+            unitOfMeasure: defaultVariant?.unit?.symbol,
             trackInventory: defaultVariant?.trackInventory,
             allowNegativeStock: defaultVariant?.allowNegativeStock,
             variantCount: variants.length,
@@ -258,7 +262,8 @@ export async function getProducts(params?: GetProductsParams): Promise<ProductWi
                 barcode: v.barcode,
                 basePrice: Number(v.basePrice),
                 baseCost: Number(v.baseCost),
-                unitOfMeasure: v.unitOfMeasure,
+                unitId: v.unitId,
+                unitOfMeasure: v.unit?.symbol ?? '',
                 attributeValues: v.attributeValues,
                 isDefault: v.isDefault,
                 isActive: v.isActive
@@ -332,6 +337,20 @@ export async function createSimpleProduct(data: CreateSimpleProductDTO): Promise
                 return { success: false, error: 'Lista de precios no encontrada o inactiva' };
             }
         }
+
+        const unitRepo = manager.getRepository(Unit);
+        const unit = await unitRepo.findOne({
+            where: { id: data.unitId, deletedAt: IsNull(), active: true },
+            relations: ['baseUnit'],
+        });
+
+        if (!unit) {
+            return { success: false, error: 'Unidad de medida no encontrada o inactiva' };
+        }
+
+        if (!unit.isBase && (!unit.baseUnit || unit.baseUnit.dimension !== unit.dimension)) {
+            return { success: false, error: 'Unidad de medida inválida para el producto' };
+        }
         
         // Crear producto maestro
         const product = productRepo.create({
@@ -356,7 +375,8 @@ export async function createSimpleProduct(data: CreateSimpleProductDTO): Promise
             barcode: data.barcode,
             basePrice: data.basePrice,
             baseCost: data.baseCost || 0,
-            unitOfMeasure: data.unitOfMeasure || 'UN',
+            unitId: unit.id,
+            unit,
             trackInventory: data.trackInventory ?? true,
             allowNegativeStock: data.allowNegativeStock ?? false,
             minimumStock: data.minimumStock || 0,
@@ -517,7 +537,7 @@ export async function updateSimpleProduct(
         barcode?: string;
         basePrice?: number;
         baseCost?: number;
-        unitOfMeasure?: string;
+        unitId?: string;
         trackInventory?: boolean;
         allowNegativeStock?: boolean;
         minimumStock?: number;
@@ -559,6 +579,25 @@ export async function updateSimpleProduct(
             });
             
             if (defaultVariant) {
+                if (variantData.unitId) {
+                    const unitRepo = manager.getRepository(Unit);
+                    const unit = await unitRepo.findOne({
+                        where: { id: variantData.unitId, deletedAt: IsNull(), active: true },
+                        relations: ['baseUnit'],
+                    });
+
+                    if (!unit) {
+                        return { success: false, error: 'Unidad de medida no encontrada o inactiva' };
+                    }
+
+                    if (!unit.isBase && (!unit.baseUnit || unit.baseUnit.dimension !== unit.dimension)) {
+                        return { success: false, error: 'Unidad de medida inválida para el producto' };
+                    }
+
+                    defaultVariant.unitId = unit.id;
+                    defaultVariant.unit = unit;
+                }
+                
                 // Verificar SKU único si cambia
                 if (variantData.sku && variantData.sku !== defaultVariant.sku) {
                     const existingSku = await variantRepo.findOne({
@@ -573,7 +612,6 @@ export async function updateSimpleProduct(
                 if (variantData.barcode !== undefined) defaultVariant.barcode = variantData.barcode;
                 if (variantData.basePrice !== undefined) defaultVariant.basePrice = variantData.basePrice;
                 if (variantData.baseCost !== undefined) defaultVariant.baseCost = variantData.baseCost;
-                if (variantData.unitOfMeasure !== undefined) defaultVariant.unitOfMeasure = variantData.unitOfMeasure;
                 if (variantData.trackInventory !== undefined) defaultVariant.trackInventory = variantData.trackInventory;
                 if (variantData.allowNegativeStock !== undefined) defaultVariant.allowNegativeStock = variantData.allowNegativeStock;
                 if (variantData.minimumStock !== undefined) defaultVariant.minimumStock = variantData.minimumStock;
@@ -687,7 +725,8 @@ export async function searchProducts(query: string, limit: number = 20): Promise
             barcode: defaultVariant?.barcode,
             basePrice: defaultVariant ? Number(defaultVariant.basePrice) : undefined,
             baseCost: defaultVariant ? Number(defaultVariant.baseCost) : undefined,
-            unitOfMeasure: defaultVariant?.unitOfMeasure,
+            unitId: defaultVariant?.unitId,
+            unitOfMeasure: defaultVariant?.unit?.symbol,
             trackInventory: defaultVariant?.trackInventory,
             allowNegativeStock: defaultVariant?.allowNegativeStock,
             variantCount: variants.length,
@@ -697,7 +736,8 @@ export async function searchProducts(query: string, limit: number = 20): Promise
                 barcode: v.barcode,
                 basePrice: Number(v.basePrice),
                 baseCost: Number(v.baseCost),
-                unitOfMeasure: v.unitOfMeasure,
+                unitId: v.unitId,
+                unitOfMeasure: v.unit?.symbol ?? '',
                 attributeValues: v.attributeValues,
                 isDefault: v.isDefault,
                 isActive: v.isActive

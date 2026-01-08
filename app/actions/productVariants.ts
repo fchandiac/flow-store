@@ -4,8 +4,12 @@ import { getDb } from '@/data/db';
 import { ProductVariant } from '@/data/entities/ProductVariant';
 import { Product } from '@/data/entities/Product';
 import { Attribute } from '@/data/entities/Attribute';
+import { PriceListItem } from '@/data/entities/PriceListItem';
+import { Tax } from '@/data/entities/Tax';
+import { Unit } from '@/data/entities/Unit';
+import { computePriceWithTaxes } from '@/lib/pricing/priceCalculations';
 import { revalidatePath } from 'next/cache';
-import { IsNull } from 'typeorm';
+import { DataSource, In, IsNull } from 'typeorm';
 
 // Types
 interface CreateVariantDTO {
@@ -14,11 +18,12 @@ interface CreateVariantDTO {
     barcode?: string;
     basePrice: number;
     baseCost?: number;
-    unitOfMeasure?: string;
+    unitId: string;
     weight?: number;
     /** Valores de atributos: { "attributeId": "opción seleccionada" } */
     attributeValues?: Record<string, string>;
     taxIds?: string[];
+    priceListItems?: VariantPriceListItemInput[];
     trackInventory?: boolean;
     allowNegativeStock?: boolean;
     minimumStock?: number;
@@ -27,15 +32,97 @@ interface CreateVariantDTO {
     imagePath?: string;
 }
 
+interface VariantPriceListItemInput {
+    priceListId: string;
+    grossPrice: number;
+    taxIds?: string[];
+}
+
+function sanitizeIdArray(ids?: string[] | null): string[] {
+    if (!ids) {
+        return [];
+    }
+
+    const seen = new Set<string>();
+    const sanitized: string[] = [];
+
+    for (const rawId of ids) {
+        if (typeof rawId !== 'string') {
+            continue;
+        }
+        const trimmed = rawId.trim();
+        if (!trimmed || seen.has(trimmed)) {
+            continue;
+        }
+        seen.add(trimmed);
+        sanitized.push(trimmed);
+    }
+
+    return sanitized;
+}
+
+async function persistPriceListItemsForVariant(
+    ds: DataSource,
+    params: { entries?: VariantPriceListItemInput[]; productId: string; variantId: string }
+): Promise<void> {
+    const { entries, productId, variantId } = params;
+    if (!Array.isArray(entries) || entries.length === 0) {
+        return;
+    }
+
+    const priceListItemRepo = ds.getRepository(PriceListItem);
+    const taxRepo = ds.getRepository(Tax);
+
+    for (const entry of entries) {
+        if (!entry || !entry.priceListId) {
+            continue;
+        }
+
+        const sanitizedGross = Number(entry.grossPrice);
+        if (!Number.isFinite(sanitizedGross) || sanitizedGross < 0) {
+            continue;
+        }
+
+        const sanitizedTaxIds = sanitizeIdArray(entry.taxIds);
+        const taxes = sanitizedTaxIds.length > 0
+            ? await taxRepo.find({
+                where: {
+                    id: In(sanitizedTaxIds),
+                    deletedAt: IsNull(),
+                    isActive: true,
+                },
+            })
+            : [];
+
+        const taxRates = taxes.map((tax) => Number(tax.rate) || 0);
+        const computed = computePriceWithTaxes({
+            grossPrice: sanitizedGross,
+            taxRates,
+        });
+
+        const priceListItem = priceListItemRepo.create({
+            priceListId: entry.priceListId,
+            productId,
+            productVariantId: variantId,
+            netPrice: computed.netPrice,
+            grossPrice: computed.grossPrice,
+            taxIds: sanitizedTaxIds.length > 0 ? sanitizedTaxIds : null,
+        });
+
+        await priceListItemRepo.save(priceListItem);
+    }
+}
+
 interface UpdateVariantDTO {
     sku?: string;
     barcode?: string;
     basePrice?: number;
     baseCost?: number;
-    unitOfMeasure?: string;
+    unitId?: string;
     weight?: number;
     attributeValues?: Record<string, string>;
     taxIds?: string[];
+    priceListItems?: VariantPriceListItemInput[];
     trackInventory?: boolean;
     allowNegativeStock?: boolean;
     minimumStock?: number;
@@ -72,6 +159,7 @@ export interface VariantDisplay {
     barcode?: string;
     basePrice: number;
     baseCost: number;
+    unitId: string;
     unitOfMeasure: string;
     /** Valores de atributos: { "attributeId": "opción" } */
     attributeValues?: Record<string, string>;
@@ -164,7 +252,8 @@ export async function getProductsWithVariants(params?: {
                 barcode: v.barcode,
                 basePrice: Number(v.basePrice),
                 baseCost: Number(v.baseCost),
-                unitOfMeasure: v.unitOfMeasure,
+                unitId: v.unitId,
+                unitOfMeasure: v.unit?.symbol ?? '',
                 attributeValues: v.attributeValues,
                 displayName,
                 trackInventory: v.trackInventory,
@@ -243,6 +332,7 @@ export async function createVariant(data: CreateVariantDTO): Promise<VariantResu
         const ds = await getDb();
         const repo = ds.getRepository(ProductVariant);
         const productRepo = ds.getRepository(Product);
+        const unitRepo = ds.getRepository(Unit);
         
         // Verificar que el producto existe
         const product = await productRepo.findOne({
@@ -251,6 +341,19 @@ export async function createVariant(data: CreateVariantDTO): Promise<VariantResu
         
         if (!product) {
             return { success: false, error: 'Producto no encontrado' };
+        }
+
+        const unit = await unitRepo.findOne({
+            where: { id: data.unitId, deletedAt: IsNull(), active: true },
+            relations: ['baseUnit'],
+        });
+
+        if (!unit) {
+            return { success: false, error: 'Unidad de medida no encontrada o inactiva' };
+        }
+
+        if (!unit.isBase && (!unit.baseUnit || unit.baseUnit.dimension !== unit.dimension)) {
+            return { success: false, error: 'Unidad de medida inválida para la dimensión seleccionada' };
         }
         
         // Verificar SKU único
@@ -268,7 +371,8 @@ export async function createVariant(data: CreateVariantDTO): Promise<VariantResu
             barcode: data.barcode,
             basePrice: data.basePrice,
             baseCost: data.baseCost || 0,
-            unitOfMeasure: data.unitOfMeasure || 'UN',
+            unitId: unit.id,
+            unit,
             weight: data.weight,
             attributeValues: data.attributeValues,
             taxIds: data.taxIds,
@@ -284,6 +388,13 @@ export async function createVariant(data: CreateVariantDTO): Promise<VariantResu
         
         await repo.save(variant);
         
+        // Registrar precios por lista, si se entregaron
+        await persistPriceListItemsForVariant(ds, {
+            entries: data.priceListItems,
+            productId: product.id,
+            variantId: variant.id,
+        });
+
         // Marcar el producto como hasVariants = true si no lo estaba
         if (!product.hasVariants) {
             product.hasVariants = true;
@@ -310,6 +421,7 @@ export async function updateVariant(id: string, data: UpdateVariantDTO): Promise
     try {
         const ds = await getDb();
         const repo = ds.getRepository(ProductVariant);
+        const unitRepo = ds.getRepository(Unit);
         
         const variant = await repo.findOne({
             where: { id, deletedAt: IsNull() }
@@ -329,12 +441,29 @@ export async function updateVariant(id: string, data: UpdateVariantDTO): Promise
             }
         }
         
+        if (data.unitId) {
+            const unit = await unitRepo.findOne({
+                where: { id: data.unitId, deletedAt: IsNull(), active: true },
+                relations: ['baseUnit'],
+            });
+
+            if (!unit) {
+                return { success: false, error: 'Unidad de medida no encontrada o inactiva' };
+            }
+
+            if (!unit.isBase && (!unit.baseUnit || unit.baseUnit.dimension !== unit.dimension)) {
+                return { success: false, error: 'Unidad de medida inválida para la dimensión seleccionada' };
+            }
+
+            variant.unitId = unit.id;
+            variant.unit = unit;
+        }
+
         // Actualizar campos
         if (data.sku !== undefined) variant.sku = data.sku;
         if (data.barcode !== undefined) variant.barcode = data.barcode;
         if (data.basePrice !== undefined) variant.basePrice = data.basePrice;
         if (data.baseCost !== undefined) variant.baseCost = data.baseCost;
-        if (data.unitOfMeasure !== undefined) variant.unitOfMeasure = data.unitOfMeasure;
         if (data.weight !== undefined) variant.weight = data.weight;
         if (data.attributeValues !== undefined) variant.attributeValues = data.attributeValues;
         if (data.taxIds !== undefined) variant.taxIds = data.taxIds;
@@ -369,6 +498,7 @@ export async function deleteVariant(id: string): Promise<{ success: boolean; err
         const ds = await getDb();
         const repo = ds.getRepository(ProductVariant);
         const productRepo = ds.getRepository(Product);
+        const unitRepo = ds.getRepository(Unit);
         
         const variant = await repo.findOne({
             where: { id, deletedAt: IsNull() }
@@ -441,6 +571,7 @@ export async function createBulkVariants(
         const ds = await getDb();
         const repo = ds.getRepository(ProductVariant);
         const productRepo = ds.getRepository(Product);
+        const unitRepo = ds.getRepository(Unit);
         
         // Verificar que el producto existe
         const product = await productRepo.findOne({
@@ -464,13 +595,27 @@ export async function createBulkVariants(
         const createdVariants: ProductVariant[] = [];
         
         for (const v of variants) {
+            const unit = await unitRepo.findOne({
+                where: { id: v.unitId, deletedAt: IsNull(), active: true },
+                relations: ['baseUnit'],
+            });
+
+            if (!unit) {
+                return { success: false, error: 'Unidad de medida no encontrada o inactiva' };
+            }
+
+            if (!unit.isBase && (!unit.baseUnit || unit.baseUnit.dimension !== unit.dimension)) {
+                return { success: false, error: `Unidad de medida inválida para la variante ${v.sku}` };
+            }
+
             const variant = repo.create({
                 productId,
                 sku: v.sku,
                 barcode: v.barcode,
                 basePrice: v.basePrice,
                 baseCost: v.baseCost || 0,
-                unitOfMeasure: v.unitOfMeasure || 'UN',
+                unitId: unit.id,
+                unit,
                 weight: v.weight,
                 attributeValues: v.attributeValues,
                 taxIds: v.taxIds,
@@ -485,6 +630,11 @@ export async function createBulkVariants(
             });
             
             await repo.save(variant);
+            await persistPriceListItemsForVariant(ds, {
+                entries: v.priceListItems,
+                productId: product.id,
+                variantId: variant.id,
+            });
             createdVariants.push(variant);
         }
         

@@ -17,6 +17,11 @@ interface TextFieldProps {
   rows?: number;
   readOnly?: boolean;
   disabled?: boolean;
+  min?: number | string;
+  max?: number | string;
+  step?: number | string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
+  pattern?: string;
   style?: React.CSSProperties;
   labelStyle?: React.CSSProperties;
   placeholderColor?: string;

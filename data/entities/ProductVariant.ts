@@ -10,6 +10,7 @@ import {
     JoinColumn,
 } from "typeorm";
 import { Product } from "./Product";
+import { Unit } from "./Unit";
 
 /**
  * ProductVariant es donde vive el SKU, precio, costo y datos de inventario.
@@ -45,8 +46,12 @@ export class ProductVariant {
     @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
     baseCost!: number;
 
-    @Column({ type: 'varchar', length: 20, default: 'UN' })
-    unitOfMeasure!: string;
+    @Column({ type: 'varchar', length: 36, name: 'unit_id' })
+    unitId!: string;
+
+    @ManyToOne(() => Unit, { onDelete: 'RESTRICT', eager: true })
+    @JoinColumn({ name: 'unit_id' })
+    unit!: Unit;
 
     @Column({ type: 'decimal', precision: 10, scale: 3, nullable: true })
     weight?: number;

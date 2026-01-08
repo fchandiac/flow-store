@@ -13,6 +13,7 @@ export interface VariantType {
     barcode?: string;
     basePrice: number;
     baseCost: number;
+    unitId: string;
     unitOfMeasure: string;
     /** Valores de atributos: { "attributeId": "opción" } */
     attributeValues?: Record<string, string>;

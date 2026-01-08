@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
 import Select, { Option } from '@/app/baseComponents/Select/Select';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Switch from '@/app/baseComponents/Switch/Switch';
 import { updateProduct, updateSimpleProduct } from '@/app/actions/products';
+import { getActiveUnits } from '@/app/actions/units';
 import { ProductType } from '@/data/entities/Product';
 
 interface CategoryOption extends Option {
@@ -28,6 +29,7 @@ export interface ProductToEdit {
     barcode?: string;
     basePrice?: number;
     baseCost?: number;
+    unitId?: string;
     unitOfMeasure?: string;
     trackInventory?: boolean;
     allowNegativeStock?: boolean;
@@ -47,6 +49,16 @@ const productTypeOptions: Option[] = [
     { id: ProductType.DIGITAL, label: 'Digital' },
 ];
 
+interface UnitOption {
+    id: string;
+    name: string;
+    symbol: string;
+    dimension: string;
+    conversionFactor: number;
+    isBase: boolean;
+    baseUnitId: string;
+}
+
 export default function UpdateProductDialog({ open, onClose, onSuccess, product, categories }: UpdateProductDialogProps) {
     const [formData, setFormData] = useState({
         name: '',
@@ -62,10 +74,26 @@ export default function UpdateProductDialog({ open, onClose, onSuccess, product,
         barcode: '',
         basePrice: '0',
         baseCost: '0',
-        unitOfMeasure: 'UN',
+        unitId: '',
     });
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [units, setUnits] = useState<UnitOption[]>([]);
+
+    const loadUnits = useCallback(async () => {
+        const unitsResult = await getActiveUnits();
+        setUnits(
+            unitsResult.map((unit) => ({
+                id: unit.id,
+                name: unit.name,
+                symbol: unit.symbol,
+                dimension: unit.dimension,
+                conversionFactor: Number(unit.conversionFactor),
+                isBase: unit.isBase,
+                baseUnitId: unit.baseUnitId,
+            }))
+        );
+    }, []);
 
     // Load product data into form
     useEffect(() => {
@@ -84,11 +112,42 @@ export default function UpdateProductDialog({ open, onClose, onSuccess, product,
                 barcode: product.barcode || '',
                 basePrice: String(product.basePrice || 0),
                 baseCost: String(product.baseCost || 0),
-                unitOfMeasure: product.unitOfMeasure || 'UN',
+                unitId: product.unitId || '',
             });
             setError(null);
         }
     }, [product]);
+
+    useEffect(() => {
+        if (open) {
+            loadUnits();
+        }
+    }, [open, loadUnits]);
+
+    useEffect(() => {
+        if (!open) return;
+        if (product?.hasVariants) return;
+        if (formData.unitId) return;
+        if (units.length === 0) return;
+
+        const preferredUnit = units.find((unit) => unit.isBase && unit.dimension === 'count')
+            ?? units.find((unit) => unit.isBase)
+            ?? units[0];
+
+        if (!preferredUnit) {
+            return;
+        }
+
+        setFormData((prev) => ({
+            ...prev,
+            unitId: preferredUnit.id,
+        }));
+    }, [open, product?.hasVariants, units, formData.unitId]);
+
+    const selectedUnit = useMemo(
+        () => units.find((unit) => unit.id === formData.unitId) ?? null,
+        [units, formData.unitId]
+    );
 
     const handleClose = () => {
         setError(null);
@@ -97,7 +156,12 @@ export default function UpdateProductDialog({ open, onClose, onSuccess, product,
 
     const handleSave = async () => {
         if (!product) return;
-        
+
+        if (!product.hasVariants && !formData.unitId) {
+            setError('Debe seleccionar una unidad de medida');
+            return;
+        }
+
         setSaving(true);
         setError(null);
 
@@ -137,7 +201,7 @@ export default function UpdateProductDialog({ open, onClose, onSuccess, product,
                         barcode: formData.barcode || undefined,
                         basePrice: parseFloat(formData.basePrice) || 0,
                         baseCost: parseFloat(formData.baseCost) || 0,
-                        unitOfMeasure: formData.unitOfMeasure,
+                        unitId: formData.unitId,
                         trackInventory: formData.trackInventory,
                         allowNegativeStock: formData.allowNegativeStock,
                     }
@@ -258,7 +322,7 @@ export default function UpdateProductDialog({ open, onClose, onSuccess, product,
                             <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                                 Precios
                             </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <TextField
                                     label="Precio de venta"
                                     type="currency"
@@ -274,6 +338,30 @@ export default function UpdateProductDialog({ open, onClose, onSuccess, product,
                                     onChange={(e) => setFormData({ ...formData, baseCost: e.target.value })}
                                     data-test-id="input-cost"
                                 />
+                                <div>
+                                    <Select
+                                        label="Unidad"
+                                        value={formData.unitId}
+                                        onChange={(id) => setFormData({ ...formData, unitId: id?.toString() || '' })}
+                                        options={units.map((unit) => ({
+                                            id: unit.id,
+                                            label: `${unit.symbol} · ${unit.name}`,
+                                        }))}
+                                        placeholder="Seleccionar unidad"
+                                        data-test-id="select-unit"
+                                        disabled={units.length === 0}
+                                    />
+                                    {selectedUnit && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Dimensión: {selectedUnit.dimension}
+                                        </p>
+                                    )}
+                                    {units.length === 0 && (
+                                        <p className="text-xs text-amber-600 mt-1">
+                                            No hay unidades activas disponibles. Configúralas en Ajustes → Unidades.
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </>
@@ -325,7 +413,11 @@ export default function UpdateProductDialog({ open, onClose, onSuccess, product,
                     </Button>
                     <Button
                         onClick={handleSave}
-                        disabled={saving || !formData.name || (!product.hasVariants && !formData.sku)}
+                        disabled={
+                            saving
+                            || !formData.name
+                            || (!product.hasVariants && (!formData.sku || !formData.unitId))
+                        }
                         data-test-id="btn-save"
                     >
                         {saving ? 'Guardando...' : 'Guardar Cambios'}

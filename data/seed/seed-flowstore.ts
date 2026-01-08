@@ -12,8 +12,11 @@ import { Permission, Ability, ALL_ABILITIES } from '../entities/Permission';
 import { Attribute } from '../entities/Attribute';
 import { Product, ProductType } from '../entities/Product';
 import { ProductVariant } from '../entities/ProductVariant';
+import { Unit } from '../entities/Unit';
+import { UnitDimension } from '../entities/unit-dimension.enum';
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
+import { IsNull } from 'typeorm';
 
 // Helper para hashear contraseñas (debe coincidir con authOptions.ts)
 function hashPassword(password: string): string {
@@ -248,7 +251,10 @@ async function seedFlowStore() {
     const createdAttributes: Record<string, Attribute> = {};
     
     for (const attrData of attributesData) {
-      let attribute = await db.getRepository(Attribute).findOne({ where: { name: attrData.name } });
+      let attribute = await db.getRepository(Attribute).findOne({
+        where: { name: attrData.name },
+        withDeleted: true,
+      });
       if (!attribute) {
         attribute = new Attribute();
         attribute.id = uuidv4();
@@ -260,6 +266,12 @@ async function seedFlowStore() {
         await db.getRepository(Attribute).save(attribute);
         console.log(`   ✓ Atributo creado: ${attribute.name} (${attribute.options.length} opciones)`);
       } else {
+        attribute.description = attrData.description;
+        attribute.options = attrData.options;
+        attribute.displayOrder = attrData.displayOrder;
+        attribute.isActive = true;
+        attribute.deletedAt = undefined;
+        await db.getRepository(Attribute).save(attribute);
         console.log(`   ⚠ Atributo ya existe: ${attribute.name}`);
       }
       createdAttributes[attrData.name] = attribute;
@@ -403,7 +415,108 @@ async function seedFlowStore() {
     }
 
     // ============================================
-    // 11. PRODUCTOS DE EJEMPLO (JOYERÍA)
+    // 11. UNIDADES DE MEDIDA
+    // ============================================
+    console.log('\n📏 Configurando unidades de medida...');
+
+    const unitRepo = db.getRepository(Unit);
+    const existingUnits = await unitRepo.find({ where: { deletedAt: IsNull() }, relations: ['baseUnit'] });
+    const unitsBySymbol = new Map(existingUnits.map((unit) => [unit.symbol, unit]));
+
+    type UnitSeed = {
+      name: string;
+      symbol: string;
+      dimension: UnitDimension;
+      conversionFactor: number;
+      isBase: boolean;
+      baseSymbol: string;
+    };
+
+    const unitSeeds: UnitSeed[] = [
+      {
+        name: 'Unidad',
+        symbol: 'UN',
+        dimension: UnitDimension.COUNT,
+        conversionFactor: 1,
+        isBase: true,
+        baseSymbol: 'UN',
+      },
+      {
+        name: 'Caja',
+        symbol: 'CJ',
+        dimension: UnitDimension.COUNT,
+        conversionFactor: 12,
+        isBase: false,
+        baseSymbol: 'UN',
+      },
+      {
+        name: 'Kilogramo',
+        symbol: 'KG',
+        dimension: UnitDimension.MASS,
+        conversionFactor: 1,
+        isBase: true,
+        baseSymbol: 'KG',
+      },
+      {
+        name: 'Gramo',
+        symbol: 'G',
+        dimension: UnitDimension.MASS,
+        conversionFactor: 0.001,
+        isBase: false,
+        baseSymbol: 'KG',
+      },
+    ];
+
+    for (const seed of unitSeeds.filter((unit) => unit.isBase)) {
+      if (unitsBySymbol.has(seed.symbol)) {
+        console.log(`   ⚠ Unidad base ya existe: ${seed.symbol}`);
+        continue;
+      }
+
+      const unit = new Unit();
+      unit.id = uuidv4();
+      unit.name = seed.name;
+      unit.symbol = seed.symbol;
+      unit.dimension = seed.dimension;
+      unit.conversionFactor = seed.conversionFactor;
+      unit.isBase = true;
+      unit.active = true;
+      unit.baseUnit = null;
+
+      await unitRepo.save(unit);
+      unitsBySymbol.set(seed.symbol, unit);
+      console.log(`   ✓ Unidad base creada: ${seed.name} (${seed.symbol})`);
+    }
+
+    for (const seed of unitSeeds.filter((unit) => !unit.isBase)) {
+      if (unitsBySymbol.has(seed.symbol)) {
+        console.log(`   ⚠ Unidad derivada ya existe: ${seed.symbol}`);
+        continue;
+      }
+
+      const baseUnit = unitsBySymbol.get(seed.baseSymbol);
+      if (!baseUnit) {
+        console.log(`   ✗ No se pudo crear ${seed.symbol}: unidad base ${seed.baseSymbol} no encontrada`);
+        continue;
+      }
+
+      const unit = new Unit();
+      unit.id = uuidv4();
+      unit.name = seed.name;
+      unit.symbol = seed.symbol;
+      unit.dimension = seed.dimension;
+      unit.conversionFactor = seed.conversionFactor;
+      unit.isBase = false;
+      unit.active = true;
+      unit.baseUnit = baseUnit;
+
+      await unitRepo.save(unit);
+      unitsBySymbol.set(seed.symbol, unit);
+      console.log(`   ✓ Unidad derivada creada: ${seed.name} (${seed.symbol})`);
+    }
+
+    // ============================================
+    // 12. PRODUCTOS DE EJEMPLO (JOYERÍA)
     // ============================================
     console.log('\n💎 Creando productos de ejemplo...');
     
@@ -455,42 +568,62 @@ async function seedFlowStore() {
       },
     ];
 
+    const productRepo = db.getRepository(Product);
+    const variantRepo = db.getRepository(ProductVariant);
+
     for (const prodData of productsData) {
-      let product = await db.getRepository(Product).findOne({ 
-        where: { name: prodData.name } 
+      let product = await productRepo.findOne({
+        where: { name: prodData.name },
+        withDeleted: true,
       });
-      
+
+      const category = createdCategories[prodData.categoryCode];
+      const unit = unitsBySymbol.get('UN');
+
       if (!product) {
-        const category = createdCategories[prodData.categoryCode];
-        
         product = new Product();
         product.id = uuidv4();
-        product.name = prodData.name;
-        product.description = prodData.description;
-        product.brand = prodData.brand;
-        product.categoryId = category?.id;
         product.productType = ProductType.PHYSICAL;
-        product.isActive = true;
-        await db.getRepository(Product).save(product);
-        
-        // Crear variante default
-        const variant = new ProductVariant();
-        variant.id = uuidv4();
-        variant.productId = product.id;
-        variant.sku = prodData.sku;
-        variant.basePrice = prodData.basePrice;
-        variant.baseCost = prodData.baseCost;
-        variant.unitOfMeasure = 'UN';
-        variant.isDefault = true;
-        variant.isActive = true;
-        variant.trackInventory = true;
-        variant.allowNegativeStock = false;
-        await db.getRepository(ProductVariant).save(variant);
-        
-        console.log(`   ✓ Producto creado: ${product.name} ($${prodData.basePrice.toLocaleString()})`);
-      } else {
-        console.log(`   ⚠ Producto ya existe: ${product.name}`);
       }
+
+      product.name = prodData.name;
+      product.description = prodData.description;
+      product.brand = prodData.brand;
+      product.categoryId = category?.id;
+      product.productType = ProductType.PHYSICAL;
+      product.isActive = true;
+      product.deletedAt = undefined;
+      await productRepo.save(product);
+
+      if (!unit) {
+        console.log('   ✗ No se pudo asegurar variante: unidad UN no disponible.');
+        continue;
+      }
+
+      let variant = await variantRepo.findOne({
+        where: { sku: prodData.sku },
+        withDeleted: true,
+      });
+
+      if (!variant) {
+        variant = new ProductVariant();
+        variant.id = uuidv4();
+      }
+
+      variant.productId = product.id;
+      variant.sku = prodData.sku;
+      variant.basePrice = prodData.basePrice;
+      variant.baseCost = prodData.baseCost;
+      variant.unitId = unit.id;
+      variant.unit = unit;
+      variant.isDefault = true;
+      variant.isActive = true;
+      variant.trackInventory = true;
+      variant.allowNegativeStock = false;
+      variant.deletedAt = undefined;
+      await variantRepo.save(variant);
+
+      console.log(`   ✓ Producto asegurado: ${product.name} ($${prodData.basePrice.toLocaleString()})`);
     }
 
     // ============================================
