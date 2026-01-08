@@ -6,8 +6,10 @@ import { ProductVariant } from '@/data/entities/ProductVariant';
 import { Category } from '@/data/entities/Category';
 import { PriceList } from '@/data/entities/PriceList';
 import { PriceListItem } from '@/data/entities/PriceListItem';
+import { Tax } from '@/data/entities/Tax';
+import { computePriceWithTaxes } from '@/lib/pricing/priceCalculations';
 import { revalidatePath } from 'next/cache';
-import { IsNull } from 'typeorm';
+import { In, IsNull } from 'typeorm';
 
 // Types
 interface GetProductsParams {
@@ -57,6 +59,19 @@ interface CreateProductWithVariantsDTO {
     taxIds?: string[];
     imagePath?: string;
     metadata?: Record<string, any>;
+}
+
+interface CreateProductMasterDTO {
+    name: string;
+    description?: string;
+    brand?: string;
+    categoryId?: string;
+    productType?: ProductType;
+    taxIds?: string[];
+    imagePath?: string;
+    metadata?: Record<string, any>;
+    hasVariants?: boolean;
+    isActive?: boolean;
 }
 
 interface UpdateProductDTO {
@@ -119,6 +134,48 @@ export interface ProductWithDefaultVariant {
     variantCount: number;
     // Todas las variantes del producto
     variants: VariantSummary[];
+}
+
+export async function createProductMaster(data: CreateProductMasterDTO): Promise<ProductResult> {
+    try {
+        const ds = await getDb();
+        const productRepo = ds.getRepository(Product);
+
+        if (data.categoryId) {
+            const categoryRepo = ds.getRepository(Category);
+            const category = await categoryRepo.findOne({
+                where: { id: data.categoryId, deletedAt: IsNull() }
+            });
+
+            if (!category) {
+                return { success: false, error: 'Categoría no encontrada' };
+            }
+        }
+
+        const product = productRepo.create({
+            name: data.name,
+            description: data.description,
+            brand: data.brand,
+            categoryId: data.categoryId,
+            productType: data.productType || ProductType.PHYSICAL,
+            taxIds: data.taxIds,
+            imagePath: data.imagePath,
+            metadata: data.metadata,
+            hasVariants: data.hasVariants ?? true,
+            isActive: data.isActive ?? true,
+        });
+
+        await productRepo.save(product);
+        revalidatePath('/admin/inventory/products');
+
+        return { success: true, product: JSON.parse(JSON.stringify(product)) };
+    } catch (error) {
+        console.error('Error creating product master:', error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Error al crear el producto',
+        };
+    }
 }
 
 /**
@@ -314,11 +371,40 @@ export async function createSimpleProduct(data: CreateSimpleProductDTO): Promise
 
         if (data.priceListId) {
             const priceListItemRepo = manager.getRepository(PriceListItem);
+            const taxRepo = manager.getRepository(Tax);
+
+            const taxCandidates = Array.from(
+                new Set(
+                    [
+                        ...(Array.isArray(variant.taxIds) ? variant.taxIds : []),
+                        ...(Array.isArray(product.taxIds) ? product.taxIds : []),
+                    ].filter((taxId): taxId is string => typeof taxId === 'string' && taxId.trim().length > 0)
+                )
+            );
+
+            const taxes = taxCandidates.length
+                ? await taxRepo.find({
+                      where: {
+                          id: In(taxCandidates),
+                          deletedAt: IsNull(),
+                          isActive: true,
+                      },
+                  })
+                : [];
+
+            const computedPrice = computePriceWithTaxes({
+                netPrice: data.basePrice,
+                grossPrice: undefined,
+                taxRates: taxes.map((tax) => tax.rate),
+            });
+
             const priceListItem = priceListItemRepo.create({
                 priceListId: data.priceListId,
                 productId: product.id,
                 productVariantId: variant.id,
-                price: data.basePrice,
+                netPrice: computedPrice.netPrice,
+                grossPrice: computedPrice.grossPrice,
+                taxIds: taxCandidates.length ? taxCandidates : null,
             });
 
             await priceListItemRepo.save(priceListItem);

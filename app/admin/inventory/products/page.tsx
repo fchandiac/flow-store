@@ -9,7 +9,6 @@ import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import { Button } from '@/app/baseComponents/Button/Button';
 import { getProducts, ProductWithDefaultVariant, VariantSummary } from '@/app/actions/products';
 import { getCategories } from '@/app/actions/categories';
-import { getPriceLists } from '@/app/actions/priceLists';
 import { getTaxes } from '@/app/actions/taxes';
 import { ProductType } from '@/data/entities/Product';
 import { 
@@ -156,7 +155,6 @@ export default function ProductsPage() {
     // State
     const [products, setProducts] = useState<ProductWithDefaultVariant[]>([]);
     const [categories, setCategories] = useState<CategoryOption[]>([]);
-    const [priceLists, setPriceLists] = useState<Array<{ id: string; name: string; currency: string; isDefault: boolean }>>([]);
     const [taxes, setTaxes] = useState<Array<{ id: string; name: string; code: string; rate: number; isDefault: boolean }>>([]);
     const [totalRows, setTotalRows] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -177,20 +175,12 @@ export default function ProductsPage() {
     useEffect(() => {
         async function loadReferenceData() {
             try {
-                const [cats, lists, taxesResult] = await Promise.all([
+                const [cats, taxesResult] = await Promise.all([
                     getCategories({ isActive: true }),
-                    getPriceLists(true),
                     getTaxes(),
                 ]);
 
                 setCategories(cats.map((c) => ({ id: c.id, label: c.name })));
-
-                setPriceLists(lists.map((list) => ({
-                    id: list.id,
-                    name: list.name,
-                    currency: list.currency,
-                    isDefault: Boolean(list.isDefault),
-                })));
 
                 setTaxes(taxesResult.map((tax) => ({
                     id: tax.id,
@@ -444,7 +434,6 @@ export default function ProductsPage() {
                 onClose={() => setCreateDialogOpen(false)}
                 onSuccess={loadProducts}
                 categories={categories}
-                priceLists={priceLists}
                 taxes={taxes}
             />
 

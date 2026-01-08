@@ -1,33 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
 import Select, { Option } from '@/app/baseComponents/Select/Select';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Switch from '@/app/baseComponents/Switch/Switch';
-import { createSimpleProduct, createProductWithVariants } from '@/app/actions/products';
+import { createProductMaster } from '@/app/actions/products';
 import { ProductType } from '@/data/entities/Product';
 
 interface CategoryOption extends Option {
     id: string;
     label: string;
-}
-
-interface CreateProductDialogProps {
-    open: boolean;
-    onClose: () => void;
-    onSuccess: () => void;
-    categories: CategoryOption[];
-    priceLists: PriceListSummary[];
-    taxes: TaxSummary[];
-}
-
-interface PriceListSummary {
-    id: string;
-    name: string;
-    currency: string;
-    isDefault?: boolean;
 }
 
 interface TaxSummary {
@@ -38,142 +22,107 @@ interface TaxSummary {
     isDefault?: boolean;
 }
 
+interface CreateProductDialogProps {
+    open: boolean;
+    onClose: () => void;
+    onSuccess: () => void;
+    categories: CategoryOption[];
+    taxes: TaxSummary[];
+    onProductCreated?: (productId: string, productName: string) => void;
+}
+
+interface FormState {
+    name: string;
+    description: string;
+    brand: string;
+    categoryId: string;
+    productType: ProductType;
+    isActive: boolean;
+    taxIds: string[];
+    hasVariants: boolean;
+}
+
 const productTypeOptions: Option[] = [
     { id: ProductType.PHYSICAL, label: 'Producto físico' },
     { id: ProductType.SERVICE, label: 'Servicio' },
     { id: ProductType.DIGITAL, label: 'Digital' },
 ];
 
-const getInitialFormData = () => ({
-    // Datos del producto maestro
+const getInitialFormData = (): FormState => ({
     name: '',
     description: '',
     brand: '',
     categoryId: '',
     productType: ProductType.PHYSICAL,
-    trackInventory: true,
-    allowNegativeStock: false,
     isActive: true,
-    taxIds: [] as string[],
-    priceListId: '',
-    // Datos de la variante (para producto simple)
-    sku: '',
-    barcode: '',
-    basePrice: '0',
-    baseCost: '0',
-    unitOfMeasure: 'UN',
-    minimumStock: '0',
-    maximumStock: '0',
-    reorderPoint: '0',
-    // Control de variantes
+    taxIds: [],
     hasVariants: false,
 });
 
-export default function CreateProductDialog({ open, onClose, onSuccess, categories, priceLists, taxes }: CreateProductDialogProps) {
-    const [formData, setFormData] = useState(getInitialFormData);
+export default function CreateProductDialog({
+    open,
+    onClose,
+    onSuccess,
+    categories,
+    taxes,
+    onProductCreated,
+}: CreateProductDialogProps) {
+    const [formData, setFormData] = useState<FormState>(getInitialFormData);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const resetForm = () => {
-        setFormData(getInitialFormData());
-        setError(null);
-    };
+    const resetForm = () => setFormData(getInitialFormData());
 
     const handleClose = () => {
         resetForm();
+        setError(null);
         onClose();
     };
 
     useEffect(() => {
-        if (!open) return;
-
-        const defaultPriceList = priceLists.find((list) => list.isDefault);
-        const defaultTaxIds = taxes.filter((tax) => tax.isDefault).map((tax) => tax.id);
+        if (!open) {
+            resetForm();
+            setSaving(false);
+            setError(null);
+            return;
+        }
 
         setFormData((prev) => {
-            let updated = prev;
-            let changed = false;
-
-            if (!prev.hasVariants && !prev.priceListId && defaultPriceList) {
-                updated = { ...updated, priceListId: defaultPriceList.id };
-                changed = true;
+            if (prev.name.trim() || prev.taxIds.length > 0) {
+                return prev;
             }
 
-            if (prev.taxIds.length === 0 && defaultTaxIds.length > 0) {
-                updated = updated === prev ? { ...updated } : updated;
-                updated.taxIds = defaultTaxIds;
-                changed = true;
-            }
-
-            return changed ? updated : prev;
+            const defaultTaxIds = taxes.filter((tax) => tax.isDefault).map((tax) => tax.id);
+            return defaultTaxIds.length > 0 ? { ...prev, taxIds: defaultTaxIds } : prev;
         });
-    }, [open, priceLists, taxes]);
-
-    useEffect(() => {
-        if (formData.hasVariants && formData.priceListId) {
-            setFormData((prev) => ({ ...prev, priceListId: '' }));
-        }
-    }, [formData.hasVariants, formData.priceListId]);
-
-    const priceListOptions = useMemo(() => priceLists.map((list) => ({
-        id: list.id,
-        label: `${list.name} · ${list.currency}${list.isDefault ? ' (Predeterminada)' : ''}`,
-    })), [priceLists]);
+    }, [open, taxes]);
 
     const handleSave = async () => {
         setSaving(true);
         setError(null);
 
         try {
-            if (formData.hasVariants) {
-                // Crear producto con variantes (solo datos maestros)
-                // trackInventory/allowNegativeStock se definen por variante
-                const result = await createProductWithVariants({
-                    name: formData.name,
-                    description: formData.description || undefined,
-                    brand: formData.brand || undefined,
-                    categoryId: formData.categoryId || undefined,
-                    productType: formData.productType,
-                    taxIds: formData.taxIds.length > 0 ? formData.taxIds : undefined,
-                });
+            const result = await createProductMaster({
+                name: formData.name,
+                description: formData.description || undefined,
+                brand: formData.brand || undefined,
+                categoryId: formData.categoryId || undefined,
+                productType: formData.productType,
+                taxIds: formData.taxIds.length > 0 ? formData.taxIds : undefined,
+                hasVariants: formData.hasVariants,
+                isActive: formData.isActive,
+            });
 
-                if (result.success) {
-                    resetForm();
-                    onSuccess();
-                    onClose();
-                } else {
-                    setError(result.error || 'Error al crear el producto');
+            if (result.success && result.product) {
+                const { id, name } = result.product;
+                resetForm();
+                onSuccess();
+                onClose();
+                if (onProductCreated) {
+                    onProductCreated(id, name);
                 }
-            } else {
-                // Crear producto simple (crea variante default automáticamente)
-                const result = await createSimpleProduct({
-                    name: formData.name,
-                    description: formData.description || undefined,
-                    brand: formData.brand || undefined,
-                    categoryId: formData.categoryId || undefined,
-                    productType: formData.productType,
-                    taxIds: formData.taxIds.length > 0 ? formData.taxIds : undefined,
-                    // Datos de la variante default
-                    sku: formData.sku,
-                    barcode: formData.barcode || undefined,
-                    basePrice: parseFloat(formData.basePrice) || 0,
-                    baseCost: parseFloat(formData.baseCost) || 0,
-                    unitOfMeasure: formData.unitOfMeasure,
-                    trackInventory: formData.trackInventory,
-                    allowNegativeStock: formData.allowNegativeStock,
-                    minimumStock: parseInt(formData.minimumStock) || 0,
-                    maximumStock: parseInt(formData.maximumStock) || 0,
-                    reorderPoint: parseInt(formData.reorderPoint) || 0,
-                    priceListId: formData.priceListId || undefined,
-                });
-
-                if (result.success) {
-                    resetForm();
-                    onSuccess();
-                    onClose();
-                } else {
-                    setError(result.error || 'Error al crear el producto');
-                }
+            } else if (!result.success) {
+                setError(result.error || 'Error al crear el producto');
             }
         } catch (err) {
             setError('Error al crear el producto');
@@ -182,43 +131,7 @@ export default function CreateProductDialog({ open, onClose, onSuccess, categori
         }
     };
 
-    // Validación: nombre siempre requerido, SKU solo si no tiene variantes
-    const requiresPriceList = !formData.hasVariants && priceLists.length > 0;
-    const hasValidPriceList = !requiresPriceList || Boolean(formData.priceListId);
-    const isValid = Boolean(formData.name) && (formData.hasVariants || formData.sku) && hasValidPriceList;
-
-    const handleToggleTax = (taxId: string, checked: boolean) => {
-        setFormData((prev) => {
-            const nextIds = checked
-                ? Array.from(new Set([...prev.taxIds, taxId]))
-                : prev.taxIds.filter((id) => id !== taxId);
-            return { ...prev, taxIds: nextIds };
-        });
-    };
-
-    const taxesSection = (
-        <div>
-            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                Impuestos aplicables
-            </h3>
-            {taxes.length === 0 ? (
-                <div className="p-3 rounded-md border border-dashed border-border text-xs text-muted-foreground">
-                    No hay impuestos activos configurados. Podrás asignarlos más tarde.
-                </div>
-            ) : (
-                <div className="space-y-2">
-                    {taxes.map((tax) => (
-                        <Switch
-                            key={tax.id}
-                            label={`${tax.name} (${tax.code}) · ${tax.rate}%`}
-                            checked={formData.taxIds.includes(tax.id)}
-                            onChange={(checked) => handleToggleTax(tax.id, checked)}
-                        />
-                    ))}
-                </div>
-            )}
-        </div>
-    );
+    const isValid = Boolean(formData.name.trim());
 
     return (
         <Dialog
@@ -235,26 +148,6 @@ export default function CreateProductDialog({ open, onClose, onSuccess, categori
                     </div>
                 )}
 
-                {/* SWITCH DE VARIANTES */}
-                <div className="p-4 bg-muted/50 rounded-lg border border-border">
-                    <Switch
-                        label={formData.hasVariants 
-                            ? "Producto con múltiples variantes (agregarás los SKU después)" 
-                            : "Producto con múltiples variantes"
-                        }
-                        checked={formData.hasVariants}
-                        onChange={(checked) => setFormData({ ...formData, hasVariants: checked })}
-                        data-test-id="switch-has-variants"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                        {formData.hasVariants 
-                            ? "Agregarás las variantes (SKU, precios) después de crear el producto" 
-                            : "Se creará una variante única con los datos que ingreses"
-                        }
-                    </p>
-                </div>
-
-                {/* INFORMACIÓN GENERAL */}
                 <div>
                     <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
                         Información General
@@ -304,131 +197,13 @@ export default function CreateProductDialog({ open, onClose, onSuccess, categori
                     </div>
                 </div>
 
-                {formData.hasVariants && taxesSection}
+                <Switch
+                    label="Este producto tendrá variantes"
+                    checked={formData.hasVariants}
+                    onChange={(checked) => setFormData({ ...formData, hasVariants: checked })}
+                    data-test-id="switch-has-variants"
+                />
 
-                {/* DATOS DE VARIANTE - Solo si NO tiene variantes múltiples */}
-                {!formData.hasVariants && (
-                    <>
-                        {/* SKU Y CÓDIGO DE BARRAS */}
-                        <div>
-                            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                                Identificación
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <TextField
-                                    label="SKU"
-                                    required
-                                    value={formData.sku}
-                                    onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-                                    placeholder="SKU"
-                                    data-test-id="input-sku"
-                                />
-                                <TextField
-                                    label="Código de barras"
-                                    value={formData.barcode}
-                                    onChange={(e) => setFormData({ ...formData, barcode: e.target.value })}
-                                    placeholder="Código de barras"
-                                    data-test-id="input-barcode"
-                                />
-                            </div>
-                        </div>
-
-                        {taxesSection}
-
-                        {/* PRECIOS */}
-                        <div>
-                            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                                Precios
-                            </h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <TextField
-                                    label="Precio de venta"
-                                    type="currency"
-                                    required
-                                    value={formData.basePrice}
-                                    onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
-                                    data-test-id="input-price"
-                                />
-                                <TextField
-                                    label="Costo de compra"
-                                    type="currency"
-                                    value={formData.baseCost}
-                                    onChange={(e) => setFormData({ ...formData, baseCost: e.target.value })}
-                                    data-test-id="input-cost"
-                                />
-                            </div>
-                            <div className="md:w-80">
-                                {priceLists.length === 0 ? (
-                                    <div className="p-3 rounded-md border border-dashed border-border text-xs text-muted-foreground">
-                                        No hay listas de precios activas. Podrás asociar el producto más tarde.
-                                    </div>
-                                ) : (
-                                    <Select
-                                        label="Lista de precios inicial"
-                                        options={priceListOptions}
-                                        value={formData.priceListId || null}
-                                        onChange={(val) => setFormData({ ...formData, priceListId: val ? String(val) : '' })}
-                                        required={requiresPriceList}
-                                        allowClear
-                                        data-test-id="select-price-list"
-                                    />
-                                )}
-                            </div>
-                        </div>
-                    </>
-                )}
-
-                {/* CONFIGURACIÓN DE INVENTARIO - Solo para productos simples */}
-                {!formData.hasVariants && (
-                    <div>
-                        <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
-                            Configuración de Inventario
-                        </h3>
-                        <div className="space-y-4">
-                            <Switch
-                                label="Controlar inventario (desmarcar para servicios)"
-                                checked={formData.trackInventory}
-                                onChange={(checked) => setFormData({ ...formData, trackInventory: checked })}
-                                data-test-id="switch-inventory"
-                            />
-                            {formData.trackInventory && (
-                                <>
-                                    <Switch
-                                        label="Permitir stock negativo"
-                                        checked={formData.allowNegativeStock}
-                                        onChange={(checked) => setFormData({ ...formData, allowNegativeStock: checked })}
-                                        data-test-id="switch-negative-stock"
-                                    />
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                                        <TextField
-                                            label="Unidad de medida"
-                                            value={formData.unitOfMeasure}
-                                            onChange={(e) => setFormData({ ...formData, unitOfMeasure: e.target.value })}
-                                            placeholder="UN, KG, LT"
-                                            data-test-id="input-unit"
-                                        />
-                                        <TextField
-                                            label="Stock mínimo"
-                                            type="number"
-                                            value={formData.minimumStock}
-                                            onChange={(e) => setFormData({ ...formData, minimumStock: e.target.value })}
-                                            data-test-id="input-min-stock"
-                                        />
-                                        <TextField
-                                            label="Punto de reorden"
-                                            type="number"
-                                            value={formData.reorderPoint}
-                                            onChange={(e) => setFormData({ ...formData, reorderPoint: e.target.value })}
-                                            data-test-id="input-reorder"
-                                        />
-                                    </div>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                )}
-
-                {/* Estado */}
                 <div className="pt-2 border-t border-border">
                     <Switch
                         label="Producto activo"
@@ -438,15 +213,6 @@ export default function CreateProductDialog({ open, onClose, onSuccess, categori
                     />
                 </div>
 
-                {/* Info sobre variantes */}
-                {formData.hasVariants && (
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm">
-                        <strong>Siguiente paso:</strong> Después de crear el producto, podrás agregar las variantes 
-                        (por ejemplo: tallas, colores) desde la sección de Variantes.
-                    </div>
-                )}
-
-                {/* Acciones */}
                 <div className="flex justify-end gap-3 pt-4 border-t border-border">
                     <Button
                         variant="secondary"

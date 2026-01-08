@@ -99,8 +99,9 @@ const PurchaseOrdersDataGrid = () => {
         return [
             {
                 field: 'documentNumber',
-                headerName: 'Orden',
-                width: 140,
+                headerName: 'Folio',
+                flex: 0.9,
+                minWidth: 140,
                 renderCell: ({ row }) => (
                     <div className="flex flex-col">
                         <span className="font-medium text-foreground">{row.documentNumber}</span>
@@ -125,6 +126,7 @@ const PurchaseOrdersDataGrid = () => {
             {
                 field: 'createdAt',
                 headerName: 'Fecha',
+                flex: 1,
                 minWidth: 160,
                 renderCell: ({ value }) => {
                     if (!value) return '-';
@@ -135,7 +137,8 @@ const PurchaseOrdersDataGrid = () => {
             {
                 field: 'total',
                 headerName: 'Total',
-                width: 130,
+                flex: 0.8,
+                minWidth: 130,
                 align: 'right',
                 headerAlign: 'right',
                 renderCell: ({ value }) => currencyFormatter.format(Number(value || 0)),
@@ -143,7 +146,8 @@ const PurchaseOrdersDataGrid = () => {
             {
                 field: 'status',
                 headerName: 'Estado',
-                width: 120,
+                flex: 0.7,
+                minWidth: 120,
                 align: 'center',
                 headerAlign: 'center',
                 renderCell: ({ value }) => {
@@ -155,13 +159,15 @@ const PurchaseOrdersDataGrid = () => {
             {
                 field: 'userName',
                 headerName: 'Creado por',
+                flex: 0.9,
                 minWidth: 140,
                 renderCell: ({ value }) => value || '-',
             },
             {
                 field: 'actions',
                 headerName: '',
-                width: 80,
+                flex: 0.4,
+                minWidth: 80,
                 align: 'center',
                 sortable: false,
                 filterable: false,

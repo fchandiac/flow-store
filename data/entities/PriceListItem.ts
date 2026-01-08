@@ -29,8 +29,24 @@ export class PriceListItem {
     @Column({ type: 'uuid', nullable: true })
     productVariantId?: string;
 
+    /**
+     * Precio neto (sin impuestos) definido para la variante en esta lista.
+     */
     @Column({ type: 'decimal', precision: 15, scale: 2 })
-    price!: number;
+    netPrice!: number;
+
+    /**
+     * Precio bruto (con impuestos) precalculado para accesos rápidos.
+     */
+    @Column({ type: 'decimal', precision: 15, scale: 2 })
+    grossPrice!: number;
+
+    /**
+     * Lista de impuestos aplicados específicamente a este precio.
+     * Si es null o vacío, se asume que no hay impuestos adicionales.
+     */
+    @Column({ type: 'json', nullable: true })
+    taxIds?: string[] | null;
 
     @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
     minPrice?: number;

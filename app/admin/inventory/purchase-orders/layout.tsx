@@ -13,24 +13,29 @@ export default function PurchaseOrdersLayout({ children }: PropsWithChildren) {
     const pathname = usePathname();
 
     return (
-        <div className="p-6 space-y-6">
-            <header className="space-y-2">
-                <h1 className="text-2xl font-bold">Órdenes de compra</h1>
-                <p className="text-sm text-muted-foreground">
-                    Administra las órdenes emitidas a proveedores y crea nuevas solicitudes de compra.
-                </p>
-                <nav className="flex items-center gap-2 mt-4 border-b border-border pb-2">
+        <div className="flex h-full flex-col">
+            <header className="bg-white shadow-sm">
+                <div className="px-6 pt-6 pb-4 space-y-2">
+                    <h1 className="text-2xl font-bold">Órdenes de compra</h1>
+                    <p className="text-sm text-muted-foreground">
+                        Administra las órdenes emitidas a proveedores y crea nuevas solicitudes de compra.
+                    </p>
+                </div>
+                <nav className="flex border-b border-gray-200 px-6">
                     {tabs.map((tab) => {
-                        const isActive = pathname === tab.href || (tab.href !== '/admin/inventory/purchase-orders' && pathname.startsWith(tab.href));
+                        const isActive =
+                            pathname === tab.href ||
+                            (tab.href !== '/admin/inventory/purchase-orders' && pathname.startsWith(tab.href));
                         return (
                             <Link
                                 key={tab.href}
                                 href={tab.href}
-                                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                                className={`-mb-px inline-flex items-center border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
                                     isActive
-                                        ? 'bg-secondary text-secondary-foreground shadow-sm'
-                                        : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                                        ? 'border-blue-500 text-blue-600'
+                                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
                                 }`}
+                                aria-current={isActive ? 'page' : undefined}
                                 prefetch
                             >
                                 {tab.label}
@@ -39,7 +44,7 @@ export default function PurchaseOrdersLayout({ children }: PropsWithChildren) {
                     })}
                 </nav>
             </header>
-            <section>{children}</section>
+            <section className="flex-1 overflow-auto bg-gray-50 p-6">{children}</section>
         </div>
     );
 }

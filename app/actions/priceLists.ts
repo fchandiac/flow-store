@@ -5,8 +5,10 @@ import { PriceList, PriceListType } from '@/data/entities/PriceList';
 import { PriceListItem } from '@/data/entities/PriceListItem';
 import { Product } from '@/data/entities/Product';
 import { ProductVariant } from '@/data/entities/ProductVariant';
+import { Tax } from '@/data/entities/Tax';
+import { computePriceWithTaxes } from '@/lib/pricing/priceCalculations';
 import { revalidatePath } from 'next/cache';
-import { IsNull, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
+import { DataSource, In, IsNull, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 
 // Types
 interface CreatePriceListDTO {
@@ -34,15 +36,19 @@ interface CreatePriceListItemDTO {
     priceListId: string;
     productId: string;
     productVariantId?: string;
-    price: number;
+    netPrice?: number;
+    grossPrice?: number;
     minPrice?: number;
     discountPercentage?: number;
+    taxIds?: string[];
 }
 
 interface UpdatePriceListItemDTO {
-    price?: number;
+    netPrice?: number;
+    grossPrice?: number;
     minPrice?: number;
     discountPercentage?: number;
+    taxIds?: string[];
 }
 
 interface PriceListResult {
@@ -55,6 +61,115 @@ interface PriceListItemResult {
     success: boolean;
     item?: PriceListItem;
     error?: string;
+}
+
+export interface ProductPriceDetails {
+    netPrice: number;
+    grossPrice: number;
+    taxIds: string[];
+    priceListId?: string;
+    priceListItemId?: string;
+    productVariantId?: string;
+    source: 'PRICE_LIST' | 'DEFAULT_VARIANT';
+}
+
+type ProductContext = {
+    product: Product | null;
+    variant: ProductVariant | null;
+};
+
+function sanitizeIdArray(ids?: string[] | null): string[] {
+    if (!ids) {
+        return [];
+    }
+
+    const seen = new Set<string>();
+    const sanitized: string[] = [];
+
+    for (const rawId of ids) {
+        if (typeof rawId !== 'string') {
+            continue;
+        }
+        const trimmed = rawId.trim();
+        if (!trimmed || seen.has(trimmed)) {
+            continue;
+        }
+        seen.add(trimmed);
+        sanitized.push(trimmed);
+    }
+
+    return sanitized;
+}
+
+async function loadProductContext(
+    ds: DataSource,
+    productId: string,
+    productVariantId?: string
+): Promise<ProductContext & { productId: string }> {
+    const productRepo = ds.getRepository(Product);
+    const variantRepo = ds.getRepository(ProductVariant);
+
+    let variant: ProductVariant | null = null;
+    if (productVariantId) {
+        variant = await variantRepo.findOne({
+            where: { id: productVariantId, deletedAt: IsNull() },
+        });
+    }
+
+    const resolvedProductId = variant?.productId ?? productId;
+    const product = await productRepo.findOne({
+        where: { id: resolvedProductId, deletedAt: IsNull() },
+    });
+
+    return { product, variant, productId: resolvedProductId };
+}
+
+async function resolveApplicableTaxes(
+    ds: DataSource,
+    options: {
+        explicitTaxIds?: string[] | null;
+        productId: string;
+        productVariantId?: string;
+        fallbackTaxIds?: string[] | null;
+    }
+): Promise<ProductContext & { taxIds: string[]; taxes: Tax[]; productId: string }> {
+    const { product, variant, productId } = await loadProductContext(
+        ds,
+        options.productId,
+        options.productVariantId
+    );
+
+    const explicitTaxIds = sanitizeIdArray(options.explicitTaxIds);
+    const fallbackIds = sanitizeIdArray(options.fallbackTaxIds);
+    const variantTaxIds = sanitizeIdArray(variant?.taxIds as string[] | undefined);
+    const productTaxIds = sanitizeIdArray(product?.taxIds as string[] | undefined);
+
+    const candidateTaxIds =
+        explicitTaxIds.length > 0
+            ? explicitTaxIds
+            : fallbackIds.length > 0
+            ? fallbackIds
+            : variantTaxIds.length > 0
+            ? variantTaxIds
+            : productTaxIds;
+
+    if (candidateTaxIds.length === 0) {
+        return { product, variant, productId, taxIds: [], taxes: [] };
+    }
+
+    const taxRepo = ds.getRepository(Tax);
+    const taxes = await taxRepo.find({
+        where: {
+            id: In(candidateTaxIds),
+            deletedAt: IsNull(),
+            isActive: true,
+        },
+    });
+
+    const availableIds = new Set(taxes.map((tax) => tax.id));
+    const filteredTaxIds = candidateTaxIds.filter((id) => availableIds.has(id));
+
+    return { product, variant, productId, taxIds: filteredTaxIds, taxes };
 }
 
 /**
@@ -137,7 +252,7 @@ export async function createPriceList(data: CreatePriceListDTO): Promise<PriceLi
                 .where('isDefault = true')
                 .execute();
         }
-        
+
         const priceList = repo.create({
             name: data.name,
             priceListType: data.priceListType || PriceListType.RETAIL,
@@ -147,7 +262,7 @@ export async function createPriceList(data: CreatePriceListDTO): Promise<PriceLi
             priority: data.priority || 0,
             isDefault: data.isDefault || false,
             isActive: true,
-            description: data.description
+            description: data.description,
         });
         
         const savedPriceList = await repo.save(priceList);
@@ -253,74 +368,142 @@ export async function getPriceListItems(priceListId: string): Promise<PriceListI
     const ds = await getDb();
     const repo = ds.getRepository(PriceListItem);
     
-    return repo.find({
+    const items = await repo.find({
         where: { priceListId, deletedAt: IsNull() },
         relations: ['product', 'productVariant'],
         order: { createdAt: 'DESC' }
     });
+
+    return items.map((item) => JSON.parse(JSON.stringify(item)));
 }
 
 /**
  * Obtiene el precio de un producto en una lista de precios
  */
 export async function getProductPrice(
-    productId: string, 
+    productId: string,
     priceListId?: string,
     productVariantId?: string
-): Promise<number | null> {
+): Promise<ProductPriceDetails | null> {
     const ds = await getDb();
     const itemRepo = ds.getRepository(PriceListItem);
-    const productRepo = ds.getRepository(Product);
-    
-    // Si se especifica una lista de precios
-    if (priceListId) {
-        const item = await itemRepo.findOne({
-            where: { 
-                priceListId, 
-                productId, 
-                productVariantId: productVariantId || IsNull(),
-                deletedAt: IsNull() 
-            }
+
+    const tryResolveFromItem = async (
+        item: PriceListItem | null,
+        source: ProductPriceDetails['source']
+    ): Promise<ProductPriceDetails | null> => {
+        if (!item) {
+            return null;
+        }
+
+        const { taxIds, taxes } = await resolveApplicableTaxes(ds, {
+            explicitTaxIds: item.taxIds as string[] | undefined,
+            productId: item.productId ?? productId,
+            productVariantId: item.productVariantId ?? productVariantId,
         });
-        
-        if (item) {
-            return item.price;
+
+        const computed = computePriceWithTaxes({
+            netPrice: item.netPrice,
+            grossPrice: item.grossPrice,
+            taxRates: taxes.map((tax) => tax.rate),
+        });
+
+        return {
+            netPrice: computed.netPrice,
+            grossPrice: computed.grossPrice,
+            taxIds,
+            priceListId: item.priceListId ?? priceListId,
+            priceListItemId: item.id,
+            productVariantId: item.productVariantId ?? productVariantId,
+            source,
+        };
+    };
+
+    if (priceListId) {
+        const directItem = await itemRepo.findOne({
+            where: {
+                priceListId,
+                productId,
+                productVariantId: productVariantId || IsNull(),
+                deletedAt: IsNull(),
+            },
+        });
+        const directPrice = await tryResolveFromItem(directItem, 'PRICE_LIST');
+        if (directPrice) {
+            return directPrice;
         }
     }
-    
-    // Buscar en lista predeterminada
+
     const defaultList = await getDefaultPriceList();
     if (defaultList) {
-        const item = await itemRepo.findOne({
-            where: { 
-                priceListId: defaultList.id, 
-                productId, 
+        const defaultItem = await itemRepo.findOne({
+            where: {
+                priceListId: defaultList.id,
+                productId,
                 productVariantId: productVariantId || IsNull(),
-                deletedAt: IsNull() 
-            }
+                deletedAt: IsNull(),
+            },
         });
-        
-        if (item) {
-            return item.price;
+        const defaultPrice = await tryResolveFromItem(defaultItem, 'PRICE_LIST');
+        if (defaultPrice) {
+            return defaultPrice;
         }
     }
-    
-    // Fallback: usar precio base de la variante default del producto
+
+    const { product, variant, productId: resolvedProductId } = await loadProductContext(
+        ds,
+        productId,
+        productVariantId
+    );
     const variantRepo = ds.getRepository(ProductVariant);
-    const defaultVariant = await variantRepo.findOne({
-        where: { productId, isDefault: true, deletedAt: IsNull() }
-    });
-    
-    if (defaultVariant) {
-        return Number(defaultVariant.basePrice);
+    const effectiveVariant =
+        variant ||
+        (await variantRepo.findOne({
+            where: { productId: resolvedProductId, isDefault: true, deletedAt: IsNull() },
+        }));
+
+    if (!effectiveVariant) {
+        const fallbackVariant = await variantRepo.findOne({
+            where: { productId: resolvedProductId, deletedAt: IsNull() },
+        });
+        if (!fallbackVariant) {
+            return null;
+        }
+        const { taxIds, taxes } = await resolveApplicableTaxes(ds, {
+            productId: fallbackVariant.productId ?? resolvedProductId,
+            productVariantId: fallbackVariant.id,
+        });
+        const computed = computePriceWithTaxes({
+            netPrice: fallbackVariant.basePrice,
+            grossPrice: undefined,
+            taxRates: taxes.map((tax) => tax.rate),
+        });
+        return {
+            netPrice: computed.netPrice,
+            grossPrice: computed.grossPrice,
+            taxIds,
+            productVariantId: fallbackVariant.id,
+            source: 'DEFAULT_VARIANT',
+        };
     }
-    
-    // Si no hay variante default, buscar cualquier variante
-    const anyVariant = await variantRepo.findOne({
-        where: { productId, deletedAt: IsNull() }
+
+    const { taxIds, taxes } = await resolveApplicableTaxes(ds, {
+        productId: effectiveVariant.productId ?? resolvedProductId,
+        productVariantId: effectiveVariant.id,
     });
-    
-    return anyVariant ? Number(anyVariant.basePrice) : null;
+    const computed = computePriceWithTaxes({
+        netPrice: effectiveVariant.basePrice,
+        grossPrice: undefined,
+        taxRates: taxes.map((tax) => tax.rate),
+    });
+
+    return {
+        netPrice: computed.netPrice,
+        grossPrice: computed.grossPrice,
+        taxIds,
+        productVariantId: effectiveVariant.id,
+        source: 'DEFAULT_VARIANT',
+    };
 }
 
 /**
@@ -344,20 +527,38 @@ export async function createPriceListItem(data: CreatePriceListItemDTO): Promise
         if (existing) {
             return { success: false, error: 'El producto ya existe en esta lista de precios' };
         }
-        
+
+        if (data.netPrice === undefined && data.grossPrice === undefined) {
+            return { success: false, error: 'Debe ingresar un precio neto o bruto' };
+        }
+
+        const { taxIds, taxes } = await resolveApplicableTaxes(ds, {
+            explicitTaxIds: data.taxIds,
+            productId: data.productId,
+            productVariantId: data.productVariantId,
+        });
+
+        const computed = computePriceWithTaxes({
+            netPrice: data.netPrice,
+            grossPrice: data.grossPrice,
+            taxRates: taxes.map((tax) => tax.rate),
+        });
+
         const item = repo.create({
             priceListId: data.priceListId,
             productId: data.productId,
             productVariantId: data.productVariantId,
-            price: data.price,
+            netPrice: computed.netPrice,
+            grossPrice: computed.grossPrice,
+            taxIds: taxIds.length > 0 ? taxIds : null,
             minPrice: data.minPrice,
-            discountPercentage: data.discountPercentage || 0
+            discountPercentage: data.discountPercentage ?? 0,
         });
-        
+
         await repo.save(item);
         revalidatePath('/admin/inventory/products');
         
-        return { success: true, item };
+        return { success: true, item: JSON.parse(JSON.stringify(item)) };
     } catch (error) {
         console.error('Error creating price list item:', error);
         return { 
@@ -382,15 +583,53 @@ export async function updatePriceListItem(id: string, data: UpdatePriceListItemD
         if (!item) {
             return { success: false, error: 'Item no encontrado' };
         }
-        
-        if (data.price !== undefined) item.price = data.price;
+        const shouldRecalculate =
+            data.netPrice !== undefined ||
+            data.grossPrice !== undefined ||
+            data.taxIds !== undefined;
+
+        if (shouldRecalculate) {
+            const productId = item.productId;
+            if (!productId) {
+                return { success: false, error: 'El item no tiene producto asociado' };
+            }
+
+            const { taxIds, taxes } = await resolveApplicableTaxes(ds, {
+                explicitTaxIds: data.taxIds ?? (item.taxIds as string[] | undefined),
+                fallbackTaxIds: item.taxIds as string[] | undefined,
+                productId,
+                productVariantId: item.productVariantId ?? undefined,
+            });
+
+            const computed = computePriceWithTaxes({
+                netPrice: data.netPrice ?? item.netPrice,
+                grossPrice: data.grossPrice ?? item.grossPrice,
+                taxRates: taxes.map((tax) => tax.rate),
+            });
+
+            item.netPrice = computed.netPrice;
+            item.grossPrice = computed.grossPrice;
+            item.taxIds = taxIds.length > 0 ? taxIds : null;
+        } else {
+            if (data.netPrice !== undefined) {
+                item.netPrice = data.netPrice;
+            }
+            if (data.grossPrice !== undefined) {
+                item.grossPrice = data.grossPrice;
+            }
+            if (data.taxIds !== undefined) {
+                const sanitized = sanitizeIdArray(data.taxIds);
+                item.taxIds = sanitized.length > 0 ? sanitized : null;
+            }
+        }
+
         if (data.minPrice !== undefined) item.minPrice = data.minPrice;
         if (data.discountPercentage !== undefined) item.discountPercentage = data.discountPercentage;
-        
+
         await repo.save(item);
         revalidatePath('/admin/inventory/products');
         
-        return { success: true, item };
+        return { success: true, item: JSON.parse(JSON.stringify(item)) };
     } catch (error) {
         console.error('Error updating price list item:', error);
         return { 

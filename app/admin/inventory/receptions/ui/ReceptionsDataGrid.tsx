@@ -66,8 +66,9 @@ export default function ReceptionsDataGrid() {
     const columns: DataGridColumn[] = [
         {
             field: 'documentNumber',
-            headerName: 'Número',
-            width: 140,
+            headerName: 'Folio',
+            flex: 0.8,
+            minWidth: 140,
             renderCell: (params) => (
                 <div className="font-mono text-sm font-medium">{params.row.documentNumber}</div>
             ),
@@ -75,7 +76,8 @@ export default function ReceptionsDataGrid() {
         {
             field: 'createdAt',
             headerName: 'Fecha',
-            width: 160,
+            flex: 1,
+            minWidth: 160,
             renderCell: (params) => (
                 <div className="text-sm text-gray-600">
                     {dateFormatter.format(new Date(params.row.createdAt))}
@@ -85,7 +87,8 @@ export default function ReceptionsDataGrid() {
         {
             field: 'supplierName',
             headerName: 'Proveedor',
-            width: 200,
+            flex: 1.4,
+            minWidth: 200,
             renderCell: (params) => (
                 <div className="text-sm font-medium text-gray-900">
                     {params.row.supplierName ?? 'Sin proveedor'}
@@ -95,7 +98,8 @@ export default function ReceptionsDataGrid() {
         {
             field: 'storageName',
             headerName: 'Almacén',
-            width: 160,
+            flex: 1,
+            minWidth: 160,
             renderCell: (params) => (
                 <div className="text-sm text-gray-600">{params.row.storageName ?? 'Sin almacén'}</div>
             ),
@@ -103,7 +107,8 @@ export default function ReceptionsDataGrid() {
         {
             field: 'purchaseOrderNumber',
             headerName: 'Orden de Compra',
-            width: 140,
+            flex: 0.9,
+            minWidth: 140,
             renderCell: (params) =>
                 params.row.purchaseOrderNumber ? (
                     <div className="font-mono text-sm text-blue-600">{params.row.purchaseOrderNumber}</div>
@@ -116,14 +121,16 @@ export default function ReceptionsDataGrid() {
         {
             field: 'lineCount',
             headerName: 'Productos',
-            width: 100,
+            flex: 0.6,
+            minWidth: 100,
             align: 'center',
             renderCell: (params) => <div className="text-sm font-medium">{params.row.lineCount}</div>,
         },
         {
             field: 'total',
             headerName: 'Total',
-            width: 130,
+            flex: 0.8,
+            minWidth: 130,
             align: 'right',
             renderCell: (params) => (
                 <div className="text-sm font-semibold text-gray-900">
@@ -134,7 +141,8 @@ export default function ReceptionsDataGrid() {
         {
             field: 'status',
             headerName: 'Estado',
-            width: 120,
+            flex: 0.7,
+            minWidth: 120,
             renderCell: (params) => {
                 const status = params.row.status as TransactionStatus;
                 return (
@@ -147,7 +155,8 @@ export default function ReceptionsDataGrid() {
         {
             field: 'hasDiscrepancies',
             headerName: 'Discrepancias',
-            width: 120,
+            flex: 0.8,
+            minWidth: 140,
             renderCell: (params) =>
                 params.row.hasDiscrepancies ? (
                     <Badge variant="warning">
@@ -162,7 +171,8 @@ export default function ReceptionsDataGrid() {
         {
             field: 'userName',
             headerName: 'Usuario',
-            width: 150,
+            flex: 0.8,
+            minWidth: 150,
             renderCell: (params) => <div className="text-sm text-gray-600">{params.row.userName ?? '-'}</div>,
         },
     ];
