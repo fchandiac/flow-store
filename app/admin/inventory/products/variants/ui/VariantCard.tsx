@@ -127,6 +127,10 @@ const VariantCard: React.FC<VariantCardProps> = ({
                         <span className="text-xs text-neutral-500">Unidad</span>
                         <p className="font-medium text-neutral-600">{variant.unitOfMeasure}</p>
                     </div>
+                    <div>
+                        <span className="text-xs text-neutral-500">Costo</span>
+                        <p className="text-sm text-neutral-400">(PMP por desarrollar)</p>
+                    </div>
                 </div>
 
                 {variant.priceListItems && variant.priceListItems.length > 0 && (

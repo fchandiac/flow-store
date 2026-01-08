@@ -59,7 +59,7 @@ export class Customer {
     deletedAt?: Date;
 
     // Relations
-    @ManyToOne(() => Person, { onDelete: 'CASCADE' })
+    @ManyToOne(() => Person, { onDelete: 'RESTRICT' })
     @JoinColumn({ name: 'personId' })
     person?: Person;
 

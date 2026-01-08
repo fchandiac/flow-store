@@ -1,7 +1,7 @@
 'use server'
 
 import { getDb } from '@/data/db';
-import { Product, ProductType } from '@/data/entities/Product';
+import { Product, ProductType, type ProductChangeHistoryChange } from '@/data/entities/Product';
 import { ProductVariant } from '@/data/entities/ProductVariant';
 import { Category } from '@/data/entities/Category';
 import { PriceList } from '@/data/entities/PriceList';
@@ -11,6 +11,8 @@ import { computePriceWithTaxes } from '@/lib/pricing/priceCalculations';
 import { revalidatePath } from 'next/cache';
 import { In, IsNull } from 'typeorm';
 import { PriceListItem } from '@/data/entities/PriceListItem';
+import { getCurrentSession } from './auth.server';
+import { addHistoryEntry, areValuesEqual, buildHistoryEntry, buildSummary } from './utils/productHistory';
 
 // Types
 interface GetProductsParams {
@@ -156,11 +158,169 @@ export interface ProductWithDefaultVariant {
     variants: VariantSummary[];
 }
 
+interface SimpleVariantUpdateDTO {
+    sku?: string;
+    barcode?: string;
+    basePrice?: number;
+    baseCost?: number;
+    unitId?: string;
+    trackInventory?: boolean;
+    allowNegativeStock?: boolean;
+    minimumStock?: number;
+    maximumStock?: number;
+    reorderPoint?: number;
+}
+
+function normalizeStringArray(values?: string[] | null): string[] {
+    if (!Array.isArray(values)) {
+        return [];
+    }
+
+    const seen = new Set<string>();
+    const sanitized: string[] = [];
+
+    for (const raw of values) {
+        if (typeof raw !== 'string') {
+            continue;
+        }
+        const trimmed = raw.trim();
+        if (!trimmed || seen.has(trimmed)) {
+            continue;
+        }
+        seen.add(trimmed);
+        sanitized.push(trimmed);
+    }
+
+    sanitized.sort();
+    return sanitized;
+}
+
+function collectProductChanges(product: Product, data: UpdateProductDTO): ProductChangeHistoryChange[] {
+    const changes: ProductChangeHistoryChange[] = [];
+
+    if (data.name !== undefined && data.name !== product.name) {
+        changes.push({ field: 'name', previousValue: product.name, newValue: data.name });
+    }
+
+    if (data.description !== undefined && data.description !== product.description) {
+        changes.push({ field: 'description', previousValue: product.description, newValue: data.description });
+    }
+
+    if (data.brand !== undefined && data.brand !== product.brand) {
+        changes.push({ field: 'brand', previousValue: product.brand, newValue: data.brand });
+    }
+
+    if (data.categoryId !== undefined && data.categoryId !== product.categoryId) {
+        changes.push({ field: 'categoryId', previousValue: product.categoryId, newValue: data.categoryId });
+    }
+
+    if (data.productType !== undefined && data.productType !== product.productType) {
+        changes.push({ field: 'productType', previousValue: product.productType, newValue: data.productType });
+    }
+
+    if (data.taxIds !== undefined) {
+        const current = normalizeStringArray(product.taxIds);
+        const next = normalizeStringArray(data.taxIds);
+        if (!areValuesEqual(current, next)) {
+            changes.push({ field: 'taxIds', previousValue: current, newValue: next });
+        }
+    }
+
+    if (data.imagePath !== undefined && data.imagePath !== product.imagePath) {
+        changes.push({ field: 'imagePath', previousValue: product.imagePath, newValue: data.imagePath });
+    }
+
+    if (data.metadata !== undefined && !areValuesEqual(product.metadata ?? null, data.metadata ?? null)) {
+        changes.push({ field: 'metadata', previousValue: product.metadata, newValue: data.metadata });
+    }
+
+    if (data.isActive !== undefined && data.isActive !== product.isActive) {
+        changes.push({ field: 'isActive', previousValue: product.isActive, newValue: data.isActive });
+    }
+
+    if (data.baseUnitId !== undefined && data.baseUnitId !== product.baseUnitId) {
+        changes.push({ field: 'baseUnitId', previousValue: product.baseUnitId, newValue: data.baseUnitId });
+    }
+
+    return changes;
+}
+
+function collectVariantChanges(variant: ProductVariant, data: SimpleVariantUpdateDTO & { taxIds?: string[]; attributeValues?: Record<string, string>; isActive?: boolean; weight?: number; imagePath?: string; allowNegativeStock?: boolean; trackInventory?: boolean }): ProductChangeHistoryChange[] {
+    const changes: ProductChangeHistoryChange[] = [];
+
+    if (data.sku !== undefined && data.sku !== variant.sku) {
+        changes.push({ field: 'sku', previousValue: variant.sku, newValue: data.sku });
+    }
+
+    if (data.barcode !== undefined && data.barcode !== variant.barcode) {
+        changes.push({ field: 'barcode', previousValue: variant.barcode, newValue: data.barcode });
+    }
+
+    if (data.basePrice !== undefined && Number(data.basePrice) !== Number(variant.basePrice)) {
+        changes.push({ field: 'basePrice', previousValue: Number(variant.basePrice), newValue: Number(data.basePrice) });
+    }
+
+    if (data.baseCost !== undefined && Number(data.baseCost) !== Number(variant.baseCost)) {
+        changes.push({ field: 'baseCost', previousValue: Number(variant.baseCost), newValue: Number(data.baseCost) });
+    }
+
+    if (data.unitId !== undefined && data.unitId !== variant.unitId) {
+        changes.push({ field: 'unitId', previousValue: variant.unitId, newValue: data.unitId });
+    }
+
+    if (data.weight !== undefined && Number(data.weight) !== Number(variant.weight)) {
+        changes.push({ field: 'weight', previousValue: Number(variant.weight), newValue: Number(data.weight) });
+    }
+
+    if (data.attributeValues !== undefined && !areValuesEqual(variant.attributeValues ?? null, data.attributeValues ?? null)) {
+        changes.push({ field: 'attributeValues', previousValue: variant.attributeValues, newValue: data.attributeValues });
+    }
+
+    if (data.taxIds !== undefined) {
+        const current = normalizeStringArray(variant.taxIds);
+        const next = normalizeStringArray(data.taxIds);
+        if (!areValuesEqual(current, next)) {
+            changes.push({ field: 'taxIds', previousValue: current, newValue: next });
+        }
+    }
+
+    if (data.trackInventory !== undefined && data.trackInventory !== variant.trackInventory) {
+        changes.push({ field: 'trackInventory', previousValue: variant.trackInventory, newValue: data.trackInventory });
+    }
+
+    if (data.allowNegativeStock !== undefined && data.allowNegativeStock !== variant.allowNegativeStock) {
+        changes.push({ field: 'allowNegativeStock', previousValue: variant.allowNegativeStock, newValue: data.allowNegativeStock });
+    }
+
+    if (data.minimumStock !== undefined && Number(data.minimumStock) !== Number(variant.minimumStock)) {
+        changes.push({ field: 'minimumStock', previousValue: Number(variant.minimumStock), newValue: Number(data.minimumStock) });
+    }
+
+    if (data.maximumStock !== undefined && Number(data.maximumStock) !== Number(variant.maximumStock)) {
+        changes.push({ field: 'maximumStock', previousValue: Number(variant.maximumStock), newValue: Number(data.maximumStock) });
+    }
+
+    if (data.reorderPoint !== undefined && Number(data.reorderPoint) !== Number(variant.reorderPoint)) {
+        changes.push({ field: 'reorderPoint', previousValue: Number(variant.reorderPoint), newValue: Number(data.reorderPoint) });
+    }
+
+    if (data.imagePath !== undefined && data.imagePath !== variant.imagePath) {
+        changes.push({ field: 'imagePath', previousValue: variant.imagePath, newValue: data.imagePath });
+    }
+
+    if (data.isActive !== undefined && data.isActive !== variant.isActive) {
+        changes.push({ field: 'isActive', previousValue: variant.isActive, newValue: data.isActive });
+    }
+
+    return changes;
+}
+
 export async function createProductMaster(data: CreateProductMasterDTO): Promise<ProductResult> {
     try {
         const ds = await getDb();
         const productRepo = ds.getRepository(Product);
         const unitRepo = ds.getRepository(Unit);
+        const session = await getCurrentSession();
 
         if (data.categoryId) {
             const categoryRepo = ds.getRepository(Category);
@@ -194,7 +354,21 @@ export async function createProductMaster(data: CreateProductMasterDTO): Promise
             isActive: data.isActive ?? true,
             baseUnitId: baseUnit.id,
             baseUnit,
+            changeHistory: [],
         });
+
+        await productRepo.save(product);
+
+        const historyEntry = buildHistoryEntry({
+            action: 'CREATE',
+            targetType: 'PRODUCT',
+            targetId: product.id,
+            targetLabel: product.name,
+            summary: buildSummary('CREATE', 'PRODUCT', product.name),
+            userId: session?.id,
+            userName: session?.userName,
+        });
+        addHistoryEntry(product, historyEntry);
 
         await productRepo.save(product);
         revalidatePath('/admin/inventory/products');
@@ -370,21 +544,22 @@ export async function getProductById(id: string): Promise<(Product & { variants?
  * Crea un producto simple (una única variante default)
  */
 export async function createSimpleProduct(data: CreateSimpleProductDTO): Promise<ProductResult> {
+    const session = await getCurrentSession();
     const ds = await getDb();
-    
+
     return await ds.transaction(async (manager) => {
         const productRepo = manager.getRepository(Product);
         const variantRepo = manager.getRepository(ProductVariant);
-        
+
         // Verificar SKU único
         const existingSku = await variantRepo.findOne({
             where: { sku: data.sku }
         });
-        
+
         if (existingSku) {
             return { success: false, error: 'El SKU ya está en uso' };
         }
-        
+
         // Verificar categoría si se proporciona
         if (data.categoryId) {
             const categoryRepo = manager.getRepository(Category);
@@ -433,7 +608,7 @@ export async function createSimpleProduct(data: CreateSimpleProductDTO): Promise
         if (resolvedVariantBaseId !== baseUnit.id) {
             return { success: false, error: 'La unidad seleccionada para la variante no corresponde con la unidad base del producto' };
         }
-        
+
         // Crear producto maestro
         const product = productRepo.create({
             name: data.name,
@@ -444,14 +619,15 @@ export async function createSimpleProduct(data: CreateSimpleProductDTO): Promise
             taxIds: data.taxIds,
             imagePath: data.imagePath,
             metadata: data.metadata,
-            hasVariants: false, // Producto simple
+            hasVariants: false,
             isActive: data.isActive ?? true,
             baseUnitId: baseUnit.id,
             baseUnit,
+            changeHistory: [],
         });
-        
+
         await productRepo.save(product);
-        
+
         // Crear variante default
         const variant = variantRepo.create({
             productId: product.id,
@@ -468,9 +644,9 @@ export async function createSimpleProduct(data: CreateSimpleProductDTO): Promise
             reorderPoint: data.reorderPoint || 0,
             taxIds: data.taxIds && data.taxIds.length > 0 ? data.taxIds : undefined,
             isDefault: true,
-            isActive: true
+            isActive: true,
         });
-        
+
         await variantRepo.save(variant);
 
         if (data.priceListId) {
@@ -513,11 +689,47 @@ export async function createSimpleProduct(data: CreateSimpleProductDTO): Promise
 
             await priceListItemRepo.save(priceListItem);
         }
-        
+
+        const productHistoryEntry = buildHistoryEntry({
+            action: 'CREATE',
+            targetType: 'PRODUCT',
+            targetId: product.id,
+            targetLabel: product.name,
+            summary: buildSummary('CREATE', 'PRODUCT', product.name),
+            userId: session?.id,
+            userName: session?.userName,
+        });
+
+        const variantHistoryEntry = buildHistoryEntry({
+            action: 'CREATE',
+            targetType: 'VARIANT',
+            targetId: variant.id,
+            targetLabel: variant.sku,
+            summary: buildSummary('CREATE', 'VARIANT', variant.sku),
+            userId: session?.id,
+            userName: session?.userName,
+            changes: [
+                { field: 'sku', newValue: variant.sku },
+                { field: 'basePrice', newValue: Number(variant.basePrice) },
+                { field: 'baseCost', newValue: Number(variant.baseCost) },
+                { field: 'unitId', newValue: variant.unitId },
+            ],
+            metadata: {
+                attributeValues: variant.attributeValues ?? null,
+                trackInventory: variant.trackInventory,
+                allowNegativeStock: variant.allowNegativeStock,
+            },
+        });
+
+        addHistoryEntry(product, productHistoryEntry);
+        addHistoryEntry(product, variantHistoryEntry);
+
+        await productRepo.save(product);
+
         revalidatePath('/admin/inventory/products');
-        
-        return { 
-            success: true, 
+
+        return {
+            success: true,
             product: JSON.parse(JSON.stringify(product)),
             variant: JSON.parse(JSON.stringify(variant))
         };
@@ -533,6 +745,7 @@ export async function createProductWithVariants(data: CreateProductWithVariantsD
         const ds = await getDb();
         const productRepo = ds.getRepository(Product);
         const unitRepo = ds.getRepository(Unit);
+        const session = await getCurrentSession();
         
         // Verificar categoría si se proporciona
         if (data.categoryId) {
@@ -566,8 +779,22 @@ export async function createProductWithVariants(data: CreateProductWithVariantsD
             isActive: true,
             baseUnitId: baseUnit.id,
             baseUnit,
+            changeHistory: [],
         });
         
+        await productRepo.save(product);
+
+        const historyEntry = buildHistoryEntry({
+            action: 'CREATE',
+            targetType: 'PRODUCT',
+            targetId: product.id,
+            targetLabel: product.name,
+            summary: buildSummary('CREATE', 'PRODUCT', product.name),
+            userId: session?.id,
+            userName: session?.userName,
+        });
+        addHistoryEntry(product, historyEntry);
+
         await productRepo.save(product);
         revalidatePath('/admin/inventory/products');
         
@@ -590,6 +817,7 @@ export async function updateProduct(id: string, data: UpdateProductDTO): Promise
         const productRepo = ds.getRepository(Product);
         const unitRepo = ds.getRepository(Unit);
         const variantRepo = ds.getRepository(ProductVariant);
+        const session = await getCurrentSession();
         
         const product = await productRepo.findOne({
             where: { id, deletedAt: IsNull() }
@@ -598,6 +826,8 @@ export async function updateProduct(id: string, data: UpdateProductDTO): Promise
         if (!product) {
             return { success: false, error: 'Producto no encontrado' };
         }
+
+        const detectedChanges = collectProductChanges(product, data);
         
         if (data.baseUnitId !== undefined) {
             if (!data.baseUnitId) {
@@ -645,6 +875,25 @@ export async function updateProduct(id: string, data: UpdateProductDTO): Promise
         if (data.metadata !== undefined) product.metadata = data.metadata;
         if (data.isActive !== undefined) product.isActive = data.isActive;
         
+        if (detectedChanges.length > 0) {
+            const nameChange = detectedChanges.find(change => change.field === 'name');
+            const summaryLabel = (typeof nameChange?.newValue === 'string' && nameChange.newValue.length > 0)
+                ? nameChange.newValue
+                : product.name;
+
+            const historyEntry = buildHistoryEntry({
+                action: 'UPDATE',
+                targetType: 'PRODUCT',
+                targetId: product.id,
+                targetLabel: summaryLabel,
+                summary: buildSummary('UPDATE', 'PRODUCT', summaryLabel, detectedChanges.map(change => change.field)),
+                userId: session?.id,
+                userName: session?.userName,
+                changes: detectedChanges,
+            });
+            addHistoryEntry(product, historyEntry);
+        }
+
         await productRepo.save(product);
         revalidatePath('/admin/inventory/products');
         
@@ -677,6 +926,7 @@ export async function updateSimpleProduct(
         reorderPoint?: number;
     }
 ): Promise<ProductResult> {
+    const session = await getCurrentSession();
     const ds = await getDb();
     
     return await ds.transaction(async (manager) => {
@@ -691,6 +941,8 @@ export async function updateSimpleProduct(
             return { success: false, error: 'Producto no encontrado' };
         }
         
+        const productChanges = collectProductChanges(product, productData ?? {});
+
         // Actualizar producto
         if (productData.name !== undefined) product.name = productData.name;
         if (productData.description !== undefined) product.description = productData.description;
@@ -702,15 +954,18 @@ export async function updateSimpleProduct(
         if (productData.metadata !== undefined) product.metadata = productData.metadata;
         if (productData.isActive !== undefined) product.isActive = productData.isActive;
         
-        await productRepo.save(product);
-        
+        let defaultVariant: ProductVariant | null = null;
+        let variantChanges: ProductChangeHistoryChange[] = [];
+
         // Actualizar variante default si hay datos
         if (variantData && !product.hasVariants) {
-            const defaultVariant = await variantRepo.findOne({
+            defaultVariant = await variantRepo.findOne({
                 where: { productId: id, isDefault: true, deletedAt: IsNull() }
             });
             
             if (defaultVariant) {
+                variantChanges = collectVariantChanges(defaultVariant, variantData);
+
                 if (variantData.unitId) {
                     const unitRepo = manager.getRepository(Unit);
                     const unit = await unitRepo.findOne({
@@ -751,18 +1006,55 @@ export async function updateSimpleProduct(
                 if (variantData.reorderPoint !== undefined) defaultVariant.reorderPoint = variantData.reorderPoint;
                 
                 await variantRepo.save(defaultVariant);
-                
-                return { 
-                    success: true, 
-                    product: JSON.parse(JSON.stringify(product)),
-                    variant: JSON.parse(JSON.stringify(defaultVariant))
-                };
             }
         }
-        
+
+        if (productChanges.length > 0) {
+            const nameChange = productChanges.find(change => change.field === 'name');
+            const productLabel = (typeof nameChange?.newValue === 'string' && nameChange.newValue.length > 0)
+                ? nameChange.newValue
+                : product.name;
+
+            const productHistoryEntry = buildHistoryEntry({
+                action: 'UPDATE',
+                targetType: 'PRODUCT',
+                targetId: product.id,
+                targetLabel: productLabel,
+                summary: buildSummary('UPDATE', 'PRODUCT', productLabel, productChanges.map(change => change.field)),
+                userId: session?.id,
+                userName: session?.userName,
+                changes: productChanges,
+            });
+            addHistoryEntry(product, productHistoryEntry);
+        }
+
+        if (defaultVariant && variantChanges.length > 0) {
+            const variantLabel = typeof variantData?.sku === 'string' && variantData.sku.length > 0
+                ? variantData.sku
+                : defaultVariant.sku;
+
+            const variantHistoryEntry = buildHistoryEntry({
+                action: 'UPDATE',
+                targetType: 'VARIANT',
+                targetId: defaultVariant.id,
+                targetLabel: variantLabel,
+                summary: buildSummary('UPDATE', 'VARIANT', variantLabel, variantChanges.map(change => change.field)),
+                userId: session?.id,
+                userName: session?.userName,
+                changes: variantChanges,
+            });
+            addHistoryEntry(product, variantHistoryEntry);
+        }
+
+        await productRepo.save(product);
+
         revalidatePath('/admin/inventory/products');
-        
-        return { success: true, product: JSON.parse(JSON.stringify(product)) };
+
+        return { 
+            success: true, 
+            product: JSON.parse(JSON.stringify(product)),
+            variant: defaultVariant ? JSON.parse(JSON.stringify(defaultVariant)) : undefined
+        };
     });
 }
 
@@ -774,6 +1066,7 @@ export async function deleteProduct(id: string): Promise<{ success: boolean; err
         const ds = await getDb();
         const productRepo = ds.getRepository(Product);
         const variantRepo = ds.getRepository(ProductVariant);
+        const session = await getCurrentSession();
         
         const product = await productRepo.findOne({
             where: { id, deletedAt: IsNull() }
@@ -787,6 +1080,25 @@ export async function deleteProduct(id: string): Promise<{ success: boolean; err
         const variants = await variantRepo.find({
             where: { productId: id, deletedAt: IsNull() }
         });
+
+        const historyEntry = buildHistoryEntry({
+            action: 'DELETE',
+            targetType: 'PRODUCT',
+            targetId: product.id,
+            targetLabel: product.name,
+            summary: buildSummary('DELETE', 'PRODUCT', product.name),
+            userId: session?.id,
+            userName: session?.userName,
+            metadata: variants.length > 0
+                ? {
+                    variantsDeleted: variants.map((variant) => ({ id: variant.id, sku: variant.sku })),
+                    variantCount: variants.length,
+                }
+                : undefined,
+        });
+        addHistoryEntry(product, historyEntry);
+
+        await productRepo.save(product);
         
         for (const variant of variants) {
             await variantRepo.softRemove(variant);

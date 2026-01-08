@@ -12,6 +12,29 @@ import {
 import { Category } from "./Category";
 import { Unit } from "./Unit";
 
+export type ProductChangeHistoryTargetType = 'PRODUCT' | 'VARIANT';
+export type ProductChangeHistoryAction = 'CREATE' | 'UPDATE' | 'DELETE';
+
+export interface ProductChangeHistoryChange {
+    field: string;
+    previousValue?: unknown;
+    newValue?: unknown;
+}
+
+export interface ProductChangeHistoryEntry {
+    id: string;
+    timestamp: string;
+    targetType: ProductChangeHistoryTargetType;
+    targetId: string;
+    targetLabel?: string;
+    action: ProductChangeHistoryAction;
+    summary: string;
+    userId?: string;
+    userName?: string;
+    changes?: ProductChangeHistoryChange[];
+    metadata?: Record<string, unknown>;
+}
+
 export enum ProductType {
     PHYSICAL = 'PHYSICAL',
     SERVICE = 'SERVICE',
@@ -68,6 +91,9 @@ export class Product {
 
     @Column({ type: 'json', nullable: true })
     metadata?: Record<string, any>;
+
+    @Column({ type: 'json', nullable: true })
+    changeHistory?: ProductChangeHistoryEntry[];
 
     @CreateDateColumn()
     createdAt!: Date;

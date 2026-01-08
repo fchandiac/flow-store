@@ -5,6 +5,7 @@ import {
     Column,
     CreateDateColumn,
     UpdateDateColumn,
+    DeleteDateColumn,
     ManyToOne,
     JoinColumn,
 } from "typeorm";
@@ -60,6 +61,9 @@ export class CashSession {
 
     @UpdateDateColumn()
     updatedAt!: Date;
+
+    @DeleteDateColumn()
+    deletedAt?: Date;
 
     // Relations
     @ManyToOne(() => PointOfSale, { onDelete: 'SET NULL' })

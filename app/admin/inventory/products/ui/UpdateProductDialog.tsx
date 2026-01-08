@@ -238,13 +238,6 @@ export default function UpdateProductDialog({ open, onClose, onSuccess, product,
                     </div>
                 )}
 
-                {/* Info de tipo de producto */}
-                {product.hasVariants && (
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 text-sm">
-                        Este producto tiene múltiples variantes. Los SKU y precios se editan desde la sección de Variantes.
-                    </div>
-                )}
-
                 {/* INFORMACIÓN GENERAL */}
                 <div>
                     <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">

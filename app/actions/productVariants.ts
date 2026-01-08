@@ -2,7 +2,7 @@
 
 import { getDb } from '@/data/db';
 import { ProductVariant } from '@/data/entities/ProductVariant';
-import { Product } from '@/data/entities/Product';
+import { Product, type ProductChangeHistoryChange } from '@/data/entities/Product';
 import { Attribute } from '@/data/entities/Attribute';
 import { PriceListItem } from '@/data/entities/PriceListItem';
 import { Tax } from '@/data/entities/Tax';
@@ -10,6 +10,8 @@ import { Unit } from '@/data/entities/Unit';
 import { computePriceWithTaxes } from '@/lib/pricing/priceCalculations';
 import { revalidatePath } from 'next/cache';
 import { DataSource, In, IsNull } from 'typeorm';
+import { getCurrentSession } from './auth.server';
+import { addHistoryEntry, areValuesEqual, buildHistoryEntry, buildSummary } from './utils/productHistory';
 
 // Types
 interface CreateVariantDTO {
@@ -59,6 +61,91 @@ function sanitizeIdArray(ids?: string[] | null): string[] {
     }
 
     return sanitized;
+}
+
+function normalizeStringArray(ids?: string[] | null): string[] {
+    const sanitized = sanitizeIdArray(ids);
+    sanitized.sort();
+    return sanitized;
+}
+
+function collectVariantChanges(variant: ProductVariant, data: UpdateVariantDTO): ProductChangeHistoryChange[] {
+    const changes: ProductChangeHistoryChange[] = [];
+
+    if (data.sku !== undefined && data.sku !== variant.sku) {
+        changes.push({ field: 'sku', previousValue: variant.sku, newValue: data.sku });
+    }
+
+    if (data.barcode !== undefined && data.barcode !== variant.barcode) {
+        changes.push({ field: 'barcode', previousValue: variant.barcode, newValue: data.barcode });
+    }
+
+    if (data.basePrice !== undefined && Number(data.basePrice) !== Number(variant.basePrice)) {
+        changes.push({ field: 'basePrice', previousValue: Number(variant.basePrice), newValue: Number(data.basePrice) });
+    }
+
+    if (data.baseCost !== undefined && Number(data.baseCost) !== Number(variant.baseCost)) {
+        changes.push({ field: 'baseCost', previousValue: Number(variant.baseCost), newValue: Number(data.baseCost) });
+    }
+
+    if (data.unitId !== undefined && data.unitId !== variant.unitId) {
+        changes.push({ field: 'unitId', previousValue: variant.unitId, newValue: data.unitId });
+    }
+
+    if (data.weight !== undefined && Number(data.weight) !== Number(variant.weight)) {
+        changes.push({ field: 'weight', previousValue: Number(variant.weight), newValue: Number(data.weight) });
+    }
+
+    if (data.attributeValues !== undefined && !areValuesEqual(variant.attributeValues ?? null, data.attributeValues ?? null)) {
+        changes.push({ field: 'attributeValues', previousValue: variant.attributeValues, newValue: data.attributeValues });
+    }
+
+    if (data.taxIds !== undefined) {
+        const current = normalizeStringArray(variant.taxIds);
+        const next = normalizeStringArray(data.taxIds);
+        if (!areValuesEqual(current, next)) {
+            changes.push({ field: 'taxIds', previousValue: current, newValue: next });
+        }
+    }
+
+    if (data.trackInventory !== undefined && data.trackInventory !== variant.trackInventory) {
+        changes.push({ field: 'trackInventory', previousValue: variant.trackInventory, newValue: data.trackInventory });
+    }
+
+    if (data.allowNegativeStock !== undefined && data.allowNegativeStock !== variant.allowNegativeStock) {
+        changes.push({ field: 'allowNegativeStock', previousValue: variant.allowNegativeStock, newValue: data.allowNegativeStock });
+    }
+
+    if (data.minimumStock !== undefined && Number(data.minimumStock) !== Number(variant.minimumStock)) {
+        changes.push({ field: 'minimumStock', previousValue: Number(variant.minimumStock), newValue: Number(data.minimumStock) });
+    }
+
+    if (data.maximumStock !== undefined && Number(data.maximumStock) !== Number(variant.maximumStock)) {
+        changes.push({ field: 'maximumStock', previousValue: Number(variant.maximumStock), newValue: Number(data.maximumStock) });
+    }
+
+    if (data.reorderPoint !== undefined && Number(data.reorderPoint) !== Number(variant.reorderPoint)) {
+        changes.push({ field: 'reorderPoint', previousValue: Number(variant.reorderPoint), newValue: Number(data.reorderPoint) });
+    }
+
+    if (data.imagePath !== undefined && data.imagePath !== variant.imagePath) {
+        changes.push({ field: 'imagePath', previousValue: variant.imagePath, newValue: data.imagePath });
+    }
+
+    if (data.isActive !== undefined && data.isActive !== variant.isActive) {
+        changes.push({ field: 'isActive', previousValue: variant.isActive, newValue: data.isActive });
+    }
+
+    return changes;
+}
+
+function buildVariantCreationChanges(variant: ProductVariant): ProductChangeHistoryChange[] {
+    return [
+        { field: 'sku', newValue: variant.sku },
+        { field: 'basePrice', newValue: Number(variant.basePrice) },
+        { field: 'baseCost', newValue: Number(variant.baseCost) },
+        { field: 'unitId', newValue: variant.unitId },
+    ];
 }
 
 async function persistPriceListItemsForVariant(
@@ -333,6 +420,7 @@ export async function createVariant(data: CreateVariantDTO): Promise<VariantResu
         const repo = ds.getRepository(ProductVariant);
         const productRepo = ds.getRepository(Product);
         const unitRepo = ds.getRepository(Unit);
+        const session = await getCurrentSession();
         
         // Verificar que el producto existe
         const product = await productRepo.findOne({
@@ -395,11 +483,27 @@ export async function createVariant(data: CreateVariantDTO): Promise<VariantResu
             variantId: variant.id,
         });
 
-        // Marcar el producto como hasVariants = true si no lo estaba
+        const historyEntry = buildHistoryEntry({
+            action: 'CREATE',
+            targetType: 'VARIANT',
+            targetId: variant.id,
+            targetLabel: variant.sku,
+            summary: buildSummary('CREATE', 'VARIANT', variant.sku),
+            userId: session?.id,
+            userName: session?.userName,
+            changes: buildVariantCreationChanges(variant),
+            metadata: {
+                attributeValues: variant.attributeValues ?? null,
+                priceListItemCount: Array.isArray(data.priceListItems) ? data.priceListItems.length : 0,
+            },
+        });
+        addHistoryEntry(product, historyEntry);
+
         if (!product.hasVariants) {
             product.hasVariants = true;
-            await productRepo.save(product);
         }
+
+        await productRepo.save(product);
         
         revalidatePath('/admin/inventory/products');
         revalidatePath('/admin/inventory/products/variants');
@@ -422,6 +526,8 @@ export async function updateVariant(id: string, data: UpdateVariantDTO): Promise
         const ds = await getDb();
         const repo = ds.getRepository(ProductVariant);
         const unitRepo = ds.getRepository(Unit);
+        const productRepo = ds.getRepository(Product);
+        const session = await getCurrentSession();
         
         const variant = await repo.findOne({
             where: { id, deletedAt: IsNull() }
@@ -430,6 +536,8 @@ export async function updateVariant(id: string, data: UpdateVariantDTO): Promise
         if (!variant) {
             return { success: false, error: 'Variante no encontrada' };
         }
+
+        const variantChanges = collectVariantChanges(variant, data);
         
         // Verificar SKU único si cambia
         if (data.sku && data.sku !== variant.sku) {
@@ -476,6 +584,28 @@ export async function updateVariant(id: string, data: UpdateVariantDTO): Promise
         if (data.isActive !== undefined) variant.isActive = data.isActive;
         
         await repo.save(variant);
+
+        const product = await productRepo.findOne({
+            where: { id: variant.productId, deletedAt: IsNull() }
+        });
+
+        if (product && variantChanges.length > 0) {
+            const variantLabel = variant.sku;
+
+            const historyEntry = buildHistoryEntry({
+                action: 'UPDATE',
+                targetType: 'VARIANT',
+                targetId: variant.id,
+                targetLabel: variantLabel,
+                summary: buildSummary('UPDATE', 'VARIANT', variantLabel, variantChanges.map(change => change.field)),
+                userId: session?.id,
+                userName: session?.userName,
+                changes: variantChanges,
+            });
+
+            addHistoryEntry(product, historyEntry);
+            await productRepo.save(product);
+        }
         revalidatePath('/admin/inventory/products');
         revalidatePath('/admin/inventory/products/variants');
         
@@ -499,6 +629,7 @@ export async function deleteVariant(id: string): Promise<{ success: boolean; err
         const repo = ds.getRepository(ProductVariant);
         const productRepo = ds.getRepository(Product);
         const unitRepo = ds.getRepository(Unit);
+        const session = await getCurrentSession();
         
         const variant = await repo.findOne({
             where: { id, deletedAt: IsNull() }
@@ -507,6 +638,10 @@ export async function deleteVariant(id: string): Promise<{ success: boolean; err
         if (!variant) {
             return { success: false, error: 'Variante no encontrada' };
         }
+
+        const product = await productRepo.findOne({
+            where: { id: variant.productId, deletedAt: IsNull() }
+        });
         
         // Verificar que no es la última variante
         const variantCount = await repo.count({
@@ -530,6 +665,22 @@ export async function deleteVariant(id: string): Promise<{ success: boolean; err
             }
         }
         
+        if (product) {
+            const historyEntry = buildHistoryEntry({
+                action: 'DELETE',
+                targetType: 'VARIANT',
+                targetId: variant.id,
+                targetLabel: variant.sku,
+                summary: buildSummary('DELETE', 'VARIANT', variant.sku),
+                userId: session?.id,
+                userName: session?.userName,
+                metadata: {
+                    attributeValues: variant.attributeValues ?? null,
+                },
+            });
+            addHistoryEntry(product, historyEntry);
+        }
+
         await repo.softRemove(variant);
         
         // Actualizar hasVariants si solo queda 1 variante
@@ -537,14 +688,12 @@ export async function deleteVariant(id: string): Promise<{ success: boolean; err
             where: { productId: variant.productId, deletedAt: IsNull() }
         });
         
-        if (remainingCount === 1) {
-            const product = await productRepo.findOne({
-                where: { id: variant.productId }
-            });
-            if (product) {
-                product.hasVariants = false;
-                await productRepo.save(product);
-            }
+        if (product && remainingCount === 1) {
+            product.hasVariants = false;
+        }
+
+        if (product) {
+            await productRepo.save(product);
         }
         
         revalidatePath('/admin/inventory/products');
@@ -572,6 +721,7 @@ export async function createBulkVariants(
         const repo = ds.getRepository(ProductVariant);
         const productRepo = ds.getRepository(Product);
         const unitRepo = ds.getRepository(Unit);
+        const session = await getCurrentSession();
         
         // Verificar que el producto existe
         const product = await productRepo.findOne({
@@ -636,11 +786,30 @@ export async function createBulkVariants(
                 variantId: variant.id,
             });
             createdVariants.push(variant);
+
+            const historyEntry = buildHistoryEntry({
+                action: 'CREATE',
+                targetType: 'VARIANT',
+                targetId: variant.id,
+                targetLabel: variant.sku,
+                summary: buildSummary('CREATE', 'VARIANT', variant.sku),
+                userId: session?.id,
+                userName: session?.userName,
+                changes: buildVariantCreationChanges(variant),
+                metadata: {
+                    attributeValues: variant.attributeValues ?? null,
+                    priceListItemCount: Array.isArray(v.priceListItems) ? v.priceListItems.length : 0,
+                },
+            });
+            addHistoryEntry(product, historyEntry);
         }
         
         // Marcar el producto como hasVariants
         if (!product.hasVariants && createdVariants.length > 0) {
             product.hasVariants = true;
+        }
+
+        if (createdVariants.length > 0) {
             await productRepo.save(product);
         }
         
