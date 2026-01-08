@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Badge from '@/app/baseComponents/Badge/Badge';
 import { Button } from '@/app/baseComponents/Button/Button';
 import VariantCard, { VariantType } from './VariantCard';
 import CreateVariantDialog from './CreateVariantDialog';
+import { getAttributes } from '@/app/actions/attributes';
 
 export interface ProductWithVariantsType {
     id: string;
@@ -33,6 +34,35 @@ const ProductVariantsCard: React.FC<ProductVariantsCardProps> = ({
 }) => {
     const [expanded, setExpanded] = useState(false);
     const [openCreateDialog, setOpenCreateDialog] = useState(false);
+    const [attributeNames, setAttributeNames] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadAttributes = async () => {
+            try {
+                const attrs = await getAttributes();
+                if (cancelled) {
+                    return;
+                }
+                const lookup = attrs.reduce<Record<string, string>>((acc, attr) => {
+                    acc[attr.id] = attr.name;
+                    return acc;
+                }, {});
+                setAttributeNames(lookup);
+            } catch (err) {
+                if (!cancelled) {
+                    console.error('Error loading attributes for product variants card:', err);
+                }
+            }
+        };
+
+        loadAttributes();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     // Obtener precio de la primera variante para mostrar
     const defaultVariant = product.variants.find(v => v.isDefault) || product.variants[0];
@@ -152,6 +182,7 @@ const ProductVariantsCard: React.FC<ProductVariantsCardProps> = ({
                                         <VariantCard
                                             key={variant.id}
                                             variant={variant}
+                                            attributeNames={attributeNames}
                                             data-test-id={`variant-card-${variant.id}`}
                                         />
                                     ))}

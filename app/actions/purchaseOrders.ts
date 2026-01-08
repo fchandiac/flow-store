@@ -291,6 +291,11 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderDTO): Promise
             const quantity = Number(lineInput.quantity);
             const unitPrice = Number(lineInput.unitPrice ?? variant.baseCost ?? 0);
             const unitCost = Number(lineInput.unitCost ?? variant.baseCost ?? 0);
+            const unit = variant.unit;
+            const unitId = unit?.id ?? variant.unitId;
+            const unitSymbol = unit?.symbol;
+            const conversionFactor = Number(unit?.conversionFactor ?? 1);
+            const quantityInBase = Number((quantity * conversionFactor).toFixed(6));
 
             return {
                 productId: product.id,
@@ -299,6 +304,10 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderDTO): Promise
                 productSku: variant.sku,
                 variantName: Object.values(variant.attributeValues ?? {}).join(', '),
                 quantity,
+                quantityInBase,
+                unitId,
+                unitOfMeasure: unitSymbol ?? undefined,
+                unitConversionFactor: conversionFactor,
                 unitPrice,
                 unitCost,
                 discountAmount: 0,

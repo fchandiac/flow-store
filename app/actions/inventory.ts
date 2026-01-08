@@ -18,6 +18,7 @@ export interface InventoryStorageBreakdown {
     branchId?: string | null;
     branchName?: string;
     quantity: number;
+    quantityBase: number;
 }
 
 export type InventoryMovementDirection = "IN" | "OUT";
@@ -28,6 +29,8 @@ export interface InventoryMovementDTO {
     transactionType: TransactionType;
     direction: InventoryMovementDirection;
     quantity: number;
+    quantityBase: number;
+    unitOfMeasure?: string | null;
     storageId?: string | null;
     storageName?: string | null;
     storageBranchId?: string | null;
@@ -51,13 +54,18 @@ export interface InventoryRowDTO {
     sku: string;
     barcode?: string | null;
     unitOfMeasure: string;
+    unitConversionFactor: number;
     baseCost: number;
     basePrice: number;
     trackInventory: boolean;
     totalStock: number;
+    totalStockBase: number;
     availableStock: number;
+    availableStockBase: number;
     committedStock: number;
+    committedStockBase: number;
     incomingStock: number;
+    incomingStockBase: number;
     minimumStock: number;
     maximumStock: number;
     reorderPoint: number;
@@ -70,6 +78,7 @@ export interface InventoryRowDTO {
     isBelowMinimum: boolean;
     isBelowReorder: boolean;
     inventoryValueCost: number;
+    inventoryValueCostBase: number;
     storageBreakdown: InventoryStorageBreakdown[];
     movements: InventoryMovementDTO[];
 }
@@ -206,6 +215,9 @@ export async function getInventoryStock(params?: GetInventoryStockParams): Promi
         .addSelect("line.productName", "productNameSnapshot")
         .addSelect("line.variantName", "variantNameSnapshot")
         .addSelect("line.quantity", "quantity")
+        .addSelect("line.quantityInBase", "quantityInBase")
+        .addSelect("line.unitOfMeasure", "unitOfMeasure")
+        .addSelect("line.unitConversionFactor", "unitConversionFactor")
         .addSelect("tx.id", "transactionId")
         .addSelect("tx.transactionType", "transactionType")
         .addSelect("tx.documentNumber", "documentNumber")
@@ -243,6 +255,7 @@ export async function getInventoryStock(params?: GetInventoryStockParams): Promi
         const product = variant.product as Product | undefined;
         const baseCost = Number(variant.baseCost || 0);
         const basePrice = Number(variant.basePrice || 0);
+        const unitConversionFactor = Number(variant.unit?.conversionFactor ?? 1);
 
         return {
             id: variant.id,
@@ -253,13 +266,18 @@ export async function getInventoryStock(params?: GetInventoryStockParams): Promi
             sku: variant.sku,
             barcode: variant.barcode ?? null,
             unitOfMeasure: variant.unit?.symbol ?? '',
+            unitConversionFactor,
             baseCost,
             basePrice,
             trackInventory: variant.trackInventory,
             totalStock: 0,
+            totalStockBase: 0,
             availableStock: 0,
+            availableStockBase: 0,
             committedStock: 0,
+            committedStockBase: 0,
             incomingStock: 0,
+            incomingStockBase: 0,
             minimumStock: variant.minimumStock ?? 0,
             maximumStock: variant.maximumStock ?? 0,
             reorderPoint: variant.reorderPoint ?? 0,
@@ -272,6 +290,7 @@ export async function getInventoryStock(params?: GetInventoryStockParams): Promi
             isBelowMinimum: false,
             isBelowReorder: false,
             inventoryValueCost: 0,
+            inventoryValueCostBase: 0,
             storageBreakdown: [],
             movements: [],
         };
@@ -290,6 +309,19 @@ export async function getInventoryStock(params?: GetInventoryStockParams): Promi
         const quantity = Number(raw.quantity ?? 0);
         if (!quantity) continue;
 
+        const rawConversion = raw.unitConversionFactor !== undefined && raw.unitConversionFactor !== null
+            ? Number(raw.unitConversionFactor)
+            : null;
+        const rawQuantityInBase = raw.quantityInBase !== undefined && raw.quantityInBase !== null
+            ? Number(raw.quantityInBase)
+            : null;
+        const unitOfMeasureSnapshot = (raw.unitOfMeasure as string | null) ?? row.unitOfMeasure ?? null;
+        const quantityInBase = rawQuantityInBase !== null && rawQuantityInBase !== undefined
+            ? rawQuantityInBase
+            : rawConversion !== null && rawConversion !== undefined
+                ? Number((quantity * rawConversion).toFixed(6))
+                : quantity;
+
         const transactionType = raw.transactionType as TransactionType;
         const direction = resolveDirection(transactionType);
         if (!direction) continue;
@@ -303,6 +335,7 @@ export async function getInventoryStock(params?: GetInventoryStockParams): Promi
             : new Date(raw.createdAt).toISOString();
 
         const signedQuantity = direction === "IN" ? quantity : -quantity;
+        const signedBaseQuantity = direction === "IN" ? quantityInBase : -quantityInBase;
 
         if (storageId) {
             if (!storageBreakdownMap.has(variantId)) {
@@ -316,13 +349,16 @@ export async function getInventoryStock(params?: GetInventoryStockParams): Promi
                     branchId: storageEntity?.branchId,
                     branchName: storageEntity?.branch?.name,
                     quantity: 0,
+                    quantityBase: 0,
                 });
             }
             const entry = breakdownMap.get(storageId)!;
             entry.quantity = Number((entry.quantity + signedQuantity).toFixed(4));
+            entry.quantityBase = Number((entry.quantityBase + signedBaseQuantity).toFixed(4));
         }
 
         row.totalStock = Number((row.totalStock + signedQuantity).toFixed(4));
+        row.totalStockBase = Number((row.totalStockBase + signedBaseQuantity).toFixed(4));
 
         row.movements.push({
             transactionId: raw.transactionId as string,
@@ -330,6 +366,8 @@ export async function getInventoryStock(params?: GetInventoryStockParams): Promi
             transactionType,
             direction,
             quantity: Math.abs(quantity),
+            quantityBase: Math.abs(quantityInBase),
+            unitOfMeasure: unitOfMeasureSnapshot,
             storageId,
             storageName: storageEntity?.name ?? (raw.storageName as string | null) ?? null,
             storageBranchId: storageEntity?.branchId ?? null,
@@ -367,6 +405,7 @@ export async function getInventoryStock(params?: GetInventoryStockParams): Promi
             row.storageBreakdown = entries.map((entry) => ({
                 ...entry,
                 quantity: Number(entry.quantity.toFixed(4)),
+                quantityBase: Number(entry.quantityBase.toFixed(4)),
             }));
 
             row.storageCount = row.storageBreakdown.length;
@@ -377,7 +416,14 @@ export async function getInventoryStock(params?: GetInventoryStockParams): Promi
         }
 
         row.availableStock = row.totalStock - row.committedStock + row.incomingStock;
+        row.availableStockBase = row.totalStockBase - row.committedStockBase + row.incomingStockBase;
+
+        const costPerBaseUnit = row.unitConversionFactor
+            ? row.baseCost / row.unitConversionFactor
+            : row.baseCost;
+
         row.inventoryValueCost = Number((row.totalStock * row.baseCost).toFixed(2));
+        row.inventoryValueCostBase = Number((row.totalStockBase * costPerBaseUnit).toFixed(2));
 
         row.isBelowMinimum = row.minimumStock > 0 && row.totalStock < row.minimumStock;
         row.isBelowReorder = row.reorderPoint > 0 && row.totalStock <= row.reorderPoint;

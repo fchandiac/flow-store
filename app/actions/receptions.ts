@@ -7,6 +7,7 @@ import { TransactionLine } from '@/data/entities/TransactionLine';
 import { ProductVariant } from '@/data/entities/ProductVariant';
 import { Supplier } from '@/data/entities/Supplier';
 import { Storage } from '@/data/entities/Storage';
+import { In } from 'typeorm';
 import { getCurrentSession } from './auth.server';
 import { createTransaction } from './transactions';
 
@@ -369,10 +370,26 @@ export async function createReceptionFromPurchaseOrder(
         });
 
         // Preparar líneas para la transacción
+        const variantRepo = ds.getRepository(ProductVariant);
+        const variantIds = Array.from(new Set(data.lines.map((line) => line.productVariantId).filter(Boolean)));
+        const variants = variantIds.length
+            ? await variantRepo.find({ where: { id: In(variantIds) } })
+            : [];
+        const variantMap = new Map(variants.map((variant) => [variant.id, variant]));
+
         const transactionLines = data.lines.map((line) => {
             const originalLine = originalLines.find(
                 (ol) => ol.productVariantId === line.productVariantId
             );
+            const variant = variantMap.get(line.productVariantId);
+            const unit = variant?.unit;
+            const quantity = Number(line.receivedQuantity);
+            const conversionFromVariant = Number(unit?.conversionFactor ?? 1);
+            const conversionFromOriginal = originalLine?.unitConversionFactor !== undefined && originalLine?.unitConversionFactor !== null
+                ? Number(originalLine.unitConversionFactor)
+                : null;
+            const effectiveConversion = conversionFromVariant || conversionFromOriginal || 1;
+            const quantityInBase = Number((quantity * effectiveConversion).toFixed(6));
 
             return {
                 productId: originalLine?.productId ?? '',
@@ -380,9 +397,13 @@ export async function createReceptionFromPurchaseOrder(
                 productName: originalLine?.productName ?? 'Producto',
                 productSku: originalLine?.productSku ?? '',
                 variantName: originalLine?.variantName,
-                quantity: line.receivedQuantity,
-                unitPrice: line.unitPrice,
-                unitCost: line.unitCost ?? line.unitPrice,
+                quantity,
+                quantityInBase,
+                unitId: unit?.id ?? originalLine?.unitId ?? variant?.unitId ?? undefined,
+                unitOfMeasure: unit?.symbol ?? originalLine?.unitOfMeasure ?? undefined,
+                unitConversionFactor: effectiveConversion,
+                unitPrice: Number(line.unitPrice),
+                unitCost: Number(line.unitCost ?? line.unitPrice),
                 discountAmount: 0,
                 discountPercentage: 0,
                 taxAmount: 0,
@@ -517,6 +538,10 @@ export async function createDirectReception(
         const transactionLines = data.lines.map((line) => {
             const variant = variantMap.get(line.productVariantId)!;
             const product = variant.product;
+            const unit = variant.unit;
+            const quantity = Number(line.receivedQuantity);
+            const conversionFactor = Number(unit?.conversionFactor ?? 1);
+            const quantityInBase = Number((quantity * conversionFactor).toFixed(6));
 
             return {
                 productId: product?.id ?? '',
@@ -524,9 +549,13 @@ export async function createDirectReception(
                 productName: product?.name ?? 'Producto',
                 productSku: variant.sku,
                 variantName: Object.values(variant.attributeValues ?? {}).join(', '),
-                quantity: line.receivedQuantity,
-                unitPrice: line.unitPrice,
-                unitCost: line.unitCost ?? line.unitPrice,
+                quantity,
+                quantityInBase,
+                unitId: unit?.id ?? variant.unitId ?? undefined,
+                unitOfMeasure: unit?.symbol ?? undefined,
+                unitConversionFactor: conversionFactor,
+                unitPrice: Number(line.unitPrice),
+                unitCost: Number(line.unitCost ?? line.unitPrice),
                 discountAmount: 0,
                 discountPercentage: 0,
                 taxAmount: 0,

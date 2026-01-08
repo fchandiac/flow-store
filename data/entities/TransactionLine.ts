@@ -11,6 +11,7 @@ import { Transaction } from "./Transaction";
 import { Product } from "./Product";
 import { ProductVariant } from "./ProductVariant";
 import { Tax } from "./Tax";
+import { Unit } from "./Unit";
 
 /**
  * TransactionLine - Línea de detalle de transacción
@@ -34,6 +35,9 @@ export class TransactionLine {
     productVariantId?: string;
 
     @Column({ type: 'uuid', nullable: true })
+    unitId?: string;
+
+    @Column({ type: 'uuid', nullable: true })
     taxId?: string;
 
     // Número de línea para ordenamiento
@@ -54,8 +58,14 @@ export class TransactionLine {
     @Column({ type: 'decimal', precision: 15, scale: 4 })
     quantity!: number;
 
+    @Column({ type: 'decimal', precision: 18, scale: 6, nullable: true })
+    quantityInBase?: number | null;
+
     @Column({ type: 'varchar', length: 20, nullable: true })
     unitOfMeasure?: string;
+
+    @Column({ type: 'decimal', precision: 18, scale: 9, nullable: true })
+    unitConversionFactor?: number | null;
 
     // Precios
     @Column({ type: 'decimal', precision: 15, scale: 2 })
@@ -105,6 +115,10 @@ export class TransactionLine {
     @ManyToOne(() => ProductVariant, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'productVariantId' })
     productVariant?: ProductVariant;
+
+    @ManyToOne(() => Unit, { onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'unitId' })
+    unit?: Unit;
 
     @ManyToOne(() => Tax, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'taxId' })

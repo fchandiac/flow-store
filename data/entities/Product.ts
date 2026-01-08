@@ -10,6 +10,7 @@ import {
     JoinColumn,
 } from "typeorm";
 import { Category } from "./Category";
+import { Unit } from "./Unit";
 
 export enum ProductType {
     PHYSICAL = 'PHYSICAL',
@@ -55,6 +56,9 @@ export class Product {
     @Column({ type: 'boolean', default: true })
     isActive!: boolean;
 
+    @Column({ type: 'uuid', nullable: true, name: 'base_unit_id' })
+    baseUnitId?: string;
+
     /**
      * Indica si el producto tiene múltiples variantes definidas por el usuario.
      * Si false, tiene una única variante "default" creada automáticamente.
@@ -78,6 +82,10 @@ export class Product {
     @ManyToOne(() => Category, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'categoryId' })
     category?: Category;
+
+    @ManyToOne(() => Unit, { onDelete: 'RESTRICT' })
+    @JoinColumn({ name: 'base_unit_id' })
+    baseUnit?: Unit;
 
     // Note: ProductVariant has ManyToOne to Product
     // We don't define inverse OneToMany here to avoid circular metadata issues

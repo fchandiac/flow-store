@@ -5,12 +5,12 @@ import { Product, ProductType } from '@/data/entities/Product';
 import { ProductVariant } from '@/data/entities/ProductVariant';
 import { Category } from '@/data/entities/Category';
 import { PriceList } from '@/data/entities/PriceList';
-import { PriceListItem } from '@/data/entities/PriceListItem';
 import { Tax } from '@/data/entities/Tax';
 import { Unit } from '@/data/entities/Unit';
 import { computePriceWithTaxes } from '@/lib/pricing/priceCalculations';
 import { revalidatePath } from 'next/cache';
 import { In, IsNull } from 'typeorm';
+import { PriceListItem } from '@/data/entities/PriceListItem';
 
 // Types
 interface GetProductsParams {
@@ -33,6 +33,8 @@ interface CreateSimpleProductDTO {
     taxIds?: string[];
     imagePath?: string;
     metadata?: Record<string, any>;
+    isActive?: boolean;
+    baseUnitId: string;
     // Datos de la variante default
     sku: string;
     barcode?: string;
@@ -60,6 +62,7 @@ interface CreateProductWithVariantsDTO {
     taxIds?: string[];
     imagePath?: string;
     metadata?: Record<string, any>;
+    baseUnitId: string;
 }
 
 interface CreateProductMasterDTO {
@@ -73,6 +76,7 @@ interface CreateProductMasterDTO {
     metadata?: Record<string, any>;
     hasVariants?: boolean;
     isActive?: boolean;
+    baseUnitId: string;
 }
 
 interface UpdateProductDTO {
@@ -85,6 +89,7 @@ interface UpdateProductDTO {
     imagePath?: string;
     metadata?: Record<string, any>;
     isActive?: boolean;
+    baseUnitId?: string;
 }
 
 interface ProductResult {
@@ -97,6 +102,14 @@ interface ProductResult {
 /**
  * Resumen de variante para mostrar en panel expandible
  */
+export interface VariantPriceListSummary {
+    priceListId: string;
+    priceListName: string;
+    currency: string;
+    netPrice: number;
+    grossPrice: number;
+}
+
 export interface VariantSummary {
     id: string;
     sku: string;
@@ -108,6 +121,7 @@ export interface VariantSummary {
     attributeValues?: Record<string, string>;
     isDefault: boolean;
     isActive: boolean;
+    priceListItems?: VariantPriceListSummary[];
 }
 
 /**
@@ -125,6 +139,9 @@ export interface ProductWithDefaultVariant {
     isActive: boolean;
     imagePath?: string;
     createdAt: Date;
+    baseUnitId?: string;
+    baseUnitSymbol?: string;
+    baseUnitName?: string;
     // Datos de variante default (si es producto simple)
     sku?: string;
     trackInventory?: boolean;
@@ -143,6 +160,7 @@ export async function createProductMaster(data: CreateProductMasterDTO): Promise
     try {
         const ds = await getDb();
         const productRepo = ds.getRepository(Product);
+        const unitRepo = ds.getRepository(Unit);
 
         if (data.categoryId) {
             const categoryRepo = ds.getRepository(Category);
@@ -153,6 +171,14 @@ export async function createProductMaster(data: CreateProductMasterDTO): Promise
             if (!category) {
                 return { success: false, error: 'Categoría no encontrada' };
             }
+        }
+
+        const baseUnit = await unitRepo.findOne({
+            where: { id: data.baseUnitId, deletedAt: IsNull(), active: true },
+        });
+
+        if (!baseUnit || !baseUnit.isBase) {
+            return { success: false, error: 'Unidad base no encontrada o inactiva' };
         }
 
         const product = productRepo.create({
@@ -166,6 +192,8 @@ export async function createProductMaster(data: CreateProductMasterDTO): Promise
             metadata: data.metadata,
             hasVariants: data.hasVariants ?? true,
             isActive: data.isActive ?? true,
+            baseUnitId: baseUnit.id,
+            baseUnit,
         });
 
         await productRepo.save(product);
@@ -188,9 +216,11 @@ export async function getProducts(params?: GetProductsParams): Promise<ProductWi
     const ds = await getDb();
     const productRepo = ds.getRepository(Product);
     const variantRepo = ds.getRepository(ProductVariant);
+    const priceListItemRepo = ds.getRepository(PriceListItem);
     
     const queryBuilder = productRepo.createQueryBuilder('product')
         .leftJoinAndSelect('product.category', 'category')
+        .leftJoinAndSelect('product.baseUnit', 'baseUnit')
         .where('product.deletedAt IS NULL');
     
     if (params?.search) {
@@ -230,6 +260,41 @@ export async function getProducts(params?: GetProductsParams): Promise<ProductWi
             where: { productId: product.id, deletedAt: IsNull() },
             order: { isDefault: 'DESC', sku: 'ASC' }
         });
+
+        const variantIds = variants.map(v => v.id);
+        let priceListItemsByVariant: Record<string, VariantPriceListSummary[]> = {};
+
+        if (variantIds.length > 0) {
+            const items = await priceListItemRepo.find({
+                where: {
+                    productVariantId: In(variantIds),
+                    deletedAt: IsNull(),
+                },
+                relations: ['priceList'],
+            });
+
+            priceListItemsByVariant = items.reduce<Record<string, VariantPriceListSummary[]>>((acc, item) => {
+                if (!item.productVariantId) {
+                    return acc;
+                }
+
+                const current = acc[item.productVariantId] ?? [];
+                current.push({
+                    priceListId: item.priceListId ?? '',
+                    priceListName: item.priceList?.name ?? 'Lista sin nombre',
+                    currency: item.priceList?.currency ?? 'CLP',
+                    netPrice: Number(item.netPrice),
+                    grossPrice: Number(item.grossPrice),
+                });
+
+                acc[item.productVariantId] = current;
+                return acc;
+            }, {});
+
+            for (const key of Object.keys(priceListItemsByVariant)) {
+                priceListItemsByVariant[key].sort((a, b) => a.priceListName.localeCompare(b.priceListName));
+            }
+        }
         
         const defaultVariant = variants.find(v => v.isDefault) || variants[0];
         
@@ -245,6 +310,9 @@ export async function getProducts(params?: GetProductsParams): Promise<ProductWi
             isActive: product.isActive,
             imagePath: product.imagePath,
             createdAt: product.createdAt,
+            baseUnitId: product.baseUnit?.id ?? product.baseUnitId,
+            baseUnitSymbol: product.baseUnit?.symbol,
+            baseUnitName: product.baseUnit?.name,
             // Datos de variante default
             sku: defaultVariant?.sku,
             barcode: defaultVariant?.barcode,
@@ -266,7 +334,8 @@ export async function getProducts(params?: GetProductsParams): Promise<ProductWi
                 unitOfMeasure: v.unit?.symbol ?? '',
                 attributeValues: v.attributeValues,
                 isDefault: v.isDefault,
-                isActive: v.isActive
+                isActive: v.isActive,
+                priceListItems: priceListItemsByVariant[v.id] ?? [],
             }))
         });
     }
@@ -284,7 +353,7 @@ export async function getProductById(id: string): Promise<(Product & { variants?
     
     const product = await productRepo.findOne({
         where: { id, deletedAt: IsNull() },
-        relations: ['category']
+        relations: ['category', 'baseUnit']
     });
     
     if (!product) return null;
@@ -351,6 +420,19 @@ export async function createSimpleProduct(data: CreateSimpleProductDTO): Promise
         if (!unit.isBase && (!unit.baseUnit || unit.baseUnit.dimension !== unit.dimension)) {
             return { success: false, error: 'Unidad de medida inválida para el producto' };
         }
+
+        const baseUnit = await unitRepo.findOne({
+            where: { id: data.baseUnitId, deletedAt: IsNull(), active: true },
+        });
+
+        if (!baseUnit || !baseUnit.isBase) {
+            return { success: false, error: 'Unidad base no encontrada o inactiva' };
+        }
+
+        const resolvedVariantBaseId = unit.isBase ? unit.id : unit.baseUnit?.id;
+        if (resolvedVariantBaseId !== baseUnit.id) {
+            return { success: false, error: 'La unidad seleccionada para la variante no corresponde con la unidad base del producto' };
+        }
         
         // Crear producto maestro
         const product = productRepo.create({
@@ -363,7 +445,9 @@ export async function createSimpleProduct(data: CreateSimpleProductDTO): Promise
             imagePath: data.imagePath,
             metadata: data.metadata,
             hasVariants: false, // Producto simple
-            isActive: true
+            isActive: data.isActive ?? true,
+            baseUnitId: baseUnit.id,
+            baseUnit,
         });
         
         await productRepo.save(product);
@@ -448,6 +532,7 @@ export async function createProductWithVariants(data: CreateProductWithVariantsD
     try {
         const ds = await getDb();
         const productRepo = ds.getRepository(Product);
+        const unitRepo = ds.getRepository(Unit);
         
         // Verificar categoría si se proporciona
         if (data.categoryId) {
@@ -458,6 +543,14 @@ export async function createProductWithVariants(data: CreateProductWithVariantsD
             if (!category) {
                 return { success: false, error: 'Categoría no encontrada' };
             }
+        }
+
+        const baseUnit = await unitRepo.findOne({
+            where: { id: data.baseUnitId, deletedAt: IsNull(), active: true },
+        });
+
+        if (!baseUnit || !baseUnit.isBase) {
+            return { success: false, error: 'Unidad base no encontrada o inactiva' };
         }
         
         const product = productRepo.create({
@@ -470,7 +563,9 @@ export async function createProductWithVariants(data: CreateProductWithVariantsD
             imagePath: data.imagePath,
             metadata: data.metadata,
             hasVariants: true, // Producto con variantes múltiples
-            isActive: true
+            isActive: true,
+            baseUnitId: baseUnit.id,
+            baseUnit,
         });
         
         await productRepo.save(product);
@@ -493,6 +588,8 @@ export async function updateProduct(id: string, data: UpdateProductDTO): Promise
     try {
         const ds = await getDb();
         const productRepo = ds.getRepository(Product);
+        const unitRepo = ds.getRepository(Unit);
+        const variantRepo = ds.getRepository(ProductVariant);
         
         const product = await productRepo.findOne({
             where: { id, deletedAt: IsNull() }
@@ -502,6 +599,41 @@ export async function updateProduct(id: string, data: UpdateProductDTO): Promise
             return { success: false, error: 'Producto no encontrado' };
         }
         
+        if (data.baseUnitId !== undefined) {
+            if (!data.baseUnitId) {
+                return { success: false, error: 'Debe seleccionar una unidad base válida' };
+            }
+
+            const baseUnit = await unitRepo.findOne({
+                where: { id: data.baseUnitId, deletedAt: IsNull(), active: true },
+            });
+
+            if (!baseUnit || !baseUnit.isBase) {
+                return { success: false, error: 'Unidad base no encontrada o inactiva' };
+            }
+
+            const variants = await variantRepo.find({
+                where: { productId: id, deletedAt: IsNull() },
+                relations: ['unit'],
+            });
+
+            const incompatibleVariant = variants.find((variant) => {
+                const unit = variant.unit;
+                if (!unit) {
+                    return true;
+                }
+                const variantBaseId = unit.isBase ? unit.id : unit.baseUnitId;
+                return variantBaseId !== baseUnit.id;
+            });
+
+            if (incompatibleVariant) {
+                return { success: false, error: 'Existen variantes con unidades incompatibles con la unidad base solicitada' };
+            }
+
+            product.baseUnitId = baseUnit.id;
+            product.baseUnit = baseUnit;
+        }
+
         // Actualizar campos
         if (data.name !== undefined) product.name = data.name;
         if (data.description !== undefined) product.description = data.description;
@@ -684,6 +816,7 @@ export async function searchProducts(query: string, limit: number = 20): Promise
     
     const products = await productRepo.createQueryBuilder('product')
         .leftJoinAndSelect('product.category', 'category')
+        .leftJoinAndSelect('product.baseUnit', 'baseUnit')
         .where('product.deletedAt IS NULL')
         .andWhere('product.isActive = true')
         .andWhere(
@@ -721,6 +854,9 @@ export async function searchProducts(query: string, limit: number = 20): Promise
             isActive: product.isActive,
             imagePath: product.imagePath,
             createdAt: product.createdAt,
+            baseUnitId: product.baseUnit?.id ?? product.baseUnitId,
+            baseUnitSymbol: product.baseUnit?.symbol,
+            baseUnitName: product.baseUnit?.name,
             sku: defaultVariant?.sku,
             barcode: defaultVariant?.barcode,
             basePrice: defaultVariant ? Number(defaultVariant.basePrice) : undefined,

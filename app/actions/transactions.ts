@@ -3,6 +3,7 @@
 import { getDb } from '@/data/db';
 import { Transaction, TransactionType, TransactionStatus, PaymentMethod } from '@/data/entities/Transaction';
 import { TransactionLine } from '@/data/entities/TransactionLine';
+import { ProductVariant } from '@/data/entities/ProductVariant';
 import { CashSession } from '@/data/entities/CashSession';
 import { revalidatePath } from 'next/cache';
 
@@ -34,6 +35,10 @@ interface TransactionLineDTO {
     productSku: string;
     variantName?: string;
     quantity: number;
+    unitId?: string;
+    unitOfMeasure?: string;
+    unitConversionFactor?: number;
+    quantityInBase?: number;
     unitPrice: number;
     unitCost?: number;
     discountPercentage?: number;
@@ -194,7 +199,9 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
     try {
         const transactionRepo = queryRunner.manager.getRepository(Transaction);
         const lineRepo = queryRunner.manager.getRepository(TransactionLine);
+        const variantRepo = queryRunner.manager.getRepository(ProductVariant);
         const cashSessionRepo = queryRunner.manager.getRepository(CashSession);
+        const variantCache = new Map<string, ProductVariant>();
         
         // Validaciones
         if (!data.lines || data.lines.length === 0) {
@@ -220,9 +227,11 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
         let totalTax = 0;
         
         for (const line of data.lines) {
-            const lineSubtotal = line.quantity * line.unitPrice;
-            const lineDiscount = line.discountAmount ?? 0;
-            const lineTax = line.taxAmount ?? 0;
+            const lineQuantity = Number(line.quantity);
+            const lineUnitPrice = Number(line.unitPrice);
+            const lineSubtotal = lineQuantity * lineUnitPrice;
+            const lineDiscount = Number(line.discountAmount ?? 0);
+            const lineTax = Number(line.taxAmount ?? 0);
             
             subtotal += lineSubtotal;
             totalDiscount += lineDiscount;
@@ -273,8 +282,61 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
         // Crear líneas y actualizar inventario
         for (let i = 0; i < data.lines.length; i++) {
             const lineData = data.lines[i];
-            const lineSubtotal = lineData.quantity * lineData.unitPrice;
-            const lineTotal = lineSubtotal - (lineData.discountAmount ?? 0) + (lineData.taxAmount ?? 0);
+            const lineQuantity = Number(lineData.quantity);
+            const lineUnitPrice = Number(lineData.unitPrice);
+            const lineUnitCost = lineData.unitCost !== undefined && lineData.unitCost !== null
+                ? Number(lineData.unitCost)
+                : undefined;
+            const lineDiscountAmount = lineData.discountAmount !== undefined && lineData.discountAmount !== null
+                ? Number(lineData.discountAmount)
+                : 0;
+            const lineTaxAmount = lineData.taxAmount !== undefined && lineData.taxAmount !== null
+                ? Number(lineData.taxAmount)
+                : 0;
+            const lineSubtotal = lineQuantity * lineUnitPrice;
+            const lineTotal = lineSubtotal - lineDiscountAmount + lineTaxAmount;
+
+            let unitId = lineData.unitId ?? null;
+            let unitOfMeasure = lineData.unitOfMeasure ?? null;
+            let unitConversionFactor = lineData.unitConversionFactor ?? null;
+            let quantityInBase = lineData.quantityInBase ?? null;
+
+            if ((!unitId || !unitOfMeasure || unitConversionFactor === null || unitConversionFactor === undefined) && lineData.productVariantId) {
+                let variant = variantCache.get(lineData.productVariantId);
+                if (!variant) {
+                    const fetchedVariant = await variantRepo.findOne({ where: { id: lineData.productVariantId } });
+                    if (fetchedVariant) {
+                        variantCache.set(lineData.productVariantId, fetchedVariant);
+                        variant = fetchedVariant;
+                    }
+                }
+
+                if (variant?.unit) {
+                    unitId = unitId ?? variant.unitId;
+                    unitOfMeasure = unitOfMeasure ?? variant.unit.symbol;
+                    unitConversionFactor = unitConversionFactor ?? Number(variant.unit.conversionFactor ?? 1);
+                }
+            }
+
+            const effectiveConversion = unitConversionFactor !== null && unitConversionFactor !== undefined
+                ? Number(unitConversionFactor)
+                : unitId
+                    ? 1
+                    : null;
+
+            if (quantityInBase === null || quantityInBase === undefined) {
+                if (effectiveConversion !== null && effectiveConversion !== undefined) {
+                    quantityInBase = Number((lineQuantity * effectiveConversion).toFixed(6));
+                } else {
+                    quantityInBase = Number(lineQuantity);
+                }
+            } else {
+                quantityInBase = Number(quantityInBase);
+            }
+
+            const normalizedConversion = effectiveConversion !== null && effectiveConversion !== undefined
+                ? Number(effectiveConversion)
+                : null;
             
             const line = lineRepo.create({
                 transactionId: transaction.id,
@@ -284,13 +346,17 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
                 productName: lineData.productName,
                 productSku: lineData.productSku,
                 variantName: lineData.variantName,
-                quantity: lineData.quantity,
-                unitPrice: lineData.unitPrice,
-                unitCost: lineData.unitCost,
-                discountPercentage: lineData.discountPercentage ?? 0,
-                discountAmount: lineData.discountAmount ?? 0,
-                taxRate: lineData.taxRate ?? 0,
-                taxAmount: lineData.taxAmount ?? 0,
+                quantity: lineQuantity,
+                quantityInBase: quantityInBase,
+                unitOfMeasure: unitOfMeasure ?? undefined,
+                unitId: unitId ?? undefined,
+                unitConversionFactor: normalizedConversion ?? undefined,
+                unitPrice: lineUnitPrice,
+                unitCost: lineUnitCost,
+                discountPercentage: Number(lineData.discountPercentage ?? 0),
+                discountAmount: lineDiscountAmount,
+                taxRate: Number(lineData.taxRate ?? 0),
+                taxAmount: lineTaxAmount,
                 subtotal: lineSubtotal,
                 total: lineTotal,
                 notes: lineData.notes
@@ -368,13 +434,21 @@ export async function cancelTransaction(
         productName: `[DEVOLUCIÓN] ${line.productName}`,
         productSku: line.productSku,
         variantName: line.variantName,
-        quantity: line.quantity, // Positivo, el tipo de transacción determina el efecto
-        unitPrice: line.unitPrice,
-        unitCost: line.unitCost,
-        discountPercentage: line.discountPercentage,
-        discountAmount: line.discountAmount,
-        taxRate: line.taxRate,
-        taxAmount: line.taxAmount,
+        quantity: Number(line.quantity),
+        unitId: line.unitId ?? undefined,
+        unitOfMeasure: line.unitOfMeasure ?? undefined,
+        unitConversionFactor: line.unitConversionFactor !== undefined && line.unitConversionFactor !== null
+            ? Number(line.unitConversionFactor)
+            : undefined,
+        quantityInBase: line.quantityInBase !== undefined && line.quantityInBase !== null
+            ? Number(line.quantityInBase)
+            : undefined,
+        unitPrice: Number(line.unitPrice),
+        unitCost: line.unitCost !== undefined && line.unitCost !== null ? Number(line.unitCost) : undefined,
+        discountPercentage: Number(line.discountPercentage ?? 0),
+        discountAmount: Number(line.discountAmount ?? 0),
+        taxRate: Number(line.taxRate ?? 0),
+        taxAmount: Number(line.taxAmount ?? 0),
         notes: `Devolución de ${original.documentNumber}: ${reason}`
     }));
     

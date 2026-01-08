@@ -77,8 +77,10 @@ interface UnitOption {
 interface PriceEntryState {
     id: string;
     priceListId: string;
+    netPrice: string;
     grossPrice: string;
     taxIds: string[];
+    lastEdited: 'net' | 'gross' | null;
 }
 
 const parseCurrencyInput = (value: string | number): number => {
@@ -421,13 +423,29 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
         });
     };
 
+    const formatAmountForInput = (value: number): string => (Number.isFinite(value) ? value.toFixed(2) : '');
+
+    const parseAmountFromInput = (value: string): number | undefined => {
+        if (typeof value !== 'string') {
+            return undefined;
+        }
+        const trimmed = value.trim();
+        if (!trimmed) {
+            return undefined;
+        }
+        const parsed = roundCurrencyValue(parseCurrencyInput(trimmed));
+        return Number.isFinite(parsed) ? parsed : undefined;
+    };
+
     const createPriceEntry = (overrides?: Partial<PriceEntryState>): PriceEntryState => ({
         id: typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
             ? crypto.randomUUID()
             : Math.random().toString(36).slice(2),
         priceListId: '',
+        netPrice: '',
         grossPrice: '',
         taxIds: [...defaultTaxIds],
+        lastEdited: null,
         ...overrides,
     });
 
@@ -445,6 +463,12 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
         setPriceEntries((prev) => prev.filter((entry) => entry.id !== entryId));
     };
 
+    const resolveTaxRates = (taxIds: string[]) =>
+        taxIds.map((taxId) => {
+            const tax = taxes.find((item) => item.id === taxId);
+            return tax ? Number(tax.rate) || 0 : 0;
+        });
+
     const handleUpdatePriceEntry = (entryId: string, updates: Partial<PriceEntryState>) => {
         setPriceEntries((prev) =>
             prev.map((entry) =>
@@ -458,6 +482,106 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
         );
     };
 
+    const handleNetPriceChange = (entryId: string, rawValue: string) => {
+        setPriceEntries((prev) =>
+            prev.map((entry) => {
+                if (entry.id !== entryId) {
+                    return entry;
+                }
+
+                const trimmed = rawValue.trim();
+                if (!trimmed) {
+                    return {
+                        ...entry,
+                        netPrice: '',
+                        grossPrice: '',
+                        lastEdited: null,
+                    };
+                }
+
+                const netValue = parseAmountFromInput(rawValue);
+                if (netValue === undefined) {
+                    return {
+                        ...entry,
+                        netPrice: rawValue,
+                        lastEdited: 'net',
+                    };
+                }
+
+                try {
+                    const computed = computePriceWithTaxes({
+                        netPrice: netValue,
+                        taxRates: resolveTaxRates(entry.taxIds),
+                    });
+
+                    return {
+                        ...entry,
+                        netPrice: formatAmountForInput(computed.netPrice),
+                        grossPrice: formatAmountForInput(computed.grossPrice),
+                        lastEdited: 'net',
+                    };
+                } catch (err) {
+                    console.error('Error computing price from net value', err);
+                    return {
+                        ...entry,
+                        netPrice: rawValue,
+                        lastEdited: 'net',
+                    };
+                }
+            })
+        );
+    };
+
+    const handleGrossPriceChange = (entryId: string, rawValue: string) => {
+        setPriceEntries((prev) =>
+            prev.map((entry) => {
+                if (entry.id !== entryId) {
+                    return entry;
+                }
+
+                const trimmed = rawValue.trim();
+                if (!trimmed) {
+                    return {
+                        ...entry,
+                        netPrice: '',
+                        grossPrice: '',
+                        lastEdited: null,
+                    };
+                }
+
+                const grossValue = parseAmountFromInput(rawValue);
+                if (grossValue === undefined) {
+                    return {
+                        ...entry,
+                        grossPrice: rawValue,
+                        lastEdited: 'gross',
+                    };
+                }
+
+                try {
+                    const computed = computePriceWithTaxes({
+                        grossPrice: grossValue,
+                        taxRates: resolveTaxRates(entry.taxIds),
+                    });
+
+                    return {
+                        ...entry,
+                        netPrice: formatAmountForInput(computed.netPrice),
+                        grossPrice: formatAmountForInput(computed.grossPrice),
+                        lastEdited: 'gross',
+                    };
+                } catch (err) {
+                    console.error('Error computing price from gross value', err);
+                    return {
+                        ...entry,
+                        grossPrice: rawValue,
+                        lastEdited: 'gross',
+                    };
+                }
+            })
+        );
+    };
+
     const handleTogglePriceEntryTax = (entryId: string, taxId: string, checked: boolean) => {
         setPriceEntries((prev) =>
             prev.map((entry) => {
@@ -467,10 +591,46 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                 const nextTaxIds = checked
                     ? Array.from(new Set([...entry.taxIds, taxId]))
                     : entry.taxIds.filter((id) => id !== taxId);
-                return {
-                    ...entry,
-                    taxIds: nextTaxIds,
-                };
+                const baseSource = entry.lastEdited
+                    ?? (entry.netPrice.trim() ? 'net' : entry.grossPrice.trim() ? 'gross' : null);
+                if (!baseSource) {
+                    return {
+                        ...entry,
+                        taxIds: nextTaxIds,
+                    };
+                }
+
+                const baseValue = baseSource === 'net'
+                    ? parseAmountFromInput(entry.netPrice)
+                    : parseAmountFromInput(entry.grossPrice);
+
+                if (baseValue === undefined) {
+                    return {
+                        ...entry,
+                        taxIds: nextTaxIds,
+                    };
+                }
+
+                try {
+                    const computed = computePriceWithTaxes({
+                        netPrice: baseSource === 'net' ? baseValue : undefined,
+                        grossPrice: baseSource === 'gross' ? baseValue : undefined,
+                        taxRates: resolveTaxRates(nextTaxIds),
+                    });
+
+                    return {
+                        ...entry,
+                        taxIds: nextTaxIds,
+                        netPrice: formatAmountForInput(computed.netPrice),
+                        grossPrice: formatAmountForInput(computed.grossPrice),
+                    };
+                } catch (err) {
+                    console.error('Error recomputing price after tax change', err);
+                    return {
+                        ...entry,
+                        taxIds: nextTaxIds,
+                    };
+                }
             })
         );
     };
@@ -491,18 +651,41 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
         }
 
         const priceListPayload = priceEntries.map((entry) => {
-            const grossPrice = roundCurrencyValue(parseCurrencyInput(entry.grossPrice));
-            return {
-                priceListId: entry.priceListId,
-                grossPrice,
-                taxIds: Array.from(new Set(entry.taxIds ?? [])),
-            };
+            const netValue = parseAmountFromInput(entry.netPrice);
+            const grossValue = parseAmountFromInput(entry.grossPrice);
+
+            if (netValue === undefined && grossValue === undefined) {
+                validationErrors.push('Cada precio debe incluir un valor neto o con impuestos.');
+                return null;
+            }
+
+            try {
+                const taxIds = Array.from(new Set(entry.taxIds ?? []));
+                const computed = computePriceWithTaxes({
+                    netPrice: netValue,
+                    grossPrice: grossValue,
+                    taxRates: resolveTaxRates(taxIds),
+                });
+
+                return {
+                    priceListId: entry.priceListId,
+                    netPrice: computed.netPrice,
+                    grossPrice: computed.grossPrice,
+                    taxIds,
+                };
+            } catch (err) {
+                console.error('Error computing price during submit', err);
+                validationErrors.push('No se pudo calcular el precio para una de las listas de precios.');
+                return null;
+            }
         });
+
+        const sanitizedPayload = priceListPayload.filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 
         const uniquePriceListIds = new Set<string>();
         let hasDuplicatedList = false;
 
-        priceListPayload.forEach(({ priceListId, grossPrice }) => {
+        sanitizedPayload.forEach(({ priceListId, netPrice, grossPrice }) => {
             if (!priceListId) {
                 validationErrors.push('Cada precio debe asociarse a una lista de precios.');
             } else if (uniquePriceListIds.has(priceListId)) {
@@ -511,7 +694,7 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                 uniquePriceListIds.add(priceListId);
             }
 
-            if (!Number.isFinite(grossPrice) || grossPrice <= 0) {
+            if (!Number.isFinite(netPrice) || netPrice <= 0 || !Number.isFinite(grossPrice) || grossPrice <= 0) {
                 validationErrors.push('Todos los precios deben ser mayores a 0.');
             }
         });
@@ -519,35 +702,32 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
         if (hasDuplicatedList) {
             validationErrors.push('No puede repetir la misma lista de precios más de una vez.');
         }
-        
+
+        if (sanitizedPayload.length === 0 || sanitizedPayload.length !== priceEntries.length) {
+            validationErrors.push('Debe definir al menos un precio de venta válido.');
+        }
+
         if (validationErrors.length > 0) {
-            setErrors(validationErrors);
+            setErrors(Array.from(new Set(validationErrors)));
             return;
         }
 
         setIsSubmitting(true);
         setErrors([]);
 
-        const firstPriceEntry = priceListPayload[0];
-        const firstEntryTaxRates = (firstPriceEntry.taxIds || []).map((id) => {
-            const tax = taxes.find((item) => item.id === id);
-            return tax ? tax.rate : 0;
-        });
-        const firstComputed = computePriceWithTaxes({
-            grossPrice: firstPriceEntry.grossPrice,
-            taxRates: firstEntryTaxRates,
-        });
+        const firstPriceEntry = sanitizedPayload[0];
+        const baseNetPrice = firstPriceEntry.netPrice;
 
         try {
             const result = await createVariant({
                 productId,
                 sku: formData.sku.trim(),
                 barcode: formData.barcode.trim() || undefined,
-                basePrice: firstComputed.netPrice,
+                basePrice: baseNetPrice,
                 baseCost: 0,
                 unitId: formData.unitId,
                 attributeValues: Object.keys(attributeValues).length > 0 ? attributeValues : undefined,
-                priceListItems: priceListPayload.map(({ priceListId, grossPrice, taxIds }) => ({
+                priceListItems: sanitizedPayload.map(({ priceListId, grossPrice, taxIds }) => ({
                     priceListId,
                     grossPrice,
                     taxIds,
@@ -744,10 +924,10 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                         </div>
                     </div>
 
-                    {/* Listas de precios */}
+                    {/* Precio de venta */}
                     <div className="space-y-4">
                         <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                            <h4 className="font-medium text-neutral-700">Listas de Precios</h4>
+                            <h4 className="font-medium text-neutral-700">Precio de Venta</h4>
                             <Button
                                 type="button"
                                 variant="outlined"
@@ -771,23 +951,39 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                                 <span className="material-symbols-outlined text-neutral-400 mb-2" style={{ fontSize: '2rem' }}>
                                     sell
                                 </span>
-                                <p>Agrega un precio seleccionando una lista y estableciendo un valor bruto para esta variante.</p>
+                                <p>Agrega un precio seleccionando una lista y definiendo el monto neto o el valor con impuestos para esta variante.</p>
                             </div>
                         ) : (
                             <div className="space-y-4">
                                 {priceEntries.map((entry, index) => {
                                     const selectedList = priceLists.find((list) => list.id === entry.priceListId);
                                     const currencyCode = selectedList?.currency || 'CLP';
-                                    const grossValue = roundCurrencyValue(parseCurrencyInput(entry.grossPrice));
-                                    const taxRates = entry.taxIds.map((taxId) => {
-                                        const tax = taxes.find((item) => item.id === taxId);
-                                        return tax ? Number(tax.rate) || 0 : 0;
-                                    });
-                                    const computedPrice = computePriceWithTaxes({
-                                        grossPrice: grossValue,
-                                        taxRates,
-                                    });
+                                    const netValue = parseAmountFromInput(entry.netPrice);
+                                    const grossValue = parseAmountFromInput(entry.grossPrice);
+                                    const taxRates = resolveTaxRates(entry.taxIds);
+                                    let computedPrice: ReturnType<typeof computePriceWithTaxes> | null = null;
+
+                                    if (netValue !== undefined || grossValue !== undefined) {
+                                        try {
+                                            computedPrice = computePriceWithTaxes({
+                                                netPrice: netValue,
+                                                grossPrice: grossValue,
+                                                taxRates,
+                                            });
+                                        } catch (err) {
+                                            console.error('Error computing price for display', err);
+                                            computedPrice = null;
+                                        }
+                                    }
+
                                     const appliedTaxes = taxes.filter((tax) => entry.taxIds.includes(tax.id));
+                                    const formattedNetDisplay = computedPrice
+                                        ? formatCurrencyByCode(currencyCode, computedPrice.netPrice)
+                                        : '—';
+                                    const formattedGrossDisplay = computedPrice
+                                        ? formatCurrencyByCode(currencyCode, computedPrice.grossPrice)
+                                        : '—';
+                                    const totalTaxRateDisplay = computedPrice ? `${computedPrice.totalTaxRate}%` : '—';
 
                                     const isDuplicatedList = Boolean(
                                         entry.priceListId && duplicatedPriceListIds.has(entry.priceListId)
@@ -832,7 +1028,7 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                                                 />
                                             </div>
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                                 <Select
                                                     label="Lista de precios"
                                                     value={entry.priceListId || null}
@@ -842,13 +1038,22 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                                                     required
                                                 />
                                                 <TextField
-                                                    label="Precio bruto"
+                                                    label="Precio neto (sin impuestos)"
                                                     type="currency"
-                                                    value={entry.grossPrice}
-                                                    onChange={(event) => handleUpdatePriceEntry(entry.id, { grossPrice: event.target.value })}
+                                                    value={entry.netPrice}
+                                                    onChange={(event) => handleNetPriceChange(entry.id, event.target.value)}
                                                     currencySymbol={getCurrencySymbol(currencyCode)}
                                                     allowDecimalComma
-                                                    data-test-id={`variant-price-entry-${index}`}
+                                                    data-test-id={`variant-price-entry-${index}-net`}
+                                                />
+                                                <TextField
+                                                    label="Precio con impuestos"
+                                                    type="currency"
+                                                    value={entry.grossPrice}
+                                                    onChange={(event) => handleGrossPriceChange(entry.id, event.target.value)}
+                                                    currencySymbol={getCurrencySymbol(currencyCode)}
+                                                    allowDecimalComma
+                                                    data-test-id={`variant-price-entry-${index}-gross`}
                                                 />
                                             </div>
 
@@ -869,21 +1074,6 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                                                         ))}
                                                     </div>
                                                 )}
-                                            </div>
-
-                                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                                                <div className="bg-white border border-border rounded-md p-3 flex flex-col gap-1">
-                                                    <span className="text-xs text-neutral-500 uppercase tracking-wide">Precio neto</span>
-                                                    <span className="font-medium text-neutral-800">{formatCurrencyByCode(currencyCode, computedPrice.netPrice)}</span>
-                                                </div>
-                                                <div className="bg-white border border-border rounded-md p-3 flex flex-col gap-1">
-                                                    <span className="text-xs text-neutral-500 uppercase tracking-wide">Precio bruto</span>
-                                                    <span className="font-medium text-neutral-800">{formatCurrencyByCode(currencyCode, computedPrice.grossPrice)}</span>
-                                                </div>
-                                                <div className="bg-white border border-border rounded-md p-3 flex flex-col gap-1">
-                                                    <span className="text-xs text-neutral-500 uppercase tracking-wide">Tasa total</span>
-                                                    <span className="font-medium text-neutral-800">{computedPrice.totalTaxRate}%</span>
-                                                </div>
                                             </div>
 
                                             {appliedTaxes.length > 0 && (

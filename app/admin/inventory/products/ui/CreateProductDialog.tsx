@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
 import Select, { Option } from '@/app/baseComponents/Select/Select';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Switch from '@/app/baseComponents/Switch/Switch';
 import { createProductMaster } from '@/app/actions/products';
+import { getActiveUnits } from '@/app/actions/units';
 import { ProductType } from '@/data/entities/Product';
 
 interface CategoryOption extends Option {
@@ -20,6 +21,17 @@ interface TaxSummary {
     code: string;
     rate: number;
     isDefault?: boolean;
+}
+
+interface UnitOption extends Option {
+    id: string;
+    label: string;
+    symbol: string;
+    dimension: string;
+    conversionFactor: number;
+    isBase: boolean;
+    baseUnitId: string;
+    name: string;
 }
 
 interface CreateProductDialogProps {
@@ -40,6 +52,7 @@ interface FormState {
     isActive: boolean;
     taxIds: string[];
     hasVariants: boolean;
+    baseUnitId: string;
 }
 
 const productTypeOptions: Option[] = [
@@ -57,6 +70,7 @@ const getInitialFormData = (): FormState => ({
     isActive: true,
     taxIds: [],
     hasVariants: false,
+    baseUnitId: '',
 });
 
 export default function CreateProductDialog({
@@ -68,10 +82,14 @@ export default function CreateProductDialog({
     onProductCreated,
 }: CreateProductDialogProps) {
     const [formData, setFormData] = useState<FormState>(getInitialFormData);
+    const [units, setUnits] = useState<UnitOption[]>([]);
+    const [loadingUnits, setLoadingUnits] = useState(false);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const resetForm = () => setFormData(getInitialFormData());
+    const resetForm = () => {
+        setFormData(getInitialFormData());
+    };
 
     const handleClose = () => {
         resetForm();
@@ -97,11 +115,94 @@ export default function CreateProductDialog({
         });
     }, [open, taxes]);
 
+    useEffect(() => {
+        if (!open) {
+            return;
+        }
+
+        let cancelled = false;
+        const loadUnits = async () => {
+            setLoadingUnits(true);
+            try {
+                const activeUnits = await getActiveUnits();
+                if (cancelled) {
+                    return;
+                }
+                const mappedUnits: UnitOption[] = activeUnits.map((unit) => ({
+                    id: unit.id,
+                    label: `${unit.symbol} · ${unit.name}`,
+                    symbol: unit.symbol,
+                    dimension: unit.dimension,
+                    conversionFactor: Number(unit.conversionFactor ?? 1),
+                    isBase: Boolean(unit.isBase),
+                    baseUnitId: unit.baseUnitId,
+                    name: unit.name,
+                }));
+                setUnits(mappedUnits);
+            } catch (err) {
+                if (!cancelled) {
+                    console.error('Error loading units', err);
+                    setUnits([]);
+                }
+            } finally {
+                if (!cancelled) {
+                    setLoadingUnits(false);
+                }
+            }
+        };
+
+        loadUnits();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [open]);
+
+    const baseUnitSelectOptions = useMemo<Option[]>(() => {
+        return units
+            .filter((unit) => unit.isBase)
+            .map((unit) => ({ id: unit.id, label: `${unit.symbol} · ${unit.name}` }));
+    }, [units]);
+
+    useEffect(() => {
+        if (!open || units.length === 0) {
+            return;
+        }
+
+        setFormData((prev) => {
+            if (prev.baseUnitId) {
+                return prev;
+            }
+
+            const defaultBase = units.find((unit) => unit.isBase && unit.dimension === 'count')
+                ?? units.find((unit) => unit.isBase)
+                ?? null;
+
+            return defaultBase ? { ...prev, baseUnitId: defaultBase.id } : prev;
+        });
+    }, [open, units]);
+
     const handleSave = async () => {
         setSaving(true);
         setError(null);
 
         try {
+            if (!formData.name.trim()) {
+                setError('Debes ingresar un nombre de producto.');
+                return;
+            }
+
+            if (!formData.baseUnitId) {
+                setError('Debes seleccionar una unidad base.');
+                return;
+            }
+
+            const baseUnit = units.find((unit) => unit.id === formData.baseUnitId);
+            if (!baseUnit || !baseUnit.isBase) {
+                setError('Debes seleccionar una unidad base válida.');
+                return;
+            }
+
             const result = await createProductMaster({
                 name: formData.name,
                 description: formData.description || undefined,
@@ -111,6 +212,7 @@ export default function CreateProductDialog({
                 taxIds: formData.taxIds.length > 0 ? formData.taxIds : undefined,
                 hasVariants: formData.hasVariants,
                 isActive: formData.isActive,
+                baseUnitId: baseUnit.id,
             });
 
             if (result.success && result.product) {
@@ -121,7 +223,7 @@ export default function CreateProductDialog({
                 if (onProductCreated) {
                     onProductCreated(id, name);
                 }
-            } else if (!result.success) {
+            } else {
                 setError(result.error || 'Error al crear el producto');
             }
         } catch (err) {
@@ -130,8 +232,9 @@ export default function CreateProductDialog({
             setSaving(false);
         }
     };
-
-    const isValid = Boolean(formData.name.trim());
+    const isValid = Boolean(formData.name.trim())
+        && Boolean(formData.baseUnitId)
+        && (!loadingUnits && baseUnitSelectOptions.length > 0);
 
     return (
         <Dialog
@@ -184,6 +287,22 @@ export default function CreateProductDialog({
                             onChange={(val) => setFormData({ ...formData, productType: val as ProductType })}
                             data-test-id="select-type"
                         />
+                        <Select
+                            label="Unidad base"
+                            required
+                            options={baseUnitSelectOptions}
+                            value={formData.baseUnitId}
+                            onChange={(val) => setFormData({ ...formData, baseUnitId: val ? String(val) : '' })}
+                            placeholder={loadingUnits ? 'Cargando unidades...' : 'Selecciona unidad base'}
+                            disabled={loadingUnits || baseUnitSelectOptions.length === 0}
+                            data-test-id="select-base-unit"
+                        />
+                        {!loadingUnits && baseUnitSelectOptions.length === 0 && (
+                            <div className="md:col-span-2 text-xs text-amber-600">
+                                No hay unidades base activas disponibles. Configura al menos una unidad base en
+                                Configuración → Unidades antes de crear productos.
+                            </div>
+                        )}
                         <div className="md:col-span-2">
                             <TextField
                                 label="Descripción"
@@ -198,11 +317,16 @@ export default function CreateProductDialog({
                 </div>
 
                 <Switch
-                    label="Este producto tendrá variantes"
+                    label="Este producto manejará múltiples variantes"
                     checked={formData.hasVariants}
                     onChange={(checked) => setFormData({ ...formData, hasVariants: checked })}
                     data-test-id="switch-has-variants"
                 />
+
+                <div className="rounded-md bg-muted/40 border border-border px-4 py-3 text-sm text-muted-foreground">
+                    Registra solo la información del producto maestro. Las variantes (SKU, precios y stock) se
+                    configurarán en un paso posterior.
+                </div>
 
                 <div className="pt-2 border-t border-border">
                     <Switch

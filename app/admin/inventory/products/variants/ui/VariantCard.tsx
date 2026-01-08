@@ -6,6 +6,14 @@ import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import DeleteVariantDialog from './DeleteVariantDialog';
 import UpdateVariantDialog from './UpdateVariantDialog';
 
+export interface VariantPriceListItem {
+    priceListId: string;
+    priceListName: string;
+    currency: string;
+    netPrice: number;
+    grossPrice: number;
+}
+
 export interface VariantType {
     id: string;
     productId?: string;
@@ -23,23 +31,36 @@ export interface VariantType {
     allowNegativeStock: boolean;
     isDefault: boolean;
     isActive: boolean;
+    priceListItems?: VariantPriceListItem[];
 }
 
 interface VariantCardProps {
     variant: VariantType;
+    attributeNames?: Record<string, string>;
     'data-test-id'?: string;
 }
 
-const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
+const formatCurrency = (value: number, currency = 'CLP') => {
+    try {
+        return new Intl.NumberFormat('es-CL', { style: 'currency', currency }).format(value);
+    } catch {
+        const formatted = Number.isFinite(value) ? value.toFixed(2) : String(value);
+        return `${currency} ${formatted}`;
+    }
 };
 
 const VariantCard: React.FC<VariantCardProps> = ({ 
-    variant, 
+    variant,
+    attributeNames = {},
     'data-test-id': dataTestId 
 }) => {
     const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
     const [openUpdateDialog, setOpenUpdateDialog] = useState(false);
+
+    const attributeEntries = Object.entries(variant.attributeValues ?? {}).filter(([, value]) => Boolean(value));
+    const headerTitle = attributeEntries.length > 0
+        ? (variant.isDefault ? 'Variante principal' : 'Variante')
+        : (variant.displayName || 'Default');
 
     return (
         <>
@@ -51,7 +72,7 @@ const VariantCard: React.FC<VariantCardProps> = ({
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                             <h4 className="font-medium text-neutral-800">
-                                {variant.displayName || 'Default'}
+                                {headerTitle}
                             </h4>
                             {variant.isDefault && (
                                 <Badge variant="info-outlined">
@@ -66,6 +87,15 @@ const VariantCard: React.FC<VariantCardProps> = ({
                             SKU: {variant.sku}
                             {variant.barcode && <span className="ml-3">Código: {variant.barcode}</span>}
                         </p>
+                        {attributeEntries.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mt-3">
+                                {attributeEntries.map(([attrId, value]) => (
+                                    <Badge key={attrId} variant="info-outlined">
+                                        {attributeNames[attrId] ?? attrId}: {String(value)}
+                                    </Badge>
+                                ))}
+                            </div>
+                        )}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
                         <IconButton
@@ -88,20 +118,37 @@ const VariantCard: React.FC<VariantCardProps> = ({
                 </div>
 
                 {/* Precios */}
-                <div className="flex items-center gap-6 mt-3 pt-3 border-t border-neutral-100">
+                <div className="flex items-center gap-6 mt-4 pt-3 border-t border-neutral-100">
                     <div>
                         <span className="text-xs text-neutral-500">Precio</span>
                         <p className="font-semibold text-neutral-800">{formatCurrency(variant.basePrice)}</p>
-                    </div>
-                    <div>
-                        <span className="text-xs text-neutral-500">Costo</span>
-                        <p className="font-medium text-neutral-600">{formatCurrency(variant.baseCost)}</p>
                     </div>
                     <div>
                         <span className="text-xs text-neutral-500">Unidad</span>
                         <p className="font-medium text-neutral-600">{variant.unitOfMeasure}</p>
                     </div>
                 </div>
+
+                {variant.priceListItems && variant.priceListItems.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-neutral-100">
+                        <span className="text-xs text-neutral-500">Listas de precios</span>
+                        <div className="mt-2 flex flex-col gap-2">
+                            {variant.priceListItems.map((item) => (
+                                <div key={`${variant.id}-${item.priceListId}`} className="flex flex-col text-sm">
+                                    <div className="flex items-center justify-between gap-3">
+                                        <span className="font-medium text-neutral-700 truncate">{item.priceListName}</span>
+                                        <span className="font-semibold text-neutral-800 whitespace-nowrap">
+                                            {formatCurrency(item.grossPrice, item.currency)}
+                                        </span>
+                                    </div>
+                                    <span className="text-xs text-neutral-500">
+                                        Neto {formatCurrency(item.netPrice, item.currency)}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
 
             <UpdateVariantDialog

@@ -10,6 +10,7 @@ import { Button } from '@/app/baseComponents/Button/Button';
 import { getProducts, ProductWithDefaultVariant, VariantSummary } from '@/app/actions/products';
 import { getCategories } from '@/app/actions/categories';
 import { getTaxes } from '@/app/actions/taxes';
+import { getAttributes } from '@/app/actions/attributes';
 import { ProductType } from '@/data/entities/Product';
 import { 
     CreateProductDialog, 
@@ -37,6 +38,7 @@ const toVariantType = (variant: VariantSummary, productId: string): VariantType 
     unitId: variant.unitId,
     unitOfMeasure: variant.unitOfMeasure,
     attributeValues: variant.attributeValues,
+    priceListItems: variant.priceListItems,
     displayName: variant.attributeValues && Object.keys(variant.attributeValues).length > 0
         ? Object.values(variant.attributeValues).join(', ')
         : 'Default',
@@ -57,6 +59,33 @@ const VariantsPanel = ({
     onUpdate: () => void;
 }) => {
     const [openCreateDialog, setOpenCreateDialog] = useState(false);
+    const [attributeNames, setAttributeNames] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        let cancelled = false;
+
+        const loadAttributes = async () => {
+            try {
+                const attrs = await getAttributes();
+                if (cancelled) return;
+                const lookup = attrs.reduce<Record<string, string>>((acc, attr) => {
+                    acc[attr.id] = attr.name;
+                    return acc;
+                }, {});
+                setAttributeNames(lookup);
+            } catch (err) {
+                if (!cancelled) {
+                    console.error('Error loading attributes for variants panel:', err);
+                }
+            }
+        };
+
+        loadAttributes();
+
+        return () => {
+            cancelled = true;
+        };
+    }, []);
 
     if (!product.variants || product.variants.length === 0) {
         return (
@@ -115,6 +144,7 @@ const VariantsPanel = ({
                     <VariantCard
                         key={variant.id}
                         variant={toVariantType(variant, product.id)}
+                        attributeNames={attributeNames}
                         data-test-id={`variant-card-${variant.id}`}
                     />
                 ))}
