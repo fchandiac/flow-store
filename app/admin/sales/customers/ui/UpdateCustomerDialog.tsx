@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
-import Select from '@/app/baseComponents/Select/Select';
 import Switch from '@/app/baseComponents/Switch/Switch';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
@@ -19,12 +18,6 @@ interface UpdateCustomerDialogProps {
     onSuccess?: () => Promise<void> | void;
     'data-test-id'?: string;
 }
-
-const customerTypeOptions = [
-    { id: 'RETAIL', label: 'Minorista' },
-    { id: 'WHOLESALE', label: 'Mayorista' },
-    { id: 'VIP', label: 'VIP' },
-];
 
 const UpdateCustomerDialog: React.FC<UpdateCustomerDialogProps> = ({ 
     open, 
@@ -44,8 +37,6 @@ const UpdateCustomerDialog: React.FC<UpdateCustomerDialogProps> = ({
         : customer.person.businessName || customer.person.firstName;
 
     const [formData, setFormData] = useState({
-        code: customer.code || '',
-        customerType: customer.customerType,
         creditLimit: customer.creditLimit.toString(),
         defaultPaymentTermDays: customer.defaultPaymentTermDays.toString(),
         notes: customer.notes || '',
@@ -54,8 +45,6 @@ const UpdateCustomerDialog: React.FC<UpdateCustomerDialogProps> = ({
 
     useEffect(() => {
         setFormData({
-            code: customer.code || '',
-            customerType: customer.customerType,
             creditLimit: customer.creditLimit.toString(),
             defaultPaymentTermDays: customer.defaultPaymentTermDays.toString(),
             notes: customer.notes || '',
@@ -78,8 +67,6 @@ const UpdateCustomerDialog: React.FC<UpdateCustomerDialogProps> = ({
 
         try {
             const result = await updateCustomer(customer.id, {
-                code: formData.code || undefined,
-                customerType: formData.customerType as any,
                 creditLimit: parseFloat(formData.creditLimit) || 0,
                 defaultPaymentTermDays: parseInt(formData.defaultPaymentTermDays) || 0,
                 notes: formData.notes || undefined,
@@ -106,8 +93,6 @@ const UpdateCustomerDialog: React.FC<UpdateCustomerDialogProps> = ({
 
     const handleClose = () => {
         setFormData({
-            code: customer.code || '',
-            customerType: customer.customerType,
             creditLimit: customer.creditLimit.toString(),
             defaultPaymentTermDays: customer.defaultPaymentTermDays.toString(),
             notes: customer.notes || '',
@@ -153,23 +138,6 @@ const UpdateCustomerDialog: React.FC<UpdateCustomerDialogProps> = ({
                 </div>
 
                 <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <TextField
-                            label="Código de Cliente"
-                            value={formData.code}
-                            onChange={(e) => handleChange('code', e.target.value)}
-                            placeholder="CLI-001"
-                            data-test-id="update-customer-code"
-                        />
-                        <Select
-                            label="Tipo de Cliente"
-                            options={customerTypeOptions}
-                            value={formData.customerType}
-                            onChange={(val) => handleChange('customerType', val)}
-                            data-test-id="update-customer-type"
-                        />
-                    </div>
-                    
                     <div className="grid grid-cols-2 gap-4">
                         <TextField
                             label="Límite de Crédito"

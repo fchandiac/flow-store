@@ -18,6 +18,8 @@ interface SideBarProps {
   className?: string;
   style?: React.CSSProperties;
   logoUrl?: string;
+  expandedState?: Record<string, boolean>;
+  onExpandedChange?: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -31,16 +33,35 @@ const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME || 'FlowStore';
 const APP_VERSION = process.env.NEXT_PUBLIC_APP_VERSION || '1.0.0';
 const APP_RELEASE = process.env.NEXT_PUBLIC_APP_RELEASE || '21-Diciembre-2025';
 
-const SideBar: React.FC<SideBarProps> = ({ menuItems, className, style, onClose, logoUrl }) => {
+const SideBar: React.FC<SideBarProps> = ({
+  menuItems,
+  className,
+  style,
+  onClose,
+  logoUrl,
+  expandedState,
+  onExpandedChange,
+}) => {
   const { data: session } = useSession();
 
   // Track which parent items are open using their id or label
-  const [openIds, setOpenIds] = useState<Record<string, boolean>>({});
+  const [localOpenIds, setLocalOpenIds] = useState<Record<string, boolean>>({});
   const [logoLoaded, setLogoLoaded] = useState(false);
   const [logoError, setLogoError] = useState(false);
 
+  const openIds = expandedState ?? localOpenIds;
+
+  const applyOpenState = (next: Record<string, boolean>) => {
+    if (typeof onExpandedChange === 'function') {
+      onExpandedChange(next);
+    } else {
+      setLocalOpenIds(next);
+    }
+  };
+
   const toggleOpen = (id: string) => {
-    setOpenIds((prev) => ({ ...prev, [id]: !prev[id] }));
+    const next = { ...openIds, [id]: !openIds[id] };
+    applyOpenState(next);
   };
 
   const handleNavigate = (url?: string) => {

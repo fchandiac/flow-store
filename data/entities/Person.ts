@@ -18,6 +18,7 @@ export enum DocumentType {
     RUN = 'RUN',
     RUT = 'RUT',
     PASSPORT = 'PASSPORT',
+    OTHER = 'OTHER',
 }
 
 @Entity("persons")

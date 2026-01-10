@@ -7,7 +7,6 @@ import Badge from "@/app/baseComponents/Badge/Badge";
 import IconButton from "@/app/baseComponents/IconButton/IconButton";
 import { useAlert } from "@/app/state/hooks/useAlert";
 import { getCustomers } from "@/app/actions/customers";
-import { CustomerType as CustomerTypeEnum } from "@/data/entities/Customer";
 import { CreateCustomerDialog } from ".";
 import UpdateCustomerDialog from "./UpdateCustomerDialog";
 import DeleteCustomerDialog from "./DeleteCustomerDialog";
@@ -19,18 +18,6 @@ const currencyFormatter = new Intl.NumberFormat("es-CL", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
 });
-
-const customerTypeLabels: Record<CustomerTypeEnum, string> = {
-  [CustomerTypeEnum.RETAIL]: "Minorista",
-  [CustomerTypeEnum.WHOLESALE]: "Mayorista",
-  [CustomerTypeEnum.VIP]: "VIP",
-};
-
-const customerTypeVariants: Record<CustomerTypeEnum, "primary-outlined" | "secondary-outlined" | "success-outlined"> = {
-  [CustomerTypeEnum.RETAIL]: "primary-outlined",
-  [CustomerTypeEnum.WHOLESALE]: "secondary-outlined",
-  [CustomerTypeEnum.VIP]: "success-outlined",
-};
 
 export interface CustomerRow extends CustomerWithPerson {
   displayName: string;
@@ -125,12 +112,6 @@ export const CustomersDataGrid = () => {
 
     return [
       {
-        field: "code",
-        headerName: "Código",
-        width: 120,
-        renderCell: ({ value }) => value || "-",
-      },
-      {
         field: "displayName",
         headerName: "Cliente",
         flex: 2,
@@ -142,16 +123,6 @@ export const CustomersDataGrid = () => {
               <span className="text-xs text-muted-foreground">{row.documentLabel}</span>
             )}
           </div>
-        ),
-      },
-      {
-        field: "customerType",
-        headerName: "Tipo",
-        width: 140,
-        renderCell: ({ value }) => (
-          <Badge variant={customerTypeVariants[value as CustomerTypeEnum] ?? "primary-outlined"}>
-            {customerTypeLabels[value as CustomerTypeEnum] ?? value}
-          </Badge>
         ),
       },
       {

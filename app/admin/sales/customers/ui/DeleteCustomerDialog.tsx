@@ -109,7 +109,6 @@ const DeleteCustomerDialog: React.FC<DeleteCustomerDialogProps> = ({
                         <div className="flex-1">
                             <p className="font-medium text-neutral-800">{displayName}</p>
                             <div className="flex items-center gap-3 text-sm text-neutral-500">
-                                {customer.code && <span>Código: {customer.code}</span>}
                                 {customer.person.documentNumber && <span>RUT: {customer.person.documentNumber}</span>}
                             </div>
                         </div>

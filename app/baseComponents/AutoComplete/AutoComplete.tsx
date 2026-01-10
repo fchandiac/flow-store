@@ -21,6 +21,7 @@ interface AutoCompleteProps<T = Option> {
   required?: boolean;
   getOptionLabel?: (option: T) => string;
   getOptionValue?: (option: T) => any;
+  filterOption?: (option: T, inputValue: string) => boolean;
   ["data-test-id"]?: string;
   disabled?: boolean;
 }
@@ -39,6 +40,7 @@ const AutoComplete = <T = Option,>({
   required,
   getOptionLabel,
   getOptionValue,
+  filterOption,
   ...props
 }: AutoCompleteProps<T>) => {
   // Helper functions with defaults for backward compatibility
@@ -76,7 +78,12 @@ const AutoComplete = <T = Option,>({
   }, [value]);
 
   const shrink = focused || inputValue.length > 0;
-  const filteredOptions = options.filter(opt => getLabel(opt).toLowerCase().includes(inputValue.toLowerCase()));
+  const filteredOptions = options.filter(opt => {
+    if (typeof filterOption === 'function') {
+      return filterOption(opt, inputValue);
+    }
+    return getLabel(opt).toLowerCase().includes(inputValue.toLowerCase());
+  });
 
   // Scroll automático al item destacado
   useEffect(() => {

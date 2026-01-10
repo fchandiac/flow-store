@@ -1,7 +1,7 @@
 'use server'
 
 import { getDb } from '@/data/db';
-import { Customer, CustomerType } from '@/data/entities/Customer';
+import { Customer } from '@/data/entities/Customer';
 import { DocumentType, Person, PersonType } from '@/data/entities/Person';
 import { Transaction } from '@/data/entities/Transaction';
 import { revalidatePath } from 'next/cache';
@@ -10,7 +10,6 @@ import { IsNull } from 'typeorm';
 // Types
 interface GetCustomersParams {
     search?: string;
-    customerType?: CustomerType;
     isActive?: boolean;
     page?: number;
     limit?: number;
@@ -34,20 +33,14 @@ interface CreateCustomerDTO {
         phone?: string;
         address?: string;
     };
-    code?: string;
-    customerType?: CustomerType;
     creditLimit?: number;
     defaultPaymentTermDays?: number;
-    defaultPriceListId?: string;
     notes?: string;
 }
 
 interface UpdateCustomerDTO {
-    code?: string;
-    customerType?: CustomerType;
     creditLimit?: number;
     defaultPaymentTermDays?: number;
-    defaultPriceListId?: string;
     notes?: string;
     isActive?: boolean;
 }
@@ -76,13 +69,9 @@ export async function getCustomers(params?: GetCustomersParams): Promise<Custome
     
     if (params?.search) {
         queryBuilder.andWhere(
-            '(person.firstName LIKE :search OR person.lastName LIKE :search OR person.businessName LIKE :search OR person.documentNumber LIKE :search OR customer.code LIKE :search)',
+            '(person.firstName LIKE :search OR person.lastName LIKE :search OR person.businessName LIKE :search OR person.documentNumber LIKE :search)',
             { search: `%${params.search}%` }
         );
-    }
-    
-    if (params?.customerType) {
-        queryBuilder.andWhere('customer.customerType = :customerType', { customerType: params.customerType });
     }
     
     if (params?.isActive !== undefined) {
@@ -126,19 +115,6 @@ export async function getCustomerById(id: string): Promise<(Customer & {
     });
     
     return { ...customer, recentTransactions } as any;
-}
-
-/**
- * Busca cliente por código
- */
-export async function getCustomerByCode(code: string): Promise<Customer | null> {
-    const ds = await getDb();
-    const repo = ds.getRepository(Customer);
-    
-    return repo.findOne({
-        where: { code, deletedAt: IsNull() },
-        relations: ['person']
-    });
 }
 
 /**
@@ -195,16 +171,6 @@ export async function createCustomer(data: CreateCustomerDTO): Promise<CustomerR
             return { success: false, error: 'Se requiere personId o datos de persona' };
         }
         
-        // Verificar código único si se proporciona
-        if (data.code) {
-            const existingCustomer = await customerRepo.findOne({
-                where: { code: data.code, deletedAt: IsNull() }
-            });
-            if (existingCustomer) {
-                return { success: false, error: 'El código de cliente ya está en uso' };
-            }
-        }
-        
         // Verificar que la persona no sea ya cliente
         const existingCustomerForPerson = await customerRepo.findOne({
             where: { personId, deletedAt: IsNull() }
@@ -215,11 +181,8 @@ export async function createCustomer(data: CreateCustomerDTO): Promise<CustomerR
         
         const customer = customerRepo.create({
             personId,
-            code: data.code,
-            customerType: data.customerType ?? CustomerType.RETAIL,
             creditLimit: data.creditLimit ?? 0,
             defaultPaymentTermDays: data.defaultPaymentTermDays ?? 0,
-            defaultPriceListId: data.defaultPriceListId,
             notes: data.notes,
             currentBalance: 0,
             isActive: true
@@ -262,21 +225,8 @@ export async function updateCustomer(id: string, data: UpdateCustomerDTO): Promi
             return { success: false, error: 'Cliente no encontrado' };
         }
         
-        // Verificar código único si se cambia
-        if (data.code && data.code !== customer.code) {
-            const existing = await repo.findOne({ 
-                where: { code: data.code, deletedAt: IsNull() } 
-            });
-            if (existing) {
-                return { success: false, error: 'El código ya está en uso' };
-            }
-        }
-        
-        if (data.code !== undefined) customer.code = data.code;
-        if (data.customerType !== undefined) customer.customerType = data.customerType;
         if (data.creditLimit !== undefined) customer.creditLimit = data.creditLimit;
         if (data.defaultPaymentTermDays !== undefined) customer.defaultPaymentTermDays = data.defaultPaymentTermDays;
-        if (data.defaultPriceListId !== undefined) customer.defaultPriceListId = data.defaultPriceListId;
         if (data.notes !== undefined) customer.notes = data.notes;
         if (data.isActive !== undefined) customer.isActive = data.isActive;
         

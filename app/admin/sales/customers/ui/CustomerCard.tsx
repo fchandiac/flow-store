@@ -12,24 +12,6 @@ interface CustomerCardProps {
     'data-test-id'?: string;
 }
 
-const getCustomerTypeLabel = (type: string) => {
-    switch (type) {
-        case 'RETAIL': return 'Minorista';
-        case 'WHOLESALE': return 'Mayorista';
-        case 'VIP': return 'VIP';
-        default: return type;
-    }
-};
-
-const getCustomerTypeVariant = (type: string): 'primary-outlined' | 'secondary-outlined' | 'success-outlined' => {
-    switch (type) {
-        case 'RETAIL': return 'primary-outlined';
-        case 'WHOLESALE': return 'secondary-outlined';
-        case 'VIP': return 'success-outlined';
-        default: return 'primary-outlined';
-    }
-};
-
 const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP' }).format(value);
 };
@@ -61,18 +43,12 @@ const CustomerCard: React.FC<CustomerCardProps> = ({ customer, 'data-test-id': d
                         </div>
                         <div>
                             <h3 className="font-semibold text-neutral-800">{displayName}</h3>
-                            {customer.code && (
-                                <span className="text-sm text-neutral-500">Código: {customer.code}</span>
-                            )}
                         </div>
                     </div>
                 </div>
 
                 {/* Badges */}
                 <div className="flex flex-wrap gap-2">
-                    <Badge variant={getCustomerTypeVariant(customer.customerType)}>
-                        {getCustomerTypeLabel(customer.customerType)}
-                    </Badge>
                     <Badge variant={customer.isActive ? 'success-outlined' : 'error-outlined'}>
                         {customer.isActive ? 'Activo' : 'Inactivo'}
                     </Badge>

@@ -11,12 +11,6 @@ import {
 } from "typeorm";
 import { Person } from "./Person";
 
-export enum CustomerType {
-    RETAIL = 'RETAIL',
-    WHOLESALE = 'WHOLESALE',
-    VIP = 'VIP',
-}
-
 @Entity("customers")
 export class Customer {
     @PrimaryGeneratedColumn("uuid")
@@ -24,12 +18,6 @@ export class Customer {
 
     @Column({ type: 'uuid' })
     personId!: string;
-
-    @Column({ type: 'varchar', length: 50, unique: true, nullable: true })
-    code?: string;
-
-    @Column({ type: 'enum', enum: CustomerType, default: CustomerType.RETAIL })
-    customerType!: CustomerType;
 
     @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
     creditLimit!: number;
@@ -40,8 +28,6 @@ export class Customer {
     @Column({ type: 'int', default: 0 })
     defaultPaymentTermDays!: number;
 
-    @Column({ type: 'uuid', nullable: true })
-    defaultPriceListId?: string;
 
     @Column({ type: 'boolean', default: true })
     isActive!: boolean;

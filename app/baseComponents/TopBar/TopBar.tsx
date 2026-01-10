@@ -20,12 +20,16 @@ interface SideBarControl {
   open: () => void;
   close: () => void;
   isOpen: boolean;
+  expanded: Record<string, boolean>;
+  setExpanded: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
 }
 
 const SideBarContext = React.createContext<SideBarControl>({
   open: () => {},
   close: () => {},
   isOpen: false,
+  expanded: {},
+  setExpanded: () => {},
 });
 
 export function useSideBar() {
@@ -42,6 +46,7 @@ const TopBar: React.FC<TopBarProps> = ({
   userName
 }) => {
   const [showSidebar, setShowSidebar] = useState(false);
+  const [sidebarExpanded, setSidebarExpanded] = useState<Record<string, boolean>>({});
   const [logoLoaded, setLogoLoaded] = useState(false);
   const [logoError, setLogoError] = useState(false);
 
@@ -49,7 +54,7 @@ const TopBar: React.FC<TopBarProps> = ({
   const close = () => setShowSidebar(false);
 
   return (
-    <SideBarContext.Provider value={{ open, close, isOpen: showSidebar }}>
+    <SideBarContext.Provider value={{ open, close, isOpen: showSidebar, expanded: sidebarExpanded, setExpanded: setSidebarExpanded }}>
         <div data-test-id="top-bar-root">
       <header className={`fixed top-0 z-30 w-full flex items-center justify-between px-10 py-2 pb-3 bg-background border-b-[2px] border-primary ${className}`}>
           <div className="flex items-center gap-3">
@@ -124,7 +129,13 @@ const TopBar: React.FC<TopBarProps> = ({
               aria-label="Cerrar menú lateral"
               data-test-id="sidebar-overlay"
             />
-            <SideBar menuItems={menuItems} onClose={close} logoUrl={logoSrc} />
+            <SideBar
+              menuItems={menuItems}
+              onClose={close}
+              logoUrl={logoSrc}
+              expandedState={sidebarExpanded}
+              onExpandedChange={setSidebarExpanded}
+            />
           </>
         )}
         {/* Children se renderizan fuera de TopBar, en el layout */}

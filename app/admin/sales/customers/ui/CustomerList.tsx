@@ -26,7 +26,6 @@ const CustomerList: React.FC<CustomerListProps> = ({
                 : c.person.businessName || c.person.firstName;
             return (
                 name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                c.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 c.person.documentNumber?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 c.person.email?.toLowerCase().includes(searchTerm.toLowerCase())
             );
