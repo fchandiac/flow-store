@@ -12,6 +12,7 @@ export interface VariantPriceListItem {
     currency: string;
     netPrice: number;
     grossPrice: number;
+    taxIds?: string[];
 }
 
 export interface VariantType {
@@ -117,42 +118,57 @@ const VariantCard: React.FC<VariantCardProps> = ({
                     </div>
                 </div>
 
-                {/* Precios */}
-                <div className="flex items-center gap-6 mt-4 pt-3 border-t border-neutral-100">
-                    <div>
-                        <span className="text-xs text-neutral-500">Precio</span>
-                        <p className="font-semibold text-neutral-800">{formatCurrency(variant.basePrice)}</p>
-                    </div>
-                    <div>
-                        <span className="text-xs text-neutral-500">Unidad</span>
-                        <p className="font-medium text-neutral-600">{variant.unitOfMeasure}</p>
-                    </div>
-                    <div>
-                        <span className="text-xs text-neutral-500">Costo</span>
-                        <p className="text-sm text-neutral-400">(PMP por desarrollar)</p>
-                    </div>
-                </div>
-
-                {variant.priceListItems && variant.priceListItems.length > 0 && (
-                    <div className="mt-4 pt-3 border-t border-neutral-100">
-                        <span className="text-xs text-neutral-500">Listas de precios</span>
-                        <div className="mt-2 flex flex-col gap-2">
-                            {variant.priceListItems.map((item) => (
-                                <div key={`${variant.id}-${item.priceListId}`} className="flex flex-col text-sm">
-                                    <div className="flex items-center justify-between gap-3">
-                                        <span className="font-medium text-neutral-700 truncate">{item.priceListName}</span>
-                                        <span className="font-semibold text-neutral-800 whitespace-nowrap">
-                                            {formatCurrency(item.grossPrice, item.currency)}
-                                        </span>
-                                    </div>
-                                    <span className="text-xs text-neutral-500">
-                                        Neto {formatCurrency(item.netPrice, item.currency)}
-                                    </span>
-                                </div>
-                            ))}
+                <div className="mt-4 pt-3 border-t border-neutral-100 space-y-4">
+                    <div className="flex flex-wrap items-start gap-6 text-sm text-neutral-600">
+                        <div>
+                            <span className="text-xs uppercase tracking-wide text-neutral-500 block">Unidad</span>
+                            <span className="font-medium text-neutral-700">{variant.unitOfMeasure}</span>
+                        </div>
+                        <div>
+                            <span className="text-xs uppercase tracking-wide text-neutral-500 block">Inventario</span>
+                            <span>
+                                {variant.trackInventory ? 'Controlado' : 'Sin control'}
+                                {variant.trackInventory && variant.allowNegativeStock ? ' · Permite negativos' : ''}
+                            </span>
                         </div>
                     </div>
-                )}
+
+                    {variant.priceListItems && variant.priceListItems.length > 0 ? (
+                        <div className="space-y-2">
+                            <span className="text-xs uppercase tracking-wide text-neutral-500">Precios por lista</span>
+                            <div className="flex flex-col gap-2">
+                                {variant.priceListItems.map((item) => (
+                                    <div
+                                        key={`${variant.id}-${item.priceListId}`}
+                                        className="rounded-md border border-neutral-200 px-3 py-2 text-sm bg-neutral-50"
+                                    >
+                                        <div className="flex items-center justify-between gap-3">
+                                            <span className="font-medium text-neutral-800 truncate">
+                                                {item.priceListName || 'Lista sin nombre'}
+                                            </span>
+                                            <span className="font-semibold text-neutral-900 whitespace-nowrap">
+                                                {formatCurrency(item.grossPrice, item.currency)}
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center justify-between text-xs text-neutral-500 mt-1">
+                                            <span>Neto</span>
+                                            <span>{formatCurrency(item.netPrice, item.currency)}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="rounded-md border border-dashed border-neutral-200 px-3 py-3 bg-neutral-50">
+                            <p className="text-sm text-neutral-600">
+                                Esta variante aún no tiene precios asignados a listas. Precio base actual:{' '}
+                                <span className="font-medium text-neutral-800">
+                                    {formatCurrency(variant.basePrice)}
+                                </span>
+                            </p>
+                        </div>
+                    )}
+                </div>
             </div>
 
             <UpdateVariantDialog

@@ -261,17 +261,7 @@ export default function ProductsPage() {
             brand: product.brand,
             categoryId: product.categoryId,
             productType: product.productType,
-            trackInventory: product.trackInventory,
-            allowNegativeStock: product.allowNegativeStock,
-            hasVariants: product.hasVariants,
             isActive: product.isActive,
-            // Datos de variante default
-            sku: product.sku,
-            barcode: product.barcode,
-            basePrice: product.basePrice,
-            baseCost: product.baseCost,
-            unitId: product.unitId,
-            unitOfMeasure: product.unitOfMeasure,
         });
         setUpdateDialogOpen(true);
     };
@@ -305,14 +295,14 @@ export default function ProductsPage() {
                 <div className="flex flex-col py-1">
                     <div className="flex items-center gap-2">
                         <span className="font-medium text-foreground">{row.name}</span>
-                        {row.hasVariants && (
+                            {row.variantCount > 0 && (
                             <Badge variant="info">
                                 {row.variantCount}
                             </Badge>
                         )}
                     </div>
                     <span className="text-xs text-muted-foreground">
-                        {row.sku || 'Sin SKU (agregar variantes)'}
+                            {row.sku || 'Sin SKU principal'}
                     </span>
                 </div>
             ),

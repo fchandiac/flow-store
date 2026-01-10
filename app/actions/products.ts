@@ -4,10 +4,7 @@ import { getDb } from '@/data/db';
 import { Product, ProductType, type ProductChangeHistoryChange } from '@/data/entities/Product';
 import { ProductVariant } from '@/data/entities/ProductVariant';
 import { Category } from '@/data/entities/Category';
-import { PriceList } from '@/data/entities/PriceList';
-import { Tax } from '@/data/entities/Tax';
 import { Unit } from '@/data/entities/Unit';
-import { computePriceWithTaxes } from '@/lib/pricing/priceCalculations';
 import { revalidatePath } from 'next/cache';
 import { In, IsNull } from 'typeorm';
 import { PriceListItem } from '@/data/entities/PriceListItem';
@@ -22,51 +19,6 @@ interface GetProductsParams {
     productType?: ProductType;
 }
 
-/**
- * DTO para crear un producto simple (sin variantes múltiples)
- * Se crea automáticamente una variante "default" con los datos de SKU/precio
- */
-interface CreateSimpleProductDTO {
-    name: string;
-    description?: string;
-    brand?: string;
-    categoryId?: string;
-    productType?: ProductType;
-    taxIds?: string[];
-    imagePath?: string;
-    metadata?: Record<string, any>;
-    isActive?: boolean;
-    baseUnitId: string;
-    // Datos de la variante default
-    sku: string;
-    barcode?: string;
-    basePrice: number;
-    baseCost?: number;
-    unitId: string;
-    trackInventory?: boolean;
-    allowNegativeStock?: boolean;
-    minimumStock?: number;
-    maximumStock?: number;
-    reorderPoint?: number;
-    priceListId?: string;
-}
-
-/**
- * DTO para crear un producto con variantes (hasVariants = true)
- * NO incluye SKU/precio - esos se agregan después vía variantes
- */
-interface CreateProductWithVariantsDTO {
-    name: string;
-    description?: string;
-    brand?: string;
-    categoryId?: string;
-    productType?: ProductType;
-    taxIds?: string[];
-    imagePath?: string;
-    metadata?: Record<string, any>;
-    baseUnitId: string;
-}
-
 interface CreateProductMasterDTO {
     name: string;
     description?: string;
@@ -76,7 +28,6 @@ interface CreateProductMasterDTO {
     taxIds?: string[];
     imagePath?: string;
     metadata?: Record<string, any>;
-    hasVariants?: boolean;
     isActive?: boolean;
     baseUnitId: string;
 }
@@ -97,7 +48,6 @@ interface UpdateProductDTO {
 interface ProductResult {
     success: boolean;
     product?: Product;
-    variant?: ProductVariant; // Para productos simples, incluye la variante default
     error?: string;
 }
 
@@ -110,6 +60,7 @@ export interface VariantPriceListSummary {
     currency: string;
     netPrice: number;
     grossPrice: number;
+    taxIds: string[];
 }
 
 export interface VariantSummary {
@@ -137,38 +88,25 @@ export interface ProductWithDefaultVariant {
     categoryId?: string;
     categoryName?: string;
     productType: ProductType;
-    hasVariants: boolean;
     isActive: boolean;
     imagePath?: string;
     createdAt: Date;
     baseUnitId?: string;
     baseUnitSymbol?: string;
     baseUnitName?: string;
+    isMultiVariant: boolean;
     // Datos de variante default (si es producto simple)
     sku?: string;
-    trackInventory?: boolean;
-    allowNegativeStock?: boolean;
     barcode?: string;
     basePrice?: number;
     baseCost?: number;
     unitId?: string;
     unitOfMeasure?: string;
+    trackInventory?: boolean;
+    allowNegativeStock?: boolean;
     variantCount: number;
     // Todas las variantes del producto
     variants: VariantSummary[];
-}
-
-interface SimpleVariantUpdateDTO {
-    sku?: string;
-    barcode?: string;
-    basePrice?: number;
-    baseCost?: number;
-    unitId?: string;
-    trackInventory?: boolean;
-    allowNegativeStock?: boolean;
-    minimumStock?: number;
-    maximumStock?: number;
-    reorderPoint?: number;
 }
 
 function normalizeStringArray(values?: string[] | null): string[] {
@@ -188,7 +126,6 @@ function normalizeStringArray(values?: string[] | null): string[] {
             continue;
         }
         seen.add(trimmed);
-        sanitized.push(trimmed);
     }
 
     sanitized.sort();
@@ -245,76 +182,6 @@ function collectProductChanges(product: Product, data: UpdateProductDTO): Produc
     return changes;
 }
 
-function collectVariantChanges(variant: ProductVariant, data: SimpleVariantUpdateDTO & { taxIds?: string[]; attributeValues?: Record<string, string>; isActive?: boolean; weight?: number; imagePath?: string; allowNegativeStock?: boolean; trackInventory?: boolean }): ProductChangeHistoryChange[] {
-    const changes: ProductChangeHistoryChange[] = [];
-
-    if (data.sku !== undefined && data.sku !== variant.sku) {
-        changes.push({ field: 'sku', previousValue: variant.sku, newValue: data.sku });
-    }
-
-    if (data.barcode !== undefined && data.barcode !== variant.barcode) {
-        changes.push({ field: 'barcode', previousValue: variant.barcode, newValue: data.barcode });
-    }
-
-    if (data.basePrice !== undefined && Number(data.basePrice) !== Number(variant.basePrice)) {
-        changes.push({ field: 'basePrice', previousValue: Number(variant.basePrice), newValue: Number(data.basePrice) });
-    }
-
-    if (data.baseCost !== undefined && Number(data.baseCost) !== Number(variant.baseCost)) {
-        changes.push({ field: 'baseCost', previousValue: Number(variant.baseCost), newValue: Number(data.baseCost) });
-    }
-
-    if (data.unitId !== undefined && data.unitId !== variant.unitId) {
-        changes.push({ field: 'unitId', previousValue: variant.unitId, newValue: data.unitId });
-    }
-
-    if (data.weight !== undefined && Number(data.weight) !== Number(variant.weight)) {
-        changes.push({ field: 'weight', previousValue: Number(variant.weight), newValue: Number(data.weight) });
-    }
-
-    if (data.attributeValues !== undefined && !areValuesEqual(variant.attributeValues ?? null, data.attributeValues ?? null)) {
-        changes.push({ field: 'attributeValues', previousValue: variant.attributeValues, newValue: data.attributeValues });
-    }
-
-    if (data.taxIds !== undefined) {
-        const current = normalizeStringArray(variant.taxIds);
-        const next = normalizeStringArray(data.taxIds);
-        if (!areValuesEqual(current, next)) {
-            changes.push({ field: 'taxIds', previousValue: current, newValue: next });
-        }
-    }
-
-    if (data.trackInventory !== undefined && data.trackInventory !== variant.trackInventory) {
-        changes.push({ field: 'trackInventory', previousValue: variant.trackInventory, newValue: data.trackInventory });
-    }
-
-    if (data.allowNegativeStock !== undefined && data.allowNegativeStock !== variant.allowNegativeStock) {
-        changes.push({ field: 'allowNegativeStock', previousValue: variant.allowNegativeStock, newValue: data.allowNegativeStock });
-    }
-
-    if (data.minimumStock !== undefined && Number(data.minimumStock) !== Number(variant.minimumStock)) {
-        changes.push({ field: 'minimumStock', previousValue: Number(variant.minimumStock), newValue: Number(data.minimumStock) });
-    }
-
-    if (data.maximumStock !== undefined && Number(data.maximumStock) !== Number(variant.maximumStock)) {
-        changes.push({ field: 'maximumStock', previousValue: Number(variant.maximumStock), newValue: Number(data.maximumStock) });
-    }
-
-    if (data.reorderPoint !== undefined && Number(data.reorderPoint) !== Number(variant.reorderPoint)) {
-        changes.push({ field: 'reorderPoint', previousValue: Number(variant.reorderPoint), newValue: Number(data.reorderPoint) });
-    }
-
-    if (data.imagePath !== undefined && data.imagePath !== variant.imagePath) {
-        changes.push({ field: 'imagePath', previousValue: variant.imagePath, newValue: data.imagePath });
-    }
-
-    if (data.isActive !== undefined && data.isActive !== variant.isActive) {
-        changes.push({ field: 'isActive', previousValue: variant.isActive, newValue: data.isActive });
-    }
-
-    return changes;
-}
-
 export async function createProductMaster(data: CreateProductMasterDTO): Promise<ProductResult> {
     try {
         const ds = await getDb();
@@ -350,7 +217,6 @@ export async function createProductMaster(data: CreateProductMasterDTO): Promise
             taxIds: data.taxIds,
             imagePath: data.imagePath,
             metadata: data.metadata,
-            hasVariants: data.hasVariants ?? true,
             isActive: data.isActive ?? true,
             baseUnitId: baseUnit.id,
             baseUnit,
@@ -459,6 +325,7 @@ export async function getProducts(params?: GetProductsParams): Promise<ProductWi
                     currency: item.priceList?.currency ?? 'CLP',
                     netPrice: Number(item.netPrice),
                     grossPrice: Number(item.grossPrice),
+                    taxIds: normalizeStringArray(item.taxIds as string[] | undefined),
                 });
 
                 acc[item.productVariantId] = current;
@@ -480,13 +347,13 @@ export async function getProducts(params?: GetProductsParams): Promise<ProductWi
             categoryId: product.categoryId,
             categoryName: product.category?.name,
             productType: product.productType,
-            hasVariants: product.hasVariants,
             isActive: product.isActive,
             imagePath: product.imagePath,
             createdAt: product.createdAt,
             baseUnitId: product.baseUnit?.id ?? product.baseUnitId,
             baseUnitSymbol: product.baseUnit?.symbol,
             baseUnitName: product.baseUnit?.name,
+            isMultiVariant: variants.length > 1,
             // Datos de variante default
             sku: defaultVariant?.sku,
             barcode: defaultVariant?.barcode,
@@ -538,274 +405,6 @@ export async function getProductById(id: string): Promise<(Product & { variants?
     });
     
     return JSON.parse(JSON.stringify({ ...product, variants }));
-}
-
-/**
- * Crea un producto simple (una única variante default)
- */
-export async function createSimpleProduct(data: CreateSimpleProductDTO): Promise<ProductResult> {
-    const session = await getCurrentSession();
-    const ds = await getDb();
-
-    return await ds.transaction(async (manager) => {
-        const productRepo = manager.getRepository(Product);
-        const variantRepo = manager.getRepository(ProductVariant);
-
-        // Verificar SKU único
-        const existingSku = await variantRepo.findOne({
-            where: { sku: data.sku }
-        });
-
-        if (existingSku) {
-            return { success: false, error: 'El SKU ya está en uso' };
-        }
-
-        // Verificar categoría si se proporciona
-        if (data.categoryId) {
-            const categoryRepo = manager.getRepository(Category);
-            const category = await categoryRepo.findOne({
-                where: { id: data.categoryId, deletedAt: IsNull() }
-            });
-            if (!category) {
-                return { success: false, error: 'Categoría no encontrada' };
-            }
-        }
-
-        if (data.priceListId) {
-            const priceListRepo = manager.getRepository(PriceList);
-            const priceList = await priceListRepo.findOne({
-                where: { id: data.priceListId, deletedAt: IsNull(), isActive: true }
-            });
-
-            if (!priceList) {
-                return { success: false, error: 'Lista de precios no encontrada o inactiva' };
-            }
-        }
-
-        const unitRepo = manager.getRepository(Unit);
-        const unit = await unitRepo.findOne({
-            where: { id: data.unitId, deletedAt: IsNull(), active: true },
-            relations: ['baseUnit'],
-        });
-
-        if (!unit) {
-            return { success: false, error: 'Unidad de medida no encontrada o inactiva' };
-        }
-
-        if (!unit.isBase && (!unit.baseUnit || unit.baseUnit.dimension !== unit.dimension)) {
-            return { success: false, error: 'Unidad de medida inválida para el producto' };
-        }
-
-        const baseUnit = await unitRepo.findOne({
-            where: { id: data.baseUnitId, deletedAt: IsNull(), active: true },
-        });
-
-        if (!baseUnit || !baseUnit.isBase) {
-            return { success: false, error: 'Unidad base no encontrada o inactiva' };
-        }
-
-        const resolvedVariantBaseId = unit.isBase ? unit.id : unit.baseUnit?.id;
-        if (resolvedVariantBaseId !== baseUnit.id) {
-            return { success: false, error: 'La unidad seleccionada para la variante no corresponde con la unidad base del producto' };
-        }
-
-        // Crear producto maestro
-        const product = productRepo.create({
-            name: data.name,
-            description: data.description,
-            brand: data.brand,
-            categoryId: data.categoryId,
-            productType: data.productType || ProductType.PHYSICAL,
-            taxIds: data.taxIds,
-            imagePath: data.imagePath,
-            metadata: data.metadata,
-            hasVariants: false,
-            isActive: data.isActive ?? true,
-            baseUnitId: baseUnit.id,
-            baseUnit,
-            changeHistory: [],
-        });
-
-        await productRepo.save(product);
-
-        // Crear variante default
-        const variant = variantRepo.create({
-            productId: product.id,
-            sku: data.sku,
-            barcode: data.barcode,
-            basePrice: data.basePrice,
-            baseCost: data.baseCost || 0,
-            unitId: unit.id,
-            unit,
-            trackInventory: data.trackInventory ?? true,
-            allowNegativeStock: data.allowNegativeStock ?? false,
-            minimumStock: data.minimumStock || 0,
-            maximumStock: data.maximumStock || 0,
-            reorderPoint: data.reorderPoint || 0,
-            taxIds: data.taxIds && data.taxIds.length > 0 ? data.taxIds : undefined,
-            isDefault: true,
-            isActive: true,
-        });
-
-        await variantRepo.save(variant);
-
-        if (data.priceListId) {
-            const priceListItemRepo = manager.getRepository(PriceListItem);
-            const taxRepo = manager.getRepository(Tax);
-
-            const taxCandidates = Array.from(
-                new Set(
-                    [
-                        ...(Array.isArray(variant.taxIds) ? variant.taxIds : []),
-                        ...(Array.isArray(product.taxIds) ? product.taxIds : []),
-                    ].filter((taxId): taxId is string => typeof taxId === 'string' && taxId.trim().length > 0)
-                )
-            );
-
-            const taxes = taxCandidates.length
-                ? await taxRepo.find({
-                      where: {
-                          id: In(taxCandidates),
-                          deletedAt: IsNull(),
-                          isActive: true,
-                      },
-                  })
-                : [];
-
-            const computedPrice = computePriceWithTaxes({
-                netPrice: data.basePrice,
-                grossPrice: undefined,
-                taxRates: taxes.map((tax) => tax.rate),
-            });
-
-            const priceListItem = priceListItemRepo.create({
-                priceListId: data.priceListId,
-                productId: product.id,
-                productVariantId: variant.id,
-                netPrice: computedPrice.netPrice,
-                grossPrice: computedPrice.grossPrice,
-                taxIds: taxCandidates.length ? taxCandidates : null,
-            });
-
-            await priceListItemRepo.save(priceListItem);
-        }
-
-        const productHistoryEntry = buildHistoryEntry({
-            action: 'CREATE',
-            targetType: 'PRODUCT',
-            targetId: product.id,
-            targetLabel: product.name,
-            summary: buildSummary('CREATE', 'PRODUCT', product.name),
-            userId: session?.id,
-            userName: session?.userName,
-        });
-
-        const variantHistoryEntry = buildHistoryEntry({
-            action: 'CREATE',
-            targetType: 'VARIANT',
-            targetId: variant.id,
-            targetLabel: variant.sku,
-            summary: buildSummary('CREATE', 'VARIANT', variant.sku),
-            userId: session?.id,
-            userName: session?.userName,
-            changes: [
-                { field: 'sku', newValue: variant.sku },
-                { field: 'basePrice', newValue: Number(variant.basePrice) },
-                { field: 'baseCost', newValue: Number(variant.baseCost) },
-                { field: 'unitId', newValue: variant.unitId },
-            ],
-            metadata: {
-                attributeValues: variant.attributeValues ?? null,
-                trackInventory: variant.trackInventory,
-                allowNegativeStock: variant.allowNegativeStock,
-            },
-        });
-
-        addHistoryEntry(product, productHistoryEntry);
-        addHistoryEntry(product, variantHistoryEntry);
-
-        await productRepo.save(product);
-
-        revalidatePath('/admin/inventory/products');
-
-        return {
-            success: true,
-            product: JSON.parse(JSON.stringify(product)),
-            variant: JSON.parse(JSON.stringify(variant))
-        };
-    });
-}
-
-/**
- * Crea un producto con variantes múltiples
- * Solo crea el producto maestro, las variantes se agregan después
- */
-export async function createProductWithVariants(data: CreateProductWithVariantsDTO): Promise<ProductResult> {
-    try {
-        const ds = await getDb();
-        const productRepo = ds.getRepository(Product);
-        const unitRepo = ds.getRepository(Unit);
-        const session = await getCurrentSession();
-        
-        // Verificar categoría si se proporciona
-        if (data.categoryId) {
-            const categoryRepo = ds.getRepository(Category);
-            const category = await categoryRepo.findOne({
-                where: { id: data.categoryId, deletedAt: IsNull() }
-            });
-            if (!category) {
-                return { success: false, error: 'Categoría no encontrada' };
-            }
-        }
-
-        const baseUnit = await unitRepo.findOne({
-            where: { id: data.baseUnitId, deletedAt: IsNull(), active: true },
-        });
-
-        if (!baseUnit || !baseUnit.isBase) {
-            return { success: false, error: 'Unidad base no encontrada o inactiva' };
-        }
-        
-        const product = productRepo.create({
-            name: data.name,
-            description: data.description,
-            brand: data.brand,
-            categoryId: data.categoryId,
-            productType: data.productType || ProductType.PHYSICAL,
-            taxIds: data.taxIds,
-            imagePath: data.imagePath,
-            metadata: data.metadata,
-            hasVariants: true, // Producto con variantes múltiples
-            isActive: true,
-            baseUnitId: baseUnit.id,
-            baseUnit,
-            changeHistory: [],
-        });
-        
-        await productRepo.save(product);
-
-        const historyEntry = buildHistoryEntry({
-            action: 'CREATE',
-            targetType: 'PRODUCT',
-            targetId: product.id,
-            targetLabel: product.name,
-            summary: buildSummary('CREATE', 'PRODUCT', product.name),
-            userId: session?.id,
-            userName: session?.userName,
-        });
-        addHistoryEntry(product, historyEntry);
-
-        await productRepo.save(product);
-        revalidatePath('/admin/inventory/products');
-        
-        return { success: true, product: JSON.parse(JSON.stringify(product)) };
-    } catch (error) {
-        console.error('Error creating product with variants:', error);
-        return { 
-            success: false, 
-            error: error instanceof Error ? error.message : 'Error al crear el producto' 
-        };
-    }
 }
 
 /**
@@ -905,157 +504,6 @@ export async function updateProduct(id: string, data: UpdateProductDTO): Promise
             error: error instanceof Error ? error.message : 'Error al actualizar el producto' 
         };
     }
-}
-
-/**
- * Actualiza un producto simple (producto + variante default)
- */
-export async function updateSimpleProduct(
-    id: string, 
-    productData: UpdateProductDTO,
-    variantData?: {
-        sku?: string;
-        barcode?: string;
-        basePrice?: number;
-        baseCost?: number;
-        unitId?: string;
-        trackInventory?: boolean;
-        allowNegativeStock?: boolean;
-        minimumStock?: number;
-        maximumStock?: number;
-        reorderPoint?: number;
-    }
-): Promise<ProductResult> {
-    const session = await getCurrentSession();
-    const ds = await getDb();
-    
-    return await ds.transaction(async (manager) => {
-        const productRepo = manager.getRepository(Product);
-        const variantRepo = manager.getRepository(ProductVariant);
-        
-        const product = await productRepo.findOne({
-            where: { id, deletedAt: IsNull() }
-        });
-        
-        if (!product) {
-            return { success: false, error: 'Producto no encontrado' };
-        }
-        
-        const productChanges = collectProductChanges(product, productData ?? {});
-
-        // Actualizar producto
-        if (productData.name !== undefined) product.name = productData.name;
-        if (productData.description !== undefined) product.description = productData.description;
-        if (productData.brand !== undefined) product.brand = productData.brand;
-        if (productData.categoryId !== undefined) product.categoryId = productData.categoryId;
-        if (productData.productType !== undefined) product.productType = productData.productType;
-        if (productData.taxIds !== undefined) product.taxIds = productData.taxIds;
-        if (productData.imagePath !== undefined) product.imagePath = productData.imagePath;
-        if (productData.metadata !== undefined) product.metadata = productData.metadata;
-        if (productData.isActive !== undefined) product.isActive = productData.isActive;
-        
-        let defaultVariant: ProductVariant | null = null;
-        let variantChanges: ProductChangeHistoryChange[] = [];
-
-        // Actualizar variante default si hay datos
-        if (variantData && !product.hasVariants) {
-            defaultVariant = await variantRepo.findOne({
-                where: { productId: id, isDefault: true, deletedAt: IsNull() }
-            });
-            
-            if (defaultVariant) {
-                variantChanges = collectVariantChanges(defaultVariant, variantData);
-
-                if (variantData.unitId) {
-                    const unitRepo = manager.getRepository(Unit);
-                    const unit = await unitRepo.findOne({
-                        where: { id: variantData.unitId, deletedAt: IsNull(), active: true },
-                        relations: ['baseUnit'],
-                    });
-
-                    if (!unit) {
-                        return { success: false, error: 'Unidad de medida no encontrada o inactiva' };
-                    }
-
-                    if (!unit.isBase && (!unit.baseUnit || unit.baseUnit.dimension !== unit.dimension)) {
-                        return { success: false, error: 'Unidad de medida inválida para el producto' };
-                    }
-
-                    defaultVariant.unitId = unit.id;
-                    defaultVariant.unit = unit;
-                }
-                
-                // Verificar SKU único si cambia
-                if (variantData.sku && variantData.sku !== defaultVariant.sku) {
-                    const existingSku = await variantRepo.findOne({
-                        where: { sku: variantData.sku }
-                    });
-                    if (existingSku) {
-                        return { success: false, error: 'El SKU ya está en uso' };
-                    }
-                }
-                
-                if (variantData.sku !== undefined) defaultVariant.sku = variantData.sku;
-                if (variantData.barcode !== undefined) defaultVariant.barcode = variantData.barcode;
-                if (variantData.basePrice !== undefined) defaultVariant.basePrice = variantData.basePrice;
-                if (variantData.baseCost !== undefined) defaultVariant.baseCost = variantData.baseCost;
-                if (variantData.trackInventory !== undefined) defaultVariant.trackInventory = variantData.trackInventory;
-                if (variantData.allowNegativeStock !== undefined) defaultVariant.allowNegativeStock = variantData.allowNegativeStock;
-                if (variantData.minimumStock !== undefined) defaultVariant.minimumStock = variantData.minimumStock;
-                if (variantData.maximumStock !== undefined) defaultVariant.maximumStock = variantData.maximumStock;
-                if (variantData.reorderPoint !== undefined) defaultVariant.reorderPoint = variantData.reorderPoint;
-                
-                await variantRepo.save(defaultVariant);
-            }
-        }
-
-        if (productChanges.length > 0) {
-            const nameChange = productChanges.find(change => change.field === 'name');
-            const productLabel = (typeof nameChange?.newValue === 'string' && nameChange.newValue.length > 0)
-                ? nameChange.newValue
-                : product.name;
-
-            const productHistoryEntry = buildHistoryEntry({
-                action: 'UPDATE',
-                targetType: 'PRODUCT',
-                targetId: product.id,
-                targetLabel: productLabel,
-                summary: buildSummary('UPDATE', 'PRODUCT', productLabel, productChanges.map(change => change.field)),
-                userId: session?.id,
-                userName: session?.userName,
-                changes: productChanges,
-            });
-            addHistoryEntry(product, productHistoryEntry);
-        }
-
-        if (defaultVariant && variantChanges.length > 0) {
-            const variantLabel = typeof variantData?.sku === 'string' && variantData.sku.length > 0
-                ? variantData.sku
-                : defaultVariant.sku;
-
-            const variantHistoryEntry = buildHistoryEntry({
-                action: 'UPDATE',
-                targetType: 'VARIANT',
-                targetId: defaultVariant.id,
-                targetLabel: variantLabel,
-                summary: buildSummary('UPDATE', 'VARIANT', variantLabel, variantChanges.map(change => change.field)),
-                userId: session?.id,
-                userName: session?.userName,
-                changes: variantChanges,
-            });
-            addHistoryEntry(product, variantHistoryEntry);
-        }
-
-        await productRepo.save(product);
-
-        revalidatePath('/admin/inventory/products');
-
-        return { 
-            success: true, 
-            product: JSON.parse(JSON.stringify(product)),
-            variant: defaultVariant ? JSON.parse(JSON.stringify(defaultVariant)) : undefined
-        };
-    });
 }
 
 /**
@@ -1162,13 +610,13 @@ export async function searchProducts(query: string, limit: number = 20): Promise
             categoryId: product.categoryId,
             categoryName: product.category?.name,
             productType: product.productType,
-            hasVariants: product.hasVariants,
             isActive: product.isActive,
             imagePath: product.imagePath,
             createdAt: product.createdAt,
             baseUnitId: product.baseUnit?.id ?? product.baseUnitId,
             baseUnitSymbol: product.baseUnit?.symbol,
             baseUnitName: product.baseUnit?.name,
+            isMultiVariant: variants.length > 1,
             sku: defaultVariant?.sku,
             barcode: defaultVariant?.barcode,
             basePrice: defaultVariant ? Number(defaultVariant.basePrice) : undefined,

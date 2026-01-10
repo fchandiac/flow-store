@@ -1,5 +1,3 @@
-'use client';
-
 import { Suspense } from 'react';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
 import TransactionsTable from './ui/TransactionsTable';

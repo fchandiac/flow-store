@@ -6,6 +6,7 @@ import { Branch } from '../entities/Branch';
 import { Tax, TaxType } from '../entities/Tax';
 import { Category } from '../entities/Category';
 import { PriceList, PriceListType } from '../entities/PriceList';
+import { PriceListItem } from '../entities/PriceListItem';
 import { Storage, StorageCategory, StorageType } from '../entities/Storage';
 import { PointOfSale } from '../entities/PointOfSale';
 import { Permission, Ability, ALL_ABILITIES } from '../entities/Permission';
@@ -17,6 +18,7 @@ import { UnitDimension } from '../entities/unit-dimension.enum';
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import { IsNull } from 'typeorm';
+import { computePriceWithTaxes } from '../../lib/pricing/priceCalculations';
 
 // Helper para hashear contraseñas (debe coincidir con authOptions.ts)
 function hashPassword(password: string): string {
@@ -171,6 +173,14 @@ async function seedFlowStore() {
       console.log(`   ⚠ Impuesto ya existe: ${taxExempt.name}`);
     }
 
+    const taxesByCode: Record<string, Tax> = {};
+    if (ivaDefault) {
+      taxesByCode[ivaDefault.code] = ivaDefault;
+    }
+    if (taxExempt) {
+      taxesByCode[taxExempt.code] = taxExempt;
+    }
+
     // ============================================
     // 4. CATEGORÍAS DE JOYERÍA
     // ============================================
@@ -278,25 +288,62 @@ async function seedFlowStore() {
     }
 
     // ============================================
-    // 6. LISTA DE PRECIOS POR DEFECTO
+    // 6. LISTAS DE PRECIOS
     // ============================================
-    console.log('\n📋 Creando lista de precios...');
-    
-    let priceList = await db.getRepository(PriceList).findOne({ where: { isDefault: true } });
-    if (!priceList) {
-      priceList = new PriceList();
-      priceList.id = uuidv4();
-      priceList.name = 'Precio Público';
-      priceList.priceListType = PriceListType.RETAIL;
-      priceList.currency = 'CLP';
-      priceList.priority = 0;
-      priceList.isDefault = true;
-      priceList.isActive = true;
-      priceList.description = 'Lista de precios para venta al público';
-      await db.getRepository(PriceList).save(priceList);
-      console.log(`   ✓ Lista de precios creada: ${priceList.name}`);
-    } else {
-      console.log(`   ⚠ Lista de precios ya existe: ${priceList.name}`);
+    console.log('\n📋 Configurando listas de precios...');
+
+    const priceListRepo = db.getRepository(PriceList);
+    const priceListsConfig = [
+      {
+        key: 'retail',
+        name: 'Precio Público',
+        type: PriceListType.RETAIL,
+        priority: 0,
+        isDefault: true,
+        description: 'Lista de precios para venta al público en tienda',
+      },
+      {
+        key: 'online',
+        name: 'Venta Online',
+        type: PriceListType.RETAIL,
+        priority: 10,
+        isDefault: false,
+        description: 'Precios aplicados para el canal e-commerce',
+      },
+      {
+        key: 'wholesale',
+        name: 'Mayorista Joyero',
+        type: PriceListType.WHOLESALE,
+        priority: 20,
+        isDefault: false,
+        description: 'Precios preferenciales para joyerías asociadas',
+      },
+    ] as const;
+
+    const priceListsByKey: Record<string, PriceList> = {};
+
+    for (const config of priceListsConfig) {
+      let list = await priceListRepo.findOne({ where: { name: config.name }, withDeleted: true });
+      if (!list) {
+        list = new PriceList();
+        list.id = uuidv4();
+        list.name = config.name;
+        console.log(`   ✓ Lista de precios creada: ${config.name}`);
+      } else {
+        list.name = config.name;
+        console.log(`   ⚠ Lista de precios existente actualizada: ${config.name}`);
+      }
+
+      list.priceListType = config.type;
+      list.currency = 'CLP';
+      list.priority = config.priority;
+      list.isDefault = config.isDefault;
+      list.isActive = true;
+      list.description = config.description;
+      list.deletedAt = undefined;
+
+      list = await priceListRepo.save(list);
+      priceListsByKey[config.key] = list;
     }
 
     // ============================================
@@ -519,66 +566,188 @@ async function seedFlowStore() {
     // 12. PRODUCTOS DE EJEMPLO (JOYERÍA)
     // ============================================
     console.log('\n💎 Creando productos de ejemplo...');
-    
-    const productsData = [
+
+    type PriceListKey = (typeof priceListsConfig)[number]['key'];
+
+    type VariantSeed = {
+      sku: string;
+      baseCost?: number;
+      attributeValues?: Record<string, string>;
+      priceEntries: Array<{
+        listKey: PriceListKey;
+        grossPrice: number;
+        netPrice?: number;
+        taxCodes?: string[];
+      }>;
+      isDefault?: boolean;
+      trackInventory?: boolean;
+      allowNegativeStock?: boolean;
+    };
+
+    type ProductSeed = {
+      name: string;
+      description?: string;
+      brand?: string;
+      categoryCode: keyof typeof createdCategories;
+      variants: VariantSeed[];
+    };
+
+    const productsData: ProductSeed[] = [
       {
         name: 'Anillo Solitario Clásico',
         description: 'Elegante anillo solitario con diamante central',
         brand: 'Brillante',
         categoryCode: 'ANI',
-        sku: 'ANI-SOL-001',
-        basePrice: 1890000,
-        baseCost: 950000,
+        variants: [
+          {
+            sku: 'ANI-SOL-ORO18-T6',
+            baseCost: 950000,
+            attributeValues: {
+              Material: 'Oro 18K',
+              Talla: '6',
+              Piedra: 'Diamante',
+              Quilates: '1.00ct',
+            },
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 1_890_000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 1_849_000, taxCodes: ['IVA-19'] },
+              { listKey: 'wholesale', grossPrice: 1_720_000, taxCodes: ['IVA-19'] },
+            ],
+            isDefault: true,
+          },
+          {
+            sku: 'ANI-SOL-ORO18-T7',
+            baseCost: 900000,
+            attributeValues: {
+              Material: 'Oro 18K',
+              Talla: '7',
+              Piedra: 'Diamante',
+              Quilates: '0.75ct',
+            },
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 1_790_000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 1_750_000, taxCodes: ['IVA-19'] },
+              { listKey: 'wholesale', grossPrice: 1_630_000, taxCodes: ['IVA-19'] },
+            ],
+          },
+        ],
       },
       {
         name: 'Collar Cadena Veneciana',
         description: 'Delicada cadena veneciana en oro',
         brand: 'Brillante',
         categoryCode: 'COL',
-        sku: 'COL-VEN-001',
-        basePrice: 450000,
-        baseCost: 220000,
+        variants: [
+          {
+            sku: 'COL-VEN-ORO14-45',
+            baseCost: 220000,
+            attributeValues: {
+              Material: 'Oro 14K',
+              Largo: '45cm',
+            },
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 450000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 439000, taxCodes: ['IVA-19'] },
+              { listKey: 'wholesale', grossPrice: 398000, taxCodes: ['IVA-19'] },
+            ],
+            isDefault: true,
+          },
+          {
+            sku: 'COL-VEN-ORO14-50',
+            baseCost: 235000,
+            attributeValues: {
+              Material: 'Oro 14K',
+              Largo: '50cm',
+            },
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 475000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 462000, taxCodes: ['IVA-19'] },
+              { listKey: 'wholesale', grossPrice: 418000, taxCodes: ['IVA-19'] },
+            ],
+          },
+          {
+            sku: 'COL-VEN-PLATA-50',
+            baseCost: 110000,
+            attributeValues: {
+              Material: 'Plata 925',
+              Largo: '50cm',
+            },
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 189000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 179000, taxCodes: ['IVA-19'] },
+            ],
+          },
+        ],
       },
       {
         name: 'Aros Perla Cultivada',
         description: 'Aros clásicos con perla cultivada',
         brand: 'Brillante',
         categoryCode: 'ARE',
-        sku: 'ARE-PER-001',
-        basePrice: 180000,
-        baseCost: 85000,
-      },
-      {
-        name: 'Pulsera Tenis Diamantes',
-        description: 'Elegante pulsera tenis con diamantes',
-        brand: 'Brillante',
-        categoryCode: 'PUL',
-        sku: 'PUL-TEN-001',
-        basePrice: 2500000,
-        baseCost: 1200000,
-      },
-      {
-        name: 'Alianza Matrimonial',
-        description: 'Alianza clásica para matrimonio',
-        brand: 'Brillante',
-        categoryCode: 'ANI',
-        sku: 'ANI-ALI-001',
-        basePrice: 350000,
-        baseCost: 170000,
+        variants: [
+          {
+            sku: 'ARE-PER-PLATA',
+            baseCost: 85000,
+            attributeValues: {
+              Material: 'Plata 925',
+              Piedra: 'Perla',
+              Quilates: 'N/A',
+            },
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 180000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 169000, taxCodes: ['IVA-19'] },
+            ],
+            isDefault: true,
+          },
+          {
+            sku: 'ARE-PER-ORO18',
+            baseCost: 125000,
+            attributeValues: {
+              Material: 'Oro 18K',
+              Piedra: 'Perla',
+              Quilates: 'N/A',
+            },
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 245000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 235000, taxCodes: ['IVA-19'] },
+              { listKey: 'wholesale', grossPrice: 210000, taxCodes: ['IVA-19'] },
+            ],
+          },
+        ],
       },
     ];
 
     const productRepo = db.getRepository(Product);
     const variantRepo = db.getRepository(ProductVariant);
+    const priceListItemRepo = db.getRepository(PriceListItem);
 
-    for (const prodData of productsData) {
+    const mapAttributeValues = (values?: Record<string, string>): Record<string, string> | undefined => {
+      if (!values) {
+        return undefined;
+      }
+
+      const mapped: Record<string, string> = {};
+      let hasAtLeastOne = false;
+
+      for (const [attributeName, optionValue] of Object.entries(values)) {
+        const attribute = createdAttributes[attributeName];
+        if (!attribute || !optionValue) {
+          continue;
+        }
+        mapped[attribute.id] = optionValue;
+        hasAtLeastOne = true;
+      }
+
+      return hasAtLeastOne ? mapped : undefined;
+    };
+
+    for (const productSeed of productsData) {
+      const desiredSkus = new Set(productSeed.variants.map((variant) => variant.sku));
+
       let product = await productRepo.findOne({
-        where: { name: prodData.name },
+        where: { name: productSeed.name },
         withDeleted: true,
       });
-
-      const category = createdCategories[prodData.categoryCode];
-      const unit = unitsBySymbol.get('un');
 
       if (!product) {
         product = new Product();
@@ -586,49 +755,141 @@ async function seedFlowStore() {
         product.productType = ProductType.PHYSICAL;
       }
 
-      product.name = prodData.name;
-      product.description = prodData.description;
-      product.brand = prodData.brand;
-      product.categoryId = category?.id;
-      product.productType = ProductType.PHYSICAL;
-      product.isActive = true;
-      product.deletedAt = undefined;
-      await productRepo.save(product);
+      const category = createdCategories[productSeed.categoryCode];
+      const baseUnit = unitsBySymbol.get('un');
 
-      if (!unit) {
-        console.log('   ✗ No se pudo asegurar variante: unidad UN no disponible.');
+      if (!baseUnit) {
+        console.log('   ✗ No se pudo asegurar variantes: unidad UN no disponible.');
         continue;
       }
 
-      let variant = await variantRepo.findOne({
-        where: { sku: prodData.sku },
+      product.name = productSeed.name;
+      product.description = productSeed.description;
+      product.brand = productSeed.brand;
+      product.categoryId = category?.id;
+      product.productType = ProductType.PHYSICAL;
+      product.isActive = true;
+      product.baseUnitId = baseUnit.id;
+      product.baseUnit = baseUnit;
+      product.taxIds = ivaDefault ? [ivaDefault.id] : undefined;
+      product.deletedAt = undefined;
+
+      await productRepo.save(product);
+
+      const existingVariants = await variantRepo.find({
+        where: { productId: product.id },
         withDeleted: true,
       });
 
-      if (!variant) {
-        variant = new ProductVariant();
-        variant.id = uuidv4();
+      for (const existing of existingVariants) {
+        if (!desiredSkus.has(existing.sku)) {
+          await db.createQueryBuilder()
+            .delete()
+            .from(PriceListItem)
+            .where('productVariantId = :variantId', { variantId: existing.id })
+            .execute();
+
+          await variantRepo.softRemove(existing);
+        }
       }
 
-      variant.productId = product.id;
-      variant.sku = prodData.sku;
-      variant.basePrice = prodData.basePrice;
-      variant.baseCost = prodData.baseCost;
-      variant.unitId = unit.id;
-      variant.unit = unit;
-      variant.isDefault = true;
-      variant.isActive = true;
-      variant.trackInventory = true;
-      variant.allowNegativeStock = false;
-      variant.deletedAt = undefined;
-      await variantRepo.save(variant);
+      for (const [index, variantSeed] of productSeed.variants.entries()) {
+        const isDefaultVariant = variantSeed.isDefault ?? index === 0;
 
-      console.log(`   ✓ Producto asegurado: ${product.name} ($${prodData.basePrice.toLocaleString()})`);
+        let variant = await variantRepo.findOne({
+          where: { sku: variantSeed.sku },
+          withDeleted: true,
+        });
+
+        if (!variant) {
+          variant = new ProductVariant();
+          variant.id = uuidv4();
+          variant.sku = variantSeed.sku;
+        }
+
+        const attributeValues = mapAttributeValues(variantSeed.attributeValues);
+
+        const preparedPriceEntries = (variantSeed.priceEntries ?? [])
+          .map((entry) => {
+            const priceList = priceListsByKey[entry.listKey];
+            if (!priceList) {
+              console.log(`   ✗ Lista de precios "${entry.listKey}" no existe, se omite para variante ${variantSeed.sku}`);
+              return null;
+            }
+
+            const taxes = (entry.taxCodes ?? ['IVA-19'])
+              .map((code) => taxesByCode[code])
+              .filter((tax): tax is Tax => Boolean(tax));
+
+            const computation = computePriceWithTaxes({
+              netPrice: entry.netPrice,
+              grossPrice: entry.grossPrice,
+              taxRates: taxes.map((tax) => tax.rate),
+            });
+
+            return {
+              priceList,
+              netPrice: computation.netPrice,
+              grossPrice: computation.grossPrice,
+              taxIds: taxes.map((tax) => tax.id),
+            };
+          })
+          .filter((entry): entry is { priceList: PriceList; netPrice: number; grossPrice: number; taxIds: string[] } => entry !== null);
+
+        if (preparedPriceEntries.length === 0) {
+          console.log(`   ⚠ Variante ${variantSeed.sku} sin precios válidos, se omite.`);
+          continue;
+        }
+
+        const primaryEntry = preparedPriceEntries[0];
+        const uniqueTaxIds = Array.from(new Set(preparedPriceEntries.flatMap((entry) => entry.taxIds)));
+
+        variant.productId = product.id;
+        variant.basePrice = primaryEntry.netPrice;
+        variant.baseCost = variantSeed.baseCost ?? Math.round(primaryEntry.netPrice * 0.45);
+        variant.unitId = baseUnit.id;
+        variant.unit = baseUnit;
+        variant.attributeValues = attributeValues;
+        variant.isDefault = isDefaultVariant;
+        variant.isActive = true;
+        variant.trackInventory = variantSeed.trackInventory ?? true;
+        variant.allowNegativeStock = variantSeed.allowNegativeStock ?? false;
+        variant.taxIds = uniqueTaxIds.length > 0 ? uniqueTaxIds : undefined;
+        variant.deletedAt = undefined;
+
+        await variantRepo.save(variant);
+
+        await db.createQueryBuilder()
+          .delete()
+          .from(PriceListItem)
+          .where('productVariantId = :variantId', { variantId: variant.id })
+          .execute();
+
+        for (const entry of preparedPriceEntries) {
+          const priceListItem = new PriceListItem();
+          priceListItem.id = uuidv4();
+          priceListItem.priceListId = entry.priceList.id;
+          priceListItem.productId = product.id;
+          priceListItem.productVariantId = variant.id;
+          priceListItem.netPrice = entry.netPrice;
+          priceListItem.grossPrice = entry.grossPrice;
+          priceListItem.taxIds = entry.taxIds.length > 0 ? entry.taxIds : null;
+
+          await priceListItemRepo.save(priceListItem);
+        }
+
+        console.log(`   ✓ Variante asegurada (${variant.isDefault ? 'default' : 'secundaria'}): ${variantSeed.sku}`);
+      }
     }
 
     // ============================================
     // RESUMEN
     // ============================================
+    const totalVariantsSeeded = productsData.reduce((acc, product) => acc + product.variants.length, 0);
+    const priceListsSummary = Object.values(priceListsByKey)
+      .map((list) => list.name)
+      .join(', ');
+
     console.log('\n═══════════════════════════════════════════════════════════');
     console.log('✅ Seed completado exitosamente!');
     console.log('───────────────────────────────────────────────────────────');
@@ -638,8 +899,8 @@ async function seedFlowStore() {
     console.log(`   • Impuestos: IVA 19%, Exento`);
     console.log(`   • Categorías: ${categoriesData.length} categorías de joyería`);
     console.log(`   • Atributos: ${attributesData.length} atributos para variantes`);
-    console.log(`   • Productos: ${productsData.length} productos de ejemplo`);
-    console.log(`   • Lista de precios: ${priceList.name}`);
+    console.log(`   • Productos: ${productsData.length} productos de ejemplo (${totalVariantsSeeded} variantes)`);
+    console.log(`   • Listas de precios: ${Object.values(priceListsByKey).length} (${priceListsSummary})`);
     console.log(`   • Bodega: ${storage.name}`);
     console.log(`   • Punto de venta: ${pointOfSale.name}`);
     console.log('\n🔑 Credenciales de acceso:');

@@ -51,7 +51,6 @@ interface FormState {
     productType: ProductType;
     isActive: boolean;
     taxIds: string[];
-    hasVariants: boolean;
     baseUnitId: string;
 }
 
@@ -69,7 +68,6 @@ const getInitialFormData = (): FormState => ({
     productType: ProductType.PHYSICAL,
     isActive: true,
     taxIds: [],
-    hasVariants: false,
     baseUnitId: '',
 });
 
@@ -210,7 +208,6 @@ export default function CreateProductDialog({
                 categoryId: formData.categoryId || undefined,
                 productType: formData.productType,
                 taxIds: formData.taxIds.length > 0 ? formData.taxIds : undefined,
-                hasVariants: formData.hasVariants,
                 isActive: formData.isActive,
                 baseUnitId: baseUnit.id,
             });
@@ -315,14 +312,6 @@ export default function CreateProductDialog({
                         </div>
                     </div>
                 </div>
-
-                <Switch
-                    label="Este producto manejará múltiples variantes"
-                    checked={formData.hasVariants}
-                    onChange={(checked) => setFormData({ ...formData, hasVariants: checked })}
-                    data-test-id="switch-has-variants"
-                />
-
                 <div className="rounded-md bg-muted/40 border border-border px-4 py-3 text-sm text-muted-foreground">
                     Registra solo la información del producto maestro. Las variantes (SKU, precios y stock) se
                     configurarán en un paso posterior.

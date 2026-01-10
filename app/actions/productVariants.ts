@@ -234,10 +234,19 @@ export interface ProductWithVariants {
     brand?: string;
     categoryId?: string;
     categoryName?: string;
-    hasVariants: boolean;
     isActive: boolean;
     variantCount: number;
+    isMultiVariant: boolean;
     variants: VariantDisplay[];
+}
+
+interface VariantPriceListDisplay {
+    priceListId: string;
+    priceListName: string;
+    currency: string;
+    netPrice: number;
+    grossPrice: number;
+    taxIds: string[];
 }
 
 export interface VariantDisplay {
@@ -256,6 +265,7 @@ export interface VariantDisplay {
     allowNegativeStock: boolean;
     isDefault: boolean;
     isActive: boolean;
+    priceListItems?: VariantPriceListDisplay[];
 }
 
 /**
@@ -293,6 +303,7 @@ export async function getProductsWithVariants(params?: {
     const productRepo = ds.getRepository(Product);
     const variantRepo = ds.getRepository(ProductVariant);
     const attributeRepo = ds.getRepository(Attribute);
+    const priceListItemRepo = ds.getRepository(PriceListItem);
     
     // Obtener todos los atributos para generar displayNames
     const allAttributes = await attributeRepo.find({ where: { deletedAt: IsNull() } });
@@ -330,6 +341,42 @@ export async function getProductsWithVariants(params?: {
             order: { isDefault: 'DESC', sku: 'ASC' }
         });
         
+        const variantIds = variants.map((v) => v.id);
+        let priceListItemsByVariant: Record<string, VariantPriceListDisplay[]> = {};
+
+        if (variantIds.length > 0) {
+            const items = await priceListItemRepo.find({
+                where: {
+                    productVariantId: In(variantIds),
+                    deletedAt: IsNull(),
+                },
+                relations: ['priceList'],
+            });
+
+            priceListItemsByVariant = items.reduce<Record<string, VariantPriceListDisplay[]>>((acc, item) => {
+                if (!item.productVariantId) {
+                    return acc;
+                }
+
+                const current = acc[item.productVariantId] ?? [];
+                current.push({
+                    priceListId: item.priceListId ?? '',
+                    priceListName: item.priceList?.name ?? 'Lista sin nombre',
+                    currency: item.priceList?.currency ?? 'CLP',
+                    netPrice: Number(item.netPrice),
+                    grossPrice: Number(item.grossPrice),
+                    taxIds: normalizeStringArray(item.taxIds as string[] | undefined),
+                });
+
+                acc[item.productVariantId] = current;
+                return acc;
+            }, {});
+
+            for (const key of Object.keys(priceListItemsByVariant)) {
+                priceListItemsByVariant[key].sort((a, b) => a.priceListName.localeCompare(b.priceListName));
+            }
+        }
+
         const variantDisplays: VariantDisplay[] = [];
         for (const v of variants) {
             const displayName = await generateVariantDisplayName(v.attributeValues, allAttributes);
@@ -346,7 +393,8 @@ export async function getProductsWithVariants(params?: {
                 trackInventory: v.trackInventory,
                 allowNegativeStock: v.allowNegativeStock,
                 isDefault: v.isDefault,
-                isActive: v.isActive
+                isActive: v.isActive,
+                priceListItems: priceListItemsByVariant[v.id] ?? [],
             });
         }
         
@@ -356,9 +404,9 @@ export async function getProductsWithVariants(params?: {
             brand: product.brand,
             categoryId: product.categoryId,
             categoryName: product.category?.name,
-            hasVariants: product.hasVariants,
             isActive: product.isActive,
             variantCount: variants.length,
+            isMultiVariant: variants.length > 1,
             variants: variantDisplays
         });
     }
@@ -498,11 +546,6 @@ export async function createVariant(data: CreateVariantDTO): Promise<VariantResu
             },
         });
         addHistoryEntry(product, historyEntry);
-
-        if (!product.hasVariants) {
-            product.hasVariants = true;
-        }
-
         await productRepo.save(product);
         
         revalidatePath('/admin/inventory/products');
@@ -527,6 +570,7 @@ export async function updateVariant(id: string, data: UpdateVariantDTO): Promise
         const repo = ds.getRepository(ProductVariant);
         const unitRepo = ds.getRepository(Unit);
         const productRepo = ds.getRepository(Product);
+        const priceListItemRepo = ds.getRepository(PriceListItem);
         const session = await getCurrentSession();
         
         const variant = await repo.findOne({
@@ -535,6 +579,10 @@ export async function updateVariant(id: string, data: UpdateVariantDTO): Promise
         
         if (!variant) {
             return { success: false, error: 'Variante no encontrada' };
+        }
+
+        if (!variant.productId) {
+            return { success: false, error: 'La variante no está asociada a un producto válido' };
         }
 
         const variantChanges = collectVariantChanges(variant, data);
@@ -565,6 +613,56 @@ export async function updateVariant(id: string, data: UpdateVariantDTO): Promise
 
             variant.unitId = unit.id;
             variant.unit = unit;
+        }
+
+        if (data.priceListItems !== undefined) {
+            const existingItems = await priceListItemRepo.find({
+                where: { productVariantId: variant.id, deletedAt: IsNull() },
+            });
+
+            const normalizeExisting = existingItems
+                .map((item) => ({
+                    priceListId: item.priceListId ?? '',
+                    grossPrice: Number(item.grossPrice),
+                    taxIds: normalizeStringArray(item.taxIds as string[] | undefined),
+                }))
+                .filter((entry) => entry.priceListId)
+                .sort((a, b) => a.priceListId.localeCompare(b.priceListId));
+
+            const normalizedNext = (Array.isArray(data.priceListItems) ? data.priceListItems : [])
+                .map((entry) => ({
+                    priceListId: typeof entry?.priceListId === 'string' ? entry.priceListId.trim() : '',
+                    grossPrice: Number(entry?.grossPrice),
+                    taxIds: normalizeStringArray(entry?.taxIds),
+                }))
+                .filter((entry) => entry.priceListId && Number.isFinite(entry.grossPrice) && entry.grossPrice >= 0)
+                .sort((a, b) => a.priceListId.localeCompare(b.priceListId));
+
+            const hasDifference = JSON.stringify(normalizeExisting) !== JSON.stringify(normalizedNext);
+
+            if (hasDifference) {
+                if (existingItems.length > 0) {
+                    await priceListItemRepo.remove(existingItems);
+                }
+
+                if (normalizedNext.length > 0) {
+                    await persistPriceListItemsForVariant(ds, {
+                        entries: normalizedNext.map((entry) => ({
+                            priceListId: entry.priceListId,
+                            grossPrice: entry.grossPrice,
+                            taxIds: entry.taxIds,
+                        })),
+                        productId: variant.productId,
+                        variantId: variant.id,
+                    });
+                }
+
+                variantChanges.push({
+                    field: 'priceListItems',
+                    previousValue: normalizeExisting,
+                    newValue: normalizedNext,
+                });
+            }
         }
 
         // Actualizar campos
@@ -682,15 +780,6 @@ export async function deleteVariant(id: string): Promise<{ success: boolean; err
         }
 
         await repo.softRemove(variant);
-        
-        // Actualizar hasVariants si solo queda 1 variante
-        const remainingCount = await repo.count({
-            where: { productId: variant.productId, deletedAt: IsNull() }
-        });
-        
-        if (product && remainingCount === 1) {
-            product.hasVariants = false;
-        }
 
         if (product) {
             await productRepo.save(product);
@@ -802,11 +891,6 @@ export async function createBulkVariants(
                 },
             });
             addHistoryEntry(product, historyEntry);
-        }
-        
-        // Marcar el producto como hasVariants
-        if (!product.hasVariants && createdVariants.length > 0) {
-            product.hasVariants = true;
         }
 
         if (createdVariants.length > 0) {

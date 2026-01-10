@@ -42,9 +42,9 @@ export enum ProductType {
 }
 
 /**
- * Product es el producto maestro/padre.
- * NO contiene SKU, precio ni costo - esos datos viven en ProductVariant.
- * Todo producto debe tener al menos una variante (se crea automáticamente para productos simples).
+ * Product representa los datos maestros/padre del catálogo.
+ * SKU, precios e inventario viven en ProductVariant.
+ * Todo producto se gestiona exclusivamente a través de variantes.
  */
 @Entity("products")
 export class Product {
@@ -81,13 +81,6 @@ export class Product {
 
     @Column({ type: 'uuid', nullable: true, name: 'base_unit_id' })
     baseUnitId?: string;
-
-    /**
-     * Indica si el producto tiene múltiples variantes definidas por el usuario.
-     * Si false, tiene una única variante "default" creada automáticamente.
-     */
-    @Column({ type: 'boolean', default: false })
-    hasVariants!: boolean;
 
     @Column({ type: 'json', nullable: true })
     metadata?: Record<string, any>;

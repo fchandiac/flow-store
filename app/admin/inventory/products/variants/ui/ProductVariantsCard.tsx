@@ -13,9 +13,9 @@ export interface ProductWithVariantsType {
     brand?: string;
     categoryId?: string;
     categoryName?: string;
-    hasVariants: boolean;
     isActive: boolean;
     variantCount: number;
+    isMultiVariant: boolean;
     variants: VariantType[];
 }
 
@@ -96,11 +96,6 @@ const ProductVariantsCard: React.FC<ProductVariantsCardProps> = ({
                                     <Badge variant={product.isActive ? 'success-outlined' : 'secondary-outlined'}>
                                         {product.isActive ? 'Activo' : 'Inactivo'}
                                     </Badge>
-                                    {!product.hasVariants && (
-                                        <Badge variant="secondary-outlined">
-                                            Simple
-                                        </Badge>
-                                    )}
                                 </div>
                                 <div className="flex items-center gap-3 text-sm text-neutral-500 mt-1">
                                     {defaultVariant && <span>SKU: {defaultVariant.sku}</span>}
