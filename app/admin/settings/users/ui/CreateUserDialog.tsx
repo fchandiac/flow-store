@@ -76,15 +76,10 @@ const buildPersonLabel = (person: PersonSearchResult): string => {
 
 const buildCreateOption = (term: string): PersonOption => ({
     id: '__create__',
-    label: `Crear persona "${term}"`,
+    label: 'Crear nueva persona',
     isCreateOption: true,
     searchTerm: term,
 });
-
-const isDocumentLike = (value: string): boolean => {
-    const sanitized = value.replace(/\s+/g, '');
-    return /^[0-9.\-kK]+$/.test(sanitized);
-};
 
 const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
     open,
@@ -211,20 +206,9 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
         }
 
         if (option.isCreateOption) {
-            const term = option.searchTerm ?? personSearchTerm.trim();
-            const looksLikeDocument = term ? isDocumentLike(term) : false;
-
             setSelectedPersonOption(null);
             setIsCreatingNewPerson(true);
-            setPersonForm(() => {
-                const base = createInitialPersonForm();
-                return {
-                    ...base,
-                    firstName: looksLikeDocument ? '' : term,
-                    documentNumber: looksLikeDocument ? term : '',
-                    email: formData.mail,
-                };
-            });
+            setPersonForm(createInitialPersonForm());
             return;
         }
 
@@ -412,6 +396,12 @@ const CreateUserDialog: React.FC<CreateUserDialogProps> = ({
                         value={selectedPersonOption}
                         onChange={handlePersonSelection}
                         onInputChange={handlePersonSearchInput}
+                        filterOption={(option, inputValue) => {
+                            if ((option as PersonOption).isCreateOption) {
+                                return true;
+                            }
+                            return option.label.toLowerCase().includes(inputValue.toLowerCase());
+                        }}
                         data-test-id="create-user-person-autocomplete"
                     />
 
