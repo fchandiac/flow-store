@@ -37,6 +37,7 @@ export interface VariantType {
 interface VariantCardProps {
     variant: VariantType;
     attributeNames?: Record<string, string>;
+    onVariantChange?: () => void;
     'data-test-id'?: string;
 }
 
@@ -52,6 +53,7 @@ const formatCurrency = (value: number, currency = 'CLP') => {
 const VariantCard: React.FC<VariantCardProps> = ({ 
     variant,
     attributeNames = {},
+    onVariantChange,
     'data-test-id': dataTestId 
 }) => {
     const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
@@ -161,6 +163,7 @@ const VariantCard: React.FC<VariantCardProps> = ({
                 open={openUpdateDialog}
                 onClose={() => setOpenUpdateDialog(false)}
                 variant={variant}
+                onUpdated={onVariantChange}
                 data-test-id={`update-variant-dialog-${variant.id}`}
             />
 
@@ -168,6 +171,7 @@ const VariantCard: React.FC<VariantCardProps> = ({
                 open={openDeleteDialog}
                 onClose={() => setOpenDeleteDialog(false)}
                 variant={variant}
+                onDeleted={onVariantChange}
                 data-test-id={`delete-variant-dialog-${variant.id}`}
             />
         </>

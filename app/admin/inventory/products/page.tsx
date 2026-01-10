@@ -144,6 +144,7 @@ const VariantsPanel = ({
                         key={variant.id}
                         variant={toVariantType(variant, product.id)}
                         attributeNames={attributeNames}
+                        onVariantChange={onUpdate}
                         data-test-id={`variant-card-${variant.id}`}
                     />
                 ))}

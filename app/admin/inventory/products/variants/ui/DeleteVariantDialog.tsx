@@ -21,6 +21,7 @@ interface DeleteVariantDialogProps {
     open: boolean;
     onClose: () => void;
     variant: VariantType;
+    onDeleted?: () => void;
     'data-test-id'?: string;
 }
 
@@ -28,6 +29,7 @@ const DeleteVariantDialog: React.FC<DeleteVariantDialogProps> = ({
     open, 
     onClose,
     variant,
+    onDeleted,
     'data-test-id': dataTestId 
 }) => {
     const router = useRouter();
@@ -69,6 +71,7 @@ const DeleteVariantDialog: React.FC<DeleteVariantDialogProps> = ({
                 success('Variante eliminada correctamente');
                 setTimeout(() => {
                     onClose();
+                    onDeleted?.();
                     router.refresh();
                     setIsSubmitting(false);
                 }, 300);

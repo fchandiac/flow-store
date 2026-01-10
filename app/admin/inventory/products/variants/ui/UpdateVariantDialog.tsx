@@ -29,6 +29,7 @@ interface UpdateVariantDialogProps {
     open: boolean;
     onClose: () => void;
     variant: VariantType;
+    onUpdated?: () => void;
     'data-test-id'?: string;
 }
 
@@ -225,6 +226,7 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
     open,
     onClose,
     variant,
+    onUpdated,
     'data-test-id': dataTestId,
 }) => {
     const router = useRouter();
@@ -857,6 +859,7 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
                 success('Variante actualizada correctamente');
                 setTimeout(() => {
                     onClose();
+                    onUpdated?.();
                     router.refresh();
                     setIsSubmitting(false);
                 }, 300);
