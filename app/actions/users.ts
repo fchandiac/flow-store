@@ -2,7 +2,7 @@
 
 import { getDb } from '@/data/db';
 import { User, UserRole } from '@/data/entities/User';
-import { Person, PersonType } from '@/data/entities/Person';
+import { DocumentType, Person, PersonType } from '@/data/entities/Person';
 import { revalidatePath } from 'next/cache';
 import { IsNull } from 'typeorm';
 import crypto from 'crypto';
@@ -17,10 +17,19 @@ interface CreateUserDTO {
     userName: string;
     mail: string;
     password: string;
-    phone?: string;
     rol?: UserRole;
-    personName: string;
-    personDni: string;
+    personId?: string;
+    person?: {
+        type: PersonType;
+        firstName: string;
+        lastName?: string;
+        businessName?: string;
+        documentType?: DocumentType | null;
+        documentNumber?: string;
+        email?: string;
+        phone?: string;
+        address?: string;
+    };
 }
 
 interface UpdateUserDTO {
@@ -142,32 +151,152 @@ export async function createUserWithPerson(data: CreateUserDTO, currentUserId?: 
         if (existingMail) {
             return { success: false, error: 'El correo ya está en uso' };
         }
-        
-        // Crear persona primero
-        const nameParts = data.personName.split(' ');
-        const firstName = nameParts[0] || data.personName;
-        const lastName = nameParts.slice(1).join(' ') || undefined;
-        
-        const person = personRepo.create({
-            type: PersonType.NATURAL,
-            firstName,
-            lastName,
-            documentNumber: data.personDni,
-            email: data.mail,
-            phone: data.phone,
-        });
-        
-        await personRepo.save(person);
-        
-        // Crear usuario con referencia a persona
+
+        let person: Person | null = null;
+
+        if (data.personId) {
+            person = await personRepo.findOne({
+                where: { id: data.personId, deletedAt: IsNull() },
+            });
+
+            if (!person) {
+                return { success: false, error: 'Persona no encontrada' };
+            }
+
+            if (data.person) {
+                const { email, phone, address, documentType, documentNumber } = data.person;
+                let updated = false;
+
+                if (email !== undefined && email !== person.email) {
+                    person.email = email;
+                    updated = true;
+                }
+
+                if (phone !== undefined && phone !== person.phone) {
+                    person.phone = phone;
+                    updated = true;
+                }
+
+                if (address !== undefined && address !== person.address) {
+                    person.address = address;
+                    updated = true;
+                }
+
+                if (documentNumber && documentNumber !== person.documentNumber) {
+                    const existingDoc = await personRepo.findOne({
+                        where: { documentNumber, deletedAt: IsNull() },
+                    });
+                    if (existingDoc && existingDoc.id !== person.id) {
+                        return { success: false, error: 'Ya existe una persona con ese número de documento' };
+                    }
+                    person.documentNumber = documentNumber;
+                    updated = true;
+                }
+
+                if (person.type === PersonType.COMPANY) {
+                    if (documentType && documentType !== DocumentType.RUT) {
+                        return { success: false, error: 'Las empresas deben usar documento tipo RUT' };
+                    }
+                    if (person.documentType !== DocumentType.RUT) {
+                        person.documentType = DocumentType.RUT;
+                        updated = true;
+                    }
+                } else {
+                    if (documentType === DocumentType.RUT) {
+                        return { success: false, error: 'Las personas naturales no pueden tener documento tipo RUT' };
+                    }
+                    if (documentType) {
+                        if (person.documentType !== documentType) {
+                            person.documentType = documentType;
+                            updated = true;
+                        }
+                    } else if (!person.documentType || person.documentType === DocumentType.RUT) {
+                        person.documentType = DocumentType.RUN;
+                        updated = true;
+                    }
+                }
+
+                if (updated) {
+                    await personRepo.save(person);
+                }
+            } else {
+                if (person.type === PersonType.COMPANY && person.documentType !== DocumentType.RUT) {
+                    person.documentType = DocumentType.RUT;
+                    await personRepo.save(person);
+                }
+                if (person.type === PersonType.NATURAL && (!person.documentType || person.documentType === DocumentType.RUT)) {
+                    person.documentType = DocumentType.RUN;
+                    await personRepo.save(person);
+                }
+            }
+        } else if (data.person) {
+            const personData = data.person;
+
+            if (!personData.firstName?.trim()) {
+                return { success: false, error: 'El nombre es obligatorio para la persona' };
+            }
+
+            if (personData.type === PersonType.NATURAL && !personData.lastName?.trim()) {
+                return { success: false, error: 'El apellido es obligatorio para personas naturales' };
+            }
+
+            if (personData.type === PersonType.COMPANY && !personData.businessName?.trim()) {
+                return { success: false, error: 'La razón social es obligatoria para empresas' };
+            }
+
+            let resolvedDocumentType: DocumentType;
+            if (personData.type === PersonType.COMPANY) {
+                if (personData.documentType && personData.documentType !== DocumentType.RUT) {
+                    return { success: false, error: 'Las empresas deben usar documento tipo RUT' };
+                }
+                resolvedDocumentType = DocumentType.RUT;
+            } else {
+                if (personData.documentType === DocumentType.RUT) {
+                    return { success: false, error: 'Las personas naturales no pueden tener documento tipo RUT' };
+                }
+                resolvedDocumentType = personData.documentType ?? DocumentType.RUN;
+            }
+
+            if (personData.documentNumber) {
+                const existingDni = await personRepo.findOne({
+                    where: { documentNumber: personData.documentNumber, deletedAt: IsNull() },
+                });
+
+                if (existingDni) {
+                    return { success: false, error: 'Ya existe una persona con ese número de documento' };
+                }
+            }
+
+            const createdPerson = personRepo.create({
+                type: personData.type,
+                firstName: personData.firstName,
+                lastName: personData.lastName,
+                businessName: personData.businessName,
+                documentType: resolvedDocumentType,
+                documentNumber: personData.documentNumber,
+                email: personData.email ?? data.mail,
+                phone: personData.phone,
+                address: personData.address,
+            });
+
+            await personRepo.save(createdPerson);
+            person = createdPerson;
+        } else {
+            return { success: false, error: 'Debes seleccionar o crear una persona' };
+        }
+
+        if (!person) {
+            return { success: false, error: 'No fue posible asociar la persona al usuario' };
+        }
+
         const user = userRepo.create({
             userName: data.userName,
             mail: data.mail,
             pass: hashPassword(data.password),
             rol: data.rol || UserRole.OPERATOR,
-            person: person
+            person,
         });
-        
+
         await userRepo.save(user);
         revalidatePath('/admin/settings/users');
         
@@ -176,12 +305,14 @@ export async function createUserWithPerson(data: CreateUserDTO, currentUserId?: 
             userName: user.userName,
             mail: user.mail,
             rol: user.rol,
-            person: {
-                id: person.id,
-                name: data.personName,
-                dni: data.personDni,
-                phone: data.phone,
-            }
+            person: person
+                ? {
+                      id: person.id,
+                      name: [person.firstName, person.lastName].filter(Boolean).join(' '),
+                      dni: person.documentNumber,
+                      phone: person.phone,
+                  }
+                : undefined,
         };
         
         return { success: true, user: JSON.parse(JSON.stringify(result)) };

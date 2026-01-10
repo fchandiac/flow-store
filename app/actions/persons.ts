@@ -1,7 +1,7 @@
 'use server'
 
 import { getDb } from '@/data/db';
-import { Person, PersonType } from '@/data/entities/Person';
+import { DocumentType, Person, PersonType } from '@/data/entities/Person';
 import { Customer } from '@/data/entities/Customer';
 import { Supplier } from '@/data/entities/Supplier';
 import { revalidatePath } from 'next/cache';
@@ -25,7 +25,7 @@ interface CreatePersonDTO {
     firstName: string;
     lastName?: string;
     businessName?: string;
-    documentType?: string;
+    documentType?: DocumentType | null;
     documentNumber?: string;
     email?: string;
     phone?: string;
@@ -36,7 +36,7 @@ interface UpdatePersonDTO {
     firstName?: string;
     lastName?: string;
     businessName?: string;
-    documentType?: string;
+    documentType?: DocumentType | null;
     documentNumber?: string;
     email?: string;
     phone?: string;
@@ -47,6 +47,12 @@ interface PersonResult {
     success: boolean;
     person?: Person;
     error?: string;
+}
+
+interface PersonSearchOptions {
+    term: string;
+    limit?: number;
+    type?: PersonType;
 }
 
 /**
@@ -126,6 +132,21 @@ export async function createPerson(data: CreatePersonDTO): Promise<PersonResult>
             return { success: false, error: 'La razón social es requerida para empresas' };
         }
         
+        const personType = data.type;
+        let documentType: DocumentType;
+
+        if (personType === PersonType.COMPANY) {
+            if (data.documentType && data.documentType !== DocumentType.RUT) {
+                return { success: false, error: 'Las empresas deben usar documento tipo RUT' };
+            }
+            documentType = DocumentType.RUT;
+        } else {
+            if (data.documentType === DocumentType.RUT) {
+                return { success: false, error: 'Las personas naturales no pueden tener documento tipo RUT' };
+            }
+            documentType = data.documentType ?? DocumentType.RUN;
+        }
+
         // Verificar documento único si se proporciona
         if (data.documentNumber) {
             const existing = await repo.findOne({ 
@@ -141,7 +162,7 @@ export async function createPerson(data: CreatePersonDTO): Promise<PersonResult>
             firstName: data.firstName,
             lastName: data.lastName,
             businessName: data.businessName,
-            documentType: data.documentType,
+            documentType,
             documentNumber: data.documentNumber,
             email: data.email,
             phone: data.phone,
@@ -177,6 +198,21 @@ export async function updatePerson(id: string, data: UpdatePersonDTO): Promise<P
             return { success: false, error: 'Persona no encontrada' };
         }
         
+        // Validación de tipo de documento
+        if (data.documentType !== undefined && data.documentType !== null) {
+            if (person.type === PersonType.COMPANY && data.documentType !== DocumentType.RUT) {
+                return { success: false, error: 'Las empresas deben usar documento tipo RUT' };
+            }
+            if (person.type === PersonType.NATURAL && data.documentType === DocumentType.RUT) {
+                return { success: false, error: 'Las personas naturales no pueden tener documento tipo RUT' };
+            }
+            person.documentType = person.type === PersonType.COMPANY
+                ? DocumentType.RUT
+                : (data.documentType ?? DocumentType.RUN);
+        } else if (data.documentType === null) {
+            person.documentType = null;
+        }
+
         // Verificar documento único si se cambia
         if (data.documentNumber && data.documentNumber !== person.documentNumber) {
             const existing = await repo.findOne({ 
@@ -190,11 +226,16 @@ export async function updatePerson(id: string, data: UpdatePersonDTO): Promise<P
         if (data.firstName !== undefined) person.firstName = data.firstName;
         if (data.lastName !== undefined) person.lastName = data.lastName;
         if (data.businessName !== undefined) person.businessName = data.businessName;
-        if (data.documentType !== undefined) person.documentType = data.documentType;
         if (data.documentNumber !== undefined) person.documentNumber = data.documentNumber;
         if (data.email !== undefined) person.email = data.email;
         if (data.phone !== undefined) person.phone = data.phone;
         if (data.address !== undefined) person.address = data.address;
+
+        if (person.type === PersonType.COMPANY) {
+            person.documentType = DocumentType.RUT;
+        } else if (!person.documentType || person.documentType === DocumentType.RUT) {
+            person.documentType = DocumentType.RUN;
+        }
         
         await repo.save(person);
         revalidatePath('/admin/persons');
@@ -255,12 +296,30 @@ export async function deletePerson(id: string): Promise<{ success: boolean; erro
     }
 }
 
-/**
- * Obtiene nombre completo de la persona
- */
-export function getPersonFullName(person: Person): string {
-    if (person.type === PersonType.COMPANY) {
-        return person.businessName || person.firstName;
+export async function searchPersons({ term, limit = 10, type }: PersonSearchOptions): Promise<Person[]> {
+    if (!term || !term.trim()) {
+        return [];
     }
-    return `${person.firstName} ${person.lastName || ''}`.trim();
+
+    const ds = await getDb();
+    const repo = ds.getRepository(Person);
+    const normalizedTerm = `%${term.trim().replace(/\s+/g, '%').toLowerCase()}%`;
+
+    const queryBuilder = repo.createQueryBuilder('person')
+        .where('person.deletedAt IS NULL')
+        .andWhere(
+            '(LOWER(person.firstName) LIKE :term OR LOWER(person.lastName) LIKE :term OR LOWER(person.businessName) LIKE :term OR LOWER(person.documentNumber) LIKE :term)',
+            { term: normalizedTerm }
+        )
+        .orderBy('person.firstName', 'ASC')
+        .addOrderBy('person.lastName', 'ASC')
+        .take(limit);
+
+    if (type) {
+        queryBuilder.andWhere('person.type = :type', { type });
+    }
+
+    const persons = await queryBuilder.getMany();
+
+    return JSON.parse(JSON.stringify(persons));
 }

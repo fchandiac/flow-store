@@ -1,6 +1,6 @@
 import { getDb } from '../db';
 import { User } from '../entities/User';
-import { Person } from '../entities/Person';
+import { Person, PersonType, DocumentType } from '../entities/Person';
 import bcrypt from 'bcryptjs';
 import { UserRole } from '../entities/User';
 import { v4 as uuidv4 } from 'uuid';
@@ -30,8 +30,10 @@ async function seedProduction() {
     console.log('\n👤 Creating admin person...');
     const person = new Person();
     person.id = uuidv4();
+    person.type = PersonType.NATURAL;
     person.firstName = 'Administrator';
     person.lastName = '';
+    person.documentType = DocumentType.RUN;
     person.documentNumber = '00000000-0';
     person.phone = '+56900000000';
     person.email = 'admin@electnext.com';

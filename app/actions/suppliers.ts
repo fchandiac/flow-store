@@ -2,7 +2,7 @@
 
 import { getDb } from '@/data/db';
 import { Supplier, SupplierType } from '@/data/entities/Supplier';
-import { Person, PersonType } from '@/data/entities/Person';
+import { DocumentType, Person, PersonType } from '@/data/entities/Person';
 import { revalidatePath } from 'next/cache';
 import { IsNull } from 'typeorm';
 
@@ -18,7 +18,7 @@ interface CreateSupplierDTO {
     firstName: string;
     lastName?: string;
     businessName?: string;
-    documentType?: string;
+    documentType?: DocumentType | null;
     documentNumber?: string;
     email?: string;
     phone?: string;
@@ -38,7 +38,7 @@ interface UpdateSupplierDTO {
     firstName?: string;
     lastName?: string;
     businessName?: string;
-    documentType?: string;
+    documentType?: DocumentType | null;
     documentNumber?: string;
     email?: string;
     phone?: string;
@@ -164,13 +164,26 @@ export async function createSupplier(data: CreateSupplierDTO): Promise<SupplierR
         
 
         
+        if (data.documentType && data.documentType !== DocumentType.RUT) {
+            return { success: false, error: 'Los proveedores deben usar documento tipo RUT' };
+        }
+
+        if (data.documentNumber) {
+            const existingPerson = await personRepo.findOne({
+                where: { documentNumber: data.documentNumber, deletedAt: IsNull() },
+            });
+            if (existingPerson) {
+                return { success: false, error: 'Ya existe una persona con ese número de documento' };
+            }
+        }
+
         // Crear persona primero
         const person = personRepo.create({
             type: PersonType.COMPANY,
             firstName: data.firstName,
             lastName: data.lastName,
             businessName: data.businessName,
-            documentType: data.documentType,
+            documentType: DocumentType.RUT,
             documentNumber: data.documentNumber,
             email: data.email,
             phone: data.phone,
@@ -239,11 +252,24 @@ export async function updateSupplier(id: string, data: UpdateSupplierDTO): Promi
         if (!person) {
             return { success: false, error: 'Datos de persona no encontrados' };
         }
+        if (data.documentType && data.documentType !== DocumentType.RUT) {
+            return { success: false, error: 'Los proveedores deben usar documento tipo RUT' };
+        }
+
+        if (data.documentNumber !== undefined && data.documentNumber !== person.documentNumber) {
+            const existing = await personRepo.findOne({
+                where: { documentNumber: data.documentNumber, deletedAt: IsNull() },
+            });
+            if (existing && existing.id !== person.id) {
+                return { success: false, error: 'Ya existe una persona con ese número de documento' };
+            }
+            person.documentNumber = data.documentNumber;
+        }
+
         if (data.firstName !== undefined) person.firstName = data.firstName;
         if (data.lastName !== undefined) person.lastName = data.lastName;
         if (data.businessName !== undefined) person.businessName = data.businessName;
-        if (data.documentType !== undefined) person.documentType = data.documentType;
-        if (data.documentNumber !== undefined) person.documentNumber = data.documentNumber;
+        person.documentType = DocumentType.RUT;
         if (data.email !== undefined) person.email = data.email;
         if (data.phone !== undefined) person.phone = data.phone;
         if (data.address !== undefined) person.address = data.address;

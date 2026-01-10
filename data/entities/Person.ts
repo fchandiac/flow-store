@@ -14,6 +14,12 @@ export enum PersonType {
     COMPANY = 'COMPANY'
 }
 
+export enum DocumentType {
+    RUN = 'RUN',
+    RUT = 'RUT',
+    PASSPORT = 'PASSPORT',
+}
+
 @Entity("persons")
 export class Person {
     @PrimaryGeneratedColumn("uuid")
@@ -31,8 +37,8 @@ export class Person {
     @Column({ type: 'varchar', length: 255, nullable: true })
     businessName?: string;
 
-    @Column({ type: 'varchar', length: 50, nullable: true })
-    documentType?: string;
+    @Column({ type: 'enum', enum: DocumentType, nullable: true })
+    documentType?: DocumentType | null;
 
     @Index()
     @Column({ type: 'varchar', length: 50, nullable: true })

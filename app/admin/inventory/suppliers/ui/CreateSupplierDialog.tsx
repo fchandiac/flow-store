@@ -8,6 +8,7 @@ import { Button } from "@/app/baseComponents/Button/Button";
 import Alert from "@/app/baseComponents/Alert/Alert";
 import { createSupplier } from "@/app/actions/suppliers";
 import { SupplierType } from "@/data/entities/Supplier";
+import { DocumentType } from "@/data/entities/Person";
 import { useAlert } from "@/app/state/hooks/useAlert";
 
 const supplierTypeOptions = [
@@ -59,6 +60,14 @@ const initialFormState: FormState = {
   notes: "",
 };
 
+const parseDocumentType = (value: string | null | undefined): DocumentType | undefined => {
+  if (!value) return undefined;
+  const normalized = value.trim().toUpperCase();
+  return (Object.values(DocumentType) as string[]).includes(normalized)
+    ? (normalized as DocumentType)
+    : undefined;
+};
+
 export const CreateSupplierDialog = ({ open, onClose, onSuccess }: CreateSupplierDialogProps) => {
   const { error } = useAlert();
   const [form, setForm] = useState<FormState>(initialFormState);
@@ -103,7 +112,7 @@ export const CreateSupplierDialog = ({ open, onClose, onSuccess }: CreateSupplie
         firstName: primaryName,
         lastName: form.lastName.trim() || undefined,
         businessName: form.businessName.trim() || undefined,
-        documentType: form.documentType.trim() || undefined,
+        documentType: parseDocumentType(form.documentType),
         documentNumber: form.documentNumber.trim() || undefined,
         email: form.email.trim() || undefined,
         phone: form.phone.trim() || undefined,

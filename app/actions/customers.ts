@@ -2,7 +2,7 @@
 
 import { getDb } from '@/data/db';
 import { Customer, CustomerType } from '@/data/entities/Customer';
-import { Person, PersonType } from '@/data/entities/Person';
+import { DocumentType, Person, PersonType } from '@/data/entities/Person';
 import { Transaction } from '@/data/entities/Transaction';
 import { revalidatePath } from 'next/cache';
 import { IsNull } from 'typeorm';
@@ -28,7 +28,7 @@ interface CreateCustomerDTO {
         firstName: string;
         lastName?: string;
         businessName?: string;
-        documentType?: string;
+        documentType?: DocumentType | null;
         documentNumber?: string;
         email?: string;
         phone?: string;
@@ -158,6 +158,19 @@ export async function createCustomer(data: CreateCustomerDTO): Promise<CustomerR
             if (data.person.type === PersonType.NATURAL && !data.person.lastName) {
                 return { success: false, error: 'El apellido es requerido para personas naturales' };
             }
+
+            let documentType: DocumentType;
+            if (data.person.type === PersonType.COMPANY) {
+                if (data.person.documentType && data.person.documentType !== DocumentType.RUT) {
+                    return { success: false, error: 'Las empresas deben usar documento tipo RUT' };
+                }
+                documentType = DocumentType.RUT;
+            } else {
+                if (data.person.documentType === DocumentType.RUT) {
+                    return { success: false, error: 'Las personas naturales no pueden tener documento tipo RUT' };
+                }
+                documentType = data.person.documentType ?? DocumentType.RUN;
+            }
             
             // Verificar documento único
             if (data.person.documentNumber) {
@@ -169,7 +182,11 @@ export async function createCustomer(data: CreateCustomerDTO): Promise<CustomerR
                 }
             }
             
-            const person = personRepo.create(data.person);
+            const person = personRepo.create({
+                ...data.person,
+                documentType,
+                email: data.person.email,
+            });
             await personRepo.save(person);
             personId = person.id;
         }

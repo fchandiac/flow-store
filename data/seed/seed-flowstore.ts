@@ -1,6 +1,6 @@
 import { getDb } from '../db';
 import { User, UserRole } from '../entities/User';
-import { Person, PersonType } from '../entities/Person';
+import { Person, PersonType, DocumentType } from '../entities/Person';
 import { Company } from '../entities/Company';
 import { Branch } from '../entities/Branch';
 import { Tax, TaxType } from '../entities/Tax';
@@ -404,6 +404,7 @@ async function seedFlowStore() {
       adminPerson.type = PersonType.NATURAL;
       adminPerson.firstName = 'Administrador';
       adminPerson.lastName = 'Joyería';
+      adminPerson.documentType = DocumentType.RUN;
       adminPerson.documentNumber = '11111111-1';
       adminPerson.email = 'admin@joyeriabrillante.cl';
       adminPerson.phone = '+56 9 0000 0000';

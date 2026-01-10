@@ -8,6 +8,7 @@ import { Button } from "@/app/baseComponents/Button/Button";
 import Alert from "@/app/baseComponents/Alert/Alert";
 import { updateSupplier } from "@/app/actions/suppliers";
 import { SupplierType } from "@/data/entities/Supplier";
+import { DocumentType } from "@/data/entities/Person";
 import { useAlert } from "@/app/state/hooks/useAlert";
 import type { SupplierWithPerson } from "./types";
 
@@ -53,6 +54,14 @@ const toNumberString = (value: number | null | undefined, fallback = "0") => {
     return fallback;
   }
   return value.toString();
+};
+
+const parseDocumentType = (value: string | null | undefined): DocumentType | undefined => {
+  if (!value) return undefined;
+  const normalized = value.trim().toUpperCase();
+  return (Object.values(DocumentType) as string[]).includes(normalized)
+    ? (normalized as DocumentType)
+    : undefined;
 };
 
 export const UpdateSupplierDialog = ({
@@ -137,7 +146,7 @@ export const UpdateSupplierDialog = ({
         firstName: primaryName,
         lastName: form.lastName.trim() || undefined,
         businessName: form.businessName.trim() || undefined,
-        documentType: form.documentType.trim() || undefined,
+        documentType: parseDocumentType(form.documentType),
         documentNumber: form.documentNumber.trim() || undefined,
         email: form.email.trim() || undefined,
         phone: form.phone.trim() || undefined,

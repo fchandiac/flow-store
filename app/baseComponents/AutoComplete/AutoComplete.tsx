@@ -16,6 +16,7 @@ interface AutoCompleteProps<T = Option> {
   placeholder?: string;
   value?: T | null;
   onChange?: (option: T | null) => void;
+  onInputChange?: (value: string) => void;
   name?: string;
   required?: boolean;
   getOptionLabel?: (option: T) => string;
@@ -33,6 +34,7 @@ const AutoComplete = <T = Option,>({
   placeholder,
   value = null,
   onChange,
+  onInputChange,
   name,
   required,
   getOptionLabel,
@@ -130,6 +132,7 @@ const AutoComplete = <T = Option,>({
     setInputValue(""); // Clear the input text
     setOpen(false); // Close the dropdown
     setHighlightedIndex(-1); // Reset the highlighted index
+    onInputChange?.("");
     onChange?.(null); // Clear the selected option
   };
 
@@ -160,7 +163,13 @@ const AutoComplete = <T = Option,>({
         <TextField
           label={label || ""}
           value={inputValue}
-          onChange={e => { setInputValue(e.target.value); setOpen(true); setHighlightedIndex(-1); }}
+          onChange={e => {
+            const newValue = e.target.value;
+            setInputValue(newValue);
+            onInputChange?.(newValue);
+            setOpen(true);
+            setHighlightedIndex(-1);
+          }}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           name={name}

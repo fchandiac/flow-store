@@ -9,6 +9,7 @@ import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
 import { useAlert } from '@/app/state/hooks/useAlert';
 import { createCustomer } from '@/app/actions/customers';
+import { DocumentType, PersonType } from '@/data/entities/Person';
 
 interface CreateCustomerDialogProps {
     open: boolean;
@@ -18,8 +19,8 @@ interface CreateCustomerDialogProps {
 }
 
 const personTypeOptions = [
-    { id: 'NATURAL', label: 'Persona Natural' },
-    { id: 'COMPANY', label: 'Empresa' },
+    { id: PersonType.NATURAL, label: 'Persona Natural' },
+    { id: PersonType.COMPANY, label: 'Empresa' },
 ];
 
 const customerTypeOptions = [
@@ -40,18 +41,33 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<string[]>([]);
 
-    const [formData, setFormData] = useState({
-        // Datos de persona
-        personType: 'NATURAL' as 'NATURAL' | 'COMPANY',
+    interface CustomerFormState {
+        personType: PersonType;
+        firstName: string;
+        lastName: string;
+        businessName: string;
+        documentType: DocumentType;
+        documentNumber: string;
+        email: string;
+        phone: string;
+        address: string;
+        code: string;
+        customerType: string;
+        creditLimit: string;
+        defaultPaymentTermDays: string;
+        notes: string;
+    }
+
+    const createInitialFormState = (): CustomerFormState => ({
+        personType: PersonType.NATURAL,
         firstName: '',
         lastName: '',
         businessName: '',
-        documentType: 'RUT',
+        documentType: DocumentType.RUN,
         documentNumber: '',
         email: '',
         phone: '',
         address: '',
-        // Datos de cliente
         code: '',
         customerType: 'RETAIL',
         creditLimit: '',
@@ -59,11 +75,23 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
         notes: '',
     });
 
-    const handleChange = (field: string, value: any) => {
-        setFormData(prev => ({
-            ...prev,
-            [field]: value
-        }));
+    const [formData, setFormData] = useState<CustomerFormState>(() => createInitialFormState());
+
+    const handleChange = (field: keyof CustomerFormState, value: string | PersonType) => {
+        setFormData(prev => {
+            const next = { ...prev, [field]: value } as CustomerFormState;
+            if (field === 'personType') {
+                const personTypeValue = value as PersonType;
+                next.personType = personTypeValue;
+                next.documentType = personTypeValue === PersonType.COMPANY
+                    ? DocumentType.RUT
+                    : DocumentType.RUN;
+                if (personTypeValue === PersonType.COMPANY) {
+                    next.lastName = '';
+                }
+            }
+            return next;
+        });
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -71,7 +99,7 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
         
         const validationErrors: string[] = [];
         if (!formData.firstName.trim()) validationErrors.push('El nombre es requerido');
-        if (formData.personType === 'NATURAL' && !formData.lastName.trim()) {
+        if (formData.personType === PersonType.NATURAL && !formData.lastName.trim()) {
             validationErrors.push('El apellido es requerido para personas naturales');
         }
         
@@ -86,11 +114,11 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
         try {
             const result = await createCustomer({
                 person: {
-                    type: formData.personType as any,
+                    type: formData.personType,
                     firstName: formData.firstName,
-                    lastName: formData.personType === 'NATURAL' ? formData.lastName : undefined,
-                    businessName: formData.personType === 'COMPANY' ? formData.businessName : undefined,
-                    documentType: formData.documentType || undefined,
+                    lastName: formData.personType === PersonType.NATURAL ? formData.lastName : undefined,
+                    businessName: formData.personType === PersonType.COMPANY ? formData.businessName : undefined,
+                    documentType: formData.personType === PersonType.COMPANY ? DocumentType.RUT : formData.documentType,
                     documentNumber: formData.documentNumber || undefined,
                     email: formData.email || undefined,
                     phone: formData.phone || undefined,
@@ -123,22 +151,7 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
     };
 
     const resetForm = () => {
-        setFormData({
-            personType: 'NATURAL',
-            firstName: '',
-            lastName: '',
-            businessName: '',
-            documentType: 'RUT',
-            documentNumber: '',
-            email: '',
-            phone: '',
-            address: '',
-            code: '',
-            customerType: 'RETAIL',
-            creditLimit: '',
-            defaultPaymentTermDays: '0',
-            notes: '',
-        });
+        setFormData(createInitialFormState());
     };
 
     const handleClose = () => {
@@ -173,11 +186,11 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
                         label="Tipo de Persona"
                         options={personTypeOptions}
                         value={formData.personType}
-                        onChange={(val) => handleChange('personType', val)}
+                        onChange={(val) => handleChange('personType', val as PersonType)}
                         data-test-id="create-customer-person-type"
                     />
 
-                    {formData.personType === 'NATURAL' ? (
+                    {formData.personType === PersonType.NATURAL ? (
                         <div className="grid grid-cols-2 gap-4">
                             <TextField
                                 label="Nombre"
@@ -261,7 +274,11 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
                             label="Tipo de Cliente"
                             options={customerTypeOptions}
                             value={formData.customerType}
-                            onChange={(val) => handleChange('customerType', val)}
+                            onChange={(val) =>
+                                handleChange('customerType',
+                                    typeof val === 'string' ? val : val != null ? String(val) : 'RETAIL'
+                                )
+                            }
                             data-test-id="create-customer-type"
                         />
                     </div>
