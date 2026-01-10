@@ -30,7 +30,6 @@ export interface VariantType {
     displayName: string;
     trackInventory: boolean;
     allowNegativeStock: boolean;
-    isDefault: boolean;
     isActive: boolean;
     priceListItems?: VariantPriceListItem[];
 }
@@ -59,9 +58,6 @@ const VariantCard: React.FC<VariantCardProps> = ({
     const [openUpdateDialog, setOpenUpdateDialog] = useState(false);
 
     const attributeEntries = Object.entries(variant.attributeValues ?? {}).filter(([, value]) => Boolean(value));
-    const headerTitle = attributeEntries.length > 0
-        ? (variant.isDefault ? 'Variante principal' : 'Variante')
-        : (variant.displayName || 'Default');
 
     return (
         <>
@@ -72,16 +68,8 @@ const VariantCard: React.FC<VariantCardProps> = ({
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                            <h4 className="font-medium text-neutral-800">
-                                {headerTitle}
-                            </h4>
-                            {variant.isDefault && (
-                                <Badge variant="info-outlined">
-                                    Default
-                                </Badge>
-                            )}
                             <Badge variant={variant.isActive ? 'success-outlined' : 'secondary-outlined'}>
-                                {variant.isActive ? 'Activa' : 'Inactiva'}
+                                {variant.isActive ? 'Variante activa' : 'Variante inactiva'}
                             </Badge>
                         </div>
                         <p className="text-sm text-neutral-500 mt-1">
@@ -106,15 +94,13 @@ const VariantCard: React.FC<VariantCardProps> = ({
                             onClick={() => setOpenUpdateDialog(true)}
                             data-test-id={`edit-variant-${variant.id}`}
                         />
-                        {!variant.isDefault && (
-                            <IconButton
-                                icon="delete"
-                                variant="basicSecondary"
-                                size="xs"
-                                onClick={() => setOpenDeleteDialog(true)}
-                                data-test-id={`delete-variant-${variant.id}`}
-                            />
-                        )}
+                        <IconButton
+                            icon="delete"
+                            variant="basicSecondary"
+                            size="xs"
+                            onClick={() => setOpenDeleteDialog(true)}
+                            data-test-id={`delete-variant-${variant.id}`}
+                        />
                     </div>
                 </div>
 

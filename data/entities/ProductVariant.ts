@@ -61,7 +61,7 @@ export class ProductVariant {
      * Formato: { "attributeId1": "opción seleccionada", "attributeId2": "opción seleccionada" }
      * Ejemplo: { "uuid-color": "Rojo", "uuid-talla": "M" }
      * 
-     * Para productos simples (isDefault=true), este campo está vacío o null.
+     * Para productos sin atributos, este campo puede estar vacío o null.
      */
     @Column({ type: 'json', nullable: true })
     attributeValues?: Record<string, string>;
@@ -102,12 +102,6 @@ export class ProductVariant {
 
     @Column({ type: 'boolean', default: true })
     isActive!: boolean;
-
-    /**
-     * Indica si es la variante "default" creada automáticamente para productos simples
-     */
-    @Column({ type: 'boolean', default: false })
-    isDefault!: boolean;
 
     @CreateDateColumn()
     createdAt!: Date;

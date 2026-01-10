@@ -857,18 +857,6 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
         onClose();
     };
 
-    // Generar preview del nombre de la variante
-    const getVariantPreview = () => {
-        const parts: string[] = [];
-        for (const [attrId, value] of Object.entries(attributeValues)) {
-            const attr = attributes.find(a => a.id === attrId);
-            if (attr && value) {
-                parts.push(`${attr.name}: ${value}`);
-            }
-        }
-        return parts.length > 0 ? parts.join(', ') : 'Sin atributos';
-    };
-
     const selectedAttributeIds = Object.keys(attributeValues);
     const canAddAnotherPriceEntry = priceLists.length > 0 && priceEntries.length < priceLists.length;
 
@@ -882,26 +870,10 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                 data-test-id={dataTestId}
             >
                 <form onSubmit={handleSubmit} className="space-y-6">
-                    {errors.length > 0 && (
-                        <Alert variant="error">
-                            <ul className="list-disc list-inside">
-                                {errors.map((err, i) => (
-                                    <li key={i}>{err}</li>
-                                ))}
-                            </ul>
-                        </Alert>
-                    )}
-
                     {/* Info del producto */}
                     <div className="p-3 bg-neutral-50 rounded-lg">
                         <p className="text-sm text-neutral-500">Producto</p>
                         <p className="font-medium text-neutral-800">{productName}</p>
-                    </div>
-
-                    {/* Preview de la variante */}
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <p className="text-sm text-blue-600 mb-1">Vista previa de la variante:</p>
-                        <p className="font-medium text-blue-800">{getVariantPreview()}</p>
                     </div>
 
                     {/* Atributos */}
@@ -1186,6 +1158,16 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                             </p>
                         )}
                     </div>
+
+                    {errors.length > 0 && (
+                        <Alert variant="error">
+                            <ul className="list-disc list-inside">
+                                {errors.map((err, i) => (
+                                    <li key={i}>{err}</li>
+                                ))}
+                            </ul>
+                        </Alert>
+                    )}
 
                     <div className="flex justify-end gap-3 pt-4 border-t border-neutral-200">
                         <Button

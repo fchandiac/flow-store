@@ -41,10 +41,9 @@ const toVariantType = (variant: VariantSummary, productId: string): VariantType 
     priceListItems: variant.priceListItems,
     displayName: variant.attributeValues && Object.keys(variant.attributeValues).length > 0
         ? Object.values(variant.attributeValues).join(', ')
-        : 'Default',
-    trackInventory: true,
-    allowNegativeStock: false,
-    isDefault: variant.isDefault,
+        : 'Variante sin atributos',
+    trackInventory: variant.trackInventory,
+    allowNegativeStock: variant.allowNegativeStock,
     isActive: variant.isActive
 });
 

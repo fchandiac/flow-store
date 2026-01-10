@@ -765,9 +765,6 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
         if (!formData.unitId) {
             validationErrors.push('Debe seleccionar una unidad de medida');
         }
-        if (!variant.isDefault && Object.keys(attributeValues).length === 0) {
-            validationErrors.push('Debe seleccionar al menos un atributo para la variante');
-        }
         if (priceEntries.length === 0) {
             validationErrors.push('Debe definir al menos un precio de venta');
         }
@@ -905,64 +902,62 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
                     </Alert>
                 )}
 
-                {!variant.isDefault && (
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                            <h4 className="font-medium text-neutral-700">Atributos de la Variante</h4>
-                            {attributes.length > 0 && (
-                                <Button
-                                    type="button"
-                                    variant="outlined"
-                                    size="sm"
-                                    onClick={() => setShowAddAttributeDialog(true)}
-                                    disabled={remainingAttributes.length === 0}
-                                >
-                                    <span className="material-symbols-outlined mr-1" style={{ fontSize: '1.25rem' }}>
-                                        add
-                                    </span>
-                                    Agregar atributo
-                                </Button>
-                            )}
-                        </div>
-
-                        {attributes.length === 0 ? (
-                            <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
-                                <p className="font-medium mb-1">No hay atributos definidos</p>
-                                <p>Debe crear atributos (Color, Talla, etc.) en Configuración → Atributos.</p>
-                            </div>
-                        ) : selectedAttributeIds.length === 0 ? (
-                            <div className="p-4 bg-neutral-50 border border-neutral-200 border-dashed rounded-lg text-center">
-                                <span className="material-symbols-outlined text-neutral-400 mb-2" style={{ fontSize: '2rem' }}>
-                                    label
+                <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-neutral-700">Atributos de la Variante</h4>
+                        {attributes.length > 0 && (
+                            <Button
+                                type="button"
+                                variant="outlined"
+                                size="sm"
+                                onClick={() => setShowAddAttributeDialog(true)}
+                                disabled={remainingAttributes.length === 0}
+                            >
+                                <span className="material-symbols-outlined mr-1" style={{ fontSize: '1.25rem' }}>
+                                    add
                                 </span>
-                                <p className="text-neutral-500 text-sm">No hay atributos agregados</p>
-                                <p className="text-neutral-400 text-xs mt-1">
-                                    Usa el botón "Agregar atributo" para definir las características de esta variante
-                                </p>
-                            </div>
-                        ) : (
-                            <div className="flex flex-wrap gap-2">
-                                {selectedAttributeIds.map((attrId) => {
-                                    const attr = attributes.find((item) => item.id === attrId);
-                                    const attributeName = attr?.name ?? attrId;
-                                    const rawValue = attributeValues[attrId];
-                                    const value = typeof rawValue === 'string' ? rawValue : String(rawValue ?? '');
-                                    if (!value.trim()) {
-                                        return null;
-                                    }
-                                    return (
-                                        <AttributeChip
-                                            key={attrId}
-                                            attributeName={attributeName}
-                                            value={value}
-                                            onRemove={() => handleRemoveAttribute(attrId)}
-                                        />
-                                    );
-                                })}
-                            </div>
+                                Agregar atributo
+                            </Button>
                         )}
                     </div>
-                )}
+
+                    {attributes.length === 0 ? (
+                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+                            <p className="font-medium mb-1">No hay atributos definidos</p>
+                            <p>Debe crear atributos (Color, Talla, etc.) en Configuración → Atributos.</p>
+                        </div>
+                    ) : selectedAttributeIds.length === 0 ? (
+                        <div className="p-4 bg-neutral-50 border border-neutral-200 border-dashed rounded-lg text-center">
+                            <span className="material-symbols-outlined text-neutral-400 mb-2" style={{ fontSize: '2rem' }}>
+                                label
+                            </span>
+                            <p className="text-neutral-500 text-sm">No hay atributos agregados</p>
+                            <p className="text-neutral-400 text-xs mt-1">
+                                Usa el botón "Agregar atributo" para definir las características de esta variante
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="flex flex-wrap gap-2">
+                            {selectedAttributeIds.map((attrId) => {
+                                const attr = attributes.find((item) => item.id === attrId);
+                                const attributeName = attr?.name ?? attrId;
+                                const rawValue = attributeValues[attrId];
+                                const value = typeof rawValue === 'string' ? rawValue : String(rawValue ?? '');
+                                if (!value.trim()) {
+                                    return null;
+                                }
+                                return (
+                                    <AttributeChip
+                                        key={attrId}
+                                        attributeName={attributeName}
+                                        value={value}
+                                        onRemove={() => handleRemoveAttribute(attrId)}
+                                    />
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
 
                 <div className="space-y-4">
                     <h4 className="font-medium text-neutral-700">Identificación</h4>

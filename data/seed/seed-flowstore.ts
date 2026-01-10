@@ -579,7 +579,6 @@ async function seedFlowStore() {
         netPrice?: number;
         taxCodes?: string[];
       }>;
-      isDefault?: boolean;
       trackInventory?: boolean;
       allowNegativeStock?: boolean;
     };
@@ -613,7 +612,6 @@ async function seedFlowStore() {
               { listKey: 'online', grossPrice: 1_849_000, taxCodes: ['IVA-19'] },
               { listKey: 'wholesale', grossPrice: 1_720_000, taxCodes: ['IVA-19'] },
             ],
-            isDefault: true,
           },
           {
             sku: 'ANI-SOL-ORO18-T7',
@@ -650,7 +648,6 @@ async function seedFlowStore() {
               { listKey: 'online', grossPrice: 439000, taxCodes: ['IVA-19'] },
               { listKey: 'wholesale', grossPrice: 398000, taxCodes: ['IVA-19'] },
             ],
-            isDefault: true,
           },
           {
             sku: 'COL-VEN-ORO14-50',
@@ -697,7 +694,6 @@ async function seedFlowStore() {
               { listKey: 'retail', grossPrice: 180000, taxCodes: ['IVA-19'] },
               { listKey: 'online', grossPrice: 169000, taxCodes: ['IVA-19'] },
             ],
-            isDefault: true,
           },
           {
             sku: 'ARE-PER-ORO18',
@@ -793,8 +789,7 @@ async function seedFlowStore() {
         }
       }
 
-      for (const [index, variantSeed] of productSeed.variants.entries()) {
-        const isDefaultVariant = variantSeed.isDefault ?? index === 0;
+      for (const variantSeed of productSeed.variants) {
 
         let variant = await variantRepo.findOne({
           where: { sku: variantSeed.sku },
@@ -850,7 +845,6 @@ async function seedFlowStore() {
         variant.unitId = baseUnit.id;
         variant.unit = baseUnit;
         variant.attributeValues = attributeValues;
-        variant.isDefault = isDefaultVariant;
         variant.isActive = true;
         variant.trackInventory = variantSeed.trackInventory ?? true;
         variant.allowNegativeStock = variantSeed.allowNegativeStock ?? false;
@@ -878,7 +872,7 @@ async function seedFlowStore() {
           await priceListItemRepo.save(priceListItem);
         }
 
-        console.log(`   ✓ Variante asegurada (${variant.isDefault ? 'default' : 'secundaria'}): ${variantSeed.sku}`);
+        console.log(`   ✓ Variante asegurada: ${variantSeed.sku}`);
       }
     }
 

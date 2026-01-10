@@ -65,8 +65,8 @@ const ProductVariantsCard: React.FC<ProductVariantsCardProps> = ({
     }, []);
 
     // Obtener precio de la primera variante para mostrar
-    const defaultVariant = product.variants.find(v => v.isDefault) || product.variants[0];
-    const displayPrice = defaultVariant?.basePrice || 0;
+    const primaryVariant = product.variants[0];
+    const displayPrice = primaryVariant?.basePrice || 0;
 
     return (
         <>
@@ -98,7 +98,7 @@ const ProductVariantsCard: React.FC<ProductVariantsCardProps> = ({
                                     </Badge>
                                 </div>
                                 <div className="flex items-center gap-3 text-sm text-neutral-500 mt-1">
-                                    {defaultVariant && <span>SKU: {defaultVariant.sku}</span>}
+                                    {primaryVariant && <span>SKU: {primaryVariant.sku}</span>}
                                     {product.categoryName && (
                                         <span className="flex items-center gap-1">
                                             <span className="material-symbols-outlined" style={{ fontSize: '0.875rem' }}>

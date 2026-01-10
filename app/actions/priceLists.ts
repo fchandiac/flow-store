@@ -459,7 +459,8 @@ export async function getProductPrice(
     const effectiveVariant =
         variant ||
         (await variantRepo.findOne({
-            where: { productId: resolvedProductId, isDefault: true, deletedAt: IsNull() },
+            where: { productId: resolvedProductId, deletedAt: IsNull() },
+            order: { createdAt: 'ASC', sku: 'ASC' },
         }));
 
     if (!effectiveVariant) {

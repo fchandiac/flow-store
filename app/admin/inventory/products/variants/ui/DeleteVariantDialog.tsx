@@ -87,7 +87,7 @@ const DeleteVariantDialog: React.FC<DeleteVariantDialogProps> = ({
         onClose();
     };
 
-    const displayName = variant.displayName || 'Default';
+    const displayName = variant.displayName || 'Variante sin atributos';
 
     return (
         <Dialog 

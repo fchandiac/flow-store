@@ -263,7 +263,6 @@ export interface VariantDisplay {
     displayName: string;
     trackInventory: boolean;
     allowNegativeStock: boolean;
-    isDefault: boolean;
     isActive: boolean;
     priceListItems?: VariantPriceListDisplay[];
 }
@@ -276,7 +275,7 @@ async function generateVariantDisplayName(
     attributes: Attribute[]
 ): Promise<string> {
     if (!attributeValues || Object.keys(attributeValues).length === 0) {
-        return 'Default';
+        return 'Variante sin atributos';
     }
     
     const parts: string[] = [];
@@ -289,7 +288,7 @@ async function generateVariantDisplayName(
         }
     }
     
-    return parts.join(', ') || 'Default';
+    return parts.join(', ') || 'Variante sin atributos';
 }
 
 /**
@@ -338,7 +337,7 @@ export async function getProductsWithVariants(params?: {
     for (const product of products) {
         const variants = await variantRepo.find({
             where: { productId: product.id, deletedAt: IsNull() },
-            order: { isDefault: 'DESC', sku: 'ASC' }
+            order: { createdAt: 'ASC', sku: 'ASC' }
         });
         
         const variantIds = variants.map((v) => v.id);
@@ -392,7 +391,6 @@ export async function getProductsWithVariants(params?: {
                 displayName,
                 trackInventory: v.trackInventory,
                 allowNegativeStock: v.allowNegativeStock,
-                isDefault: v.isDefault,
                 isActive: v.isActive,
                 priceListItems: priceListItemsByVariant[v.id] ?? [],
             });
@@ -423,7 +421,7 @@ export async function getVariantsByProductId(productId: string): Promise<Product
     
     const variants = await repo.find({
         where: { productId, deletedAt: IsNull() },
-        order: { isDefault: 'DESC', sku: 'ASC' }
+        order: { createdAt: 'ASC', sku: 'ASC' }
     });
     
     return JSON.parse(JSON.stringify(variants));
@@ -518,7 +516,6 @@ export async function createVariant(data: CreateVariantDTO): Promise<VariantResu
             maximumStock: data.maximumStock || 0,
             reorderPoint: data.reorderPoint || 0,
             imagePath: data.imagePath,
-            isDefault: false, // Variantes adicionales nunca son default
             isActive: true
         });
         
@@ -750,19 +747,6 @@ export async function deleteVariant(id: string): Promise<{ success: boolean; err
             return { success: false, error: 'No se puede eliminar la última variante de un producto' };
         }
         
-        // Si era la variante default, marcar otra como default
-        if (variant.isDefault) {
-            const otherVariant = await repo.findOne({
-                where: { productId: variant.productId, deletedAt: IsNull() },
-                order: { createdAt: 'ASC' }
-            });
-            
-            if (otherVariant && otherVariant.id !== id) {
-                otherVariant.isDefault = true;
-                await repo.save(otherVariant);
-            }
-        }
-        
         if (product) {
             const historyEntry = buildHistoryEntry({
                 action: 'DELETE',
@@ -864,7 +848,6 @@ export async function createBulkVariants(
                 maximumStock: v.maximumStock || 0,
                 reorderPoint: v.reorderPoint || 0,
                 imagePath: v.imagePath,
-                isDefault: false,
                 isActive: true
             });
             

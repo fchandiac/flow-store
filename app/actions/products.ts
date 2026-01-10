@@ -72,7 +72,8 @@ export interface VariantSummary {
     unitId: string;
     unitOfMeasure: string;
     attributeValues?: Record<string, string>;
-    isDefault: boolean;
+    trackInventory: boolean;
+    allowNegativeStock: boolean;
     isActive: boolean;
     priceListItems?: VariantPriceListSummary[];
 }
@@ -298,7 +299,7 @@ export async function getProducts(params?: GetProductsParams): Promise<ProductWi
     for (const product of products) {
         const variants = await variantRepo.find({
             where: { productId: product.id, deletedAt: IsNull() },
-            order: { isDefault: 'DESC', sku: 'ASC' }
+            order: { createdAt: 'ASC', sku: 'ASC' }
         });
 
         const variantIds = variants.map(v => v.id);
@@ -337,7 +338,7 @@ export async function getProducts(params?: GetProductsParams): Promise<ProductWi
             }
         }
         
-        const defaultVariant = variants.find(v => v.isDefault) || variants[0];
+        const defaultVariant = variants[0];
         
         result.push({
             id: product.id,
@@ -374,7 +375,8 @@ export async function getProducts(params?: GetProductsParams): Promise<ProductWi
                 unitId: v.unitId,
                 unitOfMeasure: v.unit?.symbol ?? '',
                 attributeValues: v.attributeValues,
-                isDefault: v.isDefault,
+                trackInventory: v.trackInventory,
+                allowNegativeStock: v.allowNegativeStock,
                 isActive: v.isActive,
                 priceListItems: priceListItemsByVariant[v.id] ?? [],
             }))
@@ -401,7 +403,7 @@ export async function getProductById(id: string): Promise<(Product & { variants?
     
     const variants = await variantRepo.find({
         where: { productId: id, deletedAt: IsNull() },
-        order: { isDefault: 'DESC', sku: 'ASC' }
+        order: { createdAt: 'ASC', sku: 'ASC' }
     });
     
     return JSON.parse(JSON.stringify({ ...product, variants }));
@@ -597,10 +599,10 @@ export async function searchProducts(query: string, limit: number = 20): Promise
     for (const product of products) {
         const variants = await variantRepo.find({
             where: { productId: product.id, deletedAt: IsNull() },
-            order: { isDefault: 'DESC', sku: 'ASC' }
+            order: { createdAt: 'ASC', sku: 'ASC' }
         });
         
-        const defaultVariant = variants.find(v => v.isDefault) || variants[0];
+        const defaultVariant = variants[0];
         
         result.push({
             id: product.id,
@@ -635,7 +637,8 @@ export async function searchProducts(query: string, limit: number = 20): Promise
                 unitId: v.unitId,
                 unitOfMeasure: v.unit?.symbol ?? '',
                 attributeValues: v.attributeValues,
-                isDefault: v.isDefault,
+                trackInventory: v.trackInventory,
+                allowNegativeStock: v.allowNegativeStock,
                 isActive: v.isActive
             }))
         });
