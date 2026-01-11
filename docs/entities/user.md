@@ -4,7 +4,7 @@
 
 La entidad `User` representa una cuenta de acceso al sistema. Está vinculada a una `Person` para heredar datos de identificación.
 
-> 📝 Ver documentación completa en `project/usuarios.md`
+> 📝 Ver documentación completa en `../usuarios.md`
 
 ---
 

@@ -4,7 +4,7 @@
 
 La entidad `Permission` define los permisos granulares asignados a usuarios con rol `OPERATOR`. Los usuarios `ADMIN` tienen acceso total.
 
-> 📝 Ver documentación completa en `project/permisos.md`
+> 📝 Ver documentación completa en `../permisos.md`
 
 ---
 

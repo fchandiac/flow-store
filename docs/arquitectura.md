@@ -77,6 +77,7 @@ flow-store/
 │   │       ├── PermissionsContext.tsx
 │   │       └── usePermissions.ts
 │   ├── Providers.tsx           # Inyección de providers globales
+│   ├── lib/                     # Utilidades cliente compartidas (authStorage, etc.)
 │   ├── ui/                     # Componentes específicos de negocio
 │   ├── app/                    # App Router (admin, POS, showcases)
 │   │   ├── admin/              # Panel de administración
@@ -122,7 +123,7 @@ flow-store/
 ├── package-lock.json           # Lockfile npm
 ├── package.json                # Dependencias y scripts npm
 ├── playwright.config.ts        # Config Playwright
-├── project/                    # Documentación funcional/técnica
+├── docs/                       # Documentación funcional/técnica
 ├── run-seed.js                 # Script de seeds
 ├── scripts/                    # Scripts node (seed, migraciones, sync)
 ├── src/                        # Código del proceso principal de Electron

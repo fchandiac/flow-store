@@ -4,7 +4,7 @@
 
 La entidad `Person` es la base central para todos los actores del sistema. Puede representar personas naturales (individuos) o jurídicas (empresas).
 
-> 📝 Ver documentación completa en `project/personas.md`
+> 📝 Ver documentación completa en `../personas.md`
 
 ---
 

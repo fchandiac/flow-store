@@ -4,7 +4,7 @@
 
 La entidad `Audit` registra todas las acciones realizadas por usuarios en el sistema. Es parte fundamental del modelo inmutable para trazabilidad.
 
-> 📝 Ver documentación completa en `project/auditorias.md`
+> 📝 Ver documentación completa en `../auditorias.md`
 
 ---
 
