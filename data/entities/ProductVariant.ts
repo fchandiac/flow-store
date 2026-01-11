@@ -46,6 +46,12 @@ export class ProductVariant {
     @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
     baseCost!: number;
 
+    /**
+     * Precio Promedio Ponderado actual (PMP)
+     */
+    @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
+    pmp!: number;
+
     @Column({ type: 'varchar', length: 36, name: 'unit_id' })
     unitId!: string;
 

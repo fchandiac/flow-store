@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { TextField } from "@/app/baseComponents/TextField/TextField";
 import { Button } from "@/app/baseComponents/Button/Button";
 import DotProgress from "@/app/baseComponents/DotProgress/DotProgress";
-import { useAlert } from "@/app/state/hooks/useAlert";
+import { useAlert } from "@/app/globalstate/alert/useAlert";
 
 declare global {
   interface Window {

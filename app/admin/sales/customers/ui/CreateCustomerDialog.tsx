@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
@@ -9,7 +9,7 @@ import { TextField } from '@/app/baseComponents/TextField/TextField';
 import Select from '@/app/baseComponents/Select/Select';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
-import { useAlert } from '@/app/state/hooks/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { createCustomer } from '@/app/actions/customers';
 import { searchPersons } from '@/app/actions/persons';
 import { DocumentType, PersonType } from '@/data/entities/Person';
@@ -130,6 +130,7 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
     const [personSearchTerm, setPersonSearchTerm] = useState('');
     const [isSearchingPersons, setIsSearchingPersons] = useState(false);
     const [isCreatingNewPerson, setIsCreatingNewPerson] = useState(false);
+    const [autocompleteLocked, setAutocompleteLocked] = useState(false);
     const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     const handlePersonFieldChange = (field: keyof PersonFormState, value: string) => {
@@ -202,6 +203,9 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
     };
 
     const handlePersonSearchInput = (value: string) => {
+        if (autocompleteLocked) {
+            return;
+        }
         setPersonSearchTerm(value);
         if (!value.trim()) {
             setPersonOptions([]);
@@ -209,6 +213,9 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
     };
 
     useEffect(() => {
+        if (autocompleteLocked) {
+            return;
+        }
         if (searchTimeoutRef.current) {
             clearTimeout(searchTimeoutRef.current);
         }
@@ -251,25 +258,38 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
                 clearTimeout(searchTimeoutRef.current);
             }
         };
-    }, [personSearchTerm]);
+    }, [personSearchTerm, autocompleteLocked]);
 
     const handlePersonSelection = (option: PersonOption | null) => {
+        if (!option && autocompleteLocked) {
+            return;
+        }
         if (!option) {
             setSelectedPersonOption(null);
             setIsCreatingNewPerson(false);
             setPersonForm(createInitialPersonForm());
+            setAutocompleteLocked(false);
             return;
         }
 
         if (option.isCreateOption) {
             setSelectedPersonOption(null);
             setIsCreatingNewPerson(true);
+            setAutocompleteLocked(true);
+            setPersonOptions([]);
+            setPersonSearchTerm('');
+            setIsSearchingPersons(false);
+            if (searchTimeoutRef.current) {
+                clearTimeout(searchTimeoutRef.current);
+                searchTimeoutRef.current = null;
+            }
             setPersonForm(createInitialPersonForm());
             return;
         }
 
         setSelectedPersonOption(option);
         setIsCreatingNewPerson(false);
+        setAutocompleteLocked(false);
     };
 
     const selectedPerson = selectedPersonOption?.person;
@@ -370,14 +390,20 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
         }
     };
 
-    const resetForm = () => {
+    const resetForm = useCallback(() => {
         setPersonForm(createInitialPersonForm());
         setCustomerForm(createInitialCustomerForm());
         setPersonOptions([]);
         setSelectedPersonOption(null);
         setPersonSearchTerm('');
         setIsCreatingNewPerson(false);
-    };
+        setAutocompleteLocked(false);
+        setIsSearchingPersons(false);
+        if (searchTimeoutRef.current) {
+            clearTimeout(searchTimeoutRef.current);
+            searchTimeoutRef.current = null;
+        }
+    }, []);
 
     const handleClose = () => {
         resetForm();
@@ -385,6 +411,17 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
         setIsSubmitting(false);
         onClose();
     };
+
+    useEffect(() => {
+        if (!open) {
+            resetForm();
+            setErrors([]);
+            setIsSubmitting(false);
+        } else {
+            setErrors([]);
+            setIsSubmitting(false);
+        }
+    }, [open, resetForm]);
 
     return (
         <Dialog 
@@ -408,24 +445,28 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
                 <div className="space-y-4">
                     <h3 className="font-medium text-neutral-700 border-b pb-2">Datos de Persona</h3>
 
-                    <AutoComplete<PersonOption>
-                        label="Persona"
-                        placeholder="Busca por nombre o documento"
-                        options={personOptions}
-                        value={selectedPersonOption}
-                        onChange={handlePersonSelection}
-                        onInputChange={handlePersonSearchInput}
-                        filterOption={(option, inputValue) => {
-                            if ((option as PersonOption).isCreateOption) {
-                                return true;
-                            }
-                            return option.label.toLowerCase().includes(inputValue.toLowerCase());
-                        }}
-                        data-test-id="create-customer-person-autocomplete"
-                    />
+                    {!autocompleteLocked && (
+                        <>
+                            <AutoComplete<PersonOption>
+                                label="Persona"
+                                placeholder="Busca por nombre o documento"
+                                options={personOptions}
+                                value={selectedPersonOption}
+                                onChange={handlePersonSelection}
+                                onInputChange={handlePersonSearchInput}
+                                filterOption={(option, inputValue) => {
+                                    if ((option as PersonOption).isCreateOption) {
+                                        return true;
+                                    }
+                                    return option.label.toLowerCase().includes(inputValue.toLowerCase());
+                                }}
+                                data-test-id="create-customer-person-autocomplete"
+                            />
 
-                    {isSearchingPersons && (
-                        <p className="text-xs text-neutral-500">Buscando personas…</p>
+                            {isSearchingPersons && (
+                                <p className="text-xs text-neutral-500">Buscando personas…</p>
+                            )}
+                        </>
                     )}
 
                     {!isCreatingNewPerson && selectedPerson && (

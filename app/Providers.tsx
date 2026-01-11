@@ -2,8 +2,8 @@
 
 import { ReactNode } from "react";
 import { SessionProvider } from "next-auth/react";
-import { AlertProvider } from "./state/contexts/AlertContext";
-import { PermissionsProvider } from "./state/contexts/PermissionsContext";
+import { AlertProvider } from "./globalstate/alert/AlertContext";
+import { PermissionsProvider } from "./globalstate/permissions/PermissionsContext";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (

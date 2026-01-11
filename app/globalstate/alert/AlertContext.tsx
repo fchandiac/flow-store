@@ -49,7 +49,6 @@ export function AlertProvider({ children }: { children: ReactNode }) {
     setAlerts((prev) => prev.filter((a) => a.id !== id));
   }, []);
 
-  // Helper shortcuts
   const success = useCallback((message: string, opts?: Omit<AppAlert, 'id' | 'message' | 'type'>) => {
     showAlert({ message, type: 'success', duration: opts?.duration ?? 4000 });
   }, [showAlert]);
@@ -76,7 +75,6 @@ export function AlertProvider({ children }: { children: ReactNode }) {
   return (
     <AlertContext.Provider value={value}>
       {children}
-      {/* Alerts stack (top-right) */}
       {alerts.length > 0 && (
         <div className="fixed top-20 right-4 z-50 flex flex-col gap-3 max-w-md">
           {alerts.map(({ id, message, type = 'info' }) => (

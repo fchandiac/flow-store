@@ -6,7 +6,7 @@ import DataGrid, { type DataGridColumn } from '@/app/baseComponents/DataGrid/Dat
 import Badge from '@/app/baseComponents/Badge/Badge';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
 import Select, { type Option as SelectOption } from '@/app/baseComponents/Select/Select';
-import { useAlert } from '@/app/state/hooks/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 import {
     getInventoryFilters,
     getInventoryStock,

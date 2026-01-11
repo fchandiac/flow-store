@@ -9,7 +9,7 @@ import { TextField } from '@/app/baseComponents/TextField/TextField';
 import Select from '@/app/baseComponents/Select/Select';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
-import { useAlert } from '@/app/state/hooks/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { createUserWithPerson } from '@/app/actions/users';
 import { searchPersons } from '@/app/actions/persons';
 import { UserRole } from '@/data/entities/User';

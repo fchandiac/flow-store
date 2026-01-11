@@ -9,7 +9,7 @@ import Switch from '@/app/baseComponents/Switch/Switch';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
-import { useAlert } from '@/app/state/hooks/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { updateVariant } from '@/app/actions/productVariants';
 import { getAttributes } from '@/app/actions/attributes';
 import { getActiveUnits } from '@/app/actions/units';

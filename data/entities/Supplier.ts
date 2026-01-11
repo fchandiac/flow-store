@@ -30,23 +30,11 @@ export class Supplier {
     @Column({ type: 'enum', enum: SupplierType, default: SupplierType.LOCAL })
     supplierType!: SupplierType;
 
-    @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
-    creditLimit!: number;
-
-    @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
-    currentBalance!: number;
+    @Column({ type: 'varchar', length: 255, nullable: true })
+    alias?: string;
 
     @Column({ type: 'int', default: 0 })
     defaultPaymentTermDays!: number;
-
-    @Column({ type: 'varchar', length: 100, nullable: true })
-    bankName?: string;
-
-    @Column({ type: 'varchar', length: 50, nullable: true })
-    bankAccountNumber?: string;
-
-    @Column({ type: 'varchar', length: 50, nullable: true })
-    bankAccountType?: string;
 
     @Column({ type: 'boolean', default: true })
     isActive!: boolean;

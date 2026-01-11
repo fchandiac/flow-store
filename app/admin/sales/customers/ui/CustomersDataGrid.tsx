@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import DataGrid, { type DataGridColumn } from "@/app/baseComponents/DataGrid/DataGrid";
 import Badge from "@/app/baseComponents/Badge/Badge";
 import IconButton from "@/app/baseComponents/IconButton/IconButton";
-import { useAlert } from "@/app/state/hooks/useAlert";
+import { useAlert } from "@/app/globalstate/alert/useAlert";
 import { getCustomers } from "@/app/actions/customers";
 import { CreateCustomerDialog } from ".";
 import UpdateCustomerDialog from "./UpdateCustomerDialog";

@@ -7,18 +7,11 @@ import Badge from "@/app/baseComponents/Badge/Badge";
 import IconButton from "@/app/baseComponents/IconButton/IconButton";
 import { getSuppliers } from "@/app/actions/suppliers";
 import { SupplierType } from "@/data/entities/Supplier";
-import { useAlert } from "@/app/state/hooks/useAlert";
+import { useAlert } from "@/app/globalstate/alert/useAlert";
 import { CreateSupplierDialog } from "./CreateSupplierDialog";
 import { UpdateSupplierDialog } from "./UpdateSupplierDialog";
 import { DeleteSupplierDialog } from "./DeleteSupplierDialog";
 import type { SupplierWithPerson } from "./types";
-
-const currencyFormatter = new Intl.NumberFormat("es-CL", {
-  style: "currency",
-  currency: "CLP",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
-});
 
 const supplierTypeLabels: Record<SupplierType, string> = {
   [SupplierType.MANUFACTURER]: "Fabricante",
@@ -54,7 +47,7 @@ export const SuppliersDataGrid = () => {
         const nameParts = [supplier.person?.firstName, supplier.person?.lastName]
           .filter(Boolean)
           .join(" ");
-        const displayName = supplier.person?.businessName || nameParts || "Proveedor";
+        const displayName = supplier.alias?.trim() || supplier.person?.businessName || nameParts || "Proveedor";
         const contactName = nameParts || supplier.person?.businessName || "-";
         return {
           ...supplier,
@@ -150,22 +143,6 @@ export const SuppliersDataGrid = () => {
         headerName: "Teléfono",
         width: 140,
         renderCell: ({ value }) => value || "-",
-      },
-      {
-        field: "creditLimit",
-        headerName: "Crédito",
-        width: 130,
-        align: "right",
-        headerAlign: "right",
-        renderCell: ({ value }) => currencyFormatter.format(Number(value || 0)),
-      },
-      {
-        field: "currentBalance",
-        headerName: "Saldo",
-        width: 130,
-        align: "right",
-        headerAlign: "right",
-        renderCell: ({ value }) => currencyFormatter.format(Number(value || 0)),
       },
       {
         field: "isActive",

@@ -6,7 +6,7 @@ import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Badge from '@/app/baseComponents/Badge/Badge';
 import Alert from '@/app/baseComponents/Alert/Alert';
-import { useAlert } from '@/app/state/hooks/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { deleteAttribute } from '@/app/actions/attributes';
 import { AttributeType } from './AttributeCard';
 

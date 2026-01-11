@@ -7,9 +7,10 @@ import { TransactionLine } from '@/data/entities/TransactionLine';
 import { Supplier } from '@/data/entities/Supplier';
 import { ProductVariant } from '@/data/entities/ProductVariant';
 import { Product } from '@/data/entities/Product';
+import { Tax } from '@/data/entities/Tax';
 import { Branch } from '@/data/entities/Branch';
 import { Storage } from '@/data/entities/Storage';
-import { In } from 'typeorm';
+import { In, IsNull } from 'typeorm';
 import { getCurrentSession } from './auth.server';
 import { createTransaction } from './transactions';
 
@@ -50,6 +51,8 @@ export interface PurchaseOrderProductResult {
     baseCost: number;
     basePrice: number;
     trackInventory: boolean;
+    pmp: number;
+    taxes: { id: string; name: string; rate: number }[];
     attributeValues?: Record<string, string> | null;
     brand?: string | null;
 }
@@ -65,6 +68,7 @@ export interface PurchaseOrderLineInput {
     quantity: number;
     unitPrice: number;
     unitCost?: number;
+    taxRate?: number;
     notes?: string;
 }
 
@@ -223,8 +227,40 @@ export async function searchProductsForPurchase(params?: SearchPurchaseProductsP
 
     const variants = await queryBuilder.getMany();
 
+    const taxIds = new Set<string>();
+    for (const variant of variants) {
+        const ids = Array.isArray(variant.taxIds) ? variant.taxIds : [];
+        for (const id of ids) {
+            if (typeof id === 'string' && id.trim()) {
+                taxIds.add(id.trim());
+            }
+        }
+    }
+
+    let taxesById = new Map<string, Tax>();
+    if (taxIds.size > 0) {
+        const taxRepo = ds.getRepository(Tax);
+        const taxes = await taxRepo.find({
+            where: {
+                id: In(Array.from(taxIds)),
+                deletedAt: IsNull(),
+                isActive: true,
+            },
+        });
+        taxesById = new Map(taxes.map((tax) => [tax.id, tax]));
+    }
+
     const results: PurchaseOrderProductResult[] = variants.map((variant) => {
         const product = variant.product as Product | undefined;
+        const variantTaxIds = Array.isArray(variant.taxIds) ? variant.taxIds : [];
+        const taxes = variantTaxIds
+            .map((id) => taxesById.get(id))
+            .filter((tax): tax is Tax => Boolean(tax))
+            .map((tax) => ({
+                id: tax.id,
+                name: tax.name,
+                rate: Number(tax.rate ?? 0),
+            }));
         return {
             variantId: variant.id,
             productId: variant.productId,
@@ -235,6 +271,8 @@ export async function searchProductsForPurchase(params?: SearchPurchaseProductsP
             baseCost: Number(variant.baseCost ?? 0),
             basePrice: Number(variant.basePrice ?? 0),
             trackInventory: variant.trackInventory,
+            pmp: Number(variant.pmp ?? 0),
+            taxes,
             attributeValues: variant.attributeValues ?? null,
             brand: product?.brand ?? null,
         };
@@ -291,11 +329,13 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderDTO): Promise
             const quantity = Number(lineInput.quantity);
             const unitPrice = Number(lineInput.unitPrice ?? variant.baseCost ?? 0);
             const unitCost = Number(lineInput.unitCost ?? variant.baseCost ?? 0);
+            const taxRate = Number(lineInput.taxRate ?? 0);
             const unit = variant.unit;
             const unitId = unit?.id ?? variant.unitId;
             const unitSymbol = unit?.symbol;
             const conversionFactor = Number(unit?.conversionFactor ?? 1);
             const quantityInBase = Number((quantity * conversionFactor).toFixed(6));
+            const taxAmount = Number((unitPrice * quantity * (taxRate / 100)).toFixed(2));
 
             return {
                 productId: product.id,
@@ -312,8 +352,8 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderDTO): Promise
                 unitCost,
                 discountAmount: 0,
                 discountPercentage: 0,
-                taxAmount: 0,
-                taxRate: 0,
+                taxAmount,
+                taxRate,
                 notes: lineInput.notes,
             };
         });

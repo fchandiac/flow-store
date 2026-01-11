@@ -6,7 +6,7 @@ import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
 import Badge from '@/app/baseComponents/Badge/Badge';
-import { useAlert } from '@/app/state/hooks/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { deleteVariant } from '@/app/actions/productVariants';
 import { getAttributes } from '@/app/actions/attributes';
 import { VariantType } from './VariantCard';

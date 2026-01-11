@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import CreateBaseForm, { BaseFormField, BaseFormFieldGroup } from '@/app/baseComponents/BaseForm/CreateBaseForm';
-import { useAlert } from '@/app/state/hooks/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { createStorage } from '@/app/actions/storages';
 import type { StorageCategory, StorageType } from '@/data/entities/Storage';
 import { BranchOption, StorageCategoryId, StorageTypeId } from './StorageList';

@@ -6,6 +6,7 @@ import { TransactionLine } from '@/data/entities/TransactionLine';
 import { ProductVariant } from '@/data/entities/ProductVariant';
 import { CashSession } from '@/data/entities/CashSession';
 import { revalidatePath } from 'next/cache';
+import { EntityManager } from 'typeorm';
 
 // Types
 interface GetTransactionsParams {
@@ -70,6 +71,46 @@ interface TransactionResult {
     success: boolean;
     transaction?: Transaction;
     error?: string;
+}
+
+const INVENTORY_IN_TRANSACTION_TYPES: TransactionType[] = [
+    TransactionType.PURCHASE,
+    TransactionType.SALE_RETURN,
+    TransactionType.TRANSFER_IN,
+    TransactionType.ADJUSTMENT_IN,
+];
+
+const INVENTORY_OUT_TRANSACTION_TYPES: TransactionType[] = [
+    TransactionType.SALE,
+    TransactionType.PURCHASE_RETURN,
+    TransactionType.TRANSFER_OUT,
+    TransactionType.ADJUSTMENT_OUT,
+];
+
+async function getVariantTotalStock(manager: EntityManager, variantId: string): Promise<number> {
+    const result = await manager
+        .createQueryBuilder()
+        .select(
+            `COALESCE(SUM(CASE
+                WHEN tx.transactionType IN (:...inTypes) THEN COALESCE(line.quantityInBase, line.quantity)
+                WHEN tx.transactionType IN (:...outTypes) THEN -COALESCE(line.quantityInBase, line.quantity)
+                ELSE 0
+            END), 0)`,
+            'stock'
+        )
+        .from(TransactionLine, 'line')
+        .innerJoin(Transaction, 'tx', 'tx.id = line.transactionId')
+        .where('line.productVariantId = :variantId', { variantId })
+        .andWhere('tx.status = :status', { status: TransactionStatus.CONFIRMED })
+        .setParameters({
+            inTypes: INVENTORY_IN_TRANSACTION_TYPES,
+            outTypes: INVENTORY_OUT_TRANSACTION_TYPES,
+        })
+        .getRawOne<{ stock: string | null }>();
+
+    const rawStock = result?.stock;
+    const numericStock = rawStock !== null && rawStock !== undefined ? Number(rawStock) : 0;
+    return Number.isFinite(numericStock) ? numericStock : 0;
 }
 
 /**
@@ -202,6 +243,7 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
         const variantRepo = queryRunner.manager.getRepository(ProductVariant);
         const cashSessionRepo = queryRunner.manager.getRepository(CashSession);
         const variantCache = new Map<string, ProductVariant>();
+        const variantStockCache = new Map<string, number>();
         
         // Validaciones
         if (!data.lines || data.lines.length === 0) {
@@ -337,6 +379,50 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
             const normalizedConversion = effectiveConversion !== null && effectiveConversion !== undefined
                 ? Number(effectiveConversion)
                 : null;
+
+            if (
+                data.transactionType === TransactionType.PURCHASE &&
+                transaction.status === TransactionStatus.CONFIRMED &&
+                lineData.productVariantId
+            ) {
+                const incomingQuantityBase = Number(quantityInBase ?? 0);
+
+                if (incomingQuantityBase > 0) {
+                    let variant = variantCache.get(lineData.productVariantId);
+                    if (!variant) {
+                        const fetchedVariant = await variantRepo.findOne({ where: { id: lineData.productVariantId } });
+                        if (fetchedVariant) {
+                            variantCache.set(lineData.productVariantId, fetchedVariant);
+                            variant = fetchedVariant;
+                        }
+                    }
+
+                    if (variant) {
+                        let currentStock: number;
+                        if (variantStockCache.has(variant.id)) {
+                            currentStock = variantStockCache.get(variant.id)!;
+                        } else {
+                            currentStock = await getVariantTotalStock(queryRunner.manager, variant.id);
+                            variantStockCache.set(variant.id, currentStock);
+                        }
+
+                        const currentPmp = Number(variant.pmp ?? 0);
+                        const effectiveUnitCost = lineUnitCost !== undefined ? lineUnitCost : lineUnitPrice;
+                        const denominator = currentStock + incomingQuantityBase;
+                        const nextPmp = denominator > 0
+                            ? ((currentStock * currentPmp) + (incomingQuantityBase * effectiveUnitCost)) / denominator
+                            : effectiveUnitCost;
+                        const normalizedPmp = Number(nextPmp.toFixed(2));
+
+                        await variantRepo.update(variant.id, { pmp: normalizedPmp });
+
+                        variant.pmp = normalizedPmp;
+                        variantCache.set(variant.id, variant);
+                        const updatedStock = currentStock + incomingQuantityBase;
+                        variantStockCache.set(variant.id, updatedStock);
+                    }
+                }
+            }
             
             const line = lineRepo.create({
                 transactionId: transaction.id,

@@ -7,7 +7,7 @@ import { TextField } from '@/app/baseComponents/TextField/TextField';
 import Switch from '@/app/baseComponents/Switch/Switch';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
-import { useAlert } from '@/app/state/hooks/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { updateCustomer } from '@/app/actions/customers';
 import type { CustomerWithPerson } from './types';
 

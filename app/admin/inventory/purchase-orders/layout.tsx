@@ -15,13 +15,13 @@ export default function PurchaseOrdersLayout({ children }: PropsWithChildren) {
     return (
         <div className="flex h-full flex-col">
             <header className="bg-white shadow-sm">
-                <div className="px-6 pt-6 pb-4 space-y-2">
+                <div className="pt-6 pb-4 space-y-2">
                     <h1 className="text-2xl font-bold">Órdenes de compra</h1>
                     <p className="text-sm text-muted-foreground">
                         Administra las órdenes emitidas a proveedores y crea nuevas solicitudes de compra.
                     </p>
                 </div>
-                <nav className="flex border-b border-gray-200 px-6">
+                <nav className="flex border-b border-gray-200">
                     {tabs.map((tab) => {
                         const isActive =
                             pathname === tab.href ||
@@ -44,7 +44,7 @@ export default function PurchaseOrdersLayout({ children }: PropsWithChildren) {
                     })}
                 </nav>
             </header>
-            <section className="flex-1 overflow-auto bg-gray-50 p-6">{children}</section>
+            <section className="flex-1 overflow-auto">{children}</section>
         </div>
     );
 }

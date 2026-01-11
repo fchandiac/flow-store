@@ -8,7 +8,7 @@ import { Button } from '@/app/baseComponents/Button/Button';
 import Badge from '@/app/baseComponents/Badge/Badge';
 import Switch from '@/app/baseComponents/Switch/Switch';
 import Alert from '@/app/baseComponents/Alert/Alert';
-import { useAlert } from '@/app/state/hooks/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { updateAttribute } from '@/app/actions/attributes';
 import { AttributeType } from './AttributeCard';
 

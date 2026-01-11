@@ -456,9 +456,10 @@ async function setupTestDatabase() {
       `CREATE TABLE suppliers (
         id varchar(36) NOT NULL PRIMARY KEY,
         personId varchar(36) NULL,
+        alias varchar(255) NULL,
         companyName varchar(255) NULL,
         paymentTerms varchar(255) NULL,
-        creditLimit decimal(12,2) NULL,
+        defaultPaymentTermDays int NOT NULL DEFAULT 0,
         isActive boolean NOT NULL DEFAULT true,
         deletedAt datetime NULL,
         createdAt datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,

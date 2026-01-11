@@ -5,7 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import Select from '@/app/baseComponents/Select/Select';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
-import { useAlert } from '@/app/state/hooks/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { setUnitActive, UnitAdminSummary } from '@/app/actions/units';
 import { UnitDimension } from '@/data/entities/unit-dimension.enum';
 import UnitCard from '@/app/admin/settings/units/ui/UnitCard';

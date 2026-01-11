@@ -5,7 +5,7 @@ import dynamic from 'next/dynamic';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
 import Alert from '@/app/baseComponents/Alert/Alert';
 import { Button } from '@/app/baseComponents/Button/Button';
-import { useAlert } from '../../state/hooks/useAlert';
+import { useAlert } from '../../globalstate/alert/useAlert';
 
 // Wrapper para evitar hydration mismatch
 function ElectronDetector({ children }: { children: (isElectron: boolean) => React.ReactNode }) {

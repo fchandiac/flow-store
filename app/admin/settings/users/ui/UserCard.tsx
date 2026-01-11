@@ -5,7 +5,7 @@ import Badge from '@/app/baseComponents/Badge/Badge';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import DeleteUserDialog from './DeleteUserDialog';
 import UpdateUserDialog from './UpdateUserDialog';
-import { usePermissions } from '@/app/state/hooks/usePermissions';
+import { usePermissions } from '@/app/globalstate/permissions/usePermissions';
 
 export interface UserCardProps {
     user: {

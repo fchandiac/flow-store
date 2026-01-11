@@ -8,7 +8,7 @@ import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Badge from '@/app/baseComponents/Badge/Badge';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
-import { useAlert } from '@/app/state/hooks/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { getSuppliers } from '@/app/actions/suppliers';
 import { getInventoryFilters } from '@/app/actions/inventory';
 import { searchProductsForPurchase, type PurchaseOrderProductResult } from '@/app/actions/purchaseOrders';

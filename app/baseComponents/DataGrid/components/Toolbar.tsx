@@ -3,7 +3,7 @@ import React from 'react';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import { useRouter, useSearchParams } from 'next/navigation';
 import type { DataGridColumn } from '../DataGrid';
-import { useAlert } from '@/app/state/contexts/AlertContext';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 
 interface ToolbarProps {
   filterMode?: boolean;

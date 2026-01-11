@@ -8,7 +8,7 @@ import { Button } from '@/app/baseComponents/Button/Button';
 import Badge from '@/app/baseComponents/Badge/Badge';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import Alert from '@/app/baseComponents/Alert/Alert';
-import { useAlert } from '@/app/state/hooks/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { createAttribute } from '@/app/actions/attributes';
 
 interface CreateAttributeDialogProps {

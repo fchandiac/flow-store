@@ -7,7 +7,7 @@ import { TextField } from '@/app/baseComponents/TextField/TextField';
 import Select from '@/app/baseComponents/Select/Select';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
-import { useAlert } from '@/app/state/hooks/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { createCategory } from '@/app/actions/categories';
 import { CategoryType } from './CategoryCard';
 

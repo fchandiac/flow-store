@@ -9,7 +9,7 @@ import Alert from "@/app/baseComponents/Alert/Alert";
 import { updateSupplier } from "@/app/actions/suppliers";
 import { SupplierType } from "@/data/entities/Supplier";
 import { DocumentType } from "@/data/entities/Person";
-import { useAlert } from "@/app/state/hooks/useAlert";
+import { useAlert } from "@/app/globalstate/alert/useAlert";
 import type { SupplierWithPerson } from "./types";
 
 const supplierTypeOptions = [
@@ -36,18 +36,10 @@ interface FormState {
   phone: string;
   address: string;
   supplierType: SupplierType;
-  creditLimit: string;
+  alias: string;
   defaultPaymentTermDays: string;
-  bankName: string;
-  bankAccountNumber: string;
-  bankAccountType: string;
   notes: string;
 }
-
-const toCurrencyString = (value: number | null | undefined) => {
-  if (!value) return "0";
-  return value.toString();
-};
 
 const toNumberString = (value: number | null | undefined, fallback = "0") => {
   if (typeof value !== "number" || Number.isNaN(value)) {
@@ -92,11 +84,8 @@ export const UpdateSupplierDialog = ({
       phone: supplier.person?.phone ?? "",
       address: supplier.person?.address ?? "",
       supplierType: supplier.supplierType,
-      creditLimit: toCurrencyString(supplier.creditLimit),
+      alias: supplier.alias ?? "",
       defaultPaymentTermDays: toNumberString(supplier.defaultPaymentTermDays, "30"),
-      bankName: supplier.bankName ?? "",
-      bankAccountNumber: supplier.bankAccountNumber ?? "",
-      bankAccountType: supplier.bankAccountType ?? "",
       notes: supplier.notes ?? "",
     };
   }, [supplier]);
@@ -152,11 +141,8 @@ export const UpdateSupplierDialog = ({
         phone: form.phone.trim() || undefined,
         address: form.address.trim() || undefined,
         supplierType: form.supplierType,
-        creditLimit: parseFloat(form.creditLimit.replace(/[^0-9.-]+/g, "")) || 0,
+        alias: form.alias.trim() || undefined,
         defaultPaymentTermDays: parseInt(form.defaultPaymentTermDays, 10) || 0,
-        bankName: form.bankName.trim() || undefined,
-        bankAccountNumber: form.bankAccountNumber.trim() || undefined,
-        bankAccountType: form.bankAccountType.trim() || undefined,
         notes: form.notes.trim() || undefined,
       });
 
@@ -198,6 +184,12 @@ export const UpdateSupplierDialog = ({
               value={form.supplierType}
               onChange={(value) => handleChange("supplierType", value as SupplierType)}
               data-test-id="update-supplier-type"
+            />
+            <TextField
+              label="Alias del proveedor"
+              value={form.alias}
+              onChange={(e) => handleChange("alias", e.target.value)}
+              data-test-id="update-supplier-alias"
             />
             <TextField
               label="Razón social"
@@ -247,43 +239,13 @@ export const UpdateSupplierDialog = ({
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <TextField
-              label="Banco"
-              value={form.bankName}
-              onChange={(e) => handleChange("bankName", e.target.value)}
-              data-test-id="update-supplier-bank-name"
-            />
-            <TextField
-              label="Número de cuenta"
-              value={form.bankAccountNumber}
-              onChange={(e) => handleChange("bankAccountNumber", e.target.value)}
-              data-test-id="update-supplier-bank-account-number"
-            />
-            <TextField
-              label="Tipo de cuenta bancaria"
-              value={form.bankAccountType}
-              onChange={(e) => handleChange("bankAccountType", e.target.value)}
-              data-test-id="update-supplier-bank-account-type"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <TextField
-              label="Límite de crédito"
-              type="currency"
-              value={form.creditLimit}
-              onChange={(e) => handleChange("creditLimit", e.target.value)}
-              data-test-id="update-supplier-credit-limit"
-            />
-            <TextField
-              label="Plazo de pago predeterminado (días)"
-              type="number"
-              value={form.defaultPaymentTermDays}
-              onChange={(e) => handleChange("defaultPaymentTermDays", e.target.value)}
-              data-test-id="update-supplier-payment-days"
-            />
-          </div>
+          <TextField
+            label="Plazo de pago predeterminado (días)"
+            type="number"
+            value={form.defaultPaymentTermDays}
+            onChange={(e) => handleChange("defaultPaymentTermDays", e.target.value)}
+            data-test-id="update-supplier-payment-days"
+          />
 
           <TextField
             label="Notas"

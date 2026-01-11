@@ -14,22 +14,21 @@ interface GetSuppliersParams {
 }
 
 interface CreateSupplierDTO {
-    // Person fields
-    firstName: string;
-    lastName?: string;
-    businessName?: string;
-    documentType?: DocumentType | null;
-    documentNumber?: string;
-    email?: string;
-    phone?: string;
-    address?: string;
-    // Supplier fields
+    personId?: string;
+    person?: {
+        type: PersonType;
+        firstName: string;
+        lastName?: string;
+        businessName?: string;
+        documentType?: DocumentType | null;
+        documentNumber?: string;
+        email?: string;
+        phone?: string;
+        address?: string;
+    };
+    alias?: string;
     supplierType?: SupplierType;
-    creditLimit?: number;
     defaultPaymentTermDays?: number;
-    bankName?: string;
-    bankAccountNumber?: string;
-    bankAccountType?: string;
     notes?: string;
 }
 
@@ -44,13 +43,9 @@ interface UpdateSupplierDTO {
     phone?: string;
     address?: string;
     // Supplier fields
+    alias?: string;
     supplierType?: SupplierType;
-    creditLimit?: number;
-    currentBalance?: number;
     defaultPaymentTermDays?: number;
-    bankName?: string;
-    bankAccountNumber?: string;
-    bankAccountType?: string;
     isActive?: boolean;
     notes?: string;
 }
@@ -161,54 +156,104 @@ export async function createSupplier(data: CreateSupplierDTO): Promise<SupplierR
         const ds = await getDb();
         const supplierRepo = ds.getRepository(Supplier);
         const personRepo = ds.getRepository(Person);
-        
 
-        
-        if (data.documentType && data.documentType !== DocumentType.RUT) {
-            return { success: false, error: 'Los proveedores deben usar documento tipo RUT' };
-        }
+        let person: Person | null = null;
 
-        if (data.documentNumber) {
-            const existingPerson = await personRepo.findOne({
-                where: { documentNumber: data.documentNumber, deletedAt: IsNull() },
+        if (data.personId) {
+            person = await personRepo.findOne({
+                where: { id: data.personId, deletedAt: IsNull() },
             });
-            if (existingPerson) {
-                return { success: false, error: 'Ya existe una persona con ese número de documento' };
+
+            if (!person) {
+                return { success: false, error: 'Persona no encontrada' };
             }
         }
 
-        // Crear persona primero
-        const person = personRepo.create({
-            type: PersonType.COMPANY,
-            firstName: data.firstName,
-            lastName: data.lastName,
-            businessName: data.businessName,
-            documentType: DocumentType.RUT,
-            documentNumber: data.documentNumber,
-            email: data.email,
-            phone: data.phone,
-            address: data.address
+        if (!person && data.person) {
+            const personData = data.person;
+
+            if (!personData.firstName?.trim()) {
+                return { success: false, error: 'El nombre del contacto es obligatorio' };
+            }
+
+            if (personData.type === PersonType.NATURAL && !personData.lastName?.trim()) {
+                return { success: false, error: 'El apellido es obligatorio para personas naturales' };
+            }
+
+            if (personData.type === PersonType.COMPANY && !personData.businessName?.trim()) {
+                return { success: false, error: 'La razón social es obligatoria para empresas' };
+            }
+
+            let resolvedDocumentType: DocumentType;
+            if (personData.type === PersonType.COMPANY) {
+                if (personData.documentType && personData.documentType !== DocumentType.RUT) {
+                    return { success: false, error: 'Las empresas deben usar documento tipo RUT' };
+                }
+                resolvedDocumentType = DocumentType.RUT;
+            } else {
+                if (personData.documentType === DocumentType.RUT) {
+                    return { success: false, error: 'Las personas naturales no pueden tener documento tipo RUT' };
+                }
+                resolvedDocumentType = personData.documentType ?? DocumentType.RUN;
+            }
+
+            if (personData.documentNumber) {
+                const existingPerson = await personRepo.findOne({
+                    where: { documentNumber: personData.documentNumber, deletedAt: IsNull() },
+                });
+                if (existingPerson) {
+                    return { success: false, error: 'Ya existe una persona con ese número de documento' };
+                }
+            }
+
+            person = personRepo.create({
+                type: personData.type,
+                firstName: personData.firstName.trim(),
+                lastName: personData.lastName?.trim() || undefined,
+                businessName: personData.type === PersonType.COMPANY ? personData.businessName?.trim() || undefined : undefined,
+                documentType: resolvedDocumentType,
+                documentNumber: personData.documentNumber?.trim() || undefined,
+                email: personData.email?.trim() || undefined,
+                phone: personData.phone?.trim() || undefined,
+                address: personData.address?.trim() || undefined,
+            });
+
+            await personRepo.save(person);
+        }
+
+        if (!person) {
+            return { success: false, error: 'Selecciona una persona existente o ingresa los datos para crearla' };
+        }
+
+        if (person.type === PersonType.COMPANY && person.documentType !== DocumentType.RUT) {
+            person.documentType = DocumentType.RUT;
+            await personRepo.save(person);
+        }
+
+        if (person.type === PersonType.NATURAL && (!person.documentType || person.documentType === DocumentType.RUT)) {
+            person.documentType = DocumentType.RUN;
+            await personRepo.save(person);
+        }
+
+        const existingSupplier = await supplierRepo.findOne({
+            where: { personId: person.id, deletedAt: IsNull() },
         });
-        
-        await personRepo.save(person);
-        
-        // Crear proveedor
+
+        if (existingSupplier) {
+            return { success: false, error: 'Esta persona ya está registrada como proveedor' };
+        }
+
         const supplier = supplierRepo.create({
             personId: person.id,
-            supplierType: data.supplierType || SupplierType.LOCAL,
-            creditLimit: data.creditLimit || 0,
-            currentBalance: 0,
-            defaultPaymentTermDays: data.defaultPaymentTermDays || 30,
-            bankName: data.bankName,
-            bankAccountNumber: data.bankAccountNumber,
-            bankAccountType: data.bankAccountType,
+            alias: data.alias?.trim() || undefined,
+            supplierType: data.supplierType ?? SupplierType.LOCAL,
+            defaultPaymentTermDays: data.defaultPaymentTermDays ?? 30,
             notes: data.notes,
-            isActive: true
+            isActive: true,
         });
-        
+
         await supplierRepo.save(supplier);
-        
-        // Cargar proveedor con relación
+
         const savedSupplier = await supplierRepo.findOne({
             where: { id: supplier.id },
             relations: ['person']
@@ -252,10 +297,6 @@ export async function updateSupplier(id: string, data: UpdateSupplierDTO): Promi
         if (!person) {
             return { success: false, error: 'Datos de persona no encontrados' };
         }
-        if (data.documentType && data.documentType !== DocumentType.RUT) {
-            return { success: false, error: 'Los proveedores deben usar documento tipo RUT' };
-        }
-
         if (data.documentNumber !== undefined && data.documentNumber !== person.documentNumber) {
             const existing = await personRepo.findOne({
                 where: { documentNumber: data.documentNumber, deletedAt: IsNull() },
@@ -269,7 +310,23 @@ export async function updateSupplier(id: string, data: UpdateSupplierDTO): Promi
         if (data.firstName !== undefined) person.firstName = data.firstName;
         if (data.lastName !== undefined) person.lastName = data.lastName;
         if (data.businessName !== undefined) person.businessName = data.businessName;
-        person.documentType = DocumentType.RUT;
+        if (data.documentType !== undefined) {
+            if (person.type === PersonType.COMPANY) {
+                if (data.documentType && data.documentType !== DocumentType.RUT) {
+                    return { success: false, error: 'Las empresas deben usar documento tipo RUT' };
+                }
+                person.documentType = DocumentType.RUT;
+            } else {
+                if (data.documentType === DocumentType.RUT) {
+                    return { success: false, error: 'Las personas naturales no pueden tener documento tipo RUT' };
+                }
+                person.documentType = data.documentType ?? DocumentType.RUN;
+            }
+        } else if (person.type === PersonType.COMPANY) {
+            person.documentType = DocumentType.RUT;
+        } else if (!person.documentType || person.documentType === DocumentType.RUT) {
+            person.documentType = DocumentType.RUN;
+        }
         if (data.email !== undefined) person.email = data.email;
         if (data.phone !== undefined) person.phone = data.phone;
         if (data.address !== undefined) person.address = data.address;
@@ -278,14 +335,10 @@ export async function updateSupplier(id: string, data: UpdateSupplierDTO): Promi
         
         // Actualizar campos del proveedor
         if (data.supplierType !== undefined) supplier.supplierType = data.supplierType;
-        if (data.creditLimit !== undefined) supplier.creditLimit = data.creditLimit;
-        if (data.currentBalance !== undefined) supplier.currentBalance = data.currentBalance;
         if (data.defaultPaymentTermDays !== undefined) supplier.defaultPaymentTermDays = data.defaultPaymentTermDays;
-        if (data.bankName !== undefined) supplier.bankName = data.bankName;
-        if (data.bankAccountNumber !== undefined) supplier.bankAccountNumber = data.bankAccountNumber;
-        if (data.bankAccountType !== undefined) supplier.bankAccountType = data.bankAccountType;
         if (data.isActive !== undefined) supplier.isActive = data.isActive;
         if (data.notes !== undefined) supplier.notes = data.notes;
+        if (data.alias !== undefined) supplier.alias = data.alias?.trim() || undefined;
         
         await supplierRepo.save(supplier);
 
@@ -357,49 +410,4 @@ export async function searchSuppliers(query: string, limit: number = 20): Promis
         .getMany();
 
     return suppliers.map(toPlainSupplier);
-}
-
-/**
- * Actualiza el balance de un proveedor
- */
-export async function updateSupplierBalance(
-    id: string, 
-    amount: number, 
-    operation: 'add' | 'subtract'
-): Promise<SupplierResult> {
-    try {
-        const ds = await getDb();
-        const repo = ds.getRepository(Supplier);
-        
-        const supplier = await repo.findOne({
-            where: { id, deletedAt: IsNull() },
-            relations: ['person']
-        });
-        
-        if (!supplier) {
-            return { success: false, error: 'Proveedor no encontrado' };
-        }
-        
-        if (operation === 'add') {
-            supplier.currentBalance += amount;
-        } else {
-            supplier.currentBalance -= amount;
-        }
-        
-        await repo.save(supplier);
-
-        const savedSupplier = await repo.findOne({
-            where: { id },
-            relations: ['person']
-        });
-        
-        const plainSupplier = cloneSupplier(savedSupplier)!;
-        return { success: true, supplier: plainSupplier };
-    } catch (error) {
-        console.error('Error updating supplier balance:', error);
-        return { 
-            success: false, 
-            error: error instanceof Error ? error.message : 'Error al actualizar el balance' 
-        };
-    }
 }

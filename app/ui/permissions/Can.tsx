@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { AbilityValue } from '@/lib/permissions';
-import { usePermissions } from '@/app/state/hooks/usePermissions';
+import { usePermissions } from '@/app/globalstate/permissions/usePermissions';
 
 type CanProps = {
   ability: AbilityValue;

@@ -120,7 +120,7 @@ const Header: React.FC<HeaderProps> = ({ title, filterMode = false, onToggleFilt
       
       {/* Segunda fila: Header Actions (móvil) - solo si hay headerActions */}
       {headerActions && (
-        <div className="flex sm:hidden items-center gap-3 mt-3" data-test-id="header-actions-slot-mobile">
+        <div className="flex sm:hidden items-center justify-center gap-3 mt-3" data-test-id="header-actions-slot-mobile">
           {headerActions}
         </div>
       )}

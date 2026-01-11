@@ -8,7 +8,7 @@ import Select from '@/app/baseComponents/Select/Select';
 import Switch from '@/app/baseComponents/Switch/Switch';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
-import { useAlert } from '@/app/state/hooks/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { updatePriceList } from '@/app/actions/priceLists';
 import { PriceListType } from './PriceListCard';
 

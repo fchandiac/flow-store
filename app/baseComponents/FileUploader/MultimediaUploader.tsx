@@ -2,7 +2,7 @@
 import React, { useRef, useState } from 'react';
 import { Button } from '../Button/Button';
 import IconButton from '../IconButton/IconButton';
-import { useAlert } from '../../state/hooks/useAlert';
+import { useAlert } from '../../globalstate/alert/useAlert';
 
 interface MultimediaUploaderProps {
   uploadPath: string; // Ruta donde se guardará el archivo (en el backend)

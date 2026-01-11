@@ -294,16 +294,21 @@ export default function ProductsPage() {
             renderCell: ({ row }) => (
                 <div className="flex flex-col py-1">
                     <div className="flex items-center gap-2">
-                        <span className="font-medium text-foreground">{row.name}</span>
-                            {row.variantCount > 0 && (
+                        {row.variantCount > 0 && (
                             <Badge variant="info">
                                 {row.variantCount}
                             </Badge>
                         )}
+                        <span className="font-medium text-foreground">{row.name}</span>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                            {row.sku || 'Sin SKU principal'}
-                    </span>
+                    {Array.isArray(row.variants) && row.variants.length > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                            {row.variants
+                                .map((variant: VariantSummary) => variant.sku)
+                                .filter((sku: string | undefined) => Boolean(sku))
+                                .join(' · ')}
+                        </span>
+                    )}
                 </div>
             ),
         },

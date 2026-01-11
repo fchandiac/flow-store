@@ -255,6 +255,7 @@ export interface VariantDisplay {
     barcode?: string;
     basePrice: number;
     baseCost: number;
+    pmp: number;
     unitId: string;
     unitOfMeasure: string;
     /** Valores de atributos: { "attributeId": "opción" } */
@@ -385,6 +386,7 @@ export async function getProductsWithVariants(params?: {
                 barcode: v.barcode,
                 basePrice: Number(v.basePrice),
                 baseCost: Number(v.baseCost),
+                pmp: Number(v.pmp ?? 0),
                 unitId: v.unitId,
                 unitOfMeasure: v.unit?.symbol ?? '',
                 attributeValues: v.attributeValues,
@@ -505,6 +507,7 @@ export async function createVariant(data: CreateVariantDTO): Promise<VariantResu
             barcode: data.barcode,
             basePrice: data.basePrice,
             baseCost: data.baseCost || 0,
+            pmp: 0,
             unitId: unit.id,
             unit,
             weight: data.weight,
@@ -837,6 +840,7 @@ export async function createBulkVariants(
                 barcode: v.barcode,
                 basePrice: v.basePrice,
                 baseCost: v.baseCost || 0,
+                pmp: 0,
                 unitId: unit.id,
                 unit,
                 weight: v.weight,
@@ -893,6 +897,9 @@ export async function createBulkVariants(
     }
 }
 
+/**
+ * Calcula el PMP (promedio ponderado) para un conjunto de variantes usando recepciones confirmadas.
+ */
 /**
  * Busca variantes por SKU o código de barras
  */

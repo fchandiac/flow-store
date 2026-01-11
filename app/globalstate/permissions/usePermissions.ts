@@ -1,6 +1,6 @@
 'use client';
 
-import { usePermissionsContext } from '../contexts/PermissionsContext';
+import { usePermissionsContext } from './PermissionsContext';
 
 export const usePermissions = () => {
   return usePermissionsContext();

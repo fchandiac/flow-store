@@ -8,7 +8,7 @@ import Badge, { type BadgeVariant } from '@/app/baseComponents/Badge/Badge';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
 import { Button } from '@/app/baseComponents/Button/Button';
-import { useAlert } from '@/app/state/hooks/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 import {
     deletePurchaseOrder,
     getPurchaseOrders,
@@ -176,23 +176,15 @@ const PurchaseOrdersDataGrid = () => {
         ];
     }, [handleDelete]);
 
-    const headerActions = useMemo(() => (
-        <div className="flex items-center gap-3">
-            {loading && <DotProgress totalSteps={3} size={10} />}
-            <Link href="/admin/inventory/purchase-orders/new" className="inline-flex">
-                <Button size="sm">Nueva orden</Button>
-            </Link>
-        </div>
-    ), [loading]);
 
     return (
         <DataGrid
-            title="Listado de órdenes"
+            title=""
             columns={columns}
             rows={rows}
             totalRows={rows.length}
             height="70vh"
-            headerActions={headerActions}
+        
             data-test-id="purchase-orders-grid"
         />
     );

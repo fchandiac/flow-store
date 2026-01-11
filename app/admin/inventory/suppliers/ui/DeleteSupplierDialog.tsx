@@ -4,7 +4,7 @@ import Dialog from "@/app/baseComponents/Dialog/Dialog";
 import { Button } from "@/app/baseComponents/Button/Button";
 import Alert from "@/app/baseComponents/Alert/Alert";
 import { deleteSupplier } from "@/app/actions/suppliers";
-import { useAlert } from "@/app/state/hooks/useAlert";
+import { useAlert } from "@/app/globalstate/alert/useAlert";
 import { useEffect, useState } from "react";
 import type { SupplierWithPerson } from "./types";
 
