@@ -74,7 +74,8 @@ const Pagination: React.FC<PaginationProps> = ({ total, totalGeneral, mobileMode
           placeholder=""
           value={limit}
           onChange={(newLimit) => newLimit && handleLimitChange(Number(newLimit))}
-          variant="minimal"
+            variant="minimal"
+            className="min-w-[112px]"
         />
       </div>
 

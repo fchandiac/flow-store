@@ -21,9 +21,10 @@ interface SelectProps {
   ["data-test-id"]?: string;
   allowClear?: boolean;
   disabled?: boolean;
+  className?: string;
 }
 
-const Select: React.FC<SelectProps> = ({ label, options, placeholder, value = null, onChange, required = false, name, variant = 'default', allowClear = false, disabled = false, ...props }) => {
+const Select: React.FC<SelectProps> = ({ label, options, placeholder, value = null, onChange, required = false, name, variant = 'default', allowClear = false, disabled = false, className = '', ...props }) => {
   const [open, setOpen] = useState(false);
   const [focused, setFocused] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -102,12 +103,15 @@ const Select: React.FC<SelectProps> = ({ label, options, placeholder, value = nu
     }
   }, [highlightedIndex, open]);
 
+  const hasValue = value !== null && value !== undefined;
+  const hasClear = allowClear && hasValue;
+
   return (
     <div className="select-container" ref={containerRef}>
       {variant === 'minimal' ? (
-        // Variante Minimal: Sin iconos, solo texto clickeable
+        // Variante Minimal: Contenedor compacto con icono de despliegue
         <div
-          className={`relative w-full inline-flex items-center gap-2 cursor-pointer ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`relative w-full cursor-pointer select-none ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`.trim()}
           onFocus={() => !disabled && setFocused(true)}
           onBlur={() => {
             if (!isSelecting) {
@@ -137,11 +141,19 @@ const Select: React.FC<SelectProps> = ({ label, options, placeholder, value = nu
             aria-hidden="true"
           />
 
-          <span className={`text-sm font-medium transition-colors ${
-            focused ? 'text-primary' : 'text-foreground'
-          }`}>
-            {selected ? selected.label : placeholder}
-          </span>
+          <div
+            className={`flex items-center rounded-md border border-border bg-background py-2 text-sm transition-colors ${
+              focused ? 'border-primary ring-2 ring-primary/20' : 'hover:border-border/80'
+            } ${disabled ? 'bg-muted text-muted-foreground' : ''} ${hasClear ? 'pr-12 pl-3' : 'pr-8 pl-3'}`.trim()}
+          >
+            <span
+              className={`flex-1 truncate text-sm ${
+                hasValue ? 'text-foreground' : 'text-muted-foreground'
+              }`}
+            >
+              {selected ? selected.label : (placeholder ?? 'Selecciona')}
+            </span>
+          </div>
           
           {allowClear && value !== null && value !== undefined && (
             <IconButton
@@ -155,6 +167,15 @@ const Select: React.FC<SelectProps> = ({ label, options, placeholder, value = nu
               disabled={disabled}
             />
           )}
+
+          <span
+            className={`material-symbols-outlined pointer-events-none absolute ${hasClear ? 'right-3.5' : 'right-3'} top-1/2 -translate-y-1/2 text-base transition-colors ${
+              focused ? 'text-primary' : 'text-secondary'
+            }`}
+            aria-hidden="true"
+          >
+            expand_more
+          </span>
 
           <DropdownList 
             open={open} 
@@ -199,7 +220,7 @@ const Select: React.FC<SelectProps> = ({ label, options, placeholder, value = nu
       ) : (
         // Variante Default: Con iconos
         <div
-          className={`relative w-full border border-border rounded-md focus-within:border-primary ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`relative w-full border border-border rounded-md focus-within:border-primary ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`.trim()}
           onFocus={() => !disabled && setFocused(true)}
           onBlur={() => {
             if (!isSelecting) {

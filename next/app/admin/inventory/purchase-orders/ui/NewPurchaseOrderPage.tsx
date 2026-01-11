@@ -643,18 +643,19 @@ const NewPurchaseOrderPage = () => {
                                                 <td className="py-3 pr-3 align-top">
                                                     <TextField
                                                         label="Precio"
-                                                        type="number"
-                                                        value={String(line.unitPrice)}
+                                                        type="currency"
+                                                        value={String(Math.max(0, Math.floor(line.unitPrice)))}
                                                         placeholder=""
                                                         aria-label="Precio"
+                                                        currencySymbol="$"
+                                                        inputMode="numeric"
                                                         onChange={(event) => {
-                                                            const parsed = Number(event.target.value);
-                                                            const sanitized = Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : 0;
+                                                            const raw = event.target.value ?? '';
+                                                            const parsed = Number(raw.replace(/[^\d]/g, ''));
+                                                            const sanitized = Number.isFinite(parsed) ? parsed : 0;
                                                             handlePriceChange(line.variantId, sanitized);
                                                         }}
-                                                        min={0}
-                                                        step={1}
-                                                        className="w-28 [&_[data-test-id='text-field-label']]:hidden [&_label]:hidden"
+                                                        className="w-32 [&_[data-test-id='text-field-label']]:hidden [&_label]:hidden"
                                                     />
                                                 </td>
                                                 <td className="py-3 pr-3 align-top">

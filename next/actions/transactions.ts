@@ -5,8 +5,9 @@ import { Transaction, TransactionType, TransactionStatus, PaymentMethod } from '
 import { TransactionLine } from '@/data/entities/TransactionLine';
 import { ProductVariant } from '@/data/entities/ProductVariant';
 import { CashSession } from '@/data/entities/CashSession';
+import { User } from '@/data/entities/User';
 import { revalidatePath } from 'next/cache';
-import { EntityManager } from 'typeorm';
+import { EntityManager, IsNull } from 'typeorm';
 
 // Types
 interface GetTransactionsParams {
@@ -248,6 +249,13 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
         // Validaciones
         if (!data.lines || data.lines.length === 0) {
             throw new Error('La transacción debe tener al menos una línea');
+        }
+
+        const userRepo = queryRunner.manager.getRepository(User);
+        const userExists = await userRepo.exists({ where: { id: data.userId, deletedAt: IsNull() } });
+
+        if (!userExists) {
+            throw new Error('El usuario asociado a la sesión ya no existe o fue desactivado. Cierra sesión e inicia nuevamente.');
         }
         
         // Verificar sesión de caja si es venta

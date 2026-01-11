@@ -59,6 +59,7 @@ const Footer: React.FC<FooterProps> = ({ total = 0, totalGeneral }) => {
               value={limit}
               onChange={(newLimit: string | number | null) => newLimit && handleLimitChange(Number(newLimit))}
               variant="minimal"
+              className="min-w-[112px]"
             />
           </div>
           <div className="text-xs text-muted-foreground">
