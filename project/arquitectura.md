@@ -67,8 +67,17 @@ flow-store/
 ├── README.md                   # Intro del proyecto
 ├── next/                       # Contenedor de la aplicación Next.js
 │   ├── .next/                  # Salida de build/desarrollo de Next
-│   ├── app/                    # App Router y módulos (admin, POS, UI compartidos)
-│   │   ├── actions/            # Server Actions por dominio
+│   ├── actions/                # Server Actions por dominio
+│   ├── baseComponents/         # Diseño de sistema (Button, DataGrid, Dialog...)
+│   ├── globalstate/            # Estado cliente compartido (alertas, permisos)
+│   │   ├── alert/              # Stack de alertas y hook asociado
+│   │   │   ├── AlertContext.tsx
+│   │   │   └── useAlert.ts
+│   │   └── permissions/        # Permisos derivados de next-auth y su hook
+│   │       ├── PermissionsContext.tsx
+│   │       └── usePermissions.ts
+│   ├── ui/                     # Componentes específicos de negocio
+│   ├── app/                    # App Router (admin, POS, showcases)
 │   │   ├── admin/              # Panel de administración
 │   │   │   ├── layout.tsx      # Layout principal del área admin
 │   │   │   ├── loading.tsx     # Pantalla de carga para rutas anidadas
@@ -81,17 +90,13 @@ flow-store/
 │   │   │   ├── settings/       # Configuraciones administrativas
 │   │   │   └── showcases/      # Demos / componentes de referencia
 │   │   ├── api/                # API Routes (auth/config)
-│   │   ├── baseComponents/     # Diseño de sistema (Button, DataGrid, Dialog...)
-│   │   ├── globalstate/        # Estado cliente compartido (alertas, permisos)
-│   │   │   ├── alert/          # Stack de alertas y hook asociado
-│   │   │   │   ├── AlertContext.tsx
-│   │   │   │   └── useAlert.ts
-│   │   │   └── permissions/    # Permisos derivados de next-auth y su hook
-│   │   │       ├── PermissionsContext.tsx
-│   │   │       └── usePermissions.ts
+│   │   ├── componentsShowcases/ # Catálogo interactivo de UI
 │   │   ├── pointOfSale/        # Módulo POS
-│   │   ├── ui/                 # Componentes específicos de negocio
 │   │   ├── Providers.tsx       # Inyección de providers globales
+│   │   ├── layout.tsx          # Layout raíz del App Router
+│   │   ├── not-found.tsx       # Página 404 del App Router
+│   │   └── page.tsx            # Landing principal (login)
+│   ├── styles/                # Hojas de estilo compartidas
 │   │   └── global.css          # Estilos globales
 │   ├── public/                 # Archivos estáticos servidos por Next
 │   ├── middleware.ts           # Middleware Next.js
@@ -130,10 +135,22 @@ flow-store/
 │       ├── processUtils.ts     # Gestión de procesos hijos (Next dev/standalone)
 │       └── windowUtils.ts      # Creación de ventanas (splash, principal)
 ├── tests/                      # Playwright, utilidades de QA y reportes (en .output/)
+│   ├── e2e/                    # Suites organizadas por dominio
+│   ├── helpers/                # Abstracciones compartidas
+│   ├── scenarios/              # Escenarios de extremo a extremo
+│   ├── scripts/                # Setup/seed y utilidades
+│   ├── .output/                # Reportes y artefactos generados
+│   │   ├── artifacts/          # Screenshots, videos, traces
+│   │   ├── reports/            # Reporte HTML interactivo
+│   │   ├── junit.xml           # Resultado JUnit para CI/CD
+│   │   └── results.json        # Reporte JSON para integraciones
+│   ├── global-setup.ts         # Hook global de Playwright
+│   ├── setup.ts                # Setup por test suite
+│   └── README.md               # Documentación del sistema de tests
 └── tsconfig.json               # Configuración TypeScript
 ```
 
-### 3.1 Detalle de `next/app/globalstate/`
+### 3.1 Detalle de `next/globalstate/`
 
 - **alert/**: encapsula toda la experiencia de notificaciones.
   - `AlertContext.tsx`: define el contexto, `AlertProvider` y helpers (`success`, `error`, etc.) que pintan el stack flotante de avisos.
@@ -199,13 +216,13 @@ flow-store/
 
 ## 5. Server Actions y flujo de datos
 
-- Cada archivo en `next/app/actions/*.ts` define funciones `'use server'` que viven en el runtime de Next.
-- Los componentes `'use client'` importan estas acciones; Next serializa la invocación, la ejecuta en el servidor y devuelve el resultado.
+- Cada archivo en `next/actions/*.ts` define funciones `'use server'` que viven en el runtime de Next.
+- Los componentes `'use client'` importan estas acciones (alias `@/app/actions/*` por compatibilidad); Next serializa la invocación, la ejecuta en el servidor y devuelve el resultado.
 - `data/db.ts` implementa un `DataSource` singleton con reintentos exponenciales, evitando `ER_CON_COUNT_ERROR` y registros duplicados de subscribers.
 - Las acciones encapsulan validaciones, permisos y operaciones de negocio antes de tocar la base de datos.
 
 ```typescript
-// next/app/actions/products.ts
+// next/actions/products.ts
 'use server'
 
 import { getDb } from '@/data/db';

@@ -25,7 +25,7 @@
     "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
-      "@/app/*": ["./next/app/*"],
+      "@/app/*": ["./next/app/*", "./next/*"],
       "@/*": ["./*", "./next/*"]
     },
     "plugins": [

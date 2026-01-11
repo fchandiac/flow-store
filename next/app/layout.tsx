@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import type { Metadata } from 'next';
 import appConfig from '@/app.config.json';
-import { Providers } from './Providers';
-import '../app/global.css';
+import { Providers } from '../Providers';
+import '../styles/global.css';
 
 export const metadata: Metadata = {
   title: appConfig.appName,

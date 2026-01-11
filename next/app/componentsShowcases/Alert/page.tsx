@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Alert from '@/app/baseComponents/Alert/Alert';
-import { useAlert } from '../../globalstate/alert/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 
 export default function AlertShowcase() {
   const { success, error, info, warning, showAlert } = useAlert();

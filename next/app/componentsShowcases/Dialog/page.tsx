@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { Button } from '@/app/baseComponents/Button/Button';
-import { useAlert } from '../../globalstate/alert/useAlert';
+import { useAlert } from '@/app/globalstate/alert/useAlert';
 
 export default function DialogShowcase() {
   const { success, error, info, warning } = useAlert();
