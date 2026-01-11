@@ -76,6 +76,7 @@ flow-store/
 │   │   └── permissions/        # Permisos derivados de next-auth y su hook
 │   │       ├── PermissionsContext.tsx
 │   │       └── usePermissions.ts
+│   ├── Providers.tsx           # Inyección de providers globales
 │   ├── ui/                     # Componentes específicos de negocio
 │   ├── app/                    # App Router (admin, POS, showcases)
 │   │   ├── admin/              # Panel de administración
@@ -92,7 +93,6 @@ flow-store/
 │   │   ├── api/                # API Routes (auth/config)
 │   │   ├── componentsShowcases/ # Catálogo interactivo de UI
 │   │   ├── pointOfSale/        # Módulo POS
-│   │   ├── Providers.tsx       # Inyección de providers globales
 │   │   ├── layout.tsx          # Layout raíz del App Router
 │   │   ├── not-found.tsx       # Página 404 del App Router
 │   │   └── page.tsx            # Landing principal (login)
@@ -158,7 +158,7 @@ flow-store/
 - **permissions/**: agrupa la lógica de permisos basada en la sesión actual.
   - `PermissionsContext.tsx`: deriva las abilities del usuario autenticado, expone utilidades `has`/`hasAny` y marca estados de carga en función de `next-auth`.
   - `usePermissions.ts`: hook `use client` que centraliza el consumo del contexto en componentes cliente.
-- **Integración**: `next/app/Providers.tsx` compone `SessionProvider`, `AlertProvider` y `PermissionsProvider`, asegurando que cualquier ruta del App Router tenga acceso coherente a estas capacidades cliente.
+- **Integración**: `next/Providers.tsx` compone `SessionProvider`, `AlertProvider` y `PermissionsProvider`, asegurando que cualquier ruta del App Router tenga acceso coherente a estas capacidades cliente.
 
 ---
 
