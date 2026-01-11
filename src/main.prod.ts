@@ -151,7 +151,7 @@ app.on('ready', async () => {
   
   // Ruta al servidor standalone empaquetado
   // En producción (packaged), estará en resources/standalone
-  // En desarrollo (si probamos main.prod.ts), estará en .next/standalone
+  // En desarrollo (si probamos main.prod.ts), estará en next/.next/standalone
   
   let serverPath: string;
   let cwd: string;
@@ -161,7 +161,7 @@ app.on('ready', async () => {
     serverPath = path.join(cwd, 'server.js');
   } else {
     // Fallback para probar main.prod.ts localmente
-    cwd = path.join(__dirname, '..', '..', '.next', 'standalone');
+    cwd = path.join(__dirname, '..', '..', 'next', '.next', 'standalone');
     serverPath = path.join(cwd, 'server.js');
   }
 

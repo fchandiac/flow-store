@@ -1,17 +1,18 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { AuditActionType } from "../../../data/entities/audit.types";
+import { AuditActionType } from "@/data/entities/audit.types";
 import moment from "moment-timezone";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import type { Permission } from "@/data/entities/Permission";
 
 const APP_TIMEZONE = 'America/Santiago';
 
 // Lazy import functions to avoid circular dependencies
-const getDbModule = async () => (await import("../../../data/db")).getDb;
-const getUserEntity = async () => (await import("../../../data/entities/User")).User;
-const getAuditEntity = async () => (await import("../../../data/entities/Audit")).Audit;
-const getPermissionEntity = async () => (await import("../../../data/entities/Permission")).Permission;
+const getDbModule = async () => (await import("@/data/db")).getDb;
+const getUserEntity = async () => (await import("@/data/entities/User")).User;
+const getAuditEntity = async () => (await import("@/data/entities/Audit")).Audit;
+const getPermissionEntity = async () => (await import("@/data/entities/Permission")).Permission;
 
 /**
  * Helper function to log login/logout attempts to audit
@@ -140,10 +141,10 @@ export const authOptions: NextAuthOptions = {
 
           console.log("Fetching permissions for user", user.id);
           const permissionRepo = db.getRepository(Permission);
-          const userPermissions = await permissionRepo.find({
+          const userPermissions = (await permissionRepo.find({
             select: ['ability'],
             where: { userId: user.id },
-          });
+          })) as Array<Pick<Permission, 'ability'>>;
 
           const abilities = userPermissions.map((permission) => permission.ability);
 
@@ -287,10 +288,10 @@ export const authOptions: NextAuthOptions = {
 
           // Siempre cargar permisos desde la BD para mantenerlos actualizados
           const permissionRepo = db.getRepository(Permission);
-          const dbPermissions = await permissionRepo.find({
+          const dbPermissions = (await permissionRepo.find({
             select: ['ability'],
             where: { userId: token.sub },
-          });
+          })) as Array<Pick<Permission, 'ability'>>;
           token.permissions = dbPermissions.map((permission) => permission.ability);
         } catch (error) {
           console.error('[authOptions.jwt] Error fetching user role from DB:', error);

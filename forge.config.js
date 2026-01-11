@@ -7,7 +7,7 @@ module.exports = {
     name: 'FlowStore',
     icon: './assets/icons/icon',
     extraResource: [
-      './.next/standalone',
+      './next/.next/standalone',
       // app.config.json will be copied by a post-package hook
     ],
     // macOS compatibility settings

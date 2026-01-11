@@ -25,7 +25,8 @@
     "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/app/*": ["./next/app/*"],
+      "@/*": ["./*", "./next/*"]
     },
     "plugins": [
       {
@@ -36,9 +37,11 @@
   },
   "include": [
     "src/**/*",
-    "app/**/*",
+    "next/**/*.ts",
+    "next/**/*.tsx",
+    "next/**/*.d.ts",
     "data/**/*",
-    ".next/types/**/*.ts"
+    "next/.next/types/**/*.ts"
   ],
   "exclude": [
     "node_modules",

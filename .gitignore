@@ -21,7 +21,9 @@ app.config.json
 
 # Next.js build output
 .next/
+next/.next/
 out/
+next/out/
 build/
 
 # Electron Forge

@@ -51,7 +51,7 @@ app.on('ready', async () => {
     console.log(`[main.dev] Starting Next.js on port ${port}`);
     
     nextDevProcess = spawn('node', [nextPath, 'dev', '-p', port.toString()], {
-      cwd: path.resolve(__dirname, '..', '..'),
+      cwd: path.resolve(__dirname, '..', '..', 'next'),
       stdio: 'inherit',
       env: { 
         ...process.env, 
@@ -106,6 +106,7 @@ app.on('ready', async () => {
   nextDevProcess = spawn('node', [nextPath, 'dev', '-p', String(port)], {
     stdio: 'inherit',
     shell: false,
+    cwd: path.resolve(__dirname, '..', '..', 'next'),
     env: { 
       ...process.env, 
       PORT: String(port),

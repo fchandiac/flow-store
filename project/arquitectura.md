@@ -65,32 +65,41 @@ flow-store/
 ├── .vscode/                    # Configuración del workspace VS Code
 ├── AUDIT_DOCUMENTATION.md      # Notas de auditoría
 ├── README.md                   # Intro del proyecto
-├── app/                        # Next.js (App Router)
-│   ├── actions/                # Server Actions por dominio
-│   ├── admin/                  # Panel de administración
-│   │   ├── layout.tsx          # Layout principal del área admin
-│   │   ├── loading.tsx         # Pantalla de carga para rutas anidadas
-│   │   ├── page.tsx            # Vista bienvenida/dashboard
-│   │   ├── audit/              # Auditorías y bitácoras
-│   │   ├── inventory/          # Gestión de inventario y órdenes
-│   │   ├── persons/            # Personas (clientes/proveedores/usuarios)
-│   │   ├── reports/            # Reportería y análisis
-│   │   ├── sales/              # Módulo de ventas
-│   │   ├── settings/           # Configuraciones administrativas
-│   │   └── showcases/          # Demos / componentes de referencia
-│   ├── api/                    # API Routes (auth/config)
-│   ├── baseComponents/         # Diseño de sistema (Button, DataGrid, Dialog...)
-│   ├── pointOfSale/            # Módulo POS
-│   ├── globalstate/            # Estado cliente compartido (alertas, permisos)
-│   │   ├── alert/              # Stack de alertas y hook asociado
-│   │   │   ├── AlertContext.tsx
-│   │   │   └── useAlert.ts
-│   │   └── permissions/        # Permisos derivados de next-auth y su hook
-│   │       ├── PermissionsContext.tsx
-│   │       └── usePermissions.ts
-│   ├── ui/                     # Componentes específicos de negocio
-│   ├── Providers.tsx           # Inyección de providers globales
-│   └── global.css              # Estilos globales
+├── next/                       # Contenedor de la aplicación Next.js
+│   ├── .next/                  # Salida de build/desarrollo de Next
+│   ├── app/                    # App Router y módulos (admin, POS, UI compartidos)
+│   │   ├── actions/            # Server Actions por dominio
+│   │   ├── admin/              # Panel de administración
+│   │   │   ├── layout.tsx      # Layout principal del área admin
+│   │   │   ├── loading.tsx     # Pantalla de carga para rutas anidadas
+│   │   │   ├── page.tsx        # Vista bienvenida/dashboard
+│   │   │   ├── audit/          # Auditorías y bitácoras
+│   │   │   ├── inventory/      # Gestión de inventario y órdenes
+│   │   │   ├── persons/        # Personas (clientes/proveedores/usuarios)
+│   │   │   ├── reports/        # Reportería y análisis
+│   │   │   ├── sales/          # Módulo de ventas
+│   │   │   ├── settings/       # Configuraciones administrativas
+│   │   │   └── showcases/      # Demos / componentes de referencia
+│   │   ├── api/                # API Routes (auth/config)
+│   │   ├── baseComponents/     # Diseño de sistema (Button, DataGrid, Dialog...)
+│   │   ├── globalstate/        # Estado cliente compartido (alertas, permisos)
+│   │   │   ├── alert/          # Stack de alertas y hook asociado
+│   │   │   │   ├── AlertContext.tsx
+│   │   │   │   └── useAlert.ts
+│   │   │   └── permissions/    # Permisos derivados de next-auth y su hook
+│   │   │       ├── PermissionsContext.tsx
+│   │   │       └── usePermissions.ts
+│   │   ├── pointOfSale/        # Módulo POS
+│   │   ├── ui/                 # Componentes específicos de negocio
+│   │   ├── Providers.tsx       # Inyección de providers globales
+│   │   └── global.css          # Estilos globales
+│   ├── public/                 # Archivos estáticos servidos por Next
+│   ├── middleware.ts           # Middleware Next.js
+│   ├── next-env.d.ts           # Tipos generados por Next
+│   ├── next.config.js          # Configuración del runtime Next
+│   ├── postcss.config.js       # Configuración PostCSS
+│   ├── tailwind.config.js      # Configuración Tailwind CSS
+│   └── tsconfig.json           # Config TypeScript específica de Next
 ├── app.config.example.json     # Configuración de muestra
 ├── app.config.json             # Configuración de desarrollo
 ├── app.config.prod.json        # Configuración de producción
@@ -103,18 +112,13 @@ flow-store/
 ├── dist/                       # Salida compilada de Electron
 ├── forge.config.js             # Configuración Electron Forge
 ├── lib/                        # Utilidades puras (fechas, permisos, excel)
-├── middleware.ts               # Middleware Next.js
-├── next-env.d.ts               # Tipos de Next.js
-├── next.config.js              # Configuración de Next.js
 ├── node_modules/               # Dependencias instaladas
 ├── out/                        # Artefactos de empaquetado
 ├── package-lock.json           # Lockfile npm
 ├── package.json                # Dependencias y scripts npm
 ├── playwright-report/          # Reportes Playwright
 ├── playwright.config.ts        # Config Playwright
-├── postcss.config.js           # Configuración PostCSS
 ├── project/                    # Documentación funcional/técnica
-├── public/                     # Archivos servidos por Next
 ├── run-seed.js                 # Script de seeds
 ├── scripts/                    # Scripts node (seed, migraciones, sync)
 ├── src/                        # Código del proceso principal de Electron
@@ -126,13 +130,12 @@ flow-store/
 │       ├── preload.js          # Bridge entre renderer y proceso principal
 │       ├── processUtils.ts     # Gestión de procesos hijos (Next dev/standalone)
 │       └── windowUtils.ts      # Creación de ventanas (splash, principal)
-├── tailwind.config.js          # Configuración Tailwind CSS
 ├── test-results/               # Resultados de pruebas
 ├── tests/                      # Playwright y utilidades de QA
 └── tsconfig.json               # Configuración TypeScript
 ```
 
-### 3.1 Detalle de `app/globalstate/`
+### 3.1 Detalle de `next/app/globalstate/`
 
 - **alert/**: encapsula toda la experiencia de notificaciones.
   - `AlertContext.tsx`: define el contexto, `AlertProvider` y helpers (`success`, `error`, etc.) que pintan el stack flotante de avisos.
@@ -140,7 +143,7 @@ flow-store/
 - **permissions/**: agrupa la lógica de permisos basada en la sesión actual.
   - `PermissionsContext.tsx`: deriva las abilities del usuario autenticado, expone utilidades `has`/`hasAny` y marca estados de carga en función de `next-auth`.
   - `usePermissions.ts`: hook `use client` que centraliza el consumo del contexto en componentes cliente.
-- **Integración**: `app/Providers.tsx` compone `SessionProvider`, `AlertProvider` y `PermissionsProvider`, asegurando que cualquier ruta del App Router tenga acceso coherente a estas capacidades cliente.
+- **Integración**: `next/app/Providers.tsx` compone `SessionProvider`, `AlertProvider` y `PermissionsProvider`, asegurando que cualquier ruta del App Router tenga acceso coherente a estas capacidades cliente.
 
 ---
 
@@ -198,13 +201,13 @@ flow-store/
 
 ## 5. Server Actions y flujo de datos
 
-- Cada archivo en `app/actions/*.ts` define funciones `'use server'` que viven en el runtime de Next.
+- Cada archivo en `next/app/actions/*.ts` define funciones `'use server'` que viven en el runtime de Next.
 - Los componentes `'use client'` importan estas acciones; Next serializa la invocación, la ejecuta en el servidor y devuelve el resultado.
 - `data/db.ts` implementa un `DataSource` singleton con reintentos exponenciales, evitando `ER_CON_COUNT_ERROR` y registros duplicados de subscribers.
 - Las acciones encapsulan validaciones, permisos y operaciones de negocio antes de tocar la base de datos.
 
 ```typescript
-// app/actions/products.ts
+// next/app/actions/products.ts
 'use server'
 
 import { getDb } from '@/data/db';
