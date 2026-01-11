@@ -158,8 +158,10 @@ npm run test:report
 ```
 
 Los reportes se generan en:
-- `playwright-report/` - Reporte HTML interactivo
-- `test-results/` - Screenshots, videos, traces
+- `tests/.output/reports/` - Reporte HTML interactivo
+- `tests/.output/artifacts/` - Screenshots, videos, traces
+- `tests/.output/results.json` - Reporte JSON para integraciones
+- `tests/.output/junit.xml` - Reporte JUnit para CI/CD
 
 ---
 
@@ -373,7 +375,7 @@ expect(result).not.toBeNull();
 5. **Traces**:
    Los traces se capturan automáticamente en fallos. Ábrelos con:
    ```bash
-   npx playwright show-trace test-results/.../trace.zip
+  npx playwright show-trace tests/.output/artifacts/.../trace.zip
    ```
 
 ---
@@ -424,7 +426,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: playwright-report
-          path: playwright-report/
+          path: tests/.output/reports/
 ```
 
 ---
@@ -451,7 +453,7 @@ Abre un navegador con reporte interactivo mostrando:
 Para integración con otras herramientas:
 
 ```bash
-cat test-results/results.json
+cat tests/.output/results.json
 ```
 
 ### JUnit Report
@@ -459,7 +461,7 @@ cat test-results/results.json
 Para CI/CD:
 
 ```bash
-cat test-results/junit.xml
+cat tests/.output/junit.xml
 ```
 
 ---

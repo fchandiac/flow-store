@@ -36,10 +36,10 @@ export default defineConfig({
   
   // Reporter configuration
   reporter: [
-    ['html', { outputFolder: 'playwright-report', open: 'never' }],
-    ['json', { outputFile: 'test-results/results.json' }],
+    ['html', { outputFolder: 'tests/.output/reports', open: 'never' }],
+    ['json', { outputFile: 'tests/.output/results.json' }],
     ['list'],
-    ['junit', { outputFile: 'test-results/junit.xml' }]
+    ['junit', { outputFile: 'tests/.output/junit.xml' }]
   ],
   
   // Shared settings for all tests
@@ -64,7 +64,7 @@ export default defineConfig({
   },
   
   // Folder para artefactos de test
-  outputDir: 'test-results/artifacts',
+  outputDir: 'tests/.output/artifacts',
   
   // Configuración de proyectos
   projects: [

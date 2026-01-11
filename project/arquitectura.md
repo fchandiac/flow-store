@@ -116,7 +116,6 @@ flow-store/
 ├── out/                        # Artefactos de empaquetado
 ├── package-lock.json           # Lockfile npm
 ├── package.json                # Dependencias y scripts npm
-├── playwright-report/          # Reportes Playwright
 ├── playwright.config.ts        # Config Playwright
 ├── project/                    # Documentación funcional/técnica
 ├── run-seed.js                 # Script de seeds
@@ -130,8 +129,7 @@ flow-store/
 │       ├── preload.js          # Bridge entre renderer y proceso principal
 │       ├── processUtils.ts     # Gestión de procesos hijos (Next dev/standalone)
 │       └── windowUtils.ts      # Creación de ventanas (splash, principal)
-├── test-results/               # Resultados de pruebas
-├── tests/                      # Playwright y utilidades de QA
+├── tests/                      # Playwright, utilidades de QA y reportes (en .output/)
 └── tsconfig.json               # Configuración TypeScript
 ```
 
@@ -364,7 +362,7 @@ npm run sync-db         # Sincroniza esquemas entre bases
 - Playwright vive en `tests/` con scripts de setup/seed en `tests/scripts/`.
 - `npm run test:e2e` ejecuta la suite headless; `npm run test:e2e:ui` abre el inspector.
 - En modo `NODE_ENV=test`, `main.dev.ts` omite el splash y usa un `NEXTAUTH_SECRET` diferente para los escenarios automatizados.
-- Reportes se guardan en `test-results/` y `playwright-report/`.
+- Reportes se guardan en `tests/.output/` (HTML, JSON, JUnit y artefactos).
 
 ---
 

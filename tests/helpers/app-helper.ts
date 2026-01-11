@@ -125,7 +125,8 @@ export class AppHelper {
     const page = this.getWindow();
     const screenshotPath = path.join(
       process.cwd(),
-      'test-results',
+      'tests/.output',
+      'artifacts',
       'screenshots',
       `${name}-${Date.now()}.png`
     );

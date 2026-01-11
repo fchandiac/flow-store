@@ -16,6 +16,9 @@ dist/
 .env
 app.config.json
 
+# Playwright outputs
+tests/.output/
+
 # VSCode
 .vscode/
 
