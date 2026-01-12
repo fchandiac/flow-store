@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { Fragment, useCallback, useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Select, { type Option as SelectOption } from '@/app/baseComponents/Select/Select';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
@@ -320,6 +320,8 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                 resetForm();
                 if (onSuccess) {
                     onSuccess();
+                } else {
+                    router.push('/admin/purchasing/receptions');
                 }
             } else {
                 error(result.error ?? 'Error al crear la recepción');
@@ -338,97 +340,82 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     );
 
     return (
-        <div className="h-full flex bg-gray-50">
-            {/* COLUMNA IZQUIERDA - Búsqueda */}
-            <div className="w-96 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
-                <div className="p-4 border-b border-gray-200">
-                    <h2 className="text-lg font-semibold text-gray-900">Nueva Recepción</h2>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-4 space-y-6">
-                    {/* Datos generales */}
-                    <div className="space-y-3">
-                        <h3 className="text-sm font-semibold text-gray-700 uppercase">Datos Generales</h3>
-
+        <div className="space-y-6 pt-2">
+            <div className="grid grid-cols-1 xl:grid-cols-[320px,1fr,360px] gap-6">
+                <aside className="space-y-4">
+                    <div className="border border-border rounded-md bg-white p-4 space-y-4">
+                        <div>
+                            <h2 className="text-sm font-semibold text-muted-foreground uppercase">Datos generales</h2>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Define el proveedor, almacén y fecha para la recepción.
+                            </p>
+                        </div>
                         <Select
                             label="Proveedor *"
                             options={suppliers}
-                            value={supplierId ?? ''}
-                            onChange={(value) => setSupplierId(value as string)}
+                            value={supplierId ?? null}
+                            onChange={(value) => setSupplierId((value as string) ?? null)}
                             placeholder="Seleccionar proveedor"
                             disabled={!!selectedPurchaseOrder}
                         />
-
                         <Select
                             label="Almacén *"
                             options={storages}
-                            value={storageId ?? ''}
-                            onChange={(value) => setStorageId(value as string)}
+                            value={storageId ?? null}
+                            onChange={(value) => setStorageId((value as string) ?? null)}
                             placeholder="Seleccionar almacén"
                         />
-
                         <TextField
-                            label="Fecha de Recepción"
+                            label="Fecha de recepción"
                             type="date"
                             value={receptionDate}
-                            onChange={(e) => setReceptionDate(e.target.value)}
+                            onChange={(event) => setReceptionDate(event.target.value)}
                         />
-
                         {!selectedPurchaseOrder && (
                             <TextField
-                                label="Referencia"
+                                label="Referencia externa"
                                 value={reference}
-                                onChange={(e) => setReference(e.target.value)}
+                                onChange={(event) => setReference(event.target.value)}
                                 placeholder="Número de factura, guía, etc."
                             />
                         )}
                     </div>
 
-                    {/* Lista de órdenes de compra pendientes */}
                     {!selectedPurchaseOrder && (
-                        <div className="space-y-3">
-                            <h3 className="text-sm font-semibold text-gray-700 uppercase">
-                                Órdenes de Compra Pendientes
-                            </h3>
-
-                            {loadingPurchaseOrders && (
-                                <div className="flex justify-center py-4">
-                                    <DotProgress size={16} />
-                                </div>
-                            )}
-
+                        <div className="border border-border rounded-md bg-white p-4 space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-sm font-semibold text-muted-foreground uppercase">
+                                    Órdenes pendientes
+                                </h2>
+                                {loadingPurchaseOrders && <DotProgress size={12} totalSteps={3} />}
+                            </div>
                             {!loadingPurchaseOrders && purchaseOrderResults.length === 0 && (
-                                <div className="text-center py-8 text-gray-500 text-sm">
-                                    No hay órdenes pendientes
-                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    No hay órdenes de compra pendientes de recepción.
+                                </p>
                             )}
-
                             {purchaseOrderResults.length > 0 && (
-                                <div className="space-y-2 max-h-96 overflow-y-auto">
+                                <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
                                     {purchaseOrderResults.map((order) => (
                                         <button
                                             key={order.id}
                                             onClick={() => handleSelectPurchaseOrder(order)}
-                                            className="w-full p-4 bg-white hover:bg-blue-50 border-2 border-gray-200 hover:border-blue-400 rounded-lg text-left transition-all shadow-sm hover:shadow-md"
+                                            className="w-full rounded-md border border-border bg-background p-3 text-left shadow-sm transition hover:border-primary-200 hover:bg-primary-50 hover:shadow"
                                         >
-                                            <div className="flex items-start justify-between mb-2">
-                                                <div className="font-mono text-sm font-bold text-blue-600">
+                                            <div className="flex items-start justify-between gap-2">
+                                                <span className="font-mono text-sm font-semibold text-primary-600">
                                                     {order.documentNumber}
-                                                </div>
-                                                <Badge variant="info">
-                                                    {order.lines.length} items
-                                                </Badge>
+                                                </span>
+                                                <Badge variant="info">{order.lines.length} ítems</Badge>
                                             </div>
-                                            <div className="text-sm font-medium text-gray-900 mb-1">
+                                            <div className="mt-1 text-sm font-medium text-foreground">
                                                 {order.supplierName}
                                             </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="text-xs text-gray-500">
-                                                    {new Date(order.createdAt).toLocaleDateString('es-CL')}
-                                                </div>
-                                                <div className="text-sm font-semibold text-gray-900">
+                                            <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+                                                <span>{new Date(order.createdAt).toLocaleDateString('es-CL')}</span>
+                                                <span className="font-semibold text-foreground">
                                                     {currencyFormatter.format(order.total)}
-                                                </div>
+                                                </span>
                                             </div>
                                         </button>
                                     ))}
@@ -437,31 +424,32 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                         </div>
                     )}
 
-                    {/* Buscar productos - siempre habilitado */}
-                    <div className="space-y-3">
-                        <h3 className="text-sm font-semibold text-gray-700 uppercase">
-                            {selectedPurchaseOrder ? 'Agregar Productos Extras' : 'Buscar Productos'}
-                        </h3>
+                    <div className="border border-border rounded-md bg-white p-4 space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-sm font-semibold text-muted-foreground uppercase">
+                                {selectedPurchaseOrder ? 'Agregar productos extra' : 'Buscar productos'}
+                            </h2>
+                            {loadingProducts && <DotProgress size={12} totalSteps={3} />}
+                        </div>
                         {selectedPurchaseOrder && (
-                            <p className="text-xs text-gray-500">
-                                Puedes agregar productos adicionales a la recepción
+                            <p className="text-xs text-muted-foreground">
+                                Puedes sumar productos adicionales a la recepción seleccionada.
                             </p>
                         )}
                         <TextField
-                            label="Buscar Producto"
+                            label="Buscar producto"
                             value={productSearch}
-                            onChange={(e) => setProductSearch(e.target.value)}
-                            placeholder="Nombre, SKU, código de barras..."
+                            onChange={(event) => setProductSearch(event.target.value)}
+                            placeholder="Nombre, SKU o código"
+                            startIcon="search"
                         />
-
-                        {loadingProducts && (
-                            <div className="flex justify-center py-4">
-                                <DotProgress size={16} />
-                            </div>
+                        {productResults.length === 0 && productSearch && !loadingProducts && (
+                            <p className="text-xs text-muted-foreground">
+                                No se encontraron productos para "{productSearch}".
+                            </p>
                         )}
-
                         {productResults.length > 0 && (
-                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
                                 {productResults.map((product) => {
                                     const variantAttributes = formatVariantAttributes(
                                         product.attributeValues,
@@ -470,21 +458,18 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                     return (
                                         <button
                                             key={product.variantId}
+                                            type="button"
                                             onClick={() => handleAddProduct(product)}
-                                            className="w-full p-3 bg-gray-50 hover:bg-green-50 border border-gray-200 rounded text-left transition-colors"
+                                            className="w-full rounded-md border border-border bg-background p-3 text-left transition hover:border-primary-200 hover:bg-primary-50"
                                         >
-                                            <div className="font-medium text-sm text-gray-900">
+                                            <div className="text-sm font-medium text-foreground">
                                                 {product.productName}
                                             </div>
-                                            <div className="text-xs text-gray-600">
-                                                SKU: {product.sku}
-                                            </div>
+                                            <div className="text-xs text-muted-foreground">SKU {product.sku}</div>
                                             {variantAttributes && (
-                                                <div className="text-xs text-gray-500">
-                                                    {variantAttributes}
-                                                </div>
+                                                <div className="text-xs text-muted-foreground">{variantAttributes}</div>
                                             )}
-                                            <div className="text-xs text-gray-500 mt-1">
+                                            <div className="mt-1 text-xs font-semibold text-foreground">
                                                 {currencyFormatter.format(product.baseCost)}
                                             </div>
                                         </button>
@@ -493,168 +478,190 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                             </div>
                         )}
                     </div>
-                </div>
-            </div>
+                </aside>
 
-            {/* COLUMNA DERECHA - Recepción */}
-            <div className="flex-1 flex flex-col overflow-hidden">
-                <div className="p-4 bg-white border-b border-gray-200">
-                    <div className="flex items-center justify-between">
+                <section className="border border-border rounded-md bg-white p-5 space-y-5">
+                    <header className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                         <div>
-                            <h2 className="text-lg font-semibold text-gray-900">Productos a Recibir</h2>
+                            <h2 className="text-lg font-semibold text-foreground">Detalle de recepción</h2>
+                            <p className="text-sm text-muted-foreground">
+                                Revisa y ajusta las cantidades antes de confirmar la recepción.
+                            </p>
                             {selectedPurchaseOrder && (
-                                <div className="text-sm text-gray-600 mt-1">
-                                    Orden: {selectedPurchaseOrder.documentNumber}
-                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                    Orden origen: {selectedPurchaseOrder.documentNumber}
+                                </p>
                             )}
                         </div>
-                        {hasDiscrepancies && (
-                            <Badge variant="warning">Con Discrepancias</Badge>
-                        )}
+                        {hasDiscrepancies && <Badge variant="warning">Con discrepancias</Badge>}
+                    </header>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="border-b border-border text-left text-xs uppercase text-muted-foreground">
+                                    <th className="py-2 pr-3">Producto</th>
+                                    <th className="py-2 pr-3 text-right">Cant. esperada</th>
+                                    <th className="py-2 pr-3 text-right">Cant. recibida</th>
+                                    <th className="py-2 pr-3 text-right">Precio unitario</th>
+                                    <th className="py-2 pr-3 text-right">Subtotal</th>
+                                    <th className="py-2"></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {lines.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                                            {selectedPurchaseOrder
+                                                ? 'Selecciona una orden o agrega productos adicionales para comenzar.'
+                                                : 'Busca y agrega productos para construir la recepción.'}
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    lines.map((line, index) => {
+                                        const subtotalLine = line.receivedQuantity * line.unitPrice;
+                                        const difference =
+                                            line.expectedQuantity !== undefined
+                                                ? line.receivedQuantity - line.expectedQuantity
+                                                : null;
+
+                                        return (
+                                            <Fragment key={`${line.productVariantId ?? line.sku}-${index}`}>
+                                                <tr className="border-b border-border/70 align-top">
+                                                    <td className="py-3 pr-3">
+                                                        <div className="font-medium text-foreground">
+                                                            {line.productName}
+                                                        </div>
+                                                        <div className="text-xs text-muted-foreground">SKU {line.sku}</div>
+                                                        {difference !== null && difference !== 0 && (
+                                                            <div className="mt-2 inline-flex items-center gap-2">
+                                                                <Badge variant="warning">
+                                                                    Diferencia {quantityFormatter.format(difference)}
+                                                                </Badge>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="py-3 pr-3 text-right text-sm text-muted-foreground">
+                                                        {line.expectedQuantity !== undefined
+                                                            ? quantityFormatter.format(line.expectedQuantity)
+                                                            : '—'}
+                                                    </td>
+                                                    <td className="py-3 pr-3 text-right">
+                                                        <TextField
+                                                            label="Cantidad recibida"
+                                                            type="number"
+                                                            value={String(line.receivedQuantity)}
+                                                            onChange={(event) => {
+                                                                const parsed = Number(event.target.value);
+                                                                const sanitized = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+                                                                updateLine(index, { receivedQuantity: sanitized });
+                                                            }}
+                                                            min="0"
+                                                            step="0.01"
+                                                            className="ml-auto w-28 [&_[data-test-id='text-field-label']]:hidden"
+                                                        />
+                                                    </td>
+                                                    <td className="py-3 pr-3 text-right">
+                                                        <TextField
+                                                            label="Precio unitario"
+                                                            type="number"
+                                                            value={String(line.unitPrice)}
+                                                            onChange={(event) => {
+                                                                const parsed = Number(event.target.value);
+                                                                const sanitized = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+                                                                updateLine(index, { unitPrice: sanitized });
+                                                            }}
+                                                            min="0"
+                                                            step="0.01"
+                                                            className="ml-auto w-28 [&_[data-test-id='text-field-label']]:hidden"
+                                                        />
+                                                    </td>
+                                                    <td className="py-3 pr-3 text-right font-semibold text-foreground">
+                                                        {currencyFormatter.format(subtotalLine)}
+                                                    </td>
+                                                    <td className="py-3 text-right">
+                                                        <IconButton
+                                                            icon="delete"
+                                                            variant="text"
+                                                            size="sm"
+                                                            onClick={() => removeLine(index)}
+                                                            title="Eliminar línea"
+                                                        />
+                                                    </td>
+                                                </tr>
+                                                <tr className="border-b border-border/40">
+                                                    <td colSpan={6} className="pb-4 pr-3">
+                                                        <TextField
+                                                            label="Notas"
+                                                            value={line.notes ?? ''}
+                                                            onChange={(event) => updateLine(index, { notes: event.target.value })}
+                                                            placeholder="Observaciones de calidad, estado, etc."
+                                                            type="textarea"
+                                                            rows={2}
+                                                        />
+                                                    </td>
+                                                </tr>
+                                            </Fragment>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
                     </div>
-                </div>
+                </section>
 
-                <div className="flex-1 overflow-y-auto p-4">
-                    {lines.length === 0 ? (
-                        <div className="flex items-center justify-center h-full text-gray-400">
-                            {selectedPurchaseOrder
-                                ? 'Selecciona una orden de compra'
-                                : 'Agrega productos para comenzar'}
+                <aside className="space-y-4">
+                    <div className="border border-border rounded-md bg-white p-5 space-y-5">
+                        <div>
+                            <h2 className="text-sm font-semibold text-muted-foreground uppercase">Resumen</h2>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                                Revisa el total y confirma la recepción cuando estés listo.
+                            </p>
                         </div>
-                    ) : (
-                        <div className="space-y-3">
-                            {lines.map((line, index) => (
-                                <div
-                                    key={index}
-                                    className="bg-white border border-gray-200 rounded-lg p-4 space-y-3"
-                                >
-                                    <div className="flex items-start justify-between">
-                                        <div className="flex-1">
-                                            <div className="font-medium text-gray-900">
-                                                {line.productName}
-                                            </div>
-                                            <div className="text-sm text-gray-600">SKU: {line.sku}</div>
-                                        </div>
-                                        <IconButton
-                                            icon="delete"
-                                            onClick={() => removeLine(index)}
-                                            variant="ghost"
-                                            size="sm"
-                                        />
-                                    </div>
-
-                                    <div className="grid grid-cols-2 gap-3">
-                                        {line.expectedQuantity !== undefined && (
-                                            <TextField
-                                                label="Cantidad Esperada"
-                                                type="number"
-                                                value={line.expectedQuantity.toString()}
-                                                onChange={() => {}}
-                                                disabled
-                                            />
-                                        )}
-                                        <TextField
-                                            label="Cantidad Recibida *"
-                                            type="number"
-                                            value={line.receivedQuantity.toString()}
-                                            onChange={(e) =>
-                                                updateLine(index, {
-                                                    receivedQuantity: parseFloat(e.target.value) || 0,
-                                                })
-                                            }
-                                        />
-                                        <TextField
-                                            label="Precio Unitario"
-                                            type="number"
-                                            value={line.unitPrice.toString()}
-                                            onChange={(e) =>
-                                                updateLine(index, {
-                                                    unitPrice: parseFloat(e.target.value) || 0,
-                                                })
-                                            }
-                                        />
-                                    </div>
-
-                                    {line.expectedQuantity !== undefined &&
-                                        line.receivedQuantity !== line.expectedQuantity && (
-                                            <Badge variant="warning">
-                                                Diferencia:{' '}
-                                                {quantityFormatter.format(
-                                                    line.receivedQuantity - line.expectedQuantity
-                                                )}
-                                            </Badge>
-                                        )}
-
-                                    <TextField
-                                        label="Notas"
-                                        value={line.notes ?? ''}
-                                        onChange={(e) => updateLine(index, { notes: e.target.value })}
-                                        placeholder="Observaciones de calidad, estado, etc."
-                                    />
-
-                                    <div className="text-right text-sm font-semibold text-gray-900">
-                                        Subtotal: {currencyFormatter.format(line.receivedQuantity * line.unitPrice)}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                {/* Resumen y acciones */}
-                <div className="bg-white border-t border-gray-200 p-4">
-                    <div className="mb-3">
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Notas Generales
-                        </label>
-                        <textarea
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-                            placeholder="Observaciones generales de la recepción"
+                        <TextField
+                            label="Notas generales"
                             value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            rows={2}
+                            onChange={(event) => setNotes(event.target.value)}
+                            placeholder="Observaciones generales de la recepción"
+                            type="textarea"
+                            rows={3}
                         />
-                    </div>
-
-                    <div className="mt-4 space-y-2">
-                        <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Productos:</span>
-                            <span className="font-medium">{lines.length}</span>
+                        <div className="space-y-2 text-sm">
+                            <div className="flex items-center justify-between text-muted-foreground">
+                                <span>Productos</span>
+                                <span className="font-medium text-foreground">{lines.length}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-muted-foreground">
+                                <span>Cantidad total</span>
+                                <span className="font-medium text-foreground">
+                                    {quantityFormatter.format(lines.reduce((sum, line) => sum + line.receivedQuantity, 0))} uds
+                                </span>
+                            </div>
+                            <div className="flex items-center justify-between border-t border-border pt-3 text-base font-semibold text-foreground">
+                                <span>Total</span>
+                                <span>{currencyFormatter.format(total)}</span>
+                            </div>
                         </div>
-                        <div className="flex justify-between text-sm">
-                            <span className="text-gray-600">Cantidad total:</span>
-                            <span className="font-medium">
-                                {quantityFormatter.format(
-                                    lines.reduce((sum, l) => sum + l.receivedQuantity, 0)
-                                )}{' '}
-                                uds
-                            </span>
-                        </div>
-                        <div className="flex justify-between text-lg font-semibold pt-2 border-t">
-                            <span>Total:</span>
-                            <span>{currencyFormatter.format(total)}</span>
+                        <div className="flex flex-col gap-3 sm:flex-row">
+                            <Button
+                                onClick={() => router.push('/admin/purchasing/receptions')}
+                                variant="outlined"
+                                className="flex-1"
+                                disabled={submitting}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                onClick={handleConfirm}
+                                variant="primary"
+                                className="flex-1"
+                                disabled={submitting || lines.length === 0}
+                            >
+                                {submitting ? 'Confirmando…' : 'Confirmar recepción'}
+                            </Button>
                         </div>
                     </div>
-
-                    <div className="mt-4 flex gap-3">
-                        <Button
-                            onClick={() => router.push('/admin/purchasing/receptions')}
-                            variant="outlined"
-                            className="flex-1"
-                            disabled={submitting}
-                        >
-                            Cancelar
-                        </Button>
-                        <Button
-                            onClick={handleConfirm}
-                            variant="primary"
-                            className="flex-1"
-                            disabled={submitting || lines.length === 0}
-                        >
-                            {submitting ? 'Confirmando...' : 'Confirmar Recepción'}
-                        </Button>
-                    </div>
-                </div>
+                </aside>
             </div>
         </div>
     );
