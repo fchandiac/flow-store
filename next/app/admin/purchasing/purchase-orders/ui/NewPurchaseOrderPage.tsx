@@ -434,7 +434,7 @@ const NewPurchaseOrderPage = () => {
             }
 
             success('Orden de compra creada');
-            router.push('/admin/inventory/purchase-orders');
+            router.push('/admin/purchasing/purchase-orders');
         } catch (err) {
             console.error('Error creating purchase order', err);
             error(err instanceof Error ? err.message : 'Error al crear la orden de compra');
@@ -738,7 +738,7 @@ const NewPurchaseOrderPage = () => {
                             <Button
                                 variant="secondary"
                                 size="sm"
-                                onClick={() => router.push('/admin/inventory/purchase-orders')}
+                                onClick={() => router.push('/admin/purchasing/purchase-orders')}
                                 type="button"
                                 disabled={submitting}
                             >

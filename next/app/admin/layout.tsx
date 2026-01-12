@@ -29,10 +29,17 @@ const menuItems: SideBarMenuItem[] = [
             { id: 'products', label: 'Productos', url: '/admin/inventory/products' },
             { id: 'categories', label: 'Categorías', url: '/admin/inventory/products/categories' },
             { id: 'stock', label: 'Stock', url: '/admin/inventory/stock' },
-            { id: 'purchase-orders', label: 'Órdenes de compra', url: '/admin/inventory/purchase-orders' },
-            { id: 'receptions', label: 'Recepciones', url: '/admin/inventory/receptions' },
-            { id: 'suppliers', label: 'Proveedores', url: '/admin/inventory/suppliers' },
         ]
+    },
+    {
+        id: 'purchasing',
+        label: 'Compras',
+        children: [
+            { id: 'purchase-orders', label: 'Órdenes de compra', url: '/admin/purchasing/purchase-orders' },
+            { id: 'receptions', label: 'Recepción de productos', url: '/admin/purchasing/receptions' },
+            { id: 'suppliers', label: 'Proveedores', url: '/admin/purchasing/suppliers' },
+            { id: 'supplier-payments', label: 'Pagos a proveedores', url: '/admin/purchasing/supplier-payments' },
+        ],
     },
     { 
         id: 'caja',

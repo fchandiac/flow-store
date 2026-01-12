@@ -485,8 +485,8 @@ export async function createReceptionFromPurchaseOrder(
             metadata: orderMetadata as any,
         });
 
-        revalidatePath('/admin/inventory/receptions');
-        revalidatePath('/admin/inventory/purchase-orders');
+        revalidatePath('/admin/purchasing/receptions');
+        revalidatePath('/admin/purchasing/purchase-orders');
 
         return {
             success: true,
@@ -596,7 +596,7 @@ export async function createDirectReception(
         const transactionRepo = ds.getRepository(Transaction);
         await transactionRepo.update(result.transaction.id, { metadata: metadata as any });
 
-        revalidatePath('/admin/inventory/receptions');
+        revalidatePath('/admin/purchasing/receptions');
 
         return {
             success: true,

@@ -638,7 +638,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
 
                     <div className="mt-4 flex gap-3">
                         <Button
-                            onClick={() => router.push('/admin/inventory/receptions')}
+                            onClick={() => router.push('/admin/purchasing/receptions')}
                             variant="outlined"
                             className="flex-1"
                             disabled={submitting}

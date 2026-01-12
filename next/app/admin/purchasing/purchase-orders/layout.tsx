@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation';
 import type { PropsWithChildren } from 'react';
 
 const tabs = [
-    { href: '/admin/inventory/purchase-orders', label: 'Listado' },
-    { href: '/admin/inventory/purchase-orders/new', label: 'Nueva orden' },
+    { href: '/admin/purchasing/purchase-orders', label: 'Listado' },
+    { href: '/admin/purchasing/purchase-orders/new', label: 'Nueva orden' },
 ];
 
 export default function PurchaseOrdersLayout({ children }: PropsWithChildren) {
@@ -25,7 +25,7 @@ export default function PurchaseOrdersLayout({ children }: PropsWithChildren) {
                     {tabs.map((tab) => {
                         const isActive =
                             pathname === tab.href ||
-                            (tab.href !== '/admin/inventory/purchase-orders' && pathname.startsWith(tab.href));
+                            (tab.href !== '/admin/purchasing/purchase-orders' && pathname.startsWith(tab.href));
                         return (
                             <Link
                                 key={tab.href}
