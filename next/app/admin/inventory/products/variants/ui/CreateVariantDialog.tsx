@@ -83,6 +83,14 @@ interface PriceEntryState {
     lastEdited: 'net' | 'gross' | null;
 }
 
+interface VariantFormState {
+    sku: string;
+    barcode: string;
+    unitId: string;
+    weight: string;
+    weightUnit: string;
+}
+
 const parseCurrencyInput = (value: string | number, useDecimalComma: boolean): number => {
     if (typeof value === 'number') {
         return Number.isFinite(value) ? value : 0;
@@ -242,6 +250,11 @@ interface CreateVariantDialogProps {
     'data-test-id'?: string;
 }
 
+const weightUnitOptions = [
+    { id: 'kg', label: 'Kilogramo (kg)' },
+    { id: 'g', label: 'Gramo (g)' },
+];
+
 const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({ 
     open, 
     onClose,
@@ -261,10 +274,12 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
     const [taxes, setTaxes] = useState<TaxOption[]>([]);
     const [priceEntries, setPriceEntries] = useState<PriceEntryState[]>([]);
 
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<VariantFormState>({
         sku: '',
         barcode: '',
         unitId: '',
+        weight: '',
+        weightUnit: 'kg',
     });
 
     // Estado para los valores de atributos seleccionados: { attributeId: "opción seleccionada" }
@@ -735,6 +750,21 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
             validationErrors.push('Debe definir al menos un precio de venta');
         }
 
+        let weightValue: number | undefined;
+        if (formData.weight.trim()) {
+            const normalizedWeight = formData.weight.replace(',', '.');
+            const parsedWeight = Number(normalizedWeight);
+            if (!Number.isFinite(parsedWeight) || parsedWeight < 0) {
+                validationErrors.push('El peso debe ser un número mayor o igual a 0.');
+            } else {
+                weightValue = Number(parsedWeight.toFixed(3));
+            }
+        }
+
+        if (!weightUnitOptions.some((option) => option.id === formData.weightUnit)) {
+            validationErrors.push('Selecciona una unidad de peso válida.');
+        }
+
         const priceListPayload = priceEntries.map((entry) => {
             const useDecimalComma = usesDecimalCommaForList(entry.priceListId);
             const netValue = parseAmountFromInput(entry.netPrice, useDecimalComma);
@@ -812,6 +842,8 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                 basePrice: baseNetPrice,
                 baseCost: 0,
                 unitId: formData.unitId,
+                weight: weightValue,
+                weightUnit: formData.weightUnit,
                 attributeValues: Object.keys(attributeValues).length > 0 ? attributeValues : undefined,
                 priceListItems: sanitizedPayload.map(({ priceListId, grossPrice, taxIds }) => ({
                     priceListId,
@@ -846,6 +878,8 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
             sku: '',
             barcode: '',
             unitId: preferredUnit?.id ?? '',
+            weight: '',
+            weightUnit: 'kg',
         });
         setAttributeValues({});
         setPriceEntries([]);
@@ -969,11 +1003,32 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                                 data-test-id="create-variant-unit"
                                 disabled={units.length === 0}
                             />
+                            <TextField
+                                label="Peso"
+                                type="number"
+                                value={formData.weight}
+                                onChange={(event) => handleChange('weight', event.target.value)}
+                                placeholder="0.000"
+                                min="0"
+                                step="0.001"
+                                inputMode="decimal"
+                                data-test-id="create-variant-weight"
+                            />
+                            <Select
+                                label="Unidad de peso"
+                                value={formData.weightUnit}
+                                onChange={(value) => handleChange('weightUnit', value?.toString() || 'kg')}
+                                options={weightUnitOptions}
+                                data-test-id="create-variant-weight-unit"
+                            />
                             {selectedUnit && (
                                 <p className="text-xs text-neutral-500">
                                     Dimensión: {selectedUnit.dimension} · Conversión a base: {selectedUnit.conversionFactor}
                                 </p>
                             )}
+                            <p className="text-xs text-neutral-500">
+                                Representa el peso por unidad y se almacena con hasta tres decimales.
+                            </p>
                             {!units.length && (
                                 <p className="text-xs text-amber-700">
                                     Aún no hay unidades registradas. Configura una unidad base en Configuración → Unidades.

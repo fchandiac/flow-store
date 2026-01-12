@@ -12,15 +12,17 @@ import Switch from '@/app/baseComponents/Switch/Switch';
 import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { getSuppliers } from '@/app/actions/suppliers';
 import { getInventoryFilters } from '@/app/actions/inventory';
-import { searchProductsForPurchase, type PurchaseOrderProductResult } from '@/app/actions/purchaseOrders';
 import { getAttributes } from '@/app/actions/attributes';
 import { getActiveTaxes } from '@/app/actions/taxes';
 import {
     searchPurchaseOrdersForReception,
+    searchProductsForReception,
+    getReceptionVariantDetail,
     createReceptionFromPurchaseOrder,
     createDirectReception,
     type PurchaseOrderForReception,
     type ReceptionLineInput,
+    type ReceptionProductSearchItem,
 } from '@/app/actions/receptions';
 
 interface SupplierOption extends SelectOption {
@@ -44,6 +46,9 @@ interface ReceptionLine {
     notes?: string;
     selectedTaxIds: string[];
     taxRate: number;
+    unitOfMeasure?: string | null;
+    attributeValues?: Record<string, string> | null;
+    variantName?: string | null;
 }
 
 interface TaxOption {
@@ -82,6 +87,8 @@ const formatVariantAttributes = (
         .map(([key, value]) => `${attributeNames[key] ?? formatAttributeKey(key)}: ${value}`)
         .join(' · ');
 };
+
+    const MIN_PRODUCT_SEARCH_LENGTH = 2;
 
 interface NewReceptionPageProps {
     onSuccess?: () => void;
@@ -140,13 +147,15 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const [showPendingOrders, setShowPendingOrders] = useState(false);
 
     const [productSearch, setProductSearch] = useState('');
-    const [productResults, setProductResults] = useState<PurchaseOrderProductResult[]>([]);
+    const [productResults, setProductResults] = useState<ReceptionProductSearchItem[]>([]);
     const [loadingProducts, setLoadingProducts] = useState(false);
+    const [addingProductId, setAddingProductId] = useState<string | null>(null);
 
     const [lines, setLines] = useState<ReceptionLine[]>([]);
     const [submitting, setSubmitting] = useState(false);
 
     const searchProductTimeout = useRef<NodeJS.Timeout | null>(null);
+    const latestProductSearchId = useRef(0);
 
     // Cargar datos iniciales
     const loadInitialData = useCallback(async () => {
@@ -207,27 +216,48 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
 
     // Búsqueda de productos
     useEffect(() => {
+        const term = productSearch.trim();
+
         if (searchProductTimeout.current) {
             clearTimeout(searchProductTimeout.current);
+            searchProductTimeout.current = null;
         }
 
-        if (!productSearch.trim()) {
+        if (term.length < MIN_PRODUCT_SEARCH_LENGTH) {
+            latestProductSearchId.current += 1;
             setProductResults([]);
+            setLoadingProducts(false);
             return;
         }
 
         searchProductTimeout.current = setTimeout(async () => {
+            const requestId = latestProductSearchId.current + 1;
+            latestProductSearchId.current = requestId;
             setLoadingProducts(true);
             try {
-                const results = await searchProductsForPurchase({ search: productSearch, limit: 20 });
-                setProductResults(results);
+                const results = await searchProductsForReception({ search: term, limit: 20 });
+                if (latestProductSearchId.current === requestId) {
+                    setProductResults(results);
+                }
             } catch (err) {
                 console.error('Error searching products:', err);
+                if (latestProductSearchId.current === requestId) {
+                    error('No fue posible cargar productos');
+                }
             } finally {
-                setLoadingProducts(false);
+                if (latestProductSearchId.current === requestId) {
+                    setLoadingProducts(false);
+                }
             }
-        }, 300);
-    }, [productSearch]);
+        }, 350);
+
+        return () => {
+            if (searchProductTimeout.current) {
+                clearTimeout(searchProductTimeout.current);
+                searchProductTimeout.current = null;
+            }
+        };
+    }, [productSearch, error]);
 
     // Seleccionar orden de compra
     const handleSelectPurchaseOrder = (order: PurchaseOrderForReception) => {
@@ -242,7 +272,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
         // Cargar líneas de la orden
         const orderLines: ReceptionLine[] = order.lines.map((line) => {
             const originalSelection = Array.isArray(line.taxIds)
-                ? line.taxIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+                ? line.taxIds.filter((id) => typeof id === 'string' && id.trim().length > 0)
                 : line.taxId
                 ? [line.taxId]
                 : [];
@@ -252,7 +282,8 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                 : defaultTaxIds.length > 0
                 ? [...defaultTaxIds]
                 : [];
-            const effectiveTaxRate = computeTaxRate(appliedSelection, undefined, line.taxRate);
+            const fallbackTaxRate = typeof line.taxRate === 'number' ? line.taxRate : undefined;
+            const effectiveTaxRate = computeTaxRate(appliedSelection, undefined, fallbackTaxRate);
 
             return {
                 productVariantId: line.productVariantId,
@@ -265,6 +296,9 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                 notes: '',
                 selectedTaxIds: appliedSelection,
                 taxRate: effectiveTaxRate,
+                unitOfMeasure: line.unitOfMeasure ?? null,
+                attributeValues: null,
+                variantName: line.variantName ?? null,
             };
         });
 
@@ -272,53 +306,74 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     };
 
     // Agregar producto manualmente
-    const handleAddProduct = (product: PurchaseOrderProductResult) => {
-        const exists = lines.find((l) => l.productVariantId === product.variantId);
-        if (exists) {
-            error('El producto ya está en la lista');
-            return;
-        }
-
-        const fallbackRates = product.taxes.map((tax) => ({
-            id: tax.id,
-            rate: Number(tax.rate ?? 0),
-        }));
-        const productTaxIds = fallbackRates.map((tax) => tax.id);
-        const candidateSelection = (() => {
-            if (productTaxIds.length > 0) {
-                return productTaxIds;
+    const handleAddProduct = useCallback(
+        async (product: ReceptionProductSearchItem) => {
+            if (lines.some((line) => line.productVariantId === product.variantId)) {
+                error('El producto ya está en la lista');
+                return;
             }
-            if (defaultTaxIds.length > 0) {
-                return [...defaultTaxIds];
+
+            setAddingProductId(product.variantId);
+            try {
+                const detail = await getReceptionVariantDetail(product.variantId);
+                if (!detail) {
+                    error('No fue posible cargar la información del producto');
+                    return;
+                }
+
+                const variantTaxIds = Array.isArray(detail.taxIds)
+                    ? detail.taxIds.filter((id) => typeof id === 'string' && id.trim().length > 0)
+                    : [];
+                const candidateSelection = variantTaxIds.length > 0
+                    ? variantTaxIds
+                    : defaultTaxIds.length > 0
+                    ? [...defaultTaxIds]
+                    : [];
+                const filteredSelection = taxesLoaded
+                    ? candidateSelection.filter((id) => activeTaxesMap.has(id))
+                    : candidateSelection;
+                const appliedSelection = filteredSelection.length > 0
+                    ? filteredSelection
+                    : defaultTaxIds.length > 0
+                    ? [...defaultTaxIds]
+                    : [];
+                const effectiveTaxRate = computeTaxRate(appliedSelection);
+
+                const defaultPrice = detail.pmp || detail.baseCost || detail.basePrice || 0;
+                const variantLabel = formatVariantAttributes(detail.attributeValues, attributeNames);
+
+                const newLine: ReceptionLine = {
+                    productVariantId: detail.variantId,
+                    productName: detail.productName,
+                    sku: detail.sku,
+                    receivedQuantity: 1,
+                    unitPrice: defaultPrice,
+                    unitCost: defaultPrice,
+                    notes: '',
+                    selectedTaxIds: appliedSelection,
+                    taxRate: effectiveTaxRate,
+                    unitOfMeasure: detail.unitOfMeasure ?? null,
+                    attributeValues: detail.attributeValues ?? null,
+                    variantName: variantLabel || null,
+                };
+
+                setLines((prev) => {
+                    if (prev.some((line) => line.productVariantId === detail.variantId)) {
+                        return prev;
+                    }
+                    return [...prev, newLine];
+                });
+                setProductSearch('');
+                setProductResults([]);
+            } catch (err) {
+                console.error('Error adding product to reception:', err);
+                error('No fue posible agregar el producto');
+            } finally {
+                setAddingProductId(null);
             }
-            return [];
-        })();
-        const filteredSelection = taxesLoaded
-            ? candidateSelection.filter((id) => activeTaxesMap.has(id))
-            : candidateSelection;
-        const appliedSelection = filteredSelection.length > 0
-            ? filteredSelection
-            : defaultTaxIds.length > 0
-            ? [...defaultTaxIds]
-            : [];
-        const effectiveTaxRate = computeTaxRate(appliedSelection, fallbackRates);
-
-        const newLine: ReceptionLine = {
-            productVariantId: product.variantId,
-            productName: product.productName,
-            sku: product.sku,
-            receivedQuantity: 1,
-            unitPrice: product.baseCost,
-            unitCost: product.baseCost,
-            notes: '',
-            selectedTaxIds: appliedSelection,
-            taxRate: effectiveTaxRate,
-        };
-
-        setLines([...lines, newLine]);
-        setProductSearch('');
-        setProductResults([]);
-    };
+        },
+        [lines, error, defaultTaxIds, taxesLoaded, activeTaxesMap, computeTaxRate, attributeNames]
+    );
 
     const handleToggleTax = useCallback(
         (variantId: string, taxId: string, enabled: boolean) => {
@@ -518,6 +573,8 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
         (line) => line.expectedQuantity && line.receivedQuantity !== line.expectedQuantity
     );
 
+    const trimmedProductSearch = productSearch.trim();
+
     return (
         <div className="space-y-6 pt-2">
             <div className="grid grid-cols-1 gap-6 xl:grid-cols-[280px,1fr]">
@@ -594,9 +651,14 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                             placeholder="Nombre, SKU o código"
                             startIcon="search"
                         />
-                        {productResults.length === 0 && productSearch && !loadingProducts && (
+                        {trimmedProductSearch.length > 0 && trimmedProductSearch.length < MIN_PRODUCT_SEARCH_LENGTH && !loadingProducts && (
                             <p className="text-xs text-muted-foreground">
-                                No se encontraron productos para "{productSearch}".
+                                Ingresa al menos {MIN_PRODUCT_SEARCH_LENGTH} caracteres para buscar.
+                            </p>
+                        )}
+                        {trimmedProductSearch.length >= MIN_PRODUCT_SEARCH_LENGTH && productResults.length === 0 && !loadingProducts && (
+                            <p className="text-xs text-muted-foreground">
+                                No se encontraron productos para "{trimmedProductSearch}".
                             </p>
                         )}
                         {productResults.length > 0 && (
@@ -612,6 +674,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                             type="button"
                                             onClick={() => handleAddProduct(product)}
                                             className="w-full rounded-md border border-border bg-background p-3 text-left transition hover:border-primary-200 hover:bg-primary-50"
+                                            disabled={addingProductId === product.variantId}
                                         >
                                             <div className="text-sm font-medium text-foreground">
                                                 {product.productName}
@@ -695,11 +758,11 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                             <thead>
                                 <tr className="border-b border-border text-left text-xs uppercase text-muted-foreground">
                                     <th className="py-2 pr-3">Producto</th>
-                                    <th className="py-2 pr-3 text-right">Cant. esperada</th>
-                                    <th className="py-2 pr-3 text-right">Cant. recibida</th>
-                                    <th className="py-2 pr-3 text-right">Precio neto</th>
+                                    <th className="py-2 pr-3">Cant. esperada</th>
+                                    <th className="py-2 pr-3">Cant. recibida</th>
+                                    <th className="py-2 pr-3">Precio neto</th>
                                     <th className="py-2 pr-3">Impuestos</th>
-                                    <th className="py-2 pr-3 text-right">Subtotal</th>
+                                    <th className="py-2 pr-3">Subtotal</th>
                                     <th className="py-2"></th>
                                 </tr>
                             </thead>
@@ -719,6 +782,8 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                             line.expectedQuantity !== undefined
                                                 ? line.receivedQuantity - line.expectedQuantity
                                                 : null;
+                                        const attributeSummary = formatVariantAttributes(line.attributeValues, attributeNames);
+                                        const variantLabel = attributeSummary || line.variantName || '';
 
                                         return (
                                             <Fragment key={`${line.productVariantId ?? line.sku}-${index}`}>
@@ -728,6 +793,14 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                                             {line.productName}
                                                         </div>
                                                         <div className="text-xs text-muted-foreground">SKU {line.sku}</div>
+                                                        {variantLabel && (
+                                                            <div className="mt-1 text-xs text-muted-foreground">
+                                                                {variantLabel}
+                                                            </div>
+                                                        )}
+                                                        <div className="mt-1 text-xs text-muted-foreground">
+                                                            Unidad: {line.unitOfMeasure ?? '—'}
+                                                        </div>
                                                         {difference !== null && difference !== 0 && (
                                                             <div className="mt-2 inline-flex items-center gap-2">
                                                                 <Badge variant="warning">
@@ -736,12 +809,12 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                                             </div>
                                                         )}
                                                     </td>
-                                                    <td className="py-3 pr-3 text-right text-sm text-muted-foreground">
+                                                    <td className="py-3 pr-3 text-sm text-muted-foreground">
                                                         {line.expectedQuantity !== undefined
                                                             ? quantityFormatter.format(line.expectedQuantity)
                                                             : '—'}
                                                     </td>
-                                                    <td className="py-3 pr-3 text-right">
+                                                    <td className="py-3 pr-3">
                                                         <TextField
                                                             label="Cantidad recibida"
                                                             type="number"
@@ -754,10 +827,10 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                                             min="0"
                                                             step="0.01"
                                                             inputMode="decimal"
-                                                            className="ml-auto w-20 [&>div>input]:min-w-0 [&>div>input]:w-full [&>div>input]:text-left [&_[data-test-id='text-field-label']]:hidden"
+                                                            className="w-20 [&>div>input]:min-w-0 [&>div>input]:w-full [&>div>input]:text-left [&_[data-test-id='text-field-label']]:hidden"
                                                         />
                                                     </td>
-                                                    <td className="py-3 pr-3 text-right">
+                                                    <td className="py-3 pr-3">
                                                         <TextField
                                                             label="Precio neto"
                                                             type="currency"
@@ -770,7 +843,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                                             }}
                                                             currencySymbol="$"
                                                             inputMode="numeric"
-                                                            className="ml-auto w-24 [&>div>input]:min-w-0 [&>div>input]:w-full [&>div>input]:text-left [&_[data-test-id='text-field-label']]:hidden"
+                                                            className="w-24 [&>div>input]:min-w-0 [&>div>input]:w-full [&>div>input]:text-left [&_[data-test-id='text-field-label']]:hidden"
                                                         />
                                                     </td>
                                                     <td className="py-3 pr-3 align-top">
@@ -804,10 +877,10 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                                             </div>
                                                         )}
                                                     </td>
-                                                    <td className="py-3 pr-3 text-right font-semibold text-foreground">
+                                                    <td className="py-3 pr-3 font-semibold text-foreground">
                                                         {currencyFormatter.format(subtotalLine)}
                                                     </td>
-                                                    <td className="py-3 text-right">
+                                                    <td className="py-3">
                                                         <IconButton
                                                             icon="delete"
                                                             variant="text"

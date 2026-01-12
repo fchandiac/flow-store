@@ -582,6 +582,8 @@ async function seedFlowStore() {
       }>;
       trackInventory?: boolean;
       allowNegativeStock?: boolean;
+      weight?: number;
+      weightUnit?: 'g' | 'kg';
     };
 
     type ProductSeed = {
@@ -590,6 +592,14 @@ async function seedFlowStore() {
       brand?: string;
       categoryCode: keyof typeof createdCategories;
       variants: VariantSeed[];
+    };
+
+    const normalizeSeedWeightUnit = (unit?: VariantSeed['weightUnit']): 'kg' | 'g' => {
+      if (!unit) {
+        return 'kg';
+      }
+
+      return unit === 'g' ? 'g' : 'kg';
     };
 
     const productsData: ProductSeed[] = [
@@ -608,6 +618,8 @@ async function seedFlowStore() {
               Piedra: 'Diamante',
               Quilates: '1.00ct',
             },
+            weight: 6.4,
+            weightUnit: 'g',
             priceEntries: [
               { listKey: 'retail', grossPrice: 1_890_000, taxCodes: ['IVA-19'] },
               { listKey: 'online', grossPrice: 1_849_000, taxCodes: ['IVA-19'] },
@@ -623,6 +635,8 @@ async function seedFlowStore() {
               Piedra: 'Diamante',
               Quilates: '0.75ct',
             },
+            weight: 6.1,
+            weightUnit: 'g',
             priceEntries: [
               { listKey: 'retail', grossPrice: 1_790_000, taxCodes: ['IVA-19'] },
               { listKey: 'online', grossPrice: 1_750_000, taxCodes: ['IVA-19'] },
@@ -644,6 +658,8 @@ async function seedFlowStore() {
               Material: 'Oro 14K',
               Largo: '45cm',
             },
+            weight: 12.5,
+            weightUnit: 'g',
             priceEntries: [
               { listKey: 'retail', grossPrice: 450000, taxCodes: ['IVA-19'] },
               { listKey: 'online', grossPrice: 439000, taxCodes: ['IVA-19'] },
@@ -657,6 +673,8 @@ async function seedFlowStore() {
               Material: 'Oro 14K',
               Largo: '50cm',
             },
+            weight: 13.2,
+            weightUnit: 'g',
             priceEntries: [
               { listKey: 'retail', grossPrice: 475000, taxCodes: ['IVA-19'] },
               { listKey: 'online', grossPrice: 462000, taxCodes: ['IVA-19'] },
@@ -670,6 +688,8 @@ async function seedFlowStore() {
               Material: 'Plata 925',
               Largo: '50cm',
             },
+            weight: 9.8,
+            weightUnit: 'g',
             priceEntries: [
               { listKey: 'retail', grossPrice: 189000, taxCodes: ['IVA-19'] },
               { listKey: 'online', grossPrice: 179000, taxCodes: ['IVA-19'] },
@@ -691,6 +711,8 @@ async function seedFlowStore() {
               Piedra: 'Perla',
               Quilates: 'N/A',
             },
+            weight: 3.2,
+            weightUnit: 'g',
             priceEntries: [
               { listKey: 'retail', grossPrice: 180000, taxCodes: ['IVA-19'] },
               { listKey: 'online', grossPrice: 169000, taxCodes: ['IVA-19'] },
@@ -704,6 +726,8 @@ async function seedFlowStore() {
               Piedra: 'Perla',
               Quilates: 'N/A',
             },
+            weight: 3.5,
+            weightUnit: 'g',
             priceEntries: [
               { listKey: 'retail', grossPrice: 245000, taxCodes: ['IVA-19'] },
               { listKey: 'online', grossPrice: 235000, taxCodes: ['IVA-19'] },
@@ -845,6 +869,8 @@ async function seedFlowStore() {
         variant.baseCost = variantSeed.baseCost ?? Math.round(primaryEntry.netPrice * 0.45);
         variant.unitId = baseUnit.id;
         variant.unit = baseUnit;
+        variant.weight = variantSeed.weight !== undefined ? Number(variantSeed.weight) : undefined;
+        variant.weightUnit = normalizeSeedWeightUnit(variantSeed.weightUnit);
         variant.attributeValues = attributeValues;
         variant.isActive = true;
         variant.trackInventory = variantSeed.trackInventory ?? true;

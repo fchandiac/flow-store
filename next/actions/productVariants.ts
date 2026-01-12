@@ -22,6 +22,7 @@ interface CreateVariantDTO {
     baseCost?: number;
     unitId: string;
     weight?: number;
+    weightUnit?: string;
     /** Valores de atributos: { "attributeId": "opción seleccionada" } */
     attributeValues?: Record<string, string>;
     taxIds?: string[];
@@ -69,6 +70,17 @@ function normalizeStringArray(ids?: string[] | null): string[] {
     return sanitized;
 }
 
+const ALLOWED_WEIGHT_UNITS = new Set(['g', 'kg']);
+
+function normalizeWeightUnit(unit?: string | null): string {
+    if (!unit) {
+        return 'kg';
+    }
+
+    const normalized = unit.trim().toLowerCase();
+    return ALLOWED_WEIGHT_UNITS.has(normalized) ? normalized : 'kg';
+}
+
 function collectVariantChanges(variant: ProductVariant, data: UpdateVariantDTO): ProductChangeHistoryChange[] {
     const changes: ProductChangeHistoryChange[] = [];
 
@@ -94,6 +106,13 @@ function collectVariantChanges(variant: ProductVariant, data: UpdateVariantDTO):
 
     if (data.weight !== undefined && Number(data.weight) !== Number(variant.weight)) {
         changes.push({ field: 'weight', previousValue: Number(variant.weight), newValue: Number(data.weight) });
+    }
+
+    if (data.weightUnit !== undefined) {
+        const normalizedUnit = normalizeWeightUnit(data.weightUnit);
+        if (normalizedUnit !== variant.weightUnit) {
+            changes.push({ field: 'weightUnit', previousValue: variant.weightUnit, newValue: normalizedUnit });
+        }
     }
 
     if (data.attributeValues !== undefined && !areValuesEqual(variant.attributeValues ?? null, data.attributeValues ?? null)) {
@@ -145,6 +164,8 @@ function buildVariantCreationChanges(variant: ProductVariant): ProductChangeHist
         { field: 'basePrice', newValue: Number(variant.basePrice) },
         { field: 'baseCost', newValue: Number(variant.baseCost) },
         { field: 'unitId', newValue: variant.unitId },
+        { field: 'weight', newValue: variant.weight != null ? Number(variant.weight) : null },
+        { field: 'weightUnit', newValue: variant.weightUnit },
     ];
 }
 
@@ -207,6 +228,7 @@ interface UpdateVariantDTO {
     baseCost?: number;
     unitId?: string;
     weight?: number;
+    weightUnit?: string;
     attributeValues?: Record<string, string>;
     taxIds?: string[];
     priceListItems?: VariantPriceListItemInput[];
@@ -258,6 +280,8 @@ export interface VariantDisplay {
     pmp: number;
     unitId: string;
     unitOfMeasure: string;
+    weight?: number | null;
+    weightUnit?: string;
     /** Valores de atributos: { "attributeId": "opción" } */
     attributeValues?: Record<string, string>;
     /** Nombre generado a partir de los atributos para mostrar en UI */
@@ -389,6 +413,8 @@ export async function getProductsWithVariants(params?: {
                 pmp: Number(v.pmp ?? 0),
                 unitId: v.unitId,
                 unitOfMeasure: v.unit?.symbol ?? '',
+                weight: v.weight != null ? Number(v.weight) : null,
+                weightUnit: v.weightUnit,
                 attributeValues: v.attributeValues,
                 displayName,
                 trackInventory: v.trackInventory,
@@ -511,6 +537,7 @@ export async function createVariant(data: CreateVariantDTO): Promise<VariantResu
             unitId: unit.id,
             unit,
             weight: data.weight,
+            weightUnit: normalizeWeightUnit(data.weightUnit),
             attributeValues: data.attributeValues,
             taxIds: data.taxIds,
             trackInventory: data.trackInventory ?? true,
@@ -671,6 +698,9 @@ export async function updateVariant(id: string, data: UpdateVariantDTO): Promise
         if (data.basePrice !== undefined) variant.basePrice = data.basePrice;
         if (data.baseCost !== undefined) variant.baseCost = data.baseCost;
         if (data.weight !== undefined) variant.weight = data.weight;
+        if (data.weightUnit !== undefined) {
+            variant.weightUnit = normalizeWeightUnit(data.weightUnit);
+        }
         if (data.attributeValues !== undefined) variant.attributeValues = data.attributeValues;
         if (data.taxIds !== undefined) variant.taxIds = data.taxIds;
         if (data.trackInventory !== undefined) variant.trackInventory = data.trackInventory;

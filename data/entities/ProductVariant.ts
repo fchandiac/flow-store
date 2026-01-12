@@ -62,6 +62,9 @@ export class ProductVariant {
     @Column({ type: 'decimal', precision: 10, scale: 3, nullable: true })
     weight?: number;
 
+    @Column({ type: 'varchar', length: 16, name: 'weight_unit', default: 'kg' })
+    weightUnit!: string;
+
     /**
      * Valores de atributos para esta variante.
      * Formato: { "attributeId1": "opción seleccionada", "attributeId2": "opción seleccionada" }

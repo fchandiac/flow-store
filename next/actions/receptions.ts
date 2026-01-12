@@ -82,6 +82,120 @@ export interface ReceptionActionResult {
     }>;
 }
 
+export interface ReceptionProductSearchItem {
+    variantId: string;
+    productId?: string | null;
+    productName: string;
+    sku: string;
+    pmp: number;
+    attributeValues?: Record<string, string> | null;
+}
+
+export interface ReceptionVariantDetail {
+    variantId: string;
+    productId?: string | null;
+    productName: string;
+    sku: string;
+    pmp: number;
+    baseCost: number;
+    basePrice: number;
+    unitOfMeasure?: string | null;
+    attributeValues?: Record<string, string> | null;
+    taxIds: string[];
+}
+
+export interface SearchReceptionProductsParams {
+    search: string;
+    limit?: number;
+}
+
+const MIN_RECEPTION_PRODUCT_SEARCH_LENGTH = 2;
+
+export async function searchProductsForReception(
+    params: SearchReceptionProductsParams
+): Promise<ReceptionProductSearchItem[]> {
+    const term = params.search?.trim();
+    if (!term || term.length < MIN_RECEPTION_PRODUCT_SEARCH_LENGTH) {
+        return [];
+    }
+
+    const limit = Math.min(Math.max(params.limit ?? 20, 1), 40);
+    const normalizedTerm = term.toLowerCase();
+
+    const ds = await getDb();
+    const variantRepo = ds.getRepository(ProductVariant);
+
+    const variants = await variantRepo
+        .createQueryBuilder('variant')
+        .leftJoinAndSelect('variant.product', 'product')
+        .where('variant.deletedAt IS NULL')
+        .andWhere('product.deletedAt IS NULL')
+        .andWhere('product.isActive = :active', { active: true })
+        .andWhere(
+            'LOWER(product.name) LIKE :search OR LOWER(variant.sku) LIKE :search OR LOWER(variant.sku) = :skuExact',
+            {
+                search: `%${normalizedTerm}%`,
+                skuExact: normalizedTerm,
+            }
+        )
+        .orderBy('product.name', 'ASC')
+        .addOrderBy('variant.sku', 'ASC')
+        .take(limit)
+        .getMany();
+
+    return variants.map((variant) => {
+        const product = variant.product;
+        return {
+            variantId: variant.id,
+            productId: variant.productId ?? null,
+            productName: product?.name ?? 'Producto',
+            sku: variant.sku,
+            pmp: Number(variant.pmp ?? 0),
+            attributeValues: variant.attributeValues ?? null,
+        };
+    });
+}
+
+export async function getReceptionVariantDetail(variantId: string): Promise<ReceptionVariantDetail | null> {
+    if (!variantId) {
+        return null;
+    }
+
+    const ds = await getDb();
+    const variantRepo = ds.getRepository(ProductVariant);
+
+    const variant = await variantRepo
+        .createQueryBuilder('variant')
+        .leftJoinAndSelect('variant.product', 'product')
+        .where('variant.id = :variantId', { variantId })
+        .andWhere('variant.deletedAt IS NULL')
+        .andWhere('product.deletedAt IS NULL')
+        .andWhere('product.isActive = :active', { active: true })
+        .getOne();
+
+    if (!variant) {
+        return null;
+    }
+
+    const product = variant.product;
+    const taxIds = Array.isArray(variant.taxIds)
+        ? variant.taxIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+        : [];
+
+    return {
+        variantId: variant.id,
+        productId: variant.productId ?? null,
+        productName: product?.name ?? 'Producto',
+        sku: variant.sku,
+        pmp: Number(variant.pmp ?? 0),
+        baseCost: Number(variant.baseCost ?? 0),
+        basePrice: Number(variant.basePrice ?? 0),
+        unitOfMeasure: variant.unit?.symbol ?? null,
+        attributeValues: variant.attributeValues ?? null,
+        taxIds,
+    };
+}
+
 export interface PurchaseOrderForReception {
     id: string;
     documentNumber: string;
@@ -99,6 +213,11 @@ export interface PurchaseOrderForReception {
         quantity: number;
         unitPrice: number;
         unitCost: number;
+        taxId?: string | null;
+        taxIds?: string[];
+        taxRate?: number | null;
+        unitOfMeasure?: string | null;
+        variantName?: string | null;
     }>;
 }
 
@@ -284,6 +403,11 @@ export async function searchPurchaseOrdersForReception(
                 quantity: Number(line.quantity),
                 unitPrice: Number(line.unitPrice),
                 unitCost: Number(line.unitCost ?? line.unitPrice),
+                taxId: line.taxId ?? null,
+                taxIds: line.taxId ? [line.taxId] : [],
+                taxRate: line.taxRate !== undefined && line.taxRate !== null ? Number(line.taxRate) : null,
+                unitOfMeasure: line.unitOfMeasure ?? null,
+                variantName: line.variantName ?? null,
             })),
         };
     });

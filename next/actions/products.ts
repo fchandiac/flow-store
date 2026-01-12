@@ -71,6 +71,8 @@ export interface VariantSummary {
     baseCost: number;
     unitId: string;
     unitOfMeasure: string;
+    weight?: number | null;
+    weightUnit?: string;
     attributeValues?: Record<string, string>;
     trackInventory: boolean;
     allowNegativeStock: boolean;
@@ -362,6 +364,8 @@ export async function getProducts(params?: GetProductsParams): Promise<ProductWi
             baseCost: defaultVariant ? Number(defaultVariant.baseCost) : undefined,
             unitId: defaultVariant?.unitId,
             unitOfMeasure: defaultVariant?.unit?.symbol,
+            weight: defaultVariant?.weight != null ? Number(defaultVariant.weight) : undefined,
+            weightUnit: defaultVariant?.weightUnit,
             trackInventory: defaultVariant?.trackInventory,
             allowNegativeStock: defaultVariant?.allowNegativeStock,
             variantCount: variants.length,
@@ -374,6 +378,8 @@ export async function getProducts(params?: GetProductsParams): Promise<ProductWi
                 baseCost: Number(v.baseCost),
                 unitId: v.unitId,
                 unitOfMeasure: v.unit?.symbol ?? '',
+                weight: v.weight != null ? Number(v.weight) : null,
+                weightUnit: v.weightUnit,
                 attributeValues: v.attributeValues,
                 trackInventory: v.trackInventory,
                 allowNegativeStock: v.allowNegativeStock,
