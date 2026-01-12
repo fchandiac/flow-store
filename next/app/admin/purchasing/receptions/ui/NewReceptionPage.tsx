@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useState, useRef } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Select, { type Option as SelectOption } from '@/app/baseComponents/Select/Select';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
@@ -8,11 +8,13 @@ import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Badge from '@/app/baseComponents/Badge/Badge';
 import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
+import Switch from '@/app/baseComponents/Switch/Switch';
 import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { getSuppliers } from '@/app/actions/suppliers';
 import { getInventoryFilters } from '@/app/actions/inventory';
 import { searchProductsForPurchase, type PurchaseOrderProductResult } from '@/app/actions/purchaseOrders';
 import { getAttributes } from '@/app/actions/attributes';
+import { getActiveTaxes } from '@/app/actions/taxes';
 import {
     searchPurchaseOrdersForReception,
     createReceptionFromPurchaseOrder,
@@ -40,6 +42,15 @@ interface ReceptionLine {
     unitPrice: number;
     unitCost: number;
     notes?: string;
+    selectedTaxIds: string[];
+    taxRate: number;
+}
+
+interface TaxOption {
+    id: string;
+    name: string;
+    rate: number;
+    isDefault: boolean;
 }
 
 const quantityFormatter = new Intl.NumberFormat('es-CL', {
@@ -83,6 +94,36 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
     const [storages, setStorages] = useState<StorageOption[]>([]);
     const [attributeNames, setAttributeNames] = useState<Record<string, string>>({});
+    const [activeTaxes, setActiveTaxes] = useState<TaxOption[]>([]);
+    const [taxesLoaded, setTaxesLoaded] = useState(false);
+    const activeTaxesMap = useMemo(() => new Map(activeTaxes.map((tax) => [tax.id, tax])), [activeTaxes]);
+    const defaultTaxIds = useMemo(() => {
+        const defaults = activeTaxes.filter((tax) => tax.isDefault).map((tax) => tax.id);
+        if (defaults.length > 0) {
+            return defaults;
+        }
+        return activeTaxes.map((tax) => tax.id);
+    }, [activeTaxes]);
+
+    const computeTaxRate = useCallback(
+        (
+            taxIds: string[],
+            fallbackRates?: { id: string; rate: number }[],
+            fallbackRate?: number
+        ) => {
+            const totalRaw = taxIds.reduce((sum, id) => {
+                const match = activeTaxesMap.get(id) ?? fallbackRates?.find((tax) => tax.id === id);
+                return sum + Number(match?.rate ?? 0);
+            }, 0);
+            const normalized = Number.isFinite(totalRaw) ? Number(totalRaw.toFixed(4)) : 0;
+            if (normalized === 0 && typeof fallbackRate === 'number') {
+                const sanitizedFallback = Number.isFinite(fallbackRate) ? Number(fallbackRate) : 0;
+                return Number(sanitizedFallback.toFixed(4));
+            }
+            return normalized;
+        },
+        [activeTaxesMap]
+    );
 
     const [supplierId, setSupplierId] = useState<string | null>(null);
     const [storageId, setStorageId] = useState<string | null>(null);
@@ -96,6 +137,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const [selectedPurchaseOrder, setSelectedPurchaseOrder] = useState<PurchaseOrderForReception | null>(null);
     const [purchaseOrderResults, setPurchaseOrderResults] = useState<PurchaseOrderForReception[]>([]);
     const [loadingPurchaseOrders, setLoadingPurchaseOrders] = useState(false);
+    const [showPendingOrders, setShowPendingOrders] = useState(false);
 
     const [productSearch, setProductSearch] = useState('');
     const [productResults, setProductResults] = useState<PurchaseOrderProductResult[]>([]);
@@ -108,11 +150,13 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
 
     // Cargar datos iniciales
     const loadInitialData = useCallback(async () => {
+        setTaxesLoaded(false);
         try {
-            const [suppliersData, filtersData, pendingOrders] = await Promise.all([
+            const [suppliersData, filtersData, pendingOrders, taxesData] = await Promise.all([
                 getSuppliers(),
                 getInventoryFilters(),
                 searchPurchaseOrdersForReception(), // Sin parámetro, trae las últimas órdenes
+                getActiveTaxes(),
             ]);
 
             setSuppliers(
@@ -133,6 +177,15 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
 
             setPurchaseOrderResults(pendingOrders);
 
+            setActiveTaxes(
+                taxesData.map((tax) => ({
+                    id: tax.id,
+                    name: tax.name,
+                    rate: Number(tax.rate ?? 0),
+                    isDefault: Boolean(tax.isDefault),
+                }))
+            );
+
             try {
                 const attributesData = await getAttributes(true);
                 const attributeMap = Object.fromEntries(attributesData.map((attr) => [attr.id, attr.name]));
@@ -143,6 +196,8 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
         } catch (err) {
             console.error('Error loading initial data:', err);
             error('Error al cargar datos iniciales');
+        } finally {
+            setTaxesLoaded(true);
         }
     }, [error]);
 
@@ -182,17 +237,36 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
             setStorageId(order.storageId);
         }
 
+        setShowPendingOrders(false);
+
         // Cargar líneas de la orden
-        const orderLines: ReceptionLine[] = order.lines.map((line) => ({
-            productVariantId: line.productVariantId,
-            productName: line.productName,
-            sku: line.sku,
-            expectedQuantity: line.quantity,
-            receivedQuantity: line.quantity, // Por defecto, recibir la cantidad esperada
-            unitPrice: line.unitPrice,
-            unitCost: line.unitCost,
-            notes: '',
-        }));
+        const orderLines: ReceptionLine[] = order.lines.map((line) => {
+            const originalSelection = Array.isArray(line.taxIds)
+                ? line.taxIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+                : line.taxId
+                ? [line.taxId]
+                : [];
+            const filteredSelection = originalSelection.filter((id) => activeTaxesMap.has(id));
+            const appliedSelection = filteredSelection.length > 0
+                ? filteredSelection
+                : defaultTaxIds.length > 0
+                ? [...defaultTaxIds]
+                : [];
+            const effectiveTaxRate = computeTaxRate(appliedSelection, undefined, line.taxRate);
+
+            return {
+                productVariantId: line.productVariantId,
+                productName: line.productName,
+                sku: line.sku,
+                expectedQuantity: line.quantity,
+                receivedQuantity: line.quantity, // Por defecto, recibir la cantidad esperada
+                unitPrice: line.unitPrice,
+                unitCost: line.unitCost,
+                notes: '',
+                selectedTaxIds: appliedSelection,
+                taxRate: effectiveTaxRate,
+            };
+        });
 
         setLines(orderLines);
     };
@@ -205,6 +279,30 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
             return;
         }
 
+        const fallbackRates = product.taxes.map((tax) => ({
+            id: tax.id,
+            rate: Number(tax.rate ?? 0),
+        }));
+        const productTaxIds = fallbackRates.map((tax) => tax.id);
+        const candidateSelection = (() => {
+            if (productTaxIds.length > 0) {
+                return productTaxIds;
+            }
+            if (defaultTaxIds.length > 0) {
+                return [...defaultTaxIds];
+            }
+            return [];
+        })();
+        const filteredSelection = taxesLoaded
+            ? candidateSelection.filter((id) => activeTaxesMap.has(id))
+            : candidateSelection;
+        const appliedSelection = filteredSelection.length > 0
+            ? filteredSelection
+            : defaultTaxIds.length > 0
+            ? [...defaultTaxIds]
+            : [];
+        const effectiveTaxRate = computeTaxRate(appliedSelection, fallbackRates);
+
         const newLine: ReceptionLine = {
             productVariantId: product.variantId,
             productName: product.productName,
@@ -213,12 +311,78 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
             unitPrice: product.baseCost,
             unitCost: product.baseCost,
             notes: '',
+            selectedTaxIds: appliedSelection,
+            taxRate: effectiveTaxRate,
         };
 
         setLines([...lines, newLine]);
         setProductSearch('');
         setProductResults([]);
     };
+
+    const handleToggleTax = useCallback(
+        (variantId: string, taxId: string, enabled: boolean) => {
+            setLines((currentLines) =>
+                currentLines.map((line) => {
+                    if (line.productVariantId !== variantId) {
+                        return line;
+                    }
+
+                    const baseSelected = Array.isArray(line.selectedTaxIds) ? line.selectedTaxIds : [];
+                    const updatedSelection = enabled
+                        ? Array.from(new Set([...baseSelected, taxId]))
+                        : baseSelected.filter((id) => id !== taxId);
+                    const filteredSelection = updatedSelection.filter((id) => activeTaxesMap.has(id));
+                    const nextTaxRate = computeTaxRate(filteredSelection);
+
+                    return {
+                        ...line,
+                        selectedTaxIds: filteredSelection,
+                        taxRate: nextTaxRate,
+                    };
+                })
+            );
+        },
+        [activeTaxesMap, computeTaxRate]
+    );
+
+    useEffect(() => {
+        if (!taxesLoaded) {
+            return;
+        }
+
+        setLines((currentLines) => {
+            let changed = false;
+            const updated = currentLines.map((line) => {
+                const currentSelection = Array.isArray(line.selectedTaxIds) ? line.selectedTaxIds : [];
+                const filteredSelection = currentSelection.filter((id) => activeTaxesMap.has(id));
+                const shouldApplyDefaults = filteredSelection.length === 0 && activeTaxesMap.size > 0;
+                const appliedSelection = shouldApplyDefaults
+                    ? defaultTaxIds.length > 0
+                        ? [...defaultTaxIds]
+                        : []
+                    : filteredSelection;
+                const nextTaxRate = computeTaxRate(appliedSelection, undefined, line.taxRate);
+                const sameSelection =
+                    appliedSelection.length === currentSelection.length &&
+                    appliedSelection.every((id) => currentSelection.includes(id));
+                const sameRate = Math.abs(nextTaxRate - Number(line.taxRate ?? 0)) < 0.0001;
+
+                if (sameSelection && sameRate) {
+                    return line;
+                }
+
+                changed = true;
+                return {
+                    ...line,
+                    selectedTaxIds: appliedSelection,
+                    taxRate: nextTaxRate,
+                };
+            });
+
+            return changed ? updated : currentLines;
+        });
+    }, [activeTaxesMap, computeTaxRate, defaultTaxIds, taxesLoaded]);
 
     // Actualizar línea
     const updateLine = (index: number, updates: Partial<ReceptionLine>) => {
@@ -244,6 +408,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
         setProductSearch('');
         setProductResults([]);
         setLines([]);
+        setShowPendingOrders(false);
         
         // Recargar órdenes pendientes
         try {
@@ -255,8 +420,20 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     };
 
     // Calcular totales
-    const subtotal = lines.reduce((sum, line) => sum + line.receivedQuantity * line.unitPrice, 0);
-    const total = subtotal;
+    const totals = useMemo(() => {
+        const subtotalValue = lines.reduce((sum, line) => sum + line.receivedQuantity * line.unitPrice, 0);
+        const taxesValue = lines.reduce((sum, line) => {
+            const base = line.receivedQuantity * line.unitPrice;
+            const rate = Number(line.taxRate ?? 0);
+            const sanitizedRate = Number.isFinite(rate) ? rate : 0;
+            return sum + base * (sanitizedRate / 100);
+        }, 0);
+        return {
+            subtotal: subtotalValue,
+            taxes: taxesValue,
+            total: subtotalValue + taxesValue,
+        };
+    }, [lines]);
 
     // Validar y confirmar recepción
     const handleConfirm = async () => {
@@ -285,6 +462,8 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                 unitPrice: line.unitPrice,
                 unitCost: line.unitCost,
                 notes: line.notes,
+                taxRate: line.taxRate,
+                taxIds: line.selectedTaxIds,
                 qualityStatus: 'APPROVED',
             }));
 
@@ -341,60 +520,32 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
 
     return (
         <div className="space-y-6 pt-2">
-            <div className="grid grid-cols-1 xl:grid-cols-[320px,1fr,360px] gap-6">
+            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[280px,1fr]">
                 <aside className="space-y-4">
-                    <div className="border border-border rounded-md bg-white p-4 space-y-4">
-                        <div>
-                            <h2 className="text-sm font-semibold text-muted-foreground uppercase">Datos generales</h2>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                Define el proveedor, almacén y fecha para la recepción.
-                            </p>
-                        </div>
-                        <Select
-                            label="Proveedor *"
-                            options={suppliers}
-                            value={supplierId ?? null}
-                            onChange={(value) => setSupplierId((value as string) ?? null)}
-                            placeholder="Seleccionar proveedor"
-                            disabled={!!selectedPurchaseOrder}
-                        />
-                        <Select
-                            label="Almacén *"
-                            options={storages}
-                            value={storageId ?? null}
-                            onChange={(value) => setStorageId((value as string) ?? null)}
-                            placeholder="Seleccionar almacén"
-                        />
-                        <TextField
-                            label="Fecha de recepción"
-                            type="date"
-                            value={receptionDate}
-                            onChange={(event) => setReceptionDate(event.target.value)}
-                        />
-                        {!selectedPurchaseOrder && (
-                            <TextField
-                                label="Referencia externa"
-                                value={reference}
-                                onChange={(event) => setReference(event.target.value)}
-                                placeholder="Número de factura, guía, etc."
-                            />
-                        )}
-                    </div>
-
                     {!selectedPurchaseOrder && (
                         <div className="border border-border rounded-md bg-white p-4 space-y-4">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                                 <h2 className="text-sm font-semibold text-muted-foreground uppercase">
                                     Órdenes pendientes
                                 </h2>
-                                {loadingPurchaseOrders && <DotProgress size={12} totalSteps={3} />}
+                                <div className="flex items-center gap-1">
+                                    {loadingPurchaseOrders && <DotProgress size={12} totalSteps={3} />}
+                                    <IconButton
+                                        icon="arrow_drop_down"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setShowPendingOrders((prev) => !prev)}
+                                        ariaLabel={showPendingOrders ? 'Ocultar órdenes pendientes' : 'Mostrar órdenes pendientes'}
+                                        className={`transition-transform ${showPendingOrders ? 'rotate-180' : ''}`}
+                                    />
+                                </div>
                             </div>
-                            {!loadingPurchaseOrders && purchaseOrderResults.length === 0 && (
+                            {showPendingOrders && !loadingPurchaseOrders && purchaseOrderResults.length === 0 && (
                                 <p className="text-xs text-muted-foreground">
                                     No hay órdenes de compra pendientes de recepción.
                                 </p>
                             )}
-                            {purchaseOrderResults.length > 0 && (
+                            {showPendingOrders && purchaseOrderResults.length > 0 && (
                                 <div className="space-y-2 max-h-96 overflow-y-auto pr-1">
                                     {purchaseOrderResults.map((order) => (
                                         <button
@@ -469,8 +620,8 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                             {variantAttributes && (
                                                 <div className="text-xs text-muted-foreground">{variantAttributes}</div>
                                             )}
-                                            <div className="mt-1 text-xs font-semibold text-foreground">
-                                                {currencyFormatter.format(product.baseCost)}
+                                            <div className="mt-2 text-xs font-semibold text-foreground">
+                                                PMP {currencyFormatter.format(product.pmp)}
                                             </div>
                                         </button>
                                     );
@@ -481,20 +632,63 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                 </aside>
 
                 <section className="border border-border rounded-md bg-white p-5 space-y-5">
-                    <header className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                        <div>
-                            <h2 className="text-lg font-semibold text-foreground">Detalle de recepción</h2>
-                            <p className="text-sm text-muted-foreground">
-                                Revisa y ajusta las cantidades antes de confirmar la recepción.
-                            </p>
-                            {selectedPurchaseOrder && (
-                                <p className="text-xs text-muted-foreground">
-                                    Orden origen: {selectedPurchaseOrder.documentNumber}
+                    <div className="flex flex-col gap-4">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                            <div>
+                                <h2 className="text-lg font-semibold text-foreground">Detalle de recepción</h2>
+                                <p className="text-sm text-muted-foreground">
+                                    Revisa y ajusta las cantidades antes de confirmar la recepción.
                                 </p>
+                                {selectedPurchaseOrder && (
+                                    <p className="text-xs text-muted-foreground">
+                                        Orden origen: {selectedPurchaseOrder.documentNumber}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-2 self-end lg:self-auto">
+                                {hasDiscrepancies && <Badge variant="warning">Con discrepancias</Badge>}
+                                <IconButton
+                                    icon="restart_alt"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={resetForm}
+                                    ariaLabel="Reiniciar formulario"
+                                    title="Reiniciar formulario"
+                                />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                            <Select
+                                label="Proveedor *"
+                                options={suppliers}
+                                value={supplierId ?? null}
+                                onChange={(value) => setSupplierId((value as string) ?? null)}
+                                placeholder="Seleccionar proveedor"
+                                disabled={!!selectedPurchaseOrder}
+                            />
+                            <Select
+                                label="Almacén *"
+                                options={storages}
+                                value={storageId ?? null}
+                                onChange={(value) => setStorageId((value as string) ?? null)}
+                                placeholder="Seleccionar almacén"
+                            />
+                            <TextField
+                                label="Fecha de recepción"
+                                type="date"
+                                value={receptionDate}
+                                onChange={(event) => setReceptionDate(event.target.value)}
+                            />
+                            {!selectedPurchaseOrder && (
+                                <TextField
+                                    label="Referencia externa"
+                                    value={reference}
+                                    onChange={(event) => setReference(event.target.value)}
+                                    placeholder="Número de factura, guía, etc."
+                                />
                             )}
                         </div>
-                        {hasDiscrepancies && <Badge variant="warning">Con discrepancias</Badge>}
-                    </header>
+                    </div>
 
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
@@ -503,7 +697,8 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                     <th className="py-2 pr-3">Producto</th>
                                     <th className="py-2 pr-3 text-right">Cant. esperada</th>
                                     <th className="py-2 pr-3 text-right">Cant. recibida</th>
-                                    <th className="py-2 pr-3 text-right">Precio unitario</th>
+                                    <th className="py-2 pr-3 text-right">Precio neto</th>
+                                    <th className="py-2 pr-3">Impuestos</th>
                                     <th className="py-2 pr-3 text-right">Subtotal</th>
                                     <th className="py-2"></th>
                                 </tr>
@@ -511,7 +706,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                             <tbody>
                                 {lines.length === 0 ? (
                                     <tr>
-                                        <td colSpan={6} className="py-8 text-center text-sm text-muted-foreground">
+                                        <td colSpan={7} className="py-8 text-center text-sm text-muted-foreground">
                                             {selectedPurchaseOrder
                                                 ? 'Selecciona una orden o agrega productos adicionales para comenzar.'
                                                 : 'Busca y agrega productos para construir la recepción.'}
@@ -558,23 +753,56 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                                             }}
                                                             min="0"
                                                             step="0.01"
-                                                            className="ml-auto w-28 [&_[data-test-id='text-field-label']]:hidden"
+                                                            inputMode="decimal"
+                                                            className="ml-auto w-20 [&>div>input]:min-w-0 [&>div>input]:w-full [&>div>input]:text-left [&_[data-test-id='text-field-label']]:hidden"
                                                         />
                                                     </td>
                                                     <td className="py-3 pr-3 text-right">
                                                         <TextField
-                                                            label="Precio unitario"
-                                                            type="number"
-                                                            value={String(line.unitPrice)}
+                                                            label="Precio neto"
+                                                            type="currency"
+                                                            value={String(Math.max(0, Math.round(line.unitPrice)))}
                                                             onChange={(event) => {
-                                                                const parsed = Number(event.target.value);
-                                                                const sanitized = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
+                                                                const raw = event.target.value ?? '';
+                                                                const parsed = Number(raw.replace(/[^\d]/g, ''));
+                                                                const sanitized = Number.isFinite(parsed) ? parsed : 0;
                                                                 updateLine(index, { unitPrice: sanitized });
                                                             }}
-                                                            min="0"
-                                                            step="0.01"
-                                                            className="ml-auto w-28 [&_[data-test-id='text-field-label']]:hidden"
+                                                            currencySymbol="$"
+                                                            inputMode="numeric"
+                                                            className="ml-auto w-24 [&>div>input]:min-w-0 [&>div>input]:w-full [&>div>input]:text-left [&_[data-test-id='text-field-label']]:hidden"
                                                         />
+                                                    </td>
+                                                    <td className="py-3 pr-3 align-top">
+                                                        {activeTaxes.length === 0 ? (
+                                                            <span className="text-xs text-muted-foreground">
+                                                                {selectedPurchaseOrder
+                                                                    ? 'Los impuestos de la orden original ya no están disponibles.'
+                                                                    : 'Sin impuestos configurados'}
+                                                            </span>
+                                                        ) : (
+                                                            <div className="space-y-1">
+                                                                {activeTaxes.map((tax) => {
+                                                                    const isChecked = line.selectedTaxIds?.includes(tax.id) ?? false;
+                                                                    return (
+                                                                        <div key={tax.id} className="flex items-center justify-between gap-3">
+                                                                            <Switch
+                                                                                label={tax.name}
+                                                                                labelPosition="right"
+                                                                                checked={isChecked}
+                                                                                onChange={(checked) =>
+                                                                                    handleToggleTax(line.productVariantId, tax.id, checked)
+                                                                                }
+                                                                                disabled={!taxesLoaded}
+                                                                            />
+                                                                            <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                                                                {Number(tax.rate ?? 0)}%
+                                                                            </span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
                                                     </td>
                                                     <td className="py-3 pr-3 text-right font-semibold text-foreground">
                                                         {currencyFormatter.format(subtotalLine)}
@@ -589,18 +817,6 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                                         />
                                                     </td>
                                                 </tr>
-                                                <tr className="border-b border-border/40">
-                                                    <td colSpan={6} className="pb-4 pr-3">
-                                                        <TextField
-                                                            label="Notas"
-                                                            value={line.notes ?? ''}
-                                                            onChange={(event) => updateLine(index, { notes: event.target.value })}
-                                                            placeholder="Observaciones de calidad, estado, etc."
-                                                            type="textarea"
-                                                            rows={2}
-                                                        />
-                                                    </td>
-                                                </tr>
                                             </Fragment>
                                         );
                                     })
@@ -608,16 +824,8 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                             </tbody>
                         </table>
                     </div>
-                </section>
 
-                <aside className="space-y-4">
-                    <div className="border border-border rounded-md bg-white p-5 space-y-5">
-                        <div>
-                            <h2 className="text-sm font-semibold text-muted-foreground uppercase">Resumen</h2>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                                Revisa el total y confirma la recepción cuando estés listo.
-                            </p>
-                        </div>
+                    <div className="space-y-4">
                         <TextField
                             label="Notas generales"
                             value={notes}
@@ -626,42 +834,48 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                             type="textarea"
                             rows={3}
                         />
-                        <div className="space-y-2 text-sm">
-                            <div className="flex items-center justify-between text-muted-foreground">
-                                <span>Productos</span>
-                                <span className="font-medium text-foreground">{lines.length}</span>
+                        <div className="grid gap-3 text-sm sm:grid-cols-3 lg:grid-cols-5">
+                            <div className="flex flex-col gap-1">
+                                <span className="text-muted-foreground">Productos</span>
+                                <span className="text-lg font-semibold text-foreground">{lines.length}</span>
                             </div>
-                            <div className="flex items-center justify-between text-muted-foreground">
-                                <span>Cantidad total</span>
-                                <span className="font-medium text-foreground">
+                            <div className="flex flex-col gap-1">
+                                <span className="text-muted-foreground">Cantidad total</span>
+                                <span className="text-lg font-semibold text-foreground">
                                     {quantityFormatter.format(lines.reduce((sum, line) => sum + line.receivedQuantity, 0))} uds
                                 </span>
                             </div>
-                            <div className="flex items-center justify-between border-t border-border pt-3 text-base font-semibold text-foreground">
-                                <span>Total</span>
-                                <span>{currencyFormatter.format(total)}</span>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-muted-foreground">Subtotal neto</span>
+                                <span className="text-lg font-semibold text-foreground">
+                                    {currencyFormatter.format(totals.subtotal)}
+                                </span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-muted-foreground">Impuestos</span>
+                                <span className="text-lg font-semibold text-foreground">
+                                    {currencyFormatter.format(totals.taxes)}
+                                </span>
+                            </div>
+                            <div className="flex flex-col gap-1">
+                                <span className="text-muted-foreground">Total</span>
+                                <span className="text-lg font-semibold text-foreground">
+                                    {currencyFormatter.format(totals.total)}
+                                </span>
                             </div>
                         </div>
-                        <div className="flex flex-col gap-3 sm:flex-row">
-                            <Button
-                                onClick={() => router.push('/admin/purchasing/receptions')}
-                                variant="outlined"
-                                className="flex-1"
-                                disabled={submitting}
-                            >
-                                Cancelar
-                            </Button>
+                        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
                             <Button
                                 onClick={handleConfirm}
                                 variant="primary"
-                                className="flex-1"
+                                className="w-full sm:w-auto"
                                 disabled={submitting || lines.length === 0}
                             >
                                 {submitting ? 'Confirmando…' : 'Confirmar recepción'}
                             </Button>
                         </div>
                     </div>
-                </aside>
+                </section>
             </div>
         </div>
     );
