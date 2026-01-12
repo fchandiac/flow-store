@@ -1,48 +1,24 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import type { PropsWithChildren } from 'react';
+import Tabs, { type TabItem } from '@/app/baseComponents/Tabs/Tabs';
 
-const tabs = [
-    { href: '/admin/purchasing/purchase-orders', label: 'Listado' },
+const tabs: TabItem[] = [
+    { href: '/admin/purchasing/purchase-orders', label: 'Listado', exact: true },
     { href: '/admin/purchasing/purchase-orders/new', label: 'Nueva orden' },
 ];
 
 export default function PurchaseOrdersLayout({ children }: PropsWithChildren) {
-    const pathname = usePathname();
-
     return (
         <div className="flex h-full flex-col">
-            <header className="bg-white shadow-sm">
+            <header className="bg-white">
                 <div className="pt-6 pb-4 space-y-2">
                     <h1 className="text-2xl font-bold">Órdenes de compra</h1>
                     <p className="text-sm text-muted-foreground">
                         Administra las órdenes emitidas a proveedores y crea nuevas solicitudes de compra.
                     </p>
                 </div>
-                <nav className="flex border-b border-gray-200">
-                    {tabs.map((tab) => {
-                        const isActive =
-                            pathname === tab.href ||
-                            (tab.href !== '/admin/purchasing/purchase-orders' && pathname.startsWith(tab.href));
-                        return (
-                            <Link
-                                key={tab.href}
-                                href={tab.href}
-                                className={`-mb-px inline-flex items-center border-b-2 px-6 py-3 text-sm font-medium transition-colors ${
-                                    isActive
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                                }`}
-                                aria-current={isActive ? 'page' : undefined}
-                                prefetch
-                            >
-                                {tab.label}
-                            </Link>
-                        );
-                    })}
-                </nav>
+                <Tabs items={tabs} basePath="/admin/purchasing/purchase-orders" />
             </header>
             <section className="flex-1 overflow-auto">{children}</section>
         </div>

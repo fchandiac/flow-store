@@ -1,0 +1,1 @@
+export { SupplierDetailDialog } from "./SupplierDetailDialog";

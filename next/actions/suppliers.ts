@@ -2,7 +2,7 @@
 
 import { getDb } from '@/data/db';
 import { Supplier, SupplierType } from '@/data/entities/Supplier';
-import { DocumentType, Person, PersonType } from '@/data/entities/Person';
+import { DocumentType, Person, PersonType, BankName, AccountTypeName, PersonBankAccount } from '@/data/entities/Person';
 import { revalidatePath } from 'next/cache';
 import { IsNull } from 'typeorm';
 
@@ -47,6 +47,15 @@ interface UpdateSupplierDTO {
     supplierType?: SupplierType;
     defaultPaymentTermDays?: number;
     isActive?: boolean;
+    notes?: string;
+}
+
+interface AddSupplierBankAccountDTO {
+    bankName: BankName;
+    accountType: AccountTypeName;
+    accountNumber: string;
+    accountHolderName?: string;
+    isPrimary?: boolean;
     notes?: string;
 }
 
@@ -356,6 +365,91 @@ export async function updateSupplier(id: string, data: UpdateSupplierDTO): Promi
         return { 
             success: false, 
             error: error instanceof Error ? error.message : 'Error al actualizar el proveedor' 
+        };
+    }
+}
+
+export async function addSupplierBankAccount(id: string, account: AddSupplierBankAccountDTO): Promise<SupplierResult> {
+    try {
+        const ds = await getDb();
+        const supplierRepo = ds.getRepository(Supplier);
+        const personRepo = ds.getRepository(Person);
+
+        const supplier = await supplierRepo.findOne({
+            where: { id, deletedAt: IsNull() },
+            relations: ['person']
+        });
+
+        if (!supplier) {
+            return { success: false, error: 'Proveedor no encontrado' };
+        }
+
+        const person = supplier.person;
+        if (!person) {
+            return { success: false, error: 'La persona asociada al proveedor no está disponible' };
+        }
+
+        const trimmedAccountNumber = account.accountNumber?.trim();
+
+        if (!trimmedAccountNumber) {
+            return { success: false, error: 'Ingresa el número de cuenta bancaria' };
+        }
+
+        if (!account.bankName) {
+            return { success: false, error: 'Selecciona el banco de la cuenta' };
+        }
+
+        if (!account.accountType) {
+            return { success: false, error: 'Selecciona el tipo de cuenta' };
+        }
+
+        const accounts: PersonBankAccount[] = Array.isArray(person.bankAccounts)
+            ? [...person.bankAccounts]
+            : [];
+
+        const isDuplicate = accounts.some(existing =>
+            existing.accountNumber === trimmedAccountNumber && existing.bankName === account.bankName
+        );
+
+        if (isDuplicate) {
+            return { success: false, error: 'Ya existe una cuenta con ese número para el banco seleccionado' };
+        }
+
+        if (account.isPrimary) {
+            accounts.forEach(existing => {
+                existing.isPrimary = false;
+            });
+        }
+
+        const newAccount: PersonBankAccount = {
+            bankName: account.bankName,
+            accountType: account.accountType,
+            accountNumber: trimmedAccountNumber,
+            accountHolderName: account.accountHolderName?.trim() || undefined,
+            isPrimary: Boolean(account.isPrimary),
+            notes: account.notes?.trim() || undefined,
+        };
+
+        accounts.push(newAccount);
+        person.bankAccounts = accounts;
+
+        await personRepo.save(person);
+
+        const updatedSupplier = await supplierRepo.findOne({
+            where: { id },
+            relations: ['person']
+        });
+
+        revalidatePath('/admin/purchasing/suppliers');
+
+        const resultSupplier = updatedSupplier ?? supplier;
+        const plainSupplier = cloneSupplier(resultSupplier)!;
+        return { success: true, supplier: plainSupplier };
+    } catch (error) {
+        console.error('Error adding supplier bank account:', error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Error al agregar la cuenta bancaria'
         };
     }
 }

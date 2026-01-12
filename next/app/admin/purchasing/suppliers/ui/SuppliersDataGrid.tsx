@@ -11,14 +11,9 @@ import { useAlert } from "@/app/globalstate/alert/useAlert";
 import { CreateSupplierDialog } from "./CreateSupplierDialog";
 import { UpdateSupplierDialog } from "./UpdateSupplierDialog";
 import { DeleteSupplierDialog } from "./DeleteSupplierDialog";
+import { SupplierDetailDialog } from "./SupplierDetailDialog";
+import { supplierTypeLabels } from "./constants";
 import type { SupplierWithPerson } from "./types";
-
-const supplierTypeLabels: Record<SupplierType, string> = {
-  [SupplierType.MANUFACTURER]: "Fabricante",
-  [SupplierType.DISTRIBUTOR]: "Distribuidor",
-  [SupplierType.WHOLESALER]: "Mayorista",
-  [SupplierType.LOCAL]: "Local",
-};
 
 export interface SupplierRow extends SupplierWithPerson {
   displayName: string;
@@ -36,33 +31,37 @@ export const SuppliersDataGrid = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedSupplier, setSelectedSupplier] = useState<SupplierRow | null>(null);
 
   const search = searchParams.get("search") || "";
 
+  const mapSupplierToRow = useCallback((supplier: SupplierWithPerson): SupplierRow => {
+    const nameParts = [supplier.person?.firstName, supplier.person?.lastName]
+      .filter(Boolean)
+      .join(" ");
+    const displayName = supplier.alias?.trim() || supplier.person?.businessName || nameParts || "Proveedor";
+    const contactName = nameParts || supplier.person?.businessName || "-";
+
+    return {
+      ...supplier,
+      displayName,
+      contactName,
+      contactEmail: supplier.person?.email || "",
+      contactPhone: supplier.person?.phone || "",
+    };
+  }, []);
+
   const loadSuppliers = useCallback(async () => {
     try {
       const data = await getSuppliers(search ? { search } : undefined);
-      const mapped: SupplierRow[] = data.map((supplier) => {
-        const nameParts = [supplier.person?.firstName, supplier.person?.lastName]
-          .filter(Boolean)
-          .join(" ");
-        const displayName = supplier.alias?.trim() || supplier.person?.businessName || nameParts || "Proveedor";
-        const contactName = nameParts || supplier.person?.businessName || "-";
-        return {
-          ...supplier,
-          displayName,
-          contactName,
-          contactEmail: supplier.person?.email || "",
-          contactPhone: supplier.person?.phone || "",
-        };
-      });
+      const mapped: SupplierRow[] = data.map(mapSupplierToRow);
       setRows(mapped);
     } catch (err) {
       console.error("Error loading suppliers:", err);
       error("No se pudieron cargar los proveedores");
     }
-  }, [search, error]);
+  }, [search, error, mapSupplierToRow]);
 
   useEffect(() => {
     loadSuppliers();
@@ -82,6 +81,11 @@ export const SuppliersDataGrid = () => {
     setDeleteDialogOpen(true);
   }, []);
 
+  const handleOpenDetail = useCallback((supplier: SupplierRow) => {
+    setSelectedSupplier(supplier);
+    setDetailDialogOpen(true);
+  }, []);
+
   const handleSuccess = useCallback(
     async (message: string) => {
       await loadSuppliers();
@@ -90,26 +94,66 @@ export const SuppliersDataGrid = () => {
     [success, loadSuppliers]
   );
 
-  const columns: DataGridColumn[] = useMemo(() => {
-    const ActionsCell = ({ row }: { row: SupplierRow }) => (
-      <div className="flex items-center gap-1">
-        <IconButton
-          icon="edit"
-          variant="basicSecondary"
-          size="xs"
-          onClick={() => handleOpenUpdate(row)}
-          title="Editar proveedor"
-        />
-        <IconButton
-          icon="delete"
-          variant="basicSecondary"
-          size="xs"
-          onClick={() => handleOpenDelete(row)}
-          title="Eliminar proveedor"
-        />
-      </div>
-    );
+  const handleSupplierUpdated = useCallback(
+    (updatedSupplier: SupplierWithPerson) => {
+      const mapped = mapSupplierToRow(updatedSupplier);
 
+      setRows((prevRows) => {
+        const index = prevRows.findIndex((row) => row.id === mapped.id);
+        if (index === -1) {
+          return prevRows;
+        }
+        const nextRows = [...prevRows];
+        nextRows[index] = mapped;
+        return nextRows;
+      });
+
+      setSelectedSupplier((prev) => {
+        if (!prev || prev.id !== mapped.id) {
+          return prev;
+        }
+        return mapped;
+      });
+    },
+    [mapSupplierToRow]
+  );
+
+  const SupplierActionsCell = ({ row }: { row: SupplierRow }) => (
+    <div className="flex items-center gap-1">
+      <IconButton
+        icon="more_horiz"
+        variant="basicSecondary"
+        size="xs"
+        onClick={(event) => {
+          event.stopPropagation();
+          handleOpenDetail(row);
+        }}
+        title="Ver detalle del proveedor"
+      />
+      <IconButton
+        icon="edit"
+        variant="basicSecondary"
+        size="xs"
+        onClick={(event) => {
+          event.stopPropagation();
+          handleOpenUpdate(row);
+        }}
+        title="Editar proveedor"
+      />
+      <IconButton
+        icon="delete"
+        variant="basicSecondary"
+        size="xs"
+        onClick={(event) => {
+          event.stopPropagation();
+          handleOpenDelete(row);
+        }}
+        title="Eliminar proveedor"
+      />
+    </div>
+  );
+
+  const columns: DataGridColumn[] = useMemo(() => {
     return [
       {
         field: "displayName",
@@ -163,10 +207,10 @@ export const SuppliersDataGrid = () => {
         align: "center",
         sortable: false,
         filterable: false,
-        renderCell: ({ row }) => <ActionsCell row={row as SupplierRow} />,
+        renderCell: ({ row }) => <SupplierActionsCell row={row as SupplierRow} />,
       },
     ];
-  }, [handleOpenDelete, handleOpenUpdate]);
+  }, [handleOpenDelete, handleOpenDetail, handleOpenUpdate]);
 
   return (
     <>
@@ -204,6 +248,16 @@ export const SuppliersDataGrid = () => {
           setSelectedSupplier(null);
         }}
         onSuccess={() => handleSuccess("Proveedor eliminado correctamente")}
+      />
+
+      <SupplierDetailDialog
+        open={detailDialogOpen}
+        supplier={selectedSupplier}
+        onClose={() => {
+          setDetailDialogOpen(false);
+          setSelectedSupplier(null);
+        }}
+        onSupplierUpdate={handleSupplierUpdated}
       />
     </>
   );
