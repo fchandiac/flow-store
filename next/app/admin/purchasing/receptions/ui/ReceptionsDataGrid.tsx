@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import moment from 'moment';
 import DataGrid, { type DataGridColumn } from '@/app/baseComponents/DataGrid/DataGrid';
 import Badge, { type BadgeVariant } from '@/app/baseComponents/Badge/Badge';
 import { getReceptions, type ReceptionListItem } from '@/app/actions/receptions';
@@ -11,14 +12,6 @@ const currencyFormatter = new Intl.NumberFormat('es-CL', {
     currency: 'CLP',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-});
-
-const dateFormatter = new Intl.DateTimeFormat('es-CL', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
 });
 
 const statusLabels: Record<TransactionStatus, string> = {
@@ -80,7 +73,7 @@ export default function ReceptionsDataGrid() {
             minWidth: 160,
             renderCell: (params) => (
                 <div className="text-sm text-gray-600">
-                    {dateFormatter.format(new Date(params.row.createdAt))}
+                    {moment(params.row.createdAt).format('DD-MM-YYYY HH:mm')}
                 </div>
             ),
         },

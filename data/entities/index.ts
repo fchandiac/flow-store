@@ -4,12 +4,21 @@ export * from './Branch';
 export * from './Storage';
 export * from './PointOfSale';
 export * from './CashSession';
+export * from './CostCenter';
+export * from './Budget';
 
 // Entidades de actores
 export * from './Person';
 export * from './Customer';
 export * from './Supplier';
 export * from './User';
+export * from './Employee';
+export * from './ExpenseCategory';
+export * from './OperationalExpense';
+export * from './TreasuryAccount';
+export * from './AccountingAccount';
+export * from './AccountingRule';
+export * from './AccountingPeriod';
 
 // Entidades de productos
 export * from './Category';

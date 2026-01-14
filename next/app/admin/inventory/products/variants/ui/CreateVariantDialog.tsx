@@ -279,7 +279,7 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
         barcode: '',
         unitId: '',
         weight: '',
-        weightUnit: 'kg',
+        weightUnit: 'g',
     });
 
     // Estado para los valores de atributos seleccionados: { attributeId: "opción seleccionada" }
@@ -879,7 +879,7 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
             barcode: '',
             unitId: preferredUnit?.id ?? '',
             weight: '',
-            weightUnit: 'kg',
+            weightUnit: 'g',
         });
         setAttributeValues({});
         setPriceEntries([]);

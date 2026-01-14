@@ -1,87 +1,109 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import TopBar from '@/baseComponents/TopBar/TopBar';
+import type { SideBarMenuItem } from '@/baseComponents/TopBar/SideBar';
+import { PointOfSaleProvider, usePointOfSale } from './context/PointOfSaleContext';
 
 /**
- * Layout Punto de Venta con Tabs
- * Estructura de navegación para el módulo POS
+ * Layout Punto de Venta con panel dividido: buscador y carrito.
+ * Se reutiliza TopBar para conservar la experiencia del panel administrativo.
  */
 
-interface TabItem {
-    href: string;
-    label: string;
-    icon: string;
-}
-
-const tabItems: TabItem[] = [
-    { href: '/pointOfSale', label: 'Venta', icon: '🛒' },
-    { href: '/pointOfSale/cart', label: 'Carrito', icon: '📋' },
-    { href: '/pointOfSale/checkout', label: 'Pago', icon: '💳' },
+const menuItems: SideBarMenuItem[] = [
+    {
+        id: 'pos-home',
+        label: 'Venta en curso',
+        url: '/pointOfSale',
+    },
+    {
+        id: 'admin-back',
+        label: 'Ir a Admin',
+        url: '/admin',
+    },
+    {
+        id: 'logout',
+        label: 'Cerrar sesión',
+        url: '/',
+    },
 ];
+
+function PointOfSaleHeader() {
+    const {
+        branchName,
+        storageName,
+        selectedPriceListId,
+        priceLists,
+        isLoading,
+        isFetching,
+    } = usePointOfSale();
+
+    const selectedPriceList = priceLists.find((list) => list.id === selectedPriceListId);
+    const isBusy = isLoading || isFetching;
+
+    return (
+        <section className="border-b bg-white px-6 py-3">
+            <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-3">
+                    <h1 className="text-xl font-semibold text-gray-900">Punto de Venta</h1>
+                    <span className="text-sm text-muted-foreground">
+                        Gestiona las ventas en sucursal desde un solo lugar.
+                    </span>
+                    {isBusy && (
+                        <span className="material-symbols-outlined animate-spin text-base text-muted-foreground">
+                            progress_activity
+                        </span>
+                    )}
+                </div>
+                <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900">Sucursal:</span>
+                        <span data-test-id="pos-header-branch">{branchName ?? 'Determinando…'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900">Almacén:</span>
+                        <span data-test-id="pos-header-storage">{storageName ?? 'No asignado'}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="font-medium text-gray-900">Lista de precios:</span>
+                        <span data-test-id="pos-header-price-list">{selectedPriceList?.name ?? 'Sin lista'}</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <Link className="text-blue-600 hover:underline" href="/admin">
+                            Admin
+                        </Link>
+                        <Link className="text-red-600 hover:underline" href="/">
+                            Salir
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        </section>
+    );
+}
 
 export default function PointOfSaleLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
-    const pathname = usePathname();
-
     return (
-        <div className="flex flex-col h-screen bg-white">
-            {/* Top Bar */}
-            <header className="bg-white shadow-sm px-6 py-3 flex justify-between items-center">
-                <div className="flex items-center gap-4">
-                    <h1 className="text-xl font-bold text-gray-800">FlowStore</h1>
-                    <span className="text-sm text-gray-500">Punto de Venta</span>
-                </div>
-                <div className="flex items-center gap-4">
-                    <span className="text-sm text-gray-600">Sucursal: Principal</span>
-                    <span className="text-sm text-gray-600">Caja: 01</span>
-                    <Link
-                        href="/admin"
-                        className="text-sm text-blue-600 hover:underline"
-                    >
-                        Admin
-                    </Link>
-                    <Link
-                        href="/"
-                        className="text-sm text-red-600 hover:underline"
-                    >
-                        Salir
-                    </Link>
-                </div>
-            </header>
+        <PointOfSaleProvider>
+            <div className="min-h-screen bg-white">
+                <TopBar
+                    title="FlowStore POS"
+                    logoSrc="/logo.png"
+                    menuItems={menuItems}
+                    showUserButton
+                />
 
-            {/* Tab Navigation */}
-            <nav className="bg-white border-b px-6">
-                <ul className="flex gap-1">
-                    {tabItems.map((item) => {
-                        const isActive = pathname === item.href;
-                        
-                        return (
-                            <li key={item.href}>
-                                <Link
-                                    href={item.href}
-                                    className={`flex items-center gap-2 px-6 py-3 border-b-2 transition-colors ${
-                                        isActive
-                                            ? 'border-blue-500 text-blue-600 bg-blue-50'
-                                            : 'border-transparent text-gray-600 hover:text-gray-800 hover:bg-gray-50'
-                                    }`}
-                                >
-                                    <span>{item.icon}</span>
-                                    <span>{item.label}</span>
-                                </Link>
-                            </li>
-                        );
-                    })}
-                </ul>
-            </nav>
-
-            {/* Main Content */}
-            <main className="flex-1 overflow-auto">
-                {children}
-            </main>
-        </div>
+                <main className="flex min-h-screen flex-col pt-16">
+                    <PointOfSaleHeader />
+                    <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col px-6 pb-8 pt-6">
+                        {children}
+                    </div>
+                </main>
+            </div>
+        </PointOfSaleProvider>
     );
 }

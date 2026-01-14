@@ -28,6 +28,7 @@ import {
 interface SupplierOption extends SelectOption {
     value: string;
     label: string;
+    defaultPaymentTermDays?: number | null;
 }
 
 interface StorageOption extends SelectOption {
@@ -88,7 +89,39 @@ const formatVariantAttributes = (
         .join(' · ');
 };
 
-    const MIN_PRODUCT_SEARCH_LENGTH = 2;
+const MIN_PRODUCT_SEARCH_LENGTH = 2;
+
+const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+const normalizeDateInput = (value?: string | null): string | null => {
+    if (!value) return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+    if (DATE_ONLY_REGEX.test(trimmed)) {
+        return trimmed;
+    }
+    const parsed = new Date(trimmed);
+    if (Number.isNaN(parsed.getTime())) {
+        return null;
+    }
+    return parsed.toISOString().split('T')[0];
+};
+
+const formatDateOnly = (date: Date) => date.toISOString().split('T')[0];
+
+const addDaysToDateOnly = (dateString: string, days: number) => {
+    const base = DATE_ONLY_REGEX.test(dateString) ? new Date(`${dateString}T00:00:00`) : new Date(dateString);
+    if (Number.isNaN(base.getTime())) {
+        const today = new Date();
+        return formatDateOnly(today);
+    }
+    const safeDays = Number.isFinite(days) ? days : 0;
+    const result = new Date(base);
+    result.setDate(result.getDate() + safeDays);
+    return formatDateOnly(result);
+};
+
+const getTodayDate = () => formatDateOnly(new Date());
 
 interface NewReceptionPageProps {
     onSuccess?: () => void;
@@ -104,6 +137,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const [activeTaxes, setActiveTaxes] = useState<TaxOption[]>([]);
     const [taxesLoaded, setTaxesLoaded] = useState(false);
     const activeTaxesMap = useMemo(() => new Map(activeTaxes.map((tax) => [tax.id, tax])), [activeTaxes]);
+    const supplierMap = useMemo(() => new Map(suppliers.map((supplier) => [supplier.value, supplier])), [suppliers]);
     const defaultTaxIds = useMemo(() => {
         const defaults = activeTaxes.filter((tax) => tax.isDefault).map((tax) => tax.id);
         if (defaults.length > 0) {
@@ -132,12 +166,26 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
         [activeTaxesMap]
     );
 
+    const calculatePaymentDate = useCallback(
+        (baseDate: string, supplierIdValue: string | null) => {
+            const normalizedBase = normalizeDateInput(baseDate) ?? getTodayDate();
+            if (!supplierIdValue) {
+                return normalizedBase;
+            }
+            const supplier = supplierMap.get(supplierIdValue);
+            const termDaysRaw = supplier?.defaultPaymentTermDays ?? 0;
+            const termDays = Number.isFinite(termDaysRaw) ? Math.round(termDaysRaw) : 0;
+            const candidate = addDaysToDateOnly(normalizedBase, termDays);
+            return candidate < normalizedBase ? normalizedBase : candidate;
+        },
+        [supplierMap]
+    );
+
     const [supplierId, setSupplierId] = useState<string | null>(null);
     const [storageId, setStorageId] = useState<string | null>(null);
-    const [receptionDate, setReceptionDate] = useState(() => {
-        const today = new Date();
-        return today.toISOString().split('T')[0]; // YYYY-MM-DD
-    });
+    const [receptionDate, setReceptionDate] = useState(getTodayDate);
+    const [paymentDate, setPaymentDate] = useState(getTodayDate);
+    const [paymentDateTouched, setPaymentDateTouched] = useState(false);
     const [reference, setReference] = useState('');
     const [notes, setNotes] = useState('');
 
@@ -157,6 +205,33 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const searchProductTimeout = useRef<NodeJS.Timeout | null>(null);
     const latestProductSearchId = useRef(0);
 
+    const handleSupplierChange = useCallback(
+        (value: string | null) => {
+            const nextSupplierId = value ?? null;
+            setSupplierId(nextSupplierId);
+            setPaymentDateTouched(false);
+            setPaymentDate(calculatePaymentDate(receptionDate, nextSupplierId));
+        },
+        [calculatePaymentDate, receptionDate]
+    );
+
+    const handleReceptionDateChange = useCallback(
+        (value: string) => {
+            setReceptionDate(value);
+            if (!paymentDateTouched) {
+                setPaymentDate(calculatePaymentDate(value, supplierId));
+            }
+        },
+        [calculatePaymentDate, paymentDateTouched, supplierId]
+    );
+
+    useEffect(() => {
+        if (!supplierId || paymentDateTouched) {
+            return;
+        }
+        setPaymentDate(calculatePaymentDate(receptionDate, supplierId));
+    }, [calculatePaymentDate, paymentDateTouched, receptionDate, supplierId]);
+
     // Cargar datos iniciales
     const loadInitialData = useCallback(async () => {
         setTaxesLoaded(false);
@@ -173,6 +248,10 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                     id: s.id,
                     value: s.id,
                     label: s.person?.businessName ?? s.person?.firstName ?? 'Proveedor',
+                    defaultPaymentTermDays:
+                        typeof s.defaultPaymentTermDays === 'number' && Number.isFinite(s.defaultPaymentTermDays)
+                            ? Number(s.defaultPaymentTermDays)
+                            : 0,
                 }))
             );
 
@@ -262,12 +341,28 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     // Seleccionar orden de compra
     const handleSelectPurchaseOrder = (order: PurchaseOrderForReception) => {
         setSelectedPurchaseOrder(order);
-        setSupplierId(order.supplierId);
+        handleSupplierChange(order.supplierId ?? null);
         if (order.storageId) {
             setStorageId(order.storageId);
         }
 
         setShowPendingOrders(false);
+
+        const normalizedOrderDueDate = normalizeDateInput(order.paymentDueDate ?? null);
+        const baseReceptionDate = normalizeDateInput(receptionDate) ?? getTodayDate();
+        if (normalizedOrderDueDate) {
+            if (normalizedOrderDueDate < baseReceptionDate) {
+                setPaymentDate(baseReceptionDate);
+            } else {
+                setPaymentDate(normalizedOrderDueDate);
+            }
+            setPaymentDateTouched(false);
+        } else if (typeof order.paymentTermDays === 'number' && Number.isFinite(order.paymentTermDays)) {
+            const sanitizedTermDays = Math.round(order.paymentTermDays);
+            const candidate = addDaysToDateOnly(baseReceptionDate, sanitizedTermDays);
+            setPaymentDate(candidate < baseReceptionDate ? baseReceptionDate : candidate);
+            setPaymentDateTouched(false);
+        }
 
         // Cargar líneas de la orden
         const orderLines: ReceptionLine[] = order.lines.map((line) => {
@@ -455,8 +550,10 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const resetForm = async () => {
         setSupplierId(null);
         setStorageId(null);
-        const today = new Date();
-        setReceptionDate(today.toISOString().split('T')[0]);
+        const today = getTodayDate();
+        setReceptionDate(today);
+        setPaymentDate(today);
+        setPaymentDateTouched(false);
         setReference('');
         setNotes('');
         setSelectedPurchaseOrder(null);
@@ -507,6 +604,23 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
             return;
         }
 
+        const normalizedReceptionDate = normalizeDateInput(receptionDate);
+        if (!normalizedReceptionDate) {
+            error('Debe definir una fecha de recepción válida');
+            return;
+        }
+
+        const normalizedPaymentDate = normalizeDateInput(paymentDate);
+        if (!normalizedPaymentDate) {
+            error('Debe definir una fecha de pago válida');
+            return;
+        }
+
+        if (normalizedPaymentDate < normalizedReceptionDate) {
+            error('La fecha de pago debe ser igual o posterior a la fecha de recepción');
+            return;
+        }
+
         setSubmitting(true);
 
         try {
@@ -529,7 +643,8 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                 result = await createReceptionFromPurchaseOrder({
                     purchaseOrderId: selectedPurchaseOrder.id,
                     storageId,
-                    receptionDate,
+                    receptionDate: normalizedReceptionDate,
+                    paymentDueDate: normalizedPaymentDate,
                     notes,
                     lines: receptionLines,
                 });
@@ -538,7 +653,8 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                 result = await createDirectReception({
                     supplierId,
                     storageId,
-                    receptionDate,
+                    receptionDate: normalizedReceptionDate,
+                    paymentDueDate: normalizedPaymentDate,
                     reference,
                     notes,
                     lines: receptionLines,
@@ -683,6 +799,11 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                             {variantAttributes && (
                                                 <div className="text-xs text-muted-foreground">{variantAttributes}</div>
                                             )}
+                                            {product.unitOfMeasure && (
+                                                <div className="text-xs text-muted-foreground">
+                                                    Unidad: {product.unitOfMeasure}
+                                                </div>
+                                            )}
                                             <div className="mt-2 text-xs font-semibold text-foreground">
                                                 PMP {currencyFormatter.format(product.pmp)}
                                             </div>
@@ -695,37 +816,39 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                 </aside>
 
                 <section className="border border-border rounded-md bg-white p-5 space-y-5">
-                    <div className="flex flex-col gap-4">
-                        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                            <div>
-                                <h2 className="text-lg font-semibold text-foreground">Detalle de recepción</h2>
-                                <p className="text-sm text-muted-foreground">
-                                    Revisa y ajusta las cantidades antes de confirmar la recepción.
-                                </p>
-                                {selectedPurchaseOrder && (
-                                    <p className="text-xs text-muted-foreground">
-                                        Orden origen: {selectedPurchaseOrder.documentNumber}
+                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:gap-6">
+                        <div className="flex flex-col gap-3 flex-1 xl:max-w-lg">
+                            <div className="flex items-start justify-between gap-3">
+                                <div>
+                                    <h2 className="text-lg font-semibold text-foreground">Detalle de recepción</h2>
+                                    <p className="text-sm text-muted-foreground">
+                                        Revisa y ajusta las cantidades antes de confirmar la recepción.
                                     </p>
-                                )}
-                            </div>
-                            <div className="flex items-center gap-2 self-end lg:self-auto">
-                                {hasDiscrepancies && <Badge variant="warning">Con discrepancias</Badge>}
-                                <IconButton
-                                    icon="restart_alt"
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={resetForm}
-                                    ariaLabel="Reiniciar formulario"
-                                    title="Reiniciar formulario"
-                                />
+                                    {selectedPurchaseOrder && (
+                                        <p className="text-xs text-muted-foreground">
+                                            Orden origen: {selectedPurchaseOrder.documentNumber}
+                                        </p>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {hasDiscrepancies && <Badge variant="warning">Con discrepancias</Badge>}
+                                    <IconButton
+                                        icon="restart_alt"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={resetForm}
+                                        ariaLabel="Reiniciar formulario"
+                                        title="Reiniciar formulario"
+                                    />
+                                </div>
                             </div>
                         </div>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                        <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:gap-4">
                             <Select
                                 label="Proveedor *"
                                 options={suppliers}
                                 value={supplierId ?? null}
-                                onChange={(value) => setSupplierId((value as string) ?? null)}
+                                onChange={(value) => handleSupplierChange((value as string) ?? null)}
                                 placeholder="Seleccionar proveedor"
                                 disabled={!!selectedPurchaseOrder}
                             />
@@ -740,7 +863,17 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                 label="Fecha de recepción"
                                 type="date"
                                 value={receptionDate}
-                                onChange={(event) => setReceptionDate(event.target.value)}
+                                onChange={(event) => handleReceptionDateChange(event.target.value)}
+                            />
+                            <TextField
+                                label="Fecha de pago"
+                                type="date"
+                                value={paymentDate}
+                                min={receptionDate || undefined}
+                                onChange={(event) => {
+                                    setPaymentDate(event.target.value);
+                                    setPaymentDateTouched(true);
+                                }}
                             />
                             {!selectedPurchaseOrder && (
                                 <TextField
@@ -839,7 +972,10 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                                                 const raw = event.target.value ?? '';
                                                                 const parsed = Number(raw.replace(/[^\d]/g, ''));
                                                                 const sanitized = Number.isFinite(parsed) ? parsed : 0;
-                                                                updateLine(index, { unitPrice: sanitized });
+                                                                updateLine(index, {
+                                                                    unitPrice: sanitized,
+                                                                    unitCost: sanitized,
+                                                                });
                                                             }}
                                                             currencySymbol="$"
                                                             inputMode="numeric"

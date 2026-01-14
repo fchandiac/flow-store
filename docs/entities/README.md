@@ -29,6 +29,7 @@ FlowStore utiliza un modelo de **transacciones inmutables** como pilar central. 
 | Branch | [branch.md](branch.md) | Sucursal |
 | PointOfSale | [point-of-sale.md](point-of-sale.md) | Punto de venta/Terminal |
 | Storage | [storage.md](storage.md) | Almacén/Bodega |
+| CostCenter | [operating-expense.md](operating-expense.md#1-entidades-principales) | Centro de costos |
 
 ### Entidades de Actores
 | Entidad | Archivo | Descripción |
@@ -38,6 +39,7 @@ FlowStore utiliza un modelo de **transacciones inmutables** como pilar central. 
 | Permission | [permission.md](permission.md) | Permisos granulares |
 | Customer | [customer.md](customer.md) | Cliente (extensión de Person) |
 | Supplier | [supplier.md](supplier.md) | Proveedor (extensión de Person) |
+| Employee | [employee.md](employee.md) | Colaborador interno vinculado a Person |
 
 ### Entidades de Productos
 | Entidad | Archivo | Descripción |
@@ -56,6 +58,17 @@ FlowStore utiliza un modelo de **transacciones inmutables** como pilar central. 
 | Entidad | Archivo | Descripción |
 |---------|---------|-------------|
 | CashSession | [cash-session.md](cash-session.md) | Sesión/Turno de caja |
+
+### Entidades Financieras
+| Entidad | Archivo | Descripción |
+|---------|---------|-------------|
+| Budget | [operating-expense.md](operating-expense.md#1-entidades-principales) | Presupuesto por centro y período |
+| ExpenseCategory | [operating-expense.md](operating-expense.md#1-entidades-principales) | Catálogo de categorías de gasto |
+| OperationalExpense | [operating-expense.md](operating-expense.md#3-transacciones-de-gasto) | Registro maestro de gasto operativo |
+| TreasuryAccount | *(pendiente)* | Cuentas corporativas de tesorería |
+| AccountingAccount | *(pendiente)* | Plan de cuentas contable |
+| AccountingRule | *(pendiente)* | Reglas de imputación contable |
+| AccountingPeriod | *(pendiente)* | Gestión de períodos contables |
 
 ### Entidades Fiscales
 | Entidad | Archivo | Descripción |

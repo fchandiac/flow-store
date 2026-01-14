@@ -4,6 +4,8 @@ Este documento describe el modelo de gestión de gastos operativos, centros de c
 
 ---
 
+> ℹ️ **Nota de implementación:** En la capa de datos (`app/data/entities`) este dominio se materializa con las entidades `CostCenter`, `ExpenseCategory`, `Budget` y `OperationalExpense`. El documento mantiene la nomenclatura histórica (`Expense`), pero la tabla persistente para el gasto operativo se llama `operational_expenses`.
+
 ## 1. Entidades Principales
 
 ### 1.1 CostCenter (Centro de Costos)

@@ -2,14 +2,14 @@
 
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/data/db';
-import { Transaction, TransactionStatus, TransactionType } from '@/data/entities/Transaction';
+import { Transaction, TransactionStatus, TransactionType, PaymentMethod } from '@/data/entities/Transaction';
 import { TransactionLine } from '@/data/entities/TransactionLine';
 import { ProductVariant } from '@/data/entities/ProductVariant';
 import { Supplier } from '@/data/entities/Supplier';
 import { Storage } from '@/data/entities/Storage';
 import { In } from 'typeorm';
 import { getCurrentSession } from './auth.server';
-import { createTransaction } from './transactions';
+import { createTransaction, type TransactionLineDTO } from './transactions';
 
 // ==================== TYPES ====================
 
@@ -57,6 +57,7 @@ export interface CreateReceptionFromPurchaseOrderDTO {
     purchaseOrderId: string;
     storageId: string;
     receptionDate?: string;
+    paymentDueDate?: string;
     notes?: string;
     lines: ReceptionLineInput[];
 }
@@ -65,6 +66,7 @@ export interface CreateDirectReceptionDTO {
     supplierId: string;
     storageId: string;
     receptionDate?: string;
+    paymentDueDate?: string;
     reference?: string;
     notes?: string;
     lines: ReceptionLineInput[];
@@ -89,6 +91,7 @@ export interface ReceptionProductSearchItem {
     sku: string;
     pmp: number;
     attributeValues?: Record<string, string> | null;
+    unitOfMeasure?: string | null;
 }
 
 export interface ReceptionVariantDetail {
@@ -127,7 +130,9 @@ export async function searchProductsForReception(
 
     const variants = await variantRepo
         .createQueryBuilder('variant')
+        .leftJoinAndSelect('variant.unit', 'variantUnit')
         .leftJoinAndSelect('variant.product', 'product')
+        .leftJoinAndSelect('product.baseUnit', 'productBaseUnit')
         .where('variant.deletedAt IS NULL')
         .andWhere('product.deletedAt IS NULL')
         .andWhere('product.isActive = :active', { active: true })
@@ -145,6 +150,7 @@ export async function searchProductsForReception(
 
     return variants.map((variant) => {
         const product = variant.product;
+        const unitSymbol = variant.unit?.symbol ?? product?.baseUnit?.symbol ?? null;
         return {
             variantId: variant.id,
             productId: variant.productId ?? null,
@@ -152,6 +158,7 @@ export async function searchProductsForReception(
             sku: variant.sku,
             pmp: Number(variant.pmp ?? 0),
             attributeValues: variant.attributeValues ?? null,
+            unitOfMeasure: unitSymbol,
         };
     });
 }
@@ -166,7 +173,9 @@ export async function getReceptionVariantDetail(variantId: string): Promise<Rece
 
     const variant = await variantRepo
         .createQueryBuilder('variant')
+        .leftJoinAndSelect('variant.unit', 'variantUnit')
         .leftJoinAndSelect('variant.product', 'product')
+        .leftJoinAndSelect('product.baseUnit', 'productBaseUnit')
         .where('variant.id = :variantId', { variantId })
         .andWhere('variant.deletedAt IS NULL')
         .andWhere('product.deletedAt IS NULL')
@@ -182,6 +191,8 @@ export async function getReceptionVariantDetail(variantId: string): Promise<Rece
         ? variant.taxIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
         : [];
 
+    const unitSymbol = variant.unit?.symbol ?? product?.baseUnit?.symbol ?? null;
+
     return {
         variantId: variant.id,
         productId: variant.productId ?? null,
@@ -190,11 +201,59 @@ export async function getReceptionVariantDetail(variantId: string): Promise<Rece
         pmp: Number(variant.pmp ?? 0),
         baseCost: Number(variant.baseCost ?? 0),
         basePrice: Number(variant.basePrice ?? 0),
-        unitOfMeasure: variant.unit?.symbol ?? null,
+        unitOfMeasure: unitSymbol,
         attributeValues: variant.attributeValues ?? null,
         taxIds,
     };
 }
+
+const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
+
+const parseDateInput = (value?: string | null): Date | undefined => {
+    if (!value) {
+        return undefined;
+    }
+    const trimmed = value.trim();
+    if (!trimmed) {
+        return undefined;
+    }
+    const candidate = DATE_ONLY_REGEX.test(trimmed) ? `${trimmed}T00:00:00` : trimmed;
+    const parsed = new Date(candidate);
+    if (Number.isNaN(parsed.getTime())) {
+        return undefined;
+    }
+    return parsed;
+};
+
+const formatDateOnly = (date: Date): string => date.toISOString().split('T')[0];
+
+const computePaymentDueDate = (options: {
+    requestedDueDate?: string | null;
+    receptionDate?: string | null;
+    supplierTermDays?: number | null;
+}): { dueDate: string; termDaysApplied: number } => {
+    const receptionDateObj = parseDateInput(options.receptionDate) ?? new Date();
+    let dueDateObj = parseDateInput(options.requestedDueDate);
+    const termDaysRaw = options.supplierTermDays ?? 0;
+    const termDays = Number.isFinite(termDaysRaw) ? Math.round(Number(termDaysRaw)) : 0;
+
+    if (!dueDateObj) {
+        dueDateObj = new Date(receptionDateObj);
+        dueDateObj.setDate(dueDateObj.getDate() + termDays);
+    }
+
+    if (dueDateObj < receptionDateObj) {
+        dueDateObj = new Date(receptionDateObj);
+    }
+
+    const termMs = dueDateObj.getTime() - receptionDateObj.getTime();
+    const termDaysApplied = Math.max(0, Math.round(termMs / (1000 * 60 * 60 * 24)));
+
+    return {
+        dueDate: formatDateOnly(dueDateObj),
+        termDaysApplied,
+    };
+};
 
 export interface PurchaseOrderForReception {
     id: string;
@@ -206,6 +265,8 @@ export interface PurchaseOrderForReception {
     total: number;
     createdAt: string;
     status: TransactionStatus;
+    paymentDueDate?: string | null;
+    paymentTermDays?: number | null;
     lines: Array<{
         productVariantId: string;
         productName: string;
@@ -385,6 +446,15 @@ export async function searchPurchaseOrdersForReception(
         const supplier = order.supplier;
         const supplierPerson = supplier?.person;
         const orderLines = linesByOrder.get(order.id) ?? [];
+        const metadata = (order.metadata ?? null) as Record<string, any> | null;
+        const metadataPaymentDue = metadata?.paymentDueDate;
+        const paymentDueDate = metadataPaymentDue
+            ? (() => {
+                  const parsed = parseDateInput(String(metadataPaymentDue));
+                  return parsed ? formatDateOnly(parsed) : null;
+              })()
+            : null;
+        const paymentTermDays = typeof metadata?.paymentTermDays === 'number' ? metadata.paymentTermDays : null;
 
         return {
             id: order.id,
@@ -396,6 +466,8 @@ export async function searchPurchaseOrdersForReception(
             total: Number(order.total),
             createdAt: order.createdAt.toISOString(),
             status: order.status,
+            paymentDueDate,
+            paymentTermDays,
             lines: orderLines.map((line) => ({
                 productVariantId: line.productVariantId ?? '',
                 productName: line.productName,
@@ -456,6 +528,14 @@ export async function createReceptionFromPurchaseOrder(
             where: { transactionId: data.purchaseOrderId },
         });
 
+        const supplierTermDays = purchaseOrder.supplier?.defaultPaymentTermDays ?? 0;
+        const receptionDateValue = data.receptionDate ?? new Date().toISOString();
+        const { dueDate: paymentDueDate, termDaysApplied: paymentTermDaysApplied } = computePaymentDueDate({
+            requestedDueDate: data.paymentDueDate,
+            receptionDate: receptionDateValue,
+            supplierTermDays,
+        });
+
         // Calcular discrepancias
         const discrepancies: Array<{
             productName: string;
@@ -501,7 +581,7 @@ export async function createReceptionFromPurchaseOrder(
             : [];
         const variantMap = new Map(variants.map((variant) => [variant.id, variant]));
 
-        const transactionLines = data.lines.map((line) => {
+        const transactionLines: TransactionLineDTO[] = data.lines.map((line) => {
             const originalLine = originalLines.find(
                 (ol) => ol.productVariantId === line.productVariantId
             );
@@ -558,10 +638,12 @@ export async function createReceptionFromPurchaseOrder(
                           ])
                       )
                     : undefined,
-            receptionDate: data.receptionDate ?? new Date().toISOString(),
+            receptionDate: receptionDateValue,
             receptionNotes: data.notes,
             inspectionStatus: 'APPROVED',
             hasDiscrepancies: discrepancies.length > 0,
+            paymentDueDate,
+            paymentTermDays: paymentTermDaysApplied,
         };
 
         // Crear transacción de recepción
@@ -581,8 +663,65 @@ export async function createReceptionFromPurchaseOrder(
             };
         }
 
+        const receptionTransaction = result.transaction;
+
+        const existingPayment = await transactionRepo.findOne({
+            where: {
+                relatedTransactionId: receptionTransaction.id,
+                transactionType: TransactionType.PAYMENT_OUT,
+            },
+        });
+
+        if (!existingPayment) {
+            const paymentLines = transactionLines.map((line) => ({
+                ...line,
+                quantity: Number(line.quantity),
+                unitPrice: Number(line.unitPrice),
+                unitCost: Number(line.unitCost ?? line.unitPrice),
+                discountAmount: Number(line.discountAmount ?? 0),
+                discountPercentage: Number(line.discountPercentage ?? 0),
+                taxAmount: Number(line.taxAmount ?? 0),
+                taxRate: Number(line.taxRate ?? 0),
+            }));
+
+            const supplierIdForPayment = purchaseOrder.supplierId ?? null;
+
+            if (!supplierIdForPayment) {
+                console.warn('Saltando creación de obligación de pago: la orden no tiene proveedor asociado');
+            } else {
+                const paymentResult = await createTransaction({
+                    transactionType: TransactionType.PAYMENT_OUT,
+                    supplierId: supplierIdForPayment,
+                    userId: session.id,
+                    paymentMethod: PaymentMethod.CREDIT,
+                    status: TransactionStatus.DRAFT,
+                    relatedTransactionId: receptionTransaction.id,
+                    metadata: {
+                        origin: 'PURCHASE_RECEPTION',
+                        receptionTransactionId: receptionTransaction.id,
+                        receptionDocumentNumber: receptionTransaction.documentNumber,
+                        purchaseOrderId: purchaseOrder.id,
+                        paymentDueDate,
+                        paymentTermDays: paymentTermDaysApplied,
+                        paymentStatus: 'PENDING',
+                        receptionTotal: Number(receptionTransaction.total ?? 0),
+                    },
+                    notes: data.notes,
+                    lines: paymentLines,
+                });
+
+                if (!paymentResult.success) {
+                    console.error('Error creating pending payment transaction for reception:', paymentResult.error);
+                    return {
+                        success: false,
+                        error: paymentResult.error ?? 'Error al generar la obligación de pago',
+                    };
+                }
+            }
+        }
+
         // Actualizar metadata
-        await transactionRepo.update(result.transaction.id, { metadata: metadata as any });
+        await transactionRepo.update(receptionTransaction.id, { metadata: metadata as any });
 
         // Actualizar estado de la orden de compra a PARTIALLY_RECEIVED o RECEIVED
         const nextStatus = discrepancies.length > 0
@@ -591,11 +730,13 @@ export async function createReceptionFromPurchaseOrder(
 
         const orderMetadata: Record<string, any> = {
             ...(purchaseOrder.metadata ?? {}),
-            lastReceptionId: result.transaction.id,
+            lastReceptionId: receptionTransaction.id,
             lastReceptionAt: metadata.receptionDate,
             lastReceptionUserId: session.id,
             lastReceptionHasDiscrepancies: discrepancies.length > 0,
             receivedQuantitiesSnapshot: receivedQuantities,
+            paymentDueDate,
+            paymentTermDays: paymentTermDaysApplied,
         };
 
         if (discrepancies.length > 0) {
@@ -614,7 +755,7 @@ export async function createReceptionFromPurchaseOrder(
 
         return {
             success: true,
-            receptionId: result.transaction.id,
+            receptionId: receptionTransaction.id,
             discrepancies: discrepancies.length > 0 ? discrepancies : undefined,
         };
     } catch (err) {
@@ -644,6 +785,19 @@ export async function createDirectReception(
 
         const ds = await getDb();
         const variantRepo = ds.getRepository(ProductVariant);
+        const supplierRepo = ds.getRepository(Supplier);
+
+        const supplier = await supplierRepo.findOne({ where: { id: data.supplierId } });
+        if (!supplier) {
+            return { success: false, error: 'Proveedor no encontrado' };
+        }
+
+        const receptionDateValue = data.receptionDate ?? new Date().toISOString();
+        const { dueDate: paymentDueDate, termDaysApplied: paymentTermDaysApplied } = computePaymentDueDate({
+            requestedDueDate: data.paymentDueDate,
+            receptionDate: receptionDateValue,
+            supplierTermDays: supplier.defaultPaymentTermDays,
+        });
 
         // Validar productos
         const variantIds = data.lines.map((l) => l.productVariantId);
@@ -659,7 +813,7 @@ export async function createDirectReception(
         const variantMap = new Map(variants.map((v) => [v.id, v]));
 
         // Preparar líneas
-        const transactionLines = data.lines.map((line) => {
+        const transactionLines: TransactionLineDTO[] = data.lines.map((line) => {
             const variant = variantMap.get(line.productVariantId)!;
             const product = variant.product;
             const unit = variant.unit;
@@ -692,10 +846,12 @@ export async function createDirectReception(
         const metadata = {
             receptionId: `RCP-${Date.now()}`,
             isDirect: true,
-            receptionDate: data.receptionDate ?? new Date().toISOString(),
+            receptionDate: receptionDateValue,
             receptionNotes: data.notes,
             inspectionStatus: 'APPROVED',
             reason: 'DIRECT_PURCHASE',
+            paymentDueDate,
+            paymentTermDays: paymentTermDaysApplied,
         };
 
         // Crear transacción
@@ -716,15 +872,65 @@ export async function createDirectReception(
             };
         }
 
-        // Actualizar metadata
+        const receptionTransaction = result.transaction;
+
         const transactionRepo = ds.getRepository(Transaction);
-        await transactionRepo.update(result.transaction.id, { metadata: metadata as any });
+        const existingPayment = await transactionRepo.findOne({
+            where: {
+                relatedTransactionId: receptionTransaction.id,
+                transactionType: TransactionType.PAYMENT_OUT,
+            },
+        });
+
+        if (!existingPayment) {
+            const paymentLines = transactionLines.map((line) => ({
+                ...line,
+                quantity: Number(line.quantity),
+                unitPrice: Number(line.unitPrice),
+                unitCost: Number(line.unitCost ?? line.unitPrice),
+                discountAmount: Number(line.discountAmount ?? 0),
+                discountPercentage: Number(line.discountPercentage ?? 0),
+                taxAmount: Number(line.taxAmount ?? 0),
+                taxRate: Number(line.taxRate ?? 0),
+            }));
+
+            const paymentResult = await createTransaction({
+                transactionType: TransactionType.PAYMENT_OUT,
+                supplierId: data.supplierId,
+                userId: session.id,
+                paymentMethod: PaymentMethod.CREDIT,
+                status: TransactionStatus.DRAFT,
+                relatedTransactionId: receptionTransaction.id,
+                metadata: {
+                    origin: 'DIRECT_RECEPTION',
+                    receptionTransactionId: receptionTransaction.id,
+                    receptionDocumentNumber: receptionTransaction.documentNumber,
+                    paymentDueDate,
+                    paymentTermDays: paymentTermDaysApplied,
+                    paymentStatus: 'PENDING',
+                    receptionTotal: Number(receptionTransaction.total ?? 0),
+                },
+                notes: data.notes,
+                lines: paymentLines,
+            });
+
+            if (!paymentResult.success) {
+                console.error('Error creating pending payment transaction for direct reception:', paymentResult.error);
+                return {
+                    success: false,
+                    error: paymentResult.error ?? 'Error al generar la obligación de pago',
+                };
+            }
+        }
+
+        // Actualizar metadata
+        await transactionRepo.update(receptionTransaction.id, { metadata: metadata as any });
 
         revalidatePath('/admin/purchasing/receptions');
 
         return {
             success: true,
-            receptionId: result.transaction.id,
+            receptionId: receptionTransaction.id,
         };
     } catch (err) {
         console.error('Error creating direct reception:', err);

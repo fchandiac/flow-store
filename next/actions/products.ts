@@ -105,6 +105,8 @@ export interface ProductWithDefaultVariant {
     baseCost?: number;
     unitId?: string;
     unitOfMeasure?: string;
+    weight?: number;
+    weightUnit?: string;
     trackInventory?: boolean;
     allowNegativeStock?: boolean;
     variantCount: number;

@@ -1,15 +1,17 @@
 'use client';
 
-/**
- * Punto de Venta
- * Ruta: /pointOfSale
- * Interfaz principal de punto de venta con búsqueda de productos y carrito
- */
+import ProductSearch from './ui/ProductSearch';
+import CartPanel from './ui/CartPanel';
+import PaymentDialog from './ui/PaymentDialog';
+
 export default function PointOfSalePage() {
     return (
-        <div className="h-full flex">
-            <h1 className="text-2xl font-bold">Punto de Venta</h1>
-            {/* TODO: Implementar interfaz POS con búsqueda y carrito */}
+        <div className="flex h-full flex-col gap-6">
+            <div className="grid flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_420px]">
+                <ProductSearch />
+                <CartPanel />
+            </div>
+            <PaymentDialog />
         </div>
     );
 }

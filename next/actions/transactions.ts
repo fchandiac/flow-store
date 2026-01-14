@@ -30,7 +30,7 @@ interface TransactionsResponse {
     total: number;
 }
 
-interface TransactionLineDTO {
+export interface TransactionLineDTO {
     productId: string;
     productVariantId?: string;
     productName: string;
@@ -50,7 +50,7 @@ interface TransactionLineDTO {
     notes?: string;
 }
 
-interface CreateTransactionDTO {
+export interface CreateTransactionDTO {
     transactionType: TransactionType;
     branchId?: string;
     pointOfSaleId?: string;
@@ -66,6 +66,8 @@ interface CreateTransactionDTO {
     notes?: string;
     lines: TransactionLineDTO[];
     status?: TransactionStatus;
+    relatedTransactionId?: string;
+    metadata?: Record<string, any> | null;
 }
 
 interface TransactionResult {
@@ -305,6 +307,10 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
             documentNumber = `${prefix}${String(lastNumber + 1).padStart(8, '0')}`;
         }
         
+        const normalizedMetadata = data.metadata
+            ? JSON.parse(JSON.stringify(data.metadata))
+            : undefined;
+
         // Crear transacción
         const transaction = transactionRepo.create({
             transactionType: data.transactionType,
@@ -324,7 +330,9 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
             discountAmount: totalDiscount,
             taxAmount: totalTax,
             total,
-            notes: data.notes
+            notes: data.notes,
+            relatedTransactionId: data.relatedTransactionId,
+            metadata: normalizedMetadata,
         });
         
         await transactionRepo.save(transaction);

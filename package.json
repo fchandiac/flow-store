@@ -5,7 +5,7 @@
   "scripts": {
     "build:next": "next build next",
     "copy:standalone": "mkdir -p next/.next/standalone/.next && cp -R next/public next/.next/standalone/public && cp -R next/.next/static next/.next/standalone/.next/static",
-    "build:electron": "node -e \"try{require('fs').rmSync('.next/types',{recursive:true,force:true});}catch(e){}\" && tsc && mkdir -p dist && cp -R assets dist/",
+    "build:electron": "node -e \"const fs=require('fs');['.next','next/.next'].forEach((dir)=>{try{fs.rmSync(dir,{recursive:true,force:true});}catch(_) {}});\" && tsc && mkdir -p dist && cp -R assets dist/",
     "build": "npm run build:next && npm run copy:standalone && npm run build:electron",
     "start": "npm run build && electron dist/src/main.prod.js",
     "start:prod": "NODE_ENV=production npm run build && NODE_ENV=production electron dist/src/main.prod.js",
