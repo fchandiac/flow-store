@@ -8,8 +8,8 @@ import { useAlert } from "@/app/globalstate/alert/useAlert";
 
 declare global {
   interface Window {
-    electronAPI: {
-      closeApp: () => Promise<void>;
+    electronAPI?: {
+      closeApp?: () => Promise<void>;
       openLocationSettings?: () => Promise<void>;
       printHtml?: (payload: {
         html: string;
@@ -17,6 +17,7 @@ declare global {
         deviceName?: string;
         printBackground?: boolean;
       }) => Promise<{ success: boolean; error?: string } | void>;
+      openCustomerDisplay?: () => Promise<void> | void;
     };
   }
 }
@@ -81,7 +82,7 @@ export const UpdateDataBaseDialog: React.FC<UpdateDataBaseDialogProps> = ({ open
       const timer = setTimeout(() => setSecondsLeft(secondsLeft - 1), 1000);
       return () => clearTimeout(timer);
     } else if (showClosingMessage && secondsLeft === 0) {
-      if (window.electronAPI) {
+      if (window.electronAPI?.closeApp) {
         // Producción: cerrar via IPC
         window.electronAPI.closeApp();
       } else {

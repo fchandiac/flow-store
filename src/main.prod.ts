@@ -2,7 +2,12 @@ import { app, BrowserWindow, dialog, ipcMain, globalShortcut } from 'electron';
 import path from 'path';
 import fs from 'fs';
 import { getAvailablePort, waitForNextReady, killChildProcess } from './utils/processUtils';
-import { createSplashWindow, createMainWindowWithPort } from './utils/windowUtils';
+import {
+  createSplashWindow,
+  createMainWindowWithPort,
+  openCustomerDisplayWindow,
+  closeCustomerDisplayWindow,
+} from './utils/windowUtils';
 import { createAppMenu } from './utils/appUtils';
 import { closeAppHandler, openLocationSettingsHandler, silentPrintHandler } from './utils/ipcHandlers';
 import { fork, ChildProcess } from 'child_process';
@@ -15,6 +20,7 @@ if (require('electron-squirrel-startup')) {
 let mainWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
 let nextServerProcess: ChildProcess | null = null;
+let activePort: number | null = null;
 
 // Ensure stable userData path (Option A) - store profile in user's home
 const fixedUserData = path.join(app.getPath('home'), '.flow-store');
@@ -84,6 +90,7 @@ console.warn = (...args) => {
 function killNextServer() {
   killChildProcess(nextServerProcess);
   nextServerProcess = null;
+  closeCustomerDisplayWindow();
 }
 
 app.on('ready', async () => {
@@ -129,6 +136,7 @@ app.on('ready', async () => {
     port = await getAvailablePort(3000, 3010);
   }
   
+  activePort = port;
   process.env.NEXTAUTH_URL = `http://localhost:${port}`;
   process.env.NEXTAUTH_SECRET = 'super-secret-key-for-production-at-least-32-chars-long';
 
@@ -136,6 +144,12 @@ app.on('ready', async () => {
   ipcMain.handle('closeApp', closeAppHandler);
   ipcMain.handle('openLocationSettings', openLocationSettingsHandler);
   ipcMain.handle('print-html', silentPrintHandler);
+  ipcMain.handle('openCustomerDisplay', async () => {
+    if (activePort == null) {
+      throw new Error('El punto de venta aún no está disponible.');
+    }
+    openCustomerDisplayWindow(activePort);
+  });
 
   const splashMetadata = {
     appName: 'BerriesApp',
@@ -250,6 +264,7 @@ app.on('ready', async () => {
     mainWindow?.once('closed', () => {
       mainWindow = null;
       globalShortcut.unregisterAll();
+      closeCustomerDisplayWindow();
     });
   } else {
     console.error(`Next.js Standalone no respondió en el puerto ${port}`);

@@ -22,6 +22,12 @@ import { PriceListItem } from "./entities/PriceListItem";
 import { Tax } from "./entities/Tax";
 import { Transaction } from "./entities/Transaction";
 import { TransactionLine } from "./entities/TransactionLine";
+import { CostCenter } from "./entities/CostCenter";
+import { Budget } from "./entities/Budget";
+import { AccountingAccount } from "./entities/AccountingAccount";
+import { AccountingRule } from "./entities/AccountingRule";
+import { ExpenseCategory } from "./entities/ExpenseCategory";
+import { AccountingPeriod } from "./entities/AccountingPeriod";
 import { AuditSubscriber } from "./subscribers/AuditSubscriber";
 import fs from "fs";
 import path from "path";
@@ -141,7 +147,9 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
           Customer, Supplier,
           Category, Product, ProductVariant, Unit, Attribute,
           PriceList, PriceListItem, Tax,
-          Transaction, TransactionLine
+          Transaction, TransactionLine,
+          CostCenter, Budget,
+          AccountingAccount, AccountingRule, ExpenseCategory, AccountingPeriod
         ],
         subscribers: [AuditSubscriber],
         migrations: [],

@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef } from 'react';
 import Link from 'next/link';
 import TopBar from '@/baseComponents/TopBar/TopBar';
 import type { SideBarMenuItem } from '@/baseComponents/TopBar/SideBar';
@@ -82,11 +83,57 @@ function PointOfSaleHeader() {
     );
 }
 
+type CustomerDisplayHandle = {
+    close: () => void;
+    closed?: boolean;
+};
+
 export default function PointOfSaleLayout({
     children,
 }: {
     children: React.ReactNode;
 }) {
+    const fallbackWindowRef = useRef<CustomerDisplayHandle | null>(null);
+
+    useEffect(() => {
+        if (typeof window === 'undefined') {
+            return undefined;
+        }
+
+        const openDisplayWindow = async () => {
+            try {
+                if (window.electronAPI?.openCustomerDisplay) {
+                    await window.electronAPI.openCustomerDisplay();
+                    return;
+                }
+
+                const targetUrl = `${window.location.origin}/customerDisplay`;
+                const popup = window.open(
+                    targetUrl,
+                    'FlowStoreCustomerDisplay',
+                    'width=1280,height=800,noopener,noreferrer'
+                );
+                if (popup) {
+                    fallbackWindowRef.current = popup as unknown as CustomerDisplayHandle;
+                }
+            } catch (error) {
+                console.warn('[PointOfSaleLayout] No fue posible abrir la pantalla de cliente:', error);
+            }
+        };
+
+        void openDisplayWindow();
+
+        return () => {
+            if (!window.electronAPI?.openCustomerDisplay) {
+                const popup = fallbackWindowRef.current;
+                if (popup && typeof popup.close === 'function' && !popup.closed) {
+                    popup.close();
+                }
+            }
+            fallbackWindowRef.current = null;
+        };
+    }, []);
+
     return (
         <PointOfSaleProvider>
             <div className="min-h-screen bg-white">

@@ -1,7 +1,12 @@
 import { app, BrowserWindow, ipcMain, globalShortcut } from 'electron';
 import path from 'path';
 import { getAvailablePort, waitForNextReady, killChildProcess } from './utils/processUtils';
-import { createSplashWindow, createMainWindowWithPort } from './utils/windowUtils';
+import {
+  createSplashWindow,
+  createMainWindowWithPort,
+  openCustomerDisplayWindow,
+  closeCustomerDisplayWindow,
+} from './utils/windowUtils';
 import { createAppMenu } from './utils/appUtils';
 import { closeAppHandler, openLocationSettingsHandler, silentPrintHandler } from './utils/ipcHandlers';
 import { spawn, ChildProcess } from 'child_process';
@@ -18,10 +23,12 @@ console.log('[main.dev] Cookies will be stored in:', cookiesPath);
 let mainWindow: BrowserWindow | null = null;
 let splashWindow: BrowserWindow | null = null;
 let nextDevProcess: ChildProcess | null = null;
+let activePort: number | null = null;
 
 function killNextDev() {
   killChildProcess(nextDevProcess);
   nextDevProcess = null;
+  closeCustomerDisplayWindow();
 }
 
 app.on('ready', async () => {
@@ -40,11 +47,18 @@ app.on('ready', async () => {
   ipcMain.handle('closeApp', closeAppHandler);
   ipcMain.handle('openLocationSettings', openLocationSettingsHandler);
   ipcMain.handle('print-html', silentPrintHandler);
+  ipcMain.handle('openCustomerDisplay', async () => {
+    if (activePort == null) {
+      throw new Error('El punto de venta aún no está disponible.');
+    }
+    openCustomerDisplayWindow(activePort);
+  });
 
   // En modo test, ir directamente a la aplicación sin splash screen
   if (process.env.NODE_ENV === 'test') {
     console.log('[main.dev] Test mode detected, skipping splash screen...');
     const port = await getAvailablePort(3000, 3010);
+    activePort = port;
     
     // Inicia Next.js en el puerto encontrado
     const nextPath = path.resolve(__dirname, '..', '..', 'node_modules', 'next', 'dist', 'bin', 'next');
@@ -97,6 +111,7 @@ app.on('ready', async () => {
     splashWindow = createSplashWindow(splashMetadata);
     const startTime = Date.now();
     const port = await getAvailablePort(3000, 3010);
+    activePort = port;
   
   // Inicia Next.js en el puerto encontrado
   // Usamos node directamente para ejecutar el script de next para mejor control del proceso
@@ -145,6 +160,7 @@ app.on('ready', async () => {
     mainWindow?.once('closed', () => {
       mainWindow = null;
       globalShortcut.unregisterAll();
+      closeCustomerDisplayWindow();
     });
   } else {
     console.error(`Next.js no respondió en el puerto ${port}`);
@@ -160,6 +176,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', async () => {
   // NO limpiar sesión - permitir que el usuario permanezca logueado entre reinicios
   killNextDev();
+  closeCustomerDisplayWindow();
 });
 
 // Manejo explícito de señales para asegurar limpieza

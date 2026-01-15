@@ -11,6 +11,8 @@ function getIconPath(): string {
   }
 }
 
+let customerDisplayWindow: BrowserWindow | null = null;
+
 /**
  * Crea la ventana splash para mostrar mientras Next.js inicia.
  * @param metadata Metadata opcional para personalizar el splash screen
@@ -108,4 +110,55 @@ export function createMainWindowWithPort(port: number): BrowserWindow {
     // No-op: la instancia se maneja en el archivo principal
   });
   return mainWindow;
+}
+
+export function openCustomerDisplayWindow(port: number): BrowserWindow {
+  if (customerDisplayWindow && !customerDisplayWindow.isDestroyed()) {
+    customerDisplayWindow.focus();
+    return customerDisplayWindow;
+  }
+
+  customerDisplayWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 960,
+    minHeight: 600,
+    show: false,
+    title: 'Resumen de compra',
+    icon: getIconPath(),
+    autoHideMenuBar: true,
+    backgroundColor: '#0f172a',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, 'preload.js'),
+      partition: 'persist:flowstore',
+    },
+  });
+
+  customerDisplayWindow.loadURL(`http://localhost:${port}/customerDisplay`).catch((error) => {
+    console.error('[windowUtils] Error abriendo ventana de resumen POS:', error);
+  });
+
+  customerDisplayWindow.once('ready-to-show', () => {
+    customerDisplayWindow?.show();
+    customerDisplayWindow?.maximize();
+  });
+
+  customerDisplayWindow.on('closed', () => {
+    customerDisplayWindow = null;
+  });
+
+  return customerDisplayWindow;
+}
+
+export function closeCustomerDisplayWindow(): void {
+  if (customerDisplayWindow && !customerDisplayWindow.isDestroyed()) {
+    customerDisplayWindow.close();
+  }
+  customerDisplayWindow = null;
+}
+
+export function getCustomerDisplayWindow(): BrowserWindow | null {
+  return customerDisplayWindow;
 }

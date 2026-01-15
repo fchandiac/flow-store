@@ -7,6 +7,7 @@ import {
     useEffect,
     useMemo,
     useReducer,
+    useRef,
     useState,
     useTransition,
 } from 'react';
@@ -29,6 +30,39 @@ export interface POSPaymentEntry {
     amount: number;
     reference?: string;
 }
+
+const roundToPeso = (value: number): number => {
+    if (!Number.isFinite(value)) {
+        return 0;
+    }
+    return Math.round(value);
+};
+
+const roundToNearestTen = (value: number): number => {
+    const pesos = roundToPeso(value);
+    return Math.round(pesos / 10) * 10;
+};
+
+interface POSBroadcastPayload {
+    cart: POSCartItem[];
+    totals: {
+        subtotal: number;
+        total: number;
+        taxAmount: number;
+        hasTaxesApplied: boolean;
+    };
+    branchName: string | null;
+    storageName: string | null;
+    selectedCustomer: POSCustomerSummary | null;
+    timestamp: number;
+}
+
+type POSBroadcastMessage =
+    | { type: 'REQUEST_STATE'; source?: 'pos-display' | 'pos-main' }
+    | { type: 'STATE_UPDATE'; source: 'pos-main'; payload: POSBroadcastPayload }
+    | { type: 'POS_SHUTDOWN'; source: 'pos-main' };
+
+const POS_BROADCAST_CHANNEL = 'flowstore-pos-cart-channel';
 
 type CartAction =
     | { type: 'ADD_ITEM'; item: POSProductListItem }
@@ -154,6 +188,8 @@ export function PointOfSaleProvider({ children }: { children: React.ReactNode })
     const [isPaymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const [selectedCustomer, setSelectedCustomerState] = useState<POSCustomerSummary | null>(null);
     const [paymentAllocations, setPaymentAllocations] = useState<POSPaymentEntry[]>([]);
+    const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
+    const latestBroadcastRef = useRef<POSBroadcastPayload | null>(null);
 
     useEffect(() => {
         startTransition(async () => {
@@ -213,31 +249,46 @@ export function PointOfSaleProvider({ children }: { children: React.ReactNode })
     }, []);
 
     const totals = useMemo(() => {
-        return cart.reduce(
+        const aggregated = cart.reduce(
             (acc, item) => {
-                const lineSubtotal = item.quantity * item.netPrice;
-                const lineTotal = item.applyTaxes ? item.quantity * item.grossPrice : lineSubtotal;
+                const lineSubtotalRaw = item.quantity * item.netPrice;
+                const lineTotalRaw = item.applyTaxes ? item.quantity * item.grossPrice : lineSubtotalRaw;
+                const lineSubtotal = roundToPeso(lineSubtotalRaw);
+                const lineTotal = roundToPeso(lineTotalRaw);
+                const lineTax = Math.max(lineTotal - lineSubtotal, 0);
                 return {
                     subtotal: acc.subtotal + lineSubtotal,
                     total: acc.total + lineTotal,
-                    taxAmount: acc.taxAmount + Math.max(lineTotal - lineSubtotal, 0),
+                    taxAmount: acc.taxAmount + lineTax,
                     hasTaxesApplied: acc.hasTaxesApplied || item.applyTaxes,
                 };
             },
             { subtotal: 0, total: 0, taxAmount: 0, hasTaxesApplied: false }
         );
+
+        const subtotal = roundToNearestTen(aggregated.subtotal);
+        const total = roundToNearestTen(aggregated.total);
+        const hasTaxesApplied = aggregated.hasTaxesApplied;
+        const taxAmount = hasTaxesApplied ? Math.max(total - subtotal, 0) : 0;
+
+        return {
+            subtotal,
+            total,
+            taxAmount,
+            hasTaxesApplied,
+        };
     }, [cart]);
 
     const paymentSummary = useMemo(() => {
         const paid = paymentAllocations.reduce((acc, entry) => acc + entry.amount, 0);
-        const due = totals.total;
+        const due = roundToNearestTen(totals.total);
         const remaining = Math.max(due - paid, 0);
         const change = paid > due ? paid - due : 0;
         return { due, paid, remaining, change };
     }, [paymentAllocations, totals.total]);
 
     const openPaymentDialog = useCallback(() => {
-        setPaymentAllocations([createPaymentEntry(PaymentMethod.CASH, totals.total)]);
+        setPaymentAllocations([createPaymentEntry(PaymentMethod.CASH, roundToNearestTen(totals.total))]);
         setPaymentDialogOpen(true);
     }, [totals.total]);
 
@@ -253,7 +304,8 @@ export function PointOfSaleProvider({ children }: { children: React.ReactNode })
         (method?: PaymentMethod) => {
             setPaymentAllocations((entries) => {
                 const paid = entries.reduce((acc, entry) => acc + entry.amount, 0);
-                const suggestedAmount = Math.max(totals.total - paid, 0);
+                const remaining = Math.max(totals.total - paid, 0);
+                const suggestedAmount = remaining > 0 ? roundToNearestTen(remaining) : 0;
                 return [...entries, createPaymentEntry(method ?? PaymentMethod.CASH, suggestedAmount)];
             });
         },
@@ -294,15 +346,19 @@ export function PointOfSaleProvider({ children }: { children: React.ReactNode })
         });
     }, []);
 
+    const branchName = providerState.context?.branch?.name
+        ?? providerState.context?.storage?.branchName
+        ?? null;
+
+    const storageName = providerState.context?.storage?.name ?? null;
+
     const value: POSContextValue = {
         isLoading: providerState.isLoading,
         isFetching: isFetching,
         error: providerState.error,
         context: providerState.context,
-        branchName: providerState.context?.branch?.name
-            ?? providerState.context?.storage?.branchName
-            ?? null,
-        storageName: providerState.context?.storage?.name ?? null,
+        branchName,
+        storageName,
         priceLists: providerState.context?.priceLists ?? [],
         selectedPriceListId: providerState.selectedPriceListId,
         setSelectedPriceListId,
@@ -324,6 +380,74 @@ export function PointOfSaleProvider({ children }: { children: React.ReactNode })
         removePaymentAllocation,
         paymentSummary,
     };
+
+    useEffect(() => {
+        if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') {
+            return undefined;
+        }
+
+        const channel = new BroadcastChannel(POS_BROADCAST_CHANNEL);
+        broadcastChannelRef.current = channel;
+
+        const handleMessage = (event: MessageEvent<POSBroadcastMessage>) => {
+            const data = event.data;
+            if (!data || typeof data !== 'object') {
+                return;
+            }
+
+            if (data.type === 'REQUEST_STATE') {
+                const snapshot = latestBroadcastRef.current;
+                if (snapshot) {
+                    channel.postMessage({
+                        type: 'STATE_UPDATE',
+                        source: 'pos-main',
+                        payload: snapshot,
+                    });
+                }
+            }
+        };
+
+        channel.addEventListener('message', handleMessage);
+
+        return () => {
+            try {
+                channel.postMessage({ type: 'POS_SHUTDOWN', source: 'pos-main' });
+            } catch (error) {
+                console.warn('[PointOfSaleProvider] No fue posible notificar cierre POS:', error);
+            }
+            channel.removeEventListener('message', handleMessage);
+            channel.close();
+            broadcastChannelRef.current = null;
+            latestBroadcastRef.current = null;
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!broadcastChannelRef.current) {
+            return;
+        }
+
+        const snapshot: POSBroadcastPayload = {
+            cart,
+            totals,
+            branchName,
+            storageName,
+            selectedCustomer,
+            timestamp: Date.now(),
+        };
+
+        latestBroadcastRef.current = snapshot;
+
+        try {
+            broadcastChannelRef.current.postMessage({
+                type: 'STATE_UPDATE',
+                source: 'pos-main',
+                payload: snapshot,
+            });
+        } catch (error) {
+            console.warn('[PointOfSaleProvider] Error emitiendo actualización POS:', error);
+        }
+    }, [branchName, storageName, cart, totals, selectedCustomer]);
 
     return <PointOfSaleContext.Provider value={value}>{children}</PointOfSaleContext.Provider>;
 }

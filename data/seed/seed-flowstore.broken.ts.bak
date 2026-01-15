@@ -1,0 +1,3134 @@
+    const transactionRepo = db.getRepository(Transaction);
+    const transactionLineRepo = db.getRepository(TransactionLine);
+    const ivaTax = taxesByCode['IVA-19'];
+    const defaultUnit = unitsBySymbol.get('un');
+
+    const getVariantWithRelations = async (sku: string): Promise<ProductVariant | null> => {
+      const cached = variantBySku[sku];
+      if (cached && cached.product && cached.unit) {
+        return cached;
+      }
+
+      const loaded = await variantRepo.findOne({
+        where: { sku },
+        relations: ['product', 'unit'],
+        withDeleted: true,
+      });
+
+      if (loaded) {
+        variantBySku[sku] = loaded;
+      }
+
+      return loaded;
+    };
+
+    const describeVariant = (variant: ProductVariant | null | undefined): string | undefined => {
+      if (!variant || !variant.attributeValues) {
+        return undefined;
+      }
+
+      const entries = Object.entries(variant.attributeValues)
+        .map(([attributeId, value]) => {
+          const attributeName = attributeNameById[attributeId] ?? attributeId;
+          return `${attributeName}: ${value}`;
+        });
+
+      return entries.length > 0 ? entries.join(' | ') : undefined;
+    };
+
+    const getTaxesForCodes = (taxCodes?: string[]): Tax[] => {
+      if (!taxCodes || taxCodes.length === 0) {
+        return ivaTax ? [ivaTax] : [];
+      }
+
+      return taxCodes
+        .map((code) => taxesByCode[code])
+        .filter((tax): tax is Tax => Boolean(tax));
+    };
+
+    type PurchaseTransactionSeed = {
+      documentNumber: string;
+      supplierRef: string;
+      variantSku: string;
+      branchRef: string;
+      storageRef: string;
+      quantity: number;
+      unitCost: number;
+      taxCodes?: string[];
+      notes: string;
+    };
+
+    const purchaseSeeds: PurchaseTransactionSeed[] = [
+      {
+        documentNumber: 'OC-2025-0001',
+        supplierRef: 'SUPPLIER_METALURGICA',
+        variantSku: 'COL-VEN-ORO14-45',
+        branchRef: 'MALL_PLAZA',
+        storageRef: 'MALL_VITRINA',
+        quantity: 5,
+        unitCost: 220_000,
+        taxCodes: ['IVA-19'],
+        notes: 'Compra mayorista de cadenas venecianas para reponer stock.',
+      },
+      {
+        documentNumber: 'OC-2025-0002',
+        supplierRef: 'SUPPLIER_TALLER_SILVA',
+        variantSku: 'PUL-ESL-ORO18-17',
+        branchRef: 'LAS_CONDES',
+        storageRef: 'LAS_CONDES_TALLER',
+        quantity: 4,
+        unitCost: 185_000,
+        taxCodes: ['IVA-19'],
+        notes: 'Pulseras personalizadas para pedidos especiales.',
+      },
+      {
+        documentNumber: 'OC-2025-0003',
+        supplierRef: 'SUPPLIER_GEMAS_SUR',
+        variantSku: 'ARE-TOP-AZUL-ORO',
+        branchRef: 'LAS_CONDES',
+        storageRef: 'LAS_CONDES_TALLER',
+        quantity: 10,
+        unitCost: 150_000,
+        taxCodes: ['IVA-19'],
+        notes: 'Compra de topacios azules corte pera.',
+      },
+      {
+        documentNumber: 'OC-2025-0004',
+        supplierRef: 'SUPPLIER_LUMINOSA',
+        variantSku: 'REL-MILANO-ACERO',
+        branchRef: 'SANTIAGO_CENTRO',
+        storageRef: 'CENTRO_RESPALDO',
+        quantity: 6,
+        unitCost: 215_000,
+        taxCodes: ['IVA-19'],
+        notes: 'Relojes Milano para vitrina centro.',
+      },
+      {
+        documentNumber: 'OC-2025-0005',
+        supplierRef: 'SUPPLIER_PATAGONIA',
+        variantSku: 'COL-PER-AUS-45',
+        branchRef: 'VINA_DEL_MAR',
+        storageRef: 'VINA_BODEGA',
+        quantity: 8,
+        unitCost: 250_000,
+        taxCodes: ['IVA-19'],
+        notes: 'Collares de perla austral temporada verano.',
+      },
+    ];
+
+    for (const seed of purchaseSeeds) {
+      const existing = await transactionRepo.findOne({ where: { documentNumber: seed.documentNumber } });
+      if (existing) {
+        console.log(`   ⚠ Compra ya existe: ${seed.documentNumber}`);
+        continue;
+      }
+
+      const supplier = suppliersByRef[seed.supplierRef];
+      const variant = await getVariantWithRelations(seed.variantSku);
+      const branchEntity = branchesByRef[seed.branchRef];
+      const storageEntity = storagesByRef[seed.storageRef];
+
+      if (!supplier || !variant || !branchEntity || !storageEntity || !variant.product) {
+        console.log(`   ✗ No se pudo crear la compra ${seed.documentNumber}: faltan datos relacionados.`);
+        continue;
+      }
+
+      const taxes = getTaxesForCodes(seed.taxCodes);
+      const totalTaxRate = taxes.reduce((sum, tax) => sum + Number(tax.rate ?? 0), 0);
+      const subtotal = roundCurrency(seed.unitCost * seed.quantity);
+      const taxAmount = roundCurrency(subtotal * (totalTaxRate / 100));
+      const total = roundCurrency(subtotal + taxAmount);
+
+      let purchaseTransaction = transactionRepo.create({
+        id: uuidv4(),
+        documentNumber: seed.documentNumber,
+        transactionType: TransactionType.PURCHASE,
+        status: TransactionStatus.CONFIRMED,
+        branchId: branchEntity.id,
+        storageId: storageEntity.id,
+        supplierId: supplier.id,
+        userId: adminUser.id,
+        subtotal,
+        taxAmount,
+        discountAmount: 0,
+        total,
+        paymentMethod: PaymentMethod.TRANSFER,
+        amountPaid: total,
+        changeAmount: 0,
+        metadata: {
+          source: 'seed-flowstore',
+          supplierRef: seed.supplierRef,
+          storageRef: seed.storageRef,
+        },
+        notes: seed.notes,
+      });
+
+      purchaseTransaction = await transactionRepo.save(purchaseTransaction);
+
+      const variantUnit = variant.unit ?? defaultUnit;
+      const primaryTax = taxes[0] ?? null;
+      const purchaseLine = transactionLineRepo.create({
+        id: uuidv4(),
+        transactionId: purchaseTransaction.id,
+        productId: variant.productId!,
+        productVariantId: variant.id,
+        unitId: variant.unitId,
+        taxId: primaryTax?.id ?? null,
+        lineNumber: 1,
+        productName: variant.product.name,
+        productSku: variant.sku,
+        variantName: describeVariant(variant),
+        quantity: seed.quantity,
+        quantityInBase: seed.quantity,
+        unitOfMeasure: variantUnit?.symbol ?? 'un',
+        unitConversionFactor: 1,
+        unitPrice: seed.unitCost,
+        unitCost: seed.unitCost,
+        discountPercentage: 0,
+        discountAmount: 0,
+        taxRate: primaryTax?.rate ?? 0,
+        taxAmount,
+        subtotal,
+        total,
+        notes: seed.notes,
+      });
+
+      await transactionLineRepo.save(purchaseLine);
+      transactionsCreated.push(seed.documentNumber);
+      console.log(`   ✓ Compra registrada: ${seed.documentNumber}`);
+    }
+
+    type SaleTransactionSeed = {
+      documentNumber: string;
+      customerRef: string;
+      variantSku: string;
+      branchRef: string;
+      pointOfSaleRef?: string;
+      cashSessionRef?: string;
+      quantity: number;
+      grossUnitPrice: number;
+      paymentMethod: PaymentMethod;
+      priceListKey: PriceListKey;
+      taxCodes?: string[];
+      notes: string;
+    };
+
+    const saleSeeds: SaleTransactionSeed[] = [
+      {
+        documentNumber: 'NV-2025-1001',
+        customerRef: 'CLIENTE_CAROLINA',
+        variantSku: 'ANI-SOL-ORO18-T6',
+        branchRef: 'MALL_PLAZA',
+        pointOfSaleRef: 'POS_MALL_CAJA',
+        cashSessionRef: 'SESSION_MALL_OPEN',
+        quantity: 1,
+        grossUnitPrice: 1_890_000,
+        paymentMethod: PaymentMethod.CASH,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Venta presencial de anillo solitario clásico.',
+      },
+      {
+        documentNumber: 'NV-2025-1002',
+        customerRef: 'CLIENTE_LUIS',
+        variantSku: 'ARE-PER-ORO18',
+        branchRef: 'MALL_PLAZA',
+        pointOfSaleRef: 'POS_MALL_CAJA',
+        cashSessionRef: 'SESSION_MALL_OPEN',
+        quantity: 2,
+        grossUnitPrice: 245_000,
+        paymentMethod: PaymentMethod.CREDIT_CARD,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Venta con tarjeta de crédito de aros en oro 18K.',
+      },
+      {
+        documentNumber: 'NV-2025-1003',
+        customerRef: 'CLIENTE_ANDREA',
+        variantSku: 'PUL-ESL-ORO18-17',
+        branchRef: 'LAS_CONDES',
+        pointOfSaleRef: 'POS_LAS_CONDES',
+        cashSessionRef: 'SESSION_LAS_CONDES',
+        quantity: 1,
+        grossUnitPrice: 420_000,
+        paymentMethod: PaymentMethod.TRANSFER,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Pulsera italiana despachada desde Atelier Las Condes.',
+      },
+      {
+        documentNumber: 'NV-2025-1004',
+        customerRef: 'CLIENTE_MONICA',
+        variantSku: 'COL-VEN-PLATA-50',
+        branchRef: 'SANTIAGO_CENTRO',
+        pointOfSaleRef: 'POS_CENTRO',
+        cashSessionRef: 'SESSION_CENTRO',
+        quantity: 2,
+        grossUnitPrice: 189_000,
+        paymentMethod: PaymentMethod.DEBIT_CARD,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Venta boutique centro para regalo corporativo.',
+      },
+      {
+        documentNumber: 'NV-2025-1005',
+        customerRef: 'CLIENTE_FELIPE',
+        variantSku: 'REL-MILANO-ACERO',
+        branchRef: 'SANTIAGO_CENTRO',
+        pointOfSaleRef: 'POS_CENTRO',
+        cashSessionRef: 'SESSION_CENTRO',
+        quantity: 1,
+        grossUnitPrice: 390_000,
+        paymentMethod: PaymentMethod.CREDIT_CARD,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Reloj Milano adquirido en boutique centro.',
+      },
+      {
+        documentNumber: 'NV-2025-1006',
+        customerRef: 'CLIENTE_CAMILA',
+        variantSku: 'ARE-TOP-AZUL-PLATA',
+        branchRef: 'VINA_DEL_MAR',
+        pointOfSaleRef: 'POS_VINA',
+        cashSessionRef: 'SESSION_VINA',
+        quantity: 3,
+        grossUnitPrice: 235_000,
+        paymentMethod: PaymentMethod.CASH,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Aros topacio para lanzamiento temporada Viña.',
+      },
+      {
+        documentNumber: 'NV-2025-1007',
+        customerRef: 'CLIENTE_IGNACIO',
+        variantSku: 'CAD-INF-PLATA-45',
+        branchRef: 'VINA_DEL_MAR',
+        pointOfSaleRef: 'POS_VINA',
+        cashSessionRef: 'SESSION_VINA',
+        quantity: 2,
+        grossUnitPrice: 160_000,
+        paymentMethod: PaymentMethod.TRANSFER,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Venta con retiro en tienda Viña.',
+      },
+      {
+        documentNumber: 'NV-2025-1008',
+        customerRef: 'CLIENTE_VALENTINA',
+        variantSku: 'COL-PER-AUS-50',
+        branchRef: 'LAS_CONDES',
+        pointOfSaleRef: 'POS_LAS_CONDES',
+        cashSessionRef: 'SESSION_LAS_CONDES',
+        quantity: 1,
+        grossUnitPrice: 545_000,
+        paymentMethod: PaymentMethod.CREDIT_CARD,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Collar perla austral con despacho personalizado.',
+      },
+      {
+        documentNumber: 'NV-2025-1009',
+        customerRef: 'CLIENTE_PATRICIA',
+        variantSku: 'ANI-HALO-ESM-T5',
+        branchRef: 'LAS_CONDES',
+        pointOfSaleRef: 'POS_LAS_CONDES',
+        cashSessionRef: 'SESSION_LAS_CONDES',
+        quantity: 1,
+        grossUnitPrice: 1_050_000,
+        paymentMethod: PaymentMethod.TRANSFER,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Anillo halo esmeralda para ceremonia familiar.',
+      },
+      {
+        documentNumber: 'NV-2025-1010',
+        customerRef: 'CLIENTE_SEBASTIAN',
+        variantSku: 'ACC-LIMPIADOR-SPRAY',
+        branchRef: 'CONCEPCION',
+        pointOfSaleRef: 'POS_CONCEPCION',
+        cashSessionRef: 'SESSION_CONCEPCION',
+        quantity: 5,
+        grossUnitPrice: 29_900,
+        paymentMethod: PaymentMethod.CASH,
+        priceListKey: 'retail',
+        taxCodes: ['EXENTO'],
+        notes: 'Kit de limpieza vendido junto a sesión de cuidado.',
+      },
+      {
+        documentNumber: 'NV-2025-1011',
+        customerRef: 'CLIENTE_MONICA',
+        variantSku: 'ACC-CAJA-LUJO',
+        branchRef: 'SANTIAGO_CENTRO',
+        pointOfSaleRef: 'POS_CENTRO',
+        cashSessionRef: 'SESSION_CENTRO',
+        quantity: 6,
+        grossUnitPrice: 49_900,
+        paymentMethod: PaymentMethod.DEBIT_CARD,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Cajas de lujo para entrega corporativa.',
+      },
+      {
+        documentNumber: 'NV-2025-1012',
+        customerRef: 'CLIENTE_ANDREA',
+        variantSku: 'ANI-MINI-PLATA-T6',
+        branchRef: 'MALL_PLAZA',
+        pointOfSaleRef: 'POS_MALL_EVENTOS',
+        cashSessionRef: 'SESSION_MALL_EVENTOS',
+        quantity: 2,
+        grossUnitPrice: 95_000,
+        paymentMethod: PaymentMethod.CASH,
+        priceListKey: 'online',
+        taxCodes: ['IVA-19'],
+        notes: 'Venta omnicanal retirada en módulo de eventos.',
+      },
+    ];
+
+    for (const seed of saleSeeds) {
+      const existing = await transactionRepo.findOne({ where: { documentNumber: seed.documentNumber } });
+      if (existing) {
+        console.log(`   ⚠ Venta ya existe: ${seed.documentNumber}`);
+        continue;
+      }
+
+      const customer = customersByRef[seed.customerRef];
+      const variant = await getVariantWithRelations(seed.variantSku);
+      const branchEntity = branchesByRef[seed.branchRef];
+      const pointOfSaleEntity = seed.pointOfSaleRef ? pointsOfSaleByRef[seed.pointOfSaleRef] : undefined;
+      const cashSessionEntity = seed.cashSessionRef ? cashSessionsByRef[seed.cashSessionRef] : undefined;
+      const priceListEntity = priceListsByKey[seed.priceListKey];
+      const defaultStorage = branchEntity?.id ? defaultStorageByBranchId.get(branchEntity.id) : undefined;
+
+      if (!customer || !variant || !variant.product || !branchEntity) {
+        console.log(`   ✗ No se pudo crear la venta ${seed.documentNumber}: faltan datos relacionados.`);
+        continue;
+      }
+
+      const taxes = getTaxesForCodes(seed.taxCodes);
+      const pricing = computePriceWithTaxes({
+        grossPrice: seed.grossUnitPrice,
+        taxRates: taxes.map((tax) => tax.rate),
+      });
+
+      const unitNetPrice = pricing.netPrice;
+      const unitTaxAmount = roundCurrency(pricing.grossPrice - pricing.netPrice);
+      const subtotal = roundCurrency(unitNetPrice * seed.quantity);
+      const taxAmount = roundCurrency(unitTaxAmount * seed.quantity);
+      const total = roundCurrency(pricing.grossPrice * seed.quantity);
+      const totalTaxRate = pricing.totalTaxRate;
+
+      let saleTransaction = transactionRepo.create({
+        id: uuidv4(),
+        documentNumber: seed.documentNumber,
+        transactionType: TransactionType.SALE,
+        status: TransactionStatus.CONFIRMED,
+        branchId: branchEntity.id,
+        storageId: defaultStorage?.id ?? undefined,
+        pointOfSaleId: pointOfSaleEntity?.id ?? undefined,
+        cashSessionId: cashSessionEntity?.id ?? undefined,
+        customerId: customer.id,
+        userId: adminUser.id,
+        subtotal,
+        taxAmount,
+        discountAmount: 0,
+        total,
+        paymentMethod: seed.paymentMethod,
+        amountPaid: total,
+        changeAmount: 0,
+        metadata: {
+          source: 'seed-flowstore',
+          priceListKey: seed.priceListKey,
+          priceList: priceListEntity?.name ?? seed.priceListKey,
+        },
+        notes: seed.notes,
+      });
+
+      saleTransaction = await transactionRepo.save(saleTransaction);
+
+      const variantUnit = variant.unit ?? defaultUnit;
+      const primaryTax = taxes.length === 1 ? taxes[0] : null;
+      const saleLine = transactionLineRepo.create({
+        id: uuidv4(),
+        transactionId: saleTransaction.id,
+        productId: variant.productId!,
+        productVariantId: variant.id,
+        unitId: variant.unitId,
+        taxId: primaryTax?.id ?? null,
+        lineNumber: 1,
+        productName: variant.product.name,
+        productSku: variant.sku,
+        variantName: describeVariant(variant),
+        quantity: seed.quantity,
+        quantityInBase: seed.quantity,
+        unitOfMeasure: variantUnit?.symbol ?? 'un',
+        unitConversionFactor: 1,
+        unitPrice: unitNetPrice,
+        unitCost: variant.baseCost,
+        discountPercentage: 0,
+        discountAmount: 0,
+        taxRate: totalTaxRate,
+        taxAmount,
+        subtotal,
+        total,
+        notes: seed.notes,
+      });
+
+      await transactionLineRepo.save(saleLine);
+      transactionsCreated.push(seed.documentNumber);
+      console.log(`   ✓ Venta registrada: ${seed.documentNumber}`);
+    }
+
+    type ExpenseTransactionSeed = {
+      documentNumber: string;
+      amount: number;
+      branchRef: string;
+      pointOfSaleRef?: string;
+      cashSessionRef?: string;
+      paymentMethod: PaymentMethod;
+      expenseCategoryRef: string;
+      description: string;
+    };
+
+    const expenseSeeds: ExpenseTransactionSeed[] = [
+      {
+        documentNumber: 'EGR-2025-0001',
+        amount: 180_000,
+        branchRef: 'MALL_PLAZA',
+        pointOfSaleRef: 'POS_MALL_CAJA',
+        cashSessionRef: 'SESSION_MALL_OPEN',
+        paymentMethod: PaymentMethod.TRANSFER,
+        expenseCategoryRef: 'SERVICIOS_BASICOS',
+        description: 'Pago mensual de electricidad y agua.',
+      },
+      {
+        documentNumber: 'EGR-2025-0002',
+        amount: 280_000,
+        branchRef: 'LAS_CONDES',
+        paymentMethod: PaymentMethod.TRANSFER,
+        expenseCategoryRef: 'MARKETING_DIGITAL',
+        description: 'Campaña redes sociales lanzamiento invierno.',
+      },
+      {
+        documentNumber: 'EGR-2025-0003',
+        amount: 215_000,
+        branchRef: 'SANTIAGO_CENTRO',
+        pointOfSaleRef: 'POS_CENTRO',
+        cashSessionRef: 'SESSION_CENTRO',
+        paymentMethod: PaymentMethod.DEBIT_CARD,
+        expenseCategoryRef: 'MANTENCION_LOCAL',
+        description: 'Mantención de vitrinas y luminarias.',
+      },
+      {
+        documentNumber: 'EGR-2025-0004',
+        amount: 145_000,
+        branchRef: 'VINA_DEL_MAR',
+        pointOfSaleRef: 'POS_VINA',
+        cashSessionRef: 'SESSION_VINA',
+        paymentMethod: PaymentMethod.CASH,
+        expenseCategoryRef: 'SERVICIOS_BASICOS',
+        description: 'Pago de agua y aseo showroom Viña.',
+      },
+      {
+        documentNumber: 'EGR-2025-0005',
+        amount: 320_000,
+        branchRef: 'CONCEPCION',
+        pointOfSaleRef: 'POS_CONCEPCION',
+        cashSessionRef: 'SESSION_CONCEPCION',
+        paymentMethod: PaymentMethod.TRANSFER,
+        expenseCategoryRef: 'MARKETING_DIGITAL',
+        description: 'Campaña radio local y pauta digital Concepción.',
+      },
+    ];
+
+    for (const seed of expenseSeeds) {
+      const existing = await transactionRepo.findOne({ where: { documentNumber: seed.documentNumber } });
+      if (existing) {
+        console.log(`   ⚠ Pago de gasto ya existe: ${seed.documentNumber}`);
+        continue;
+      }
+
+      const branchEntity = branchesByRef[seed.branchRef];
+      const pointOfSaleEntity = seed.pointOfSaleRef ? pointsOfSaleByRef[seed.pointOfSaleRef] : undefined;
+      const cashSessionEntity = seed.cashSessionRef ? cashSessionsByRef[seed.cashSessionRef] : undefined;
+      const expenseCategory = expenseCategoryRefMap[seed.expenseCategoryRef];
+
+      if (!branchEntity || !expenseCategory) {
+        console.log(`   ✗ No se pudo crear el gasto ${seed.documentNumber}: faltan datos relacionados.`);
+        continue;
+      }
+
+      const total = roundCurrency(seed.amount);
+
+      let expenseTransaction = transactionRepo.create({
+        id: uuidv4(),
+        documentNumber: seed.documentNumber,
+        transactionType: TransactionType.PAYMENT_OUT,
+        status: TransactionStatus.CONFIRMED,
+        branchId: branchEntity.id,
+        pointOfSaleId: pointOfSaleEntity?.id ?? undefined,
+        cashSessionId: cashSessionEntity?.id ?? undefined,
+        userId: adminUser.id,
+        subtotal: total,
+        taxAmount: 0,
+        discountAmount: 0,
+        total,
+        paymentMethod: seed.paymentMethod,
+        amountPaid: total,
+        changeAmount: 0,
+        metadata: {
+          source: 'seed-flowstore',
+          expenseCategoryId: expenseCategory.id,
+          description: seed.description,
+        },
+        notes: seed.description,
+      });
+
+      expenseTransaction = await transactionRepo.save(expenseTransaction);
+      transactionsCreated.push(seed.documentNumber);
+      console.log(`   ✓ Pago de gasto registrado: ${seed.documentNumber}`);
+    }
+
+import { getDb } from '../db';
+import { User, UserRole } from '../entities/User';
+    const transactionRepo = db.getRepository(Transaction);
+    const transactionLineRepo = db.getRepository(TransactionLine);
+    const ivaTax = taxesByCode['IVA-19'];
+    const defaultUnit = unitsBySymbol.get('un');
+
+    const getVariantWithRelations = async (sku: string): Promise<ProductVariant | null> => {
+      const cached = variantBySku[sku];
+      if (cached && cached.product && cached.unit) {
+        return cached;
+      }
+
+      const loaded = await variantRepo.findOne({
+        where: { sku },
+        relations: ['product', 'unit'],
+        withDeleted: true,
+      });
+
+      if (loaded) {
+        variantBySku[sku] = loaded;
+      }
+
+      return loaded;
+    };
+
+    const describeVariant = (variant: ProductVariant | null | undefined): string | undefined => {
+      if (!variant || !variant.attributeValues) {
+        return undefined;
+      }
+
+      const entries = Object.entries(variant.attributeValues)
+        .map(([attributeId, value]) => {
+          const attributeName = attributeNameById[attributeId] ?? attributeId;
+          return `${attributeName}: ${value}`;
+        });
+
+      return entries.length > 0 ? entries.join(' | ') : undefined;
+    };
+
+    const getTaxesForCodes = (taxCodes?: string[]): Tax[] => {
+      if (!taxCodes || taxCodes.length === 0) {
+        return ivaTax ? [ivaTax] : [];
+      }
+
+      return taxCodes
+        .map((code) => taxesByCode[code])
+        .filter((tax): tax is Tax => Boolean(tax));
+    };
+
+    type PurchaseTransactionSeed = {
+      documentNumber: string;
+      supplierRef: string;
+      variantSku: string;
+      branchRef: string;
+      storageRef: string;
+      quantity: number;
+      unitCost: number;
+      taxCodes?: string[];
+      notes: string;
+    };
+
+    const purchaseSeeds: PurchaseTransactionSeed[] = [
+      {
+        documentNumber: 'OC-2025-0001',
+        supplierRef: 'SUPPLIER_METALURGICA',
+        variantSku: 'COL-VEN-ORO14-45',
+        branchRef: 'MALL_PLAZA',
+        storageRef: 'MALL_VITRINA',
+        quantity: 5,
+        unitCost: 220_000,
+        taxCodes: ['IVA-19'],
+        notes: 'Compra mayorista de cadenas venecianas para reponer stock.',
+      },
+      {
+        documentNumber: 'OC-2025-0002',
+        supplierRef: 'SUPPLIER_TALLER_SILVA',
+        variantSku: 'PUL-ESL-ORO18-17',
+        branchRef: 'LAS_CONDES',
+        storageRef: 'LAS_CONDES_TALLER',
+        quantity: 4,
+        unitCost: 185_000,
+        taxCodes: ['IVA-19'],
+        notes: 'Pulseras personalizadas para pedidos especiales.',
+      },
+      {
+        documentNumber: 'OC-2025-0003',
+        supplierRef: 'SUPPLIER_GEMAS_SUR',
+        variantSku: 'ARE-TOP-AZUL-ORO',
+        branchRef: 'LAS_CONDES',
+        storageRef: 'LAS_CONDES_TALLER',
+        quantity: 10,
+        unitCost: 150_000,
+        taxCodes: ['IVA-19'],
+        notes: 'Compra de topacios azules corte pera.',
+      },
+      {
+        documentNumber: 'OC-2025-0004',
+        supplierRef: 'SUPPLIER_LUMINOSA',
+        variantSku: 'REL-MILANO-ACERO',
+        branchRef: 'SANTIAGO_CENTRO',
+        storageRef: 'CENTRO_RESPALDO',
+        quantity: 6,
+        unitCost: 215_000,
+        taxCodes: ['IVA-19'],
+        notes: 'Relojes Milano para vitrina centro.',
+      },
+      {
+        documentNumber: 'OC-2025-0005',
+        supplierRef: 'SUPPLIER_PATAGONIA',
+        variantSku: 'COL-PER-AUS-45',
+        branchRef: 'VINA_DEL_MAR',
+        storageRef: 'VINA_BODEGA',
+        quantity: 8,
+        unitCost: 250_000,
+        taxCodes: ['IVA-19'],
+        notes: 'Collares de perla austral temporada verano.',
+      },
+    ];
+
+    for (const seed of purchaseSeeds) {
+      const existing = await transactionRepo.findOne({ where: { documentNumber: seed.documentNumber } });
+      if (existing) {
+        console.log(`   ⚠ Compra ya existe: ${seed.documentNumber}`);
+        continue;
+      }
+
+      const supplier = suppliersByRef[seed.supplierRef];
+      const variant = await getVariantWithRelations(seed.variantSku);
+      const branchEntity = branchesByRef[seed.branchRef];
+      const storageEntity = storagesByRef[seed.storageRef];
+
+      if (!supplier || !variant || !branchEntity || !storageEntity || !variant.product) {
+        console.log(`   ✗ No se pudo crear la compra ${seed.documentNumber}: faltan datos relacionados.`);
+        continue;
+      }
+
+      const taxes = getTaxesForCodes(seed.taxCodes);
+      const totalTaxRate = taxes.reduce((sum, tax) => sum + Number(tax.rate ?? 0), 0);
+      const subtotal = roundCurrency(seed.unitCost * seed.quantity);
+      const taxAmount = roundCurrency(subtotal * (totalTaxRate / 100));
+      const total = roundCurrency(subtotal + taxAmount);
+
+      let purchaseTransaction = transactionRepo.create({
+        id: uuidv4(),
+        documentNumber: seed.documentNumber,
+        transactionType: TransactionType.PURCHASE,
+        status: TransactionStatus.CONFIRMED,
+        branchId: branchEntity.id,
+        storageId: storageEntity.id,
+        supplierId: supplier.id,
+        userId: adminUser.id,
+        subtotal,
+        taxAmount,
+        discountAmount: 0,
+        total,
+        paymentMethod: PaymentMethod.TRANSFER,
+        amountPaid: total,
+        changeAmount: 0,
+        metadata: {
+          source: 'seed-flowstore',
+          supplierRef: seed.supplierRef,
+          storageRef: seed.storageRef,
+        },
+        notes: seed.notes,
+      });
+
+      purchaseTransaction = await transactionRepo.save(purchaseTransaction);
+
+      const variantUnit = variant.unit ?? defaultUnit;
+      const primaryTax = taxes[0] ?? null;
+      const purchaseLine = transactionLineRepo.create({
+        id: uuidv4(),
+        transactionId: purchaseTransaction.id,
+        productId: variant.productId!,
+        productVariantId: variant.id,
+        unitId: variant.unitId,
+        taxId: primaryTax?.id ?? null,
+        lineNumber: 1,
+        productName: variant.product.name,
+        productSku: variant.sku,
+        variantName: describeVariant(variant),
+        quantity: seed.quantity,
+        quantityInBase: seed.quantity,
+        unitOfMeasure: variantUnit?.symbol ?? 'un',
+        unitConversionFactor: 1,
+        unitPrice: seed.unitCost,
+        unitCost: seed.unitCost,
+        discountPercentage: 0,
+        discountAmount: 0,
+        taxRate: primaryTax?.rate ?? 0,
+        taxAmount,
+        subtotal,
+        total,
+        notes: seed.notes,
+      });
+
+      await transactionLineRepo.save(purchaseLine);
+      transactionsCreated.push(seed.documentNumber);
+      console.log(`   ✓ Compra registrada: ${seed.documentNumber}`);
+    }
+
+    type SaleTransactionSeed = {
+      documentNumber: string;
+      customerRef: string;
+      variantSku: string;
+      branchRef: string;
+      pointOfSaleRef?: string;
+      cashSessionRef?: string;
+      quantity: number;
+      grossUnitPrice: number;
+      paymentMethod: PaymentMethod;
+      priceListKey: PriceListKey;
+      taxCodes?: string[];
+      notes: string;
+    };
+
+    const saleSeeds: SaleTransactionSeed[] = [
+      {
+        documentNumber: 'NV-2025-1001',
+        customerRef: 'CLIENTE_CAROLINA',
+        variantSku: 'ANI-SOL-ORO18-T6',
+        branchRef: 'MALL_PLAZA',
+        pointOfSaleRef: 'POS_MALL_CAJA',
+        cashSessionRef: 'SESSION_MALL_OPEN',
+        quantity: 1,
+        grossUnitPrice: 1_890_000,
+        paymentMethod: PaymentMethod.CASH,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Venta presencial de anillo solitario clásico.',
+      },
+      {
+        documentNumber: 'NV-2025-1002',
+        customerRef: 'CLIENTE_LUIS',
+        variantSku: 'ARE-PER-ORO18',
+        branchRef: 'MALL_PLAZA',
+        pointOfSaleRef: 'POS_MALL_CAJA',
+        cashSessionRef: 'SESSION_MALL_OPEN',
+        quantity: 2,
+        grossUnitPrice: 245_000,
+        paymentMethod: PaymentMethod.CREDIT_CARD,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Venta con tarjeta de crédito de aros en oro 18K.',
+      },
+      {
+        documentNumber: 'NV-2025-1003',
+        customerRef: 'CLIENTE_ANDREA',
+        variantSku: 'PUL-ESL-ORO18-17',
+        branchRef: 'LAS_CONDES',
+        pointOfSaleRef: 'POS_LAS_CONDES',
+        cashSessionRef: 'SESSION_LAS_CONDES',
+        quantity: 1,
+        grossUnitPrice: 420_000,
+        paymentMethod: PaymentMethod.TRANSFER,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Pulsera italiana despachada desde Atelier Las Condes.',
+      },
+      {
+        documentNumber: 'NV-2025-1004',
+        customerRef: 'CLIENTE_MONICA',
+        variantSku: 'COL-VEN-PLATA-50',
+        branchRef: 'SANTIAGO_CENTRO',
+        pointOfSaleRef: 'POS_CENTRO',
+        cashSessionRef: 'SESSION_CENTRO',
+        quantity: 2,
+        grossUnitPrice: 189_000,
+        paymentMethod: PaymentMethod.DEBIT_CARD,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Venta boutique centro para regalo corporativo.',
+      },
+      {
+        documentNumber: 'NV-2025-1005',
+        customerRef: 'CLIENTE_FELIPE',
+        variantSku: 'REL-MILANO-ACERO',
+        branchRef: 'SANTIAGO_CENTRO',
+        pointOfSaleRef: 'POS_CENTRO',
+        cashSessionRef: 'SESSION_CENTRO',
+        quantity: 1,
+        grossUnitPrice: 390_000,
+        paymentMethod: PaymentMethod.CREDIT_CARD,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Reloj Milano adquirido en boutique centro.',
+      },
+      {
+        documentNumber: 'NV-2025-1006',
+        customerRef: 'CLIENTE_CAMILA',
+        variantSku: 'ARE-TOP-AZUL-PLATA',
+        branchRef: 'VINA_DEL_MAR',
+        pointOfSaleRef: 'POS_VINA',
+        cashSessionRef: 'SESSION_VINA',
+        quantity: 3,
+        grossUnitPrice: 235_000,
+        paymentMethod: PaymentMethod.CASH,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Aros topacio para lanzamiento temporada Viña.',
+      },
+      {
+        documentNumber: 'NV-2025-1007',
+        customerRef: 'CLIENTE_IGNACIO',
+        variantSku: 'CAD-INF-PLATA-45',
+        branchRef: 'VINA_DEL_MAR',
+        pointOfSaleRef: 'POS_VINA',
+        cashSessionRef: 'SESSION_VINA',
+        quantity: 2,
+        grossUnitPrice: 160_000,
+        paymentMethod: PaymentMethod.TRANSFER,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Venta con retiro en tienda Viña.',
+      },
+      {
+        documentNumber: 'NV-2025-1008',
+        customerRef: 'CLIENTE_VALENTINA',
+        variantSku: 'COL-PER-AUS-50',
+        branchRef: 'LAS_CONDES',
+        pointOfSaleRef: 'POS_LAS_CONDES',
+        cashSessionRef: 'SESSION_LAS_CONDES',
+        quantity: 1,
+        grossUnitPrice: 545_000,
+        paymentMethod: PaymentMethod.CREDIT_CARD,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Collar perla austral con despacho personalizado.',
+      },
+      {
+        documentNumber: 'NV-2025-1009',
+        customerRef: 'CLIENTE_PATRICIA',
+        variantSku: 'ANI-HALO-ESM-T5',
+        branchRef: 'LAS_CONDES',
+        pointOfSaleRef: 'POS_LAS_CONDES',
+        cashSessionRef: 'SESSION_LAS_CONDES',
+        quantity: 1,
+        grossUnitPrice: 1_050_000,
+        paymentMethod: PaymentMethod.TRANSFER,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Anillo halo esmeralda para ceremonia familiar.',
+      },
+      {
+        documentNumber: 'NV-2025-1010',
+        customerRef: 'CLIENTE_SEBASTIAN',
+        variantSku: 'ACC-LIMPIADOR-SPRAY',
+        branchRef: 'CONCEPCION',
+        pointOfSaleRef: 'POS_CONCEPCION',
+        cashSessionRef: 'SESSION_CONCEPCION',
+        quantity: 5,
+        grossUnitPrice: 29_900,
+        paymentMethod: PaymentMethod.CASH,
+        priceListKey: 'retail',
+        taxCodes: ['EXENTO'],
+        notes: 'Kit de limpieza vendido junto a sesión de cuidado.',
+      },
+      {
+        documentNumber: 'NV-2025-1011',
+        customerRef: 'CLIENTE_MONICA',
+        variantSku: 'ACC-CAJA-LUJO',
+        branchRef: 'SANTIAGO_CENTRO',
+        pointOfSaleRef: 'POS_CENTRO',
+        cashSessionRef: 'SESSION_CENTRO',
+        quantity: 6,
+        grossUnitPrice: 49_900,
+        paymentMethod: PaymentMethod.DEBIT_CARD,
+        priceListKey: 'retail',
+        taxCodes: ['IVA-19'],
+        notes: 'Cajas de lujo para entrega corporativa.',
+      },
+      {
+        documentNumber: 'NV-2025-1012',
+        customerRef: 'CLIENTE_ANDREA',
+        variantSku: 'ANI-MINI-PLATA-T6',
+        branchRef: 'MALL_PLAZA',
+        pointOfSaleRef: 'POS_MALL_EVENTOS',
+        cashSessionRef: 'SESSION_MALL_EVENTOS',
+        quantity: 2,
+        grossUnitPrice: 95_000,
+        paymentMethod: PaymentMethod.CASH,
+        priceListKey: 'online',
+        taxCodes: ['IVA-19'],
+        notes: 'Venta omnicanal retirada en módulo de eventos.',
+      },
+    ];
+
+    for (const seed of saleSeeds) {
+      const existing = await transactionRepo.findOne({ where: { documentNumber: seed.documentNumber } });
+      if (existing) {
+        console.log(`   ⚠ Venta ya existe: ${seed.documentNumber}`);
+        continue;
+      }
+
+      const customer = customersByRef[seed.customerRef];
+      const variant = await getVariantWithRelations(seed.variantSku);
+      const branchEntity = branchesByRef[seed.branchRef];
+      const pointOfSaleEntity = seed.pointOfSaleRef ? pointsOfSaleByRef[seed.pointOfSaleRef] : undefined;
+      const cashSessionEntity = seed.cashSessionRef ? cashSessionsByRef[seed.cashSessionRef] : undefined;
+      const priceListEntity = priceListsByKey[seed.priceListKey];
+      const defaultStorage = branchEntity?.id ? defaultStorageByBranchId.get(branchEntity.id) : undefined;
+
+      if (!customer || !variant || !variant.product || !branchEntity) {
+        console.log(`   ✗ No se pudo crear la venta ${seed.documentNumber}: faltan datos relacionados.`);
+        continue;
+      }
+
+      const taxes = getTaxesForCodes(seed.taxCodes);
+      const pricing = computePriceWithTaxes({
+        grossPrice: seed.grossUnitPrice,
+        taxRates: taxes.map((tax) => tax.rate),
+      });
+
+      const unitNetPrice = pricing.netPrice;
+      const unitTaxAmount = roundCurrency(pricing.grossPrice - pricing.netPrice);
+      const subtotal = roundCurrency(unitNetPrice * seed.quantity);
+      const taxAmount = roundCurrency(unitTaxAmount * seed.quantity);
+      const total = roundCurrency(pricing.grossPrice * seed.quantity);
+      const totalTaxRate = pricing.totalTaxRate;
+
+      let saleTransaction = transactionRepo.create({
+        id: uuidv4(),
+        documentNumber: seed.documentNumber,
+        transactionType: TransactionType.SALE,
+        status: TransactionStatus.CONFIRMED,
+        branchId: branchEntity.id,
+        storageId: defaultStorage?.id ?? undefined,
+        pointOfSaleId: pointOfSaleEntity?.id ?? undefined,
+        cashSessionId: cashSessionEntity?.id ?? undefined,
+        customerId: customer.id,
+        userId: adminUser.id,
+        subtotal,
+        taxAmount,
+        discountAmount: 0,
+        total,
+        paymentMethod: seed.paymentMethod,
+        amountPaid: total,
+        changeAmount: 0,
+        metadata: {
+          source: 'seed-flowstore',
+          priceListKey: seed.priceListKey,
+          priceList: priceListEntity?.name ?? seed.priceListKey,
+        },
+        notes: seed.notes,
+      });
+
+      saleTransaction = await transactionRepo.save(saleTransaction);
+
+      const variantUnit = variant.unit ?? defaultUnit;
+      const primaryTax = taxes.length === 1 ? taxes[0] : null;
+      const saleLine = transactionLineRepo.create({
+        id: uuidv4(),
+        transactionId: saleTransaction.id,
+        productId: variant.productId!,
+        productVariantId: variant.id,
+        unitId: variant.unitId,
+        taxId: primaryTax?.id ?? null,
+        lineNumber: 1,
+        productName: variant.product.name,
+        productSku: variant.sku,
+        variantName: describeVariant(variant),
+        quantity: seed.quantity,
+        quantityInBase: seed.quantity,
+        unitOfMeasure: variantUnit?.symbol ?? 'un',
+        unitConversionFactor: 1,
+        unitPrice: unitNetPrice,
+        unitCost: variant.baseCost,
+        discountPercentage: 0,
+        discountAmount: 0,
+        taxRate: totalTaxRate,
+        taxAmount,
+        subtotal,
+        total,
+        notes: seed.notes,
+      });
+
+      await transactionLineRepo.save(saleLine);
+      transactionsCreated.push(seed.documentNumber);
+      console.log(`   ✓ Venta registrada: ${seed.documentNumber}`);
+    }
+
+    type ExpenseTransactionSeed = {
+      documentNumber: string;
+      amount: number;
+      branchRef: string;
+      pointOfSaleRef?: string;
+      cashSessionRef?: string;
+      paymentMethod: PaymentMethod;
+      expenseCategoryRef: string;
+      description: string;
+    };
+
+    const expenseSeeds: ExpenseTransactionSeed[] = [
+      {
+        documentNumber: 'EGR-2025-0001',
+        amount: 180_000,
+        branchRef: 'MALL_PLAZA',
+        pointOfSaleRef: 'POS_MALL_CAJA',
+        cashSessionRef: 'SESSION_MALL_OPEN',
+        paymentMethod: PaymentMethod.TRANSFER,
+        expenseCategoryRef: 'SERVICIOS_BASICOS',
+        description: 'Pago mensual de electricidad y agua.',
+      },
+      {
+        documentNumber: 'EGR-2025-0002',
+        amount: 280_000,
+        branchRef: 'LAS_CONDES',
+        paymentMethod: PaymentMethod.TRANSFER,
+        expenseCategoryRef: 'MARKETING_DIGITAL',
+        description: 'Campaña redes sociales lanzamiento invierno.',
+      },
+      {
+        documentNumber: 'EGR-2025-0003',
+        amount: 215_000,
+        branchRef: 'SANTIAGO_CENTRO',
+        pointOfSaleRef: 'POS_CENTRO',
+        cashSessionRef: 'SESSION_CENTRO',
+        paymentMethod: PaymentMethod.DEBIT_CARD,
+        expenseCategoryRef: 'MANTENCION_LOCAL',
+        description: 'Mantención de vitrinas y luminarias.',
+      },
+      {
+        documentNumber: 'EGR-2025-0004',
+        amount: 145_000,
+        branchRef: 'VINA_DEL_MAR',
+        pointOfSaleRef: 'POS_VINA',
+        cashSessionRef: 'SESSION_VINA',
+        paymentMethod: PaymentMethod.CASH,
+        expenseCategoryRef: 'SERVICIOS_BASICOS',
+        description: 'Pago de agua y aseo showroom Viña.',
+      },
+      {
+        documentNumber: 'EGR-2025-0005',
+        amount: 320_000,
+        branchRef: 'CONCEPCION',
+        pointOfSaleRef: 'POS_CONCEPCION',
+        cashSessionRef: 'SESSION_CONCEPCION',
+        paymentMethod: PaymentMethod.TRANSFER,
+        expenseCategoryRef: 'MARKETING_DIGITAL',
+        description: 'Campaña radio local y pauta digital Concepción.',
+      },
+    ];
+
+    for (const seed of expenseSeeds) {
+      const existing = await transactionRepo.findOne({ where: { documentNumber: seed.documentNumber } });
+      if (existing) {
+        console.log(`   ⚠ Pago de gasto ya existe: ${seed.documentNumber}`);
+        continue;
+      }
+
+      const branchEntity = branchesByRef[seed.branchRef];
+      const pointOfSaleEntity = seed.pointOfSaleRef ? pointsOfSaleByRef[seed.pointOfSaleRef] : undefined;
+      const cashSessionEntity = seed.cashSessionRef ? cashSessionsByRef[seed.cashSessionRef] : undefined;
+      const expenseCategory = expenseCategoryRefMap[seed.expenseCategoryRef];
+
+      if (!branchEntity || !expenseCategory) {
+        console.log(`   ✗ No se pudo crear el gasto ${seed.documentNumber}: faltan datos relacionados.`);
+        continue;
+      }
+
+      const total = roundCurrency(seed.amount);
+
+      let expenseTransaction = transactionRepo.create({
+        id: uuidv4(),
+        documentNumber: seed.documentNumber,
+        transactionType: TransactionType.PAYMENT_OUT,
+        status: TransactionStatus.CONFIRMED,
+        branchId: branchEntity.id,
+        pointOfSaleId: pointOfSaleEntity?.id ?? undefined,
+        cashSessionId: cashSessionEntity?.id ?? undefined,
+        userId: adminUser.id,
+        subtotal: total,
+        taxAmount: 0,
+        discountAmount: 0,
+        total,
+        paymentMethod: seed.paymentMethod,
+        amountPaid: total,
+        changeAmount: 0,
+        metadata: {
+          source: 'seed-flowstore',
+          expenseCategoryId: expenseCategory.id,
+          description: seed.description,
+        },
+        notes: seed.description,
+      });
+
+      expenseTransaction = await transactionRepo.save(expenseTransaction);
+      transactionsCreated.push(seed.documentNumber);
+      console.log(`   ✓ Pago de gasto registrado: ${seed.documentNumber}`);
+    }
+
+    for (const seed of branchSeeds) {
+      let branchEntity = await branchRepo.findOne({
+        where: { name: seed.name },
+        withDeleted: true,
+      });
+
+      if (!branchEntity) {
+        branchEntity = branchRepo.create({
+          id: uuidv4(),
+          companyId: company.id,
+        });
+      }
+
+      branchEntity.companyId = company.id;
+      branchEntity.name = seed.name;
+      branchEntity.address = seed.address;
+      branchEntity.phone = seed.phone;
+      branchEntity.location = seed.location;
+      branchEntity.isActive = true;
+      branchEntity.isHeadquarters = Boolean(seed.isHeadquarters);
+      branchEntity.deletedAt = undefined;
+
+      branchEntity = await branchRepo.save(branchEntity);
+      branchesByRef[seed.ref] = branchEntity;
+      console.log(`   • Sucursal lista: ${branchEntity.name}`);
+    }
+
+    const mainBranch = branchesByRef['MALL_PLAZA'] ?? Object.values(branchesByRef)[0];
+
+    // ============================================
+    // 3. IMPUESTOS
+    // ============================================
+    console.log('\n💰 Creando impuestos...');
+    
+    const taxRepo = db.getRepository(Tax);
+
+    const ensureTax = async (params: {
+      code: string;
+      name: string;
+      description: string;
+      rate: number;
+      type: TaxType;
+      isDefault: boolean;
+    }): Promise<Tax> => {
+      let existing = await taxRepo.findOne({
+        where: { companyId: company.id, code: params.code },
+        withDeleted: true,
+      });
+
+      if (!existing) {
+        existing = taxRepo.create({
+          id: uuidv4(),
+          companyId: company.id,
+          code: params.code,
+        });
+      }
+
+      existing.name = params.name;
+      existing.description = params.description;
+      existing.taxType = params.type;
+      existing.rate = params.rate;
+      existing.isDefault = params.isDefault;
+      existing.isActive = true;
+      existing.deletedAt = undefined;
+
+      const saved = await taxRepo.save(existing);
+      console.log(`   • Impuesto ${saved.code} (${saved.name}) listo`);
+      return saved;
+    };
+
+    const ivaDefault = await ensureTax({
+      code: 'IVA-19',
+      name: 'IVA 19%',
+      description: 'Impuesto al Valor Agregado estándar',
+      rate: 19,
+      type: TaxType.IVA,
+      isDefault: true,
+    });
+
+    const taxExempt = await ensureTax({
+      code: 'EXENTO',
+      name: 'Exento',
+      description: 'Producto exento de impuestos',
+      rate: 0,
+      type: TaxType.EXEMPT,
+      isDefault: false,
+    });
+
+    const taxesByCode: Record<string, Tax> = {};
+    taxesByCode[ivaDefault.code] = ivaDefault;
+    taxesByCode[taxExempt.code] = taxExempt;
+
+    // ============================================
+    // 3.1 PLAN DE CUENTAS CHILENO (RESUMIDO)
+    // ============================================
+    console.log('\n📚 Configurando plan de cuentas contable...');
+
+    const accountingAccountsData: Array<{
+      ref: string;
+      code: string;
+      name: string;
+      type: AccountType;
+      parentRef: string | null;
+    }> = [
+      { ref: 'ACTIVO', code: '1', name: 'ACTIVO', type: AccountType.ASSET, parentRef: null },
+      { ref: 'ACTIVO_CIRCULANTE', code: '1.1', name: 'ACTIVO CIRCULANTE', type: AccountType.ASSET, parentRef: 'ACTIVO' },
+      { ref: 'CAJA_GENERAL', code: '1.1.01', name: 'CAJA GENERAL', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
+      { ref: 'BANCO_SANTANDER', code: '1.1.02', name: 'BANCO SANTANDER', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
+      { ref: 'CLIENTES_POR_COBRAR', code: '1.1.03', name: 'CLIENTES POR COBRAR', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
+      { ref: 'INVENTARIO_MERCADERIAS', code: '1.1.04', name: 'INVENTARIO DE MERCADERÍAS', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
+      { ref: 'IVA_CREDITO', code: '1.1.05', name: 'IVA CRÉDITO FISCAL', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
+      { ref: 'PASIVO', code: '2', name: 'PASIVO', type: AccountType.LIABILITY, parentRef: null },
+      { ref: 'PROVEEDORES', code: '2.1.01', name: 'PROVEEDORES', type: AccountType.LIABILITY, parentRef: 'PASIVO' },
+      { ref: 'IVA_DEBITO', code: '2.1.02', name: 'IVA DÉBITO FISCAL', type: AccountType.LIABILITY, parentRef: 'PASIVO' },
+      { ref: 'INGRESOS', code: '4', name: 'INGRESOS', type: AccountType.INCOME, parentRef: null },
+      { ref: 'VENTAS_MERCADERIAS', code: '4.1.01', name: 'VENTAS MERCADERÍAS', type: AccountType.INCOME, parentRef: 'INGRESOS' },
+      { ref: 'EGRESOS', code: '5', name: 'EGRESOS', type: AccountType.EXPENSE, parentRef: null },
+      { ref: 'COSTO_VENTAS', code: '5.1.01', name: 'COSTO DE VENTAS', type: AccountType.EXPENSE, parentRef: 'EGRESOS' },
+      { ref: 'GASTOS_GENERALES', code: '5.1.02', name: 'GASTOS GENERALES', type: AccountType.EXPENSE, parentRef: 'EGRESOS' },
+    ];
+
+    const accountRepo = db.getRepository(AccountingAccount);
+    const existingAccounts = await accountRepo.find({ where: { companyId: company.id } });
+    const existingByCode = new Map(existingAccounts.map((account) => [account.code, account]));
+    const accountRefMap: Record<string, AccountingAccount> = {};
+    const codeByRef = new Map(accountingAccountsData.map((entry) => [entry.ref, entry.code]));
+
+    for (const entry of accountingAccountsData) {
+      const parentAccount = entry.parentRef
+        ? accountRefMap[entry.parentRef] ?? existingByCode.get(codeByRef.get(entry.parentRef) ?? '') ?? null
+        : null;
+
+      let accountEntity = existingByCode.get(entry.code);
+
+      if (!accountEntity) {
+        accountEntity = accountRepo.create({
+          companyId: company.id,
+          code: entry.code,
+          name: entry.name,
+          type: entry.type,
+          parentId: parentAccount?.id ?? null,
+          isActive: true,
+        });
+      } else {
+        accountEntity.name = entry.name;
+        accountEntity.type = entry.type;
+        accountEntity.parentId = parentAccount?.id ?? null;
+        accountEntity.isActive = true;
+      }
+
+      accountEntity = await accountRepo.save(accountEntity);
+      existingByCode.set(accountEntity.code, accountEntity);
+      accountRefMap[entry.ref] = accountEntity;
+      console.log(`   • Cuenta ${accountEntity.code} (${accountEntity.name}) lista`);
+    }
+
+    // ============================================
+    // 3.2 CATEGORÍAS DE GASTO PARA IMPUTACIÓN
+    // ============================================
+    console.log('\n📑 Configurando categorías de gasto...');
+
+    const expenseCategoryRepo = db.getRepository(ExpenseCategory);
+    const expenseCategoriesData: Array<{
+      ref: string;
+      code: string;
+      name: string;
+      description?: string;
+    }> = [
+      {
+        ref: 'SERVICIOS_BASICOS',
+        code: 'SERV_BASICOS',
+        name: 'Servicios básicos',
+        description: 'Electricidad, agua, telecomunicaciones y servicios esenciales.',
+      },
+      {
+        ref: 'MARKETING_DIGITAL',
+        code: 'MKT_DIGITAL',
+        name: 'Marketing digital',
+        description: 'Publicidad en redes sociales, campañas online y posicionamiento SEO.',
+      },
+      {
+        ref: 'MANTENCION_LOCAL',
+        code: 'MANT_LOCAL',
+        name: 'Mantención del local',
+        description: 'Reparaciones menores, limpieza profunda y ambientación del showroom.',
+      },
+    ];
+
+    const expenseCategoryRefMap: Record<string, ExpenseCategory> = {};
+
+    for (const entry of expenseCategoriesData) {
+      let category = await expenseCategoryRepo.findOne({
+        where: { companyId: company.id, code: entry.code },
+        withDeleted: true,
+      });
+
+      if (!category) {
+        category = expenseCategoryRepo.create({
+          companyId: company.id,
+          code: entry.code,
+          name: entry.name,
+          description: entry.description,
+          requiresApproval: false,
+          approvalThreshold: '0',
+          isActive: true,
+          metadata: null,
+        });
+      } else {
+        category.name = entry.name;
+        category.description = entry.description;
+        category.requiresApproval = false;
+        category.approvalThreshold = '0';
+        category.isActive = true;
+        category.deletedAt = undefined;
+      }
+
+      category = await expenseCategoryRepo.save(category);
+      expenseCategoryRefMap[entry.ref] = category;
+      console.log(`   • Categoría ${category.code} (${category.name}) lista`);
+    }
+
+    // ============================================
+    // 3.3 REGLAS CONTABLES BASE
+    // ============================================
+    console.log('\n🧾 Configurando reglas contables...');
+
+    const accountingRuleRepo = db.getRepository(AccountingRule);
+    const accountingRulesData: Array<{
+      appliesTo: RuleScope;
+      transactionType: TransactionType;
+      paymentMethod?: PaymentMethod;
+      taxCode?: string;
+      expenseCategoryRef?: string;
+      debitAccountRef: string;
+      creditAccountRef: string;
+      priority: number;
+      isActive: boolean;
+    }> = [
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.SALE,
+        paymentMethod: PaymentMethod.CASH,
+        debitAccountRef: 'CAJA_GENERAL',
+        creditAccountRef: 'VENTAS_MERCADERIAS',
+        priority: 1,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.SALE,
+        paymentMethod: PaymentMethod.CREDIT_CARD,
+        debitAccountRef: 'BANCO_SANTANDER',
+        creditAccountRef: 'VENTAS_MERCADERIAS',
+        priority: 2,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.SALE,
+        paymentMethod: PaymentMethod.DEBIT_CARD,
+        debitAccountRef: 'BANCO_SANTANDER',
+        creditAccountRef: 'VENTAS_MERCADERIAS',
+        priority: 3,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.SALE,
+        paymentMethod: PaymentMethod.TRANSFER,
+        debitAccountRef: 'BANCO_SANTANDER',
+        creditAccountRef: 'VENTAS_MERCADERIAS',
+        priority: 4,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION_LINE,
+        transactionType: TransactionType.SALE,
+        taxCode: 'IVA-19',
+        debitAccountRef: 'CAJA_GENERAL',
+        creditAccountRef: 'IVA_DEBITO',
+        priority: 10,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.PURCHASE,
+        paymentMethod: PaymentMethod.TRANSFER,
+        debitAccountRef: 'INVENTARIO_MERCADERIAS',
+        creditAccountRef: 'BANCO_SANTANDER',
+        priority: 1,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION_LINE,
+        transactionType: TransactionType.PURCHASE,
+        taxCode: 'IVA-19',
+        debitAccountRef: 'IVA_CREDITO',
+        creditAccountRef: 'INVENTARIO_MERCADERIAS',
+        priority: 15,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.PAYMENT_OUT,
+        expenseCategoryRef: 'SERVICIOS_BASICOS',
+        debitAccountRef: 'GASTOS_GENERALES',
+        creditAccountRef: 'CAJA_GENERAL',
+        priority: 1,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.PAYMENT_OUT,
+        expenseCategoryRef: 'MARKETING_DIGITAL',
+        debitAccountRef: 'GASTOS_GENERALES',
+        creditAccountRef: 'CAJA_GENERAL',
+        priority: 2,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.PAYMENT_OUT,
+        expenseCategoryRef: 'MANTENCION_LOCAL',
+        debitAccountRef: 'GASTOS_GENERALES',
+        creditAccountRef: 'CAJA_GENERAL',
+        priority: 3,
+        isActive: true,
+      },
+    ];
+
+    for (const ruleConfig of accountingRulesData) {
+      const debitAccount = accountRefMap[ruleConfig.debitAccountRef];
+      const creditAccount = accountRefMap[ruleConfig.creditAccountRef];
+
+      if (!debitAccount || !creditAccount) {
+        console.warn(
+          `   ⚠ No se pudo crear la regla (${ruleConfig.debitAccountRef} -> ${ruleConfig.creditAccountRef}) porque falta la cuenta contable`,
+        );
+        continue;
+      }
+
+      const taxId = ruleConfig.taxCode ? taxesByCode[ruleConfig.taxCode]?.id ?? null : null;
+      if (ruleConfig.taxCode && !taxId) {
+        console.warn(`   ⚠ Impuesto ${ruleConfig.taxCode} no encontrado, se omite regla.`);
+        continue;
+      }
+
+      const expenseCategoryId = ruleConfig.expenseCategoryRef
+        ? expenseCategoryRefMap[ruleConfig.expenseCategoryRef]?.id ?? null
+        : null;
+      if (ruleConfig.expenseCategoryRef && !expenseCategoryId) {
+        console.warn(
+          `   ⚠ Categoría de gasto ${ruleConfig.expenseCategoryRef} no encontrada, se omite regla.`,
+        );
+        continue;
+      }
+
+      const qb = accountingRuleRepo
+        .createQueryBuilder('rule')
+        .where('rule.companyId = :companyId', { companyId: company.id })
+        .andWhere('rule.appliesTo = :appliesTo', { appliesTo: ruleConfig.appliesTo })
+        .andWhere('rule.transactionType = :transactionType', { transactionType: ruleConfig.transactionType })
+        .andWhere('rule.debitAccountId = :debitAccountId', { debitAccountId: debitAccount.id })
+        .andWhere('rule.creditAccountId = :creditAccountId', { creditAccountId: creditAccount.id })
+        .andWhere('rule.priority = :priority', { priority: ruleConfig.priority });
+
+      if (ruleConfig.paymentMethod) {
+        qb.andWhere('rule.paymentMethod = :paymentMethod', { paymentMethod: ruleConfig.paymentMethod });
+      } else {
+        qb.andWhere('rule.paymentMethod IS NULL');
+      }
+
+      if (taxId) {
+        qb.andWhere('rule.taxId = :taxId', { taxId });
+      } else {
+        qb.andWhere('rule.taxId IS NULL');
+      }
+
+      if (expenseCategoryId) {
+        qb.andWhere('rule.expenseCategoryId = :expenseCategoryId', { expenseCategoryId });
+      } else {
+        qb.andWhere('rule.expenseCategoryId IS NULL');
+      }
+
+      let ruleEntity = await qb.getOne();
+
+      if (!ruleEntity) {
+        ruleEntity = accountingRuleRepo.create({
+          companyId: company.id,
+          appliesTo: ruleConfig.appliesTo,
+          transactionType: ruleConfig.transactionType,
+          paymentMethod: ruleConfig.paymentMethod ?? null,
+          taxId,
+          expenseCategoryId,
+          debitAccountId: debitAccount.id,
+          creditAccountId: creditAccount.id,
+          priority: ruleConfig.priority,
+          isActive: ruleConfig.isActive,
+        });
+      } else {
+        ruleEntity.paymentMethod = ruleConfig.paymentMethod ?? null;
+        ruleEntity.taxId = taxId;
+        ruleEntity.expenseCategoryId = expenseCategoryId;
+        ruleEntity.debitAccountId = debitAccount.id;
+        ruleEntity.creditAccountId = creditAccount.id;
+        ruleEntity.priority = ruleConfig.priority;
+        ruleEntity.isActive = ruleConfig.isActive;
+      }
+
+      await accountingRuleRepo.save(ruleEntity);
+      console.log(
+        `   • Regla ${ruleConfig.appliesTo} / ${ruleConfig.transactionType} (${ruleConfig.priority}) lista`,
+      );
+    }
+
+    // ============================================
+    // 4. CATEGORÍAS DE JOYERÍA
+    // ============================================
+    console.log('\n📁 Creando categorías de joyería...');
+    
+    // Eliminar categorías antiguas de supermercado
+    await db.query("DELETE FROM categories WHERE code LIKE 'CAT-%'");
+    
+    const categoriesData = [
+      { code: 'ANI', name: 'Anillos', description: 'Anillos de compromiso, alianzas y más', sortOrder: 1 },
+      { code: 'COL', name: 'Collares', description: 'Collares y cadenas', sortOrder: 2 },
+      { code: 'ARE', name: 'Aros', description: 'Aros y pendientes', sortOrder: 3 },
+      { code: 'PUL', name: 'Pulseras', description: 'Pulseras y brazaletes', sortOrder: 4 },
+      { code: 'REL', name: 'Relojes', description: 'Relojes de lujo', sortOrder: 5 },
+      { code: 'CAD', name: 'Cadenas', description: 'Cadenas y collares finos', sortOrder: 6 },
+      { code: 'SET', name: 'Sets', description: 'Conjuntos y sets de joyería', sortOrder: 7 },
+      { code: 'ACC', name: 'Accesorios', description: 'Cajas, limpiadores y accesorios', sortOrder: 8 },
+    ];
+    
+    const createdCategories: Record<string, Category> = {};
+    
+    for (const catData of categoriesData) {
+      let category = await db.getRepository(Category).findOne({ where: { code: catData.code } });
+      if (!category) {
+        category = new Category();
+        category.id = uuidv4();
+        category.code = catData.code;
+        category.name = catData.name;
+        category.description = catData.description;
+        category.sortOrder = catData.sortOrder;
+        category.isActive = true;
+        await db.getRepository(Category).save(category);
+        console.log(`   ✓ Categoría creada: ${category.name}`);
+      } else {
+        console.log(`   ⚠ Categoría ya existe: ${category.name}`);
+      }
+      createdCategories[catData.code] = category;
+    }
+
+    // ============================================
+    // 5. ATRIBUTOS PARA VARIANTES DE JOYERÍA
+    // ============================================
+    console.log('\n💍 Creando atributos para variantes...');
+    
+    const attributesData = [
+      { 
+        name: 'Material', 
+        description: 'Metal o material de la joya',
+        options: ['Oro 18K', 'Oro 14K', 'Oro Blanco', 'Oro Rosa', 'Plata 925', 'Platino', 'Acero'],
+        displayOrder: 1 
+      },
+      { 
+        name: 'Talla', 
+        description: 'Talla de anillo',
+        options: ['5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16'],
+        displayOrder: 2 
+      },
+      { 
+        name: 'Piedra', 
+        description: 'Tipo de piedra preciosa',
+        options: ['Diamante', 'Rubí', 'Esmeralda', 'Zafiro', 'Amatista', 'Topacio', 'Perla', 'Sin piedra'],
+        displayOrder: 3 
+      },
+      { 
+        name: 'Quilates', 
+        description: 'Peso en quilates de la piedra',
+        options: ['0.25ct', '0.50ct', '0.75ct', '1.00ct', '1.50ct', '2.00ct', 'N/A'],
+        displayOrder: 4 
+      },
+      { 
+        name: 'Largo', 
+        description: 'Largo de cadenas y collares',
+        options: ['40cm', '45cm', '50cm', '55cm', '60cm'],
+        displayOrder: 5 
+      },
+    ];
+    
+    const createdAttributes: Record<string, Attribute> = {};
+    const attributeNameById: Record<string, string> = {};
+    
+    for (const attrData of attributesData) {
+      let attribute = await db.getRepository(Attribute).findOne({
+        where: { name: attrData.name },
+        withDeleted: true,
+      });
+      if (!attribute) {
+        attribute = new Attribute();
+        attribute.id = uuidv4();
+        attribute.name = attrData.name;
+        attribute.description = attrData.description;
+        attribute.options = attrData.options;
+        attribute.displayOrder = attrData.displayOrder;
+        attribute.isActive = true;
+        await db.getRepository(Attribute).save(attribute);
+        console.log(`   ✓ Atributo creado: ${attribute.name} (${attribute.options.length} opciones)`);
+      } else {
+        attribute.description = attrData.description;
+        attribute.options = attrData.options;
+        attribute.displayOrder = attrData.displayOrder;
+        attribute.isActive = true;
+        attribute.deletedAt = undefined;
+        await db.getRepository(Attribute).save(attribute);
+        console.log(`   ⚠ Atributo ya existe: ${attribute.name}`);
+      }
+      createdAttributes[attrData.name] = attribute;
+      attributeNameById[attribute.id] = attribute.name;
+    }
+
+    // ============================================
+    // 6. LISTAS DE PRECIOS
+    // ============================================
+    console.log('\n📋 Configurando listas de precios...');
+
+    const priceListRepo = db.getRepository(PriceList);
+    const priceListsConfig = [
+      {
+        key: 'retail',
+        name: 'Precio Público',
+        type: PriceListType.RETAIL,
+        priority: 0,
+        isDefault: true,
+        description: 'Lista de precios para venta al público en tienda',
+      },
+      {
+        key: 'online',
+        name: 'Venta Online',
+        type: PriceListType.RETAIL,
+        priority: 10,
+        isDefault: false,
+        description: 'Precios aplicados para el canal e-commerce',
+      },
+      {
+        key: 'wholesale',
+        name: 'Mayorista Joyero',
+        type: PriceListType.WHOLESALE,
+        priority: 20,
+        isDefault: false,
+        description: 'Precios preferenciales para joyerías asociadas',
+      },
+    ] as const;
+
+    const priceListsByKey: Record<string, PriceList> = {};
+
+    for (const config of priceListsConfig) {
+      let list = await priceListRepo.findOne({ where: { name: config.name }, withDeleted: true });
+      if (!list) {
+        list = new PriceList();
+        list.id = uuidv4();
+        list.name = config.name;
+        console.log(`   ✓ Lista de precios creada: ${config.name}`);
+      } else {
+        list.name = config.name;
+        console.log(`   ⚠ Lista de precios existente actualizada: ${config.name}`);
+      }
+
+      list.priceListType = config.type;
+      list.currency = 'CLP';
+      list.priority = config.priority;
+      list.isDefault = config.isDefault;
+      list.isActive = true;
+      list.description = config.description;
+      list.deletedAt = undefined;
+
+      list = await priceListRepo.save(list);
+      priceListsByKey[config.key] = list;
+    }
+
+    // ============================================
+    // 7. BODEGAS POR SUCURSAL
+    // ============================================
+    console.log('\n📦 Creando bodegas por sucursal...');
+
+    const storageRepo = db.getRepository(Storage);
+    type StorageSeed = {
+      ref: string;
+      branchRef: string;
+      name: string;
+      code: string;
+      type: StorageType;
+      category: StorageCategory;
+      isDefault?: boolean;
+    };
+
+    const storageSeeds: StorageSeed[] = [
+      { ref: 'MALL_VITRINA', branchRef: 'MALL_PLAZA', name: 'Vitrina Principal', code: 'VIT-001', type: StorageType.WAREHOUSE, category: StorageCategory.IN_BRANCH, isDefault: true },
+      { ref: 'MALL_SEGURIDAD', branchRef: 'MALL_PLAZA', name: 'Bóveda Seguridad', code: 'BOV-001', type: StorageType.WAREHOUSE, category: StorageCategory.IN_BRANCH },
+      { ref: 'CENTRO_SHOWROOM', branchRef: 'SANTIAGO_CENTRO', name: 'Showroom Centro', code: 'SHO-010', type: StorageType.STORE, category: StorageCategory.IN_BRANCH, isDefault: true },
+      { ref: 'CENTRO_RESPALDO', branchRef: 'SANTIAGO_CENTRO', name: 'Bodega Centro', code: 'BOD-010', type: StorageType.WAREHOUSE, category: StorageCategory.IN_BRANCH },
+      { ref: 'VINA_VITRINA', branchRef: 'VINA_DEL_MAR', name: 'Vitrina Viña', code: 'VIT-020', type: StorageType.STORE, category: StorageCategory.IN_BRANCH, isDefault: true },
+      { ref: 'VINA_BODEGA', branchRef: 'VINA_DEL_MAR', name: 'Bodega Viña', code: 'BOD-020', type: StorageType.WAREHOUSE, category: StorageCategory.IN_BRANCH },
+      { ref: 'CONCEPCION_SHOWROOM', branchRef: 'CONCEPCION', name: 'Showroom Concepción', code: 'SHO-030', type: StorageType.STORE, category: StorageCategory.IN_BRANCH, isDefault: true },
+      { ref: 'LAS_CONDES_ATELIER', branchRef: 'LAS_CONDES', name: 'Atelier Alonso de Córdova', code: 'ATL-040', type: StorageType.STORE, category: StorageCategory.IN_BRANCH, isDefault: true },
+      { ref: 'LAS_CONDES_TALLER', branchRef: 'LAS_CONDES', name: 'Taller Orfebrería', code: 'TAL-040', type: StorageType.WAREHOUSE, category: StorageCategory.CENTRAL },
+    ];
+
+    for (const seed of storageSeeds) {
+      const branchEntity = branchesByRef[seed.branchRef];
+      if (!branchEntity) {
+        console.log(`   ✗ Sucursal no encontrada para bodega ${seed.ref}`);
+        continue;
+      }
+
+      let storageEntity = await storageRepo.findOne({
+        where: { code: seed.code },
+        withDeleted: true,
+      });
+
+      if (!storageEntity) {
+        storageEntity = storageRepo.create({ id: uuidv4() });
+      }
+
+      storageEntity.branchId = branchEntity.id;
+      storageEntity.name = seed.name;
+      storageEntity.code = seed.code;
+      storageEntity.type = seed.type;
+      storageEntity.category = seed.category;
+      storageEntity.isDefault = Boolean(seed.isDefault);
+      storageEntity.isActive = true;
+      storageEntity.deletedAt = undefined;
+
+      storageEntity = await storageRepo.save(storageEntity);
+      storagesByRef[seed.ref] = storageEntity;
+      console.log(`   • Bodega lista: ${storageEntity.name}`);
+    }
+
+    const primaryStorage = storagesByRef['MALL_VITRINA'] ?? Object.values(storagesByRef)[0];
+    const defaultStorageByBranchId = new Map<string, Storage>();
+    for (const storageEntity of Object.values(storagesByRef)) {
+      if (storageEntity.branchId && storageEntity.isDefault) {
+        defaultStorageByBranchId.set(storageEntity.branchId, storageEntity);
+      }
+    }
+
+    // ============================================
+    // 8. PUNTOS DE VENTA
+    // ============================================
+    console.log('\n🖥️  Creando puntos de venta...');
+
+    const pointOfSaleRepo = db.getRepository(PointOfSale);
+    type PointOfSaleSeed = {
+      ref: string;
+      branchRef: string;
+      name: string;
+    };
+
+    const pointOfSaleSeeds: PointOfSaleSeed[] = [
+      { ref: 'POS_MALL_CAJA', branchRef: 'MALL_PLAZA', name: 'Caja Principal Mall' },
+      { ref: 'POS_MALL_EVENTOS', branchRef: 'MALL_PLAZA', name: 'Caja Eventos Mall' },
+      { ref: 'POS_CENTRO', branchRef: 'SANTIAGO_CENTRO', name: 'Caja Boutique Centro' },
+      { ref: 'POS_VINA', branchRef: 'VINA_DEL_MAR', name: 'Caja Showroom Viña' },
+      { ref: 'POS_CONCEPCION', branchRef: 'CONCEPCION', name: 'Caja Studio Concepción' },
+      { ref: 'POS_LAS_CONDES', branchRef: 'LAS_CONDES', name: 'Caja Atelier Alonso' },
+    ];
+
+    for (const seed of pointOfSaleSeeds) {
+      const branchEntity = branchesByRef[seed.branchRef];
+      if (!branchEntity) {
+        console.log(`   ✗ Sucursal no encontrada para POS ${seed.ref}`);
+        continue;
+      }
+
+      let pointOfSaleEntity = await pointOfSaleRepo.findOne({
+        where: {
+          name: seed.name,
+          branchId: branchEntity.id,
+        },
+        withDeleted: true,
+      });
+
+      if (!pointOfSaleEntity) {
+        pointOfSaleEntity = pointOfSaleRepo.create({ id: uuidv4() });
+      }
+
+      pointOfSaleEntity.branchId = branchEntity.id;
+      pointOfSaleEntity.name = seed.name;
+      pointOfSaleEntity.isActive = true;
+      pointOfSaleEntity.deletedAt = undefined;
+
+      pointOfSaleEntity = await pointOfSaleRepo.save(pointOfSaleEntity);
+      pointsOfSaleByRef[seed.ref] = pointOfSaleEntity;
+      console.log(`   • Punto de venta listo: ${pointOfSaleEntity.name}`);
+    }
+
+    const primaryPos = pointsOfSaleByRef['POS_MALL_CAJA'] ?? Object.values(pointsOfSaleByRef)[0];
+
+    // ============================================
+    // 9. USUARIO ADMINISTRADOR
+    // ============================================
+    console.log('\n👤 Creando usuario administrador...');
+    
+    let adminUser = await db.getRepository(User).findOne({ where: { userName: 'admin' } });
+    
+    if (!adminUser) {
+      // Crear persona para el admin
+      const adminPerson = new Person();
+      adminPerson.id = uuidv4();
+      adminPerson.type = PersonType.NATURAL;
+      adminPerson.firstName = 'Administrador';
+      adminPerson.lastName = 'Joyería';
+      adminPerson.documentType = DocumentType.RUN;
+      adminPerson.documentNumber = '11111111-1';
+      adminPerson.email = 'admin@joyeriabrillante.cl';
+      adminPerson.phone = '+56 9 0000 0000';
+      await db.getRepository(Person).save(adminPerson);
+      
+      // Crear usuario admin
+      adminUser = new User();
+      adminUser.id = uuidv4();
+      adminUser.userName = 'admin';
+      adminUser.pass = hashPassword('890890');
+      adminUser.mail = 'admin@joyeriabrillante.cl';
+      adminUser.rol = UserRole.ADMIN;
+      adminUser.person = adminPerson;
+      await db.getRepository(User).save(adminUser);
+      
+      console.log(`   ✓ Usuario creado: ${adminUser.userName}`);
+    } else {
+      // Actualizar contraseña por si cambió
+      adminUser.pass = hashPassword('890890');
+      await db.getRepository(User).save(adminUser);
+      console.log(`   ✓ Usuario actualizado: ${adminUser.userName} (contraseña: 890890)`);
+    }
+
+    // ============================================
+    // 10. PERMISOS PARA ADMIN
+    // ============================================
+    console.log('\n🔐 Asignando permisos al administrador...');
+    
+    const permissionRepo = db.getRepository(Permission);
+    let permissionsCreated = 0;
+    let permissionsSkipped = 0;
+    
+    for (const ability of ALL_ABILITIES) {
+      const existingPermission = await permissionRepo.findOne({
+        where: { userId: adminUser.id, ability }
+      });
+      
+      if (!existingPermission) {
+        const permission = new Permission();
+        permission.id = uuidv4();
+        permission.userId = adminUser.id;
+        permission.ability = ability;
+        permission.description = `Permiso ${ability} para admin`;
+        await permissionRepo.save(permission);
+        permissionsCreated++;
+      } else {
+        permissionsSkipped++;
+      }
+    }
+    
+    if (permissionsCreated > 0) {
+      console.log(`   ✓ ${permissionsCreated} permisos asignados`);
+    }
+    if (permissionsSkipped > 0) {
+      console.log(`   ⚠ ${permissionsSkipped} permisos ya existían`);
+    }
+
+    // ============================================
+    // 11. UNIDADES DE MEDIDA
+    // ============================================
+    console.log('\n📏 Configurando unidades de medida...');
+
+    const unitRepo = db.getRepository(Unit);
+    const existingUnits = await unitRepo.find({ where: { deletedAt: IsNull() }, relations: ['baseUnit'] });
+    const unitsBySymbol = new Map(existingUnits.map((unit) => [unit.symbol, unit]));
+
+    type UnitSeed = {
+      name: string;
+      symbol: string;
+      dimension: UnitDimension;
+      conversionFactor: number;
+      isBase: boolean;
+      baseSymbol: string;
+    };
+
+    const unitSeeds: UnitSeed[] = [
+      {
+        name: 'Unidad',
+        symbol: 'un',
+        dimension: UnitDimension.COUNT,
+        conversionFactor: 1,
+        isBase: true,
+        baseSymbol: 'un',
+      },
+      {
+        name: 'Caja',
+        symbol: 'cj',
+        dimension: UnitDimension.COUNT,
+        conversionFactor: 12,
+        isBase: false,
+        baseSymbol: 'un',
+      },
+      {
+        name: 'Kilogramo',
+        symbol: 'kg',
+        dimension: UnitDimension.MASS,
+        conversionFactor: 1,
+        isBase: true,
+        baseSymbol: 'kg',
+      },
+      {
+        name: 'Gramo',
+        symbol: 'g',
+        dimension: UnitDimension.MASS,
+        conversionFactor: 0.001,
+        isBase: false,
+        baseSymbol: 'kg',
+      },
+    ];
+
+    for (const seed of unitSeeds.filter((unit) => unit.isBase)) {
+      if (unitsBySymbol.has(seed.symbol)) {
+        console.log(`   ⚠ Unidad base ya existe: ${seed.symbol}`);
+        continue;
+      }
+
+      const unit = new Unit();
+      unit.id = uuidv4();
+      unit.name = seed.name;
+      unit.symbol = seed.symbol;
+      unit.dimension = seed.dimension;
+      unit.conversionFactor = seed.conversionFactor;
+      unit.isBase = true;
+      unit.active = true;
+      unit.baseUnit = null;
+
+      await unitRepo.save(unit);
+      unitsBySymbol.set(seed.symbol, unit);
+      console.log(`   ✓ Unidad base creada: ${seed.name} (${seed.symbol})`);
+    }
+
+    for (const seed of unitSeeds.filter((unit) => !unit.isBase)) {
+      if (unitsBySymbol.has(seed.symbol)) {
+        console.log(`   ⚠ Unidad derivada ya existe: ${seed.symbol}`);
+        continue;
+      }
+
+      const baseUnit = unitsBySymbol.get(seed.baseSymbol);
+      if (!baseUnit) {
+        console.log(`   ✗ No se pudo crear ${seed.symbol}: unidad base ${seed.baseSymbol} no encontrada`);
+        continue;
+      }
+
+      const unit = new Unit();
+      unit.id = uuidv4();
+      unit.name = seed.name;
+      unit.symbol = seed.symbol;
+      unit.dimension = seed.dimension;
+      unit.conversionFactor = seed.conversionFactor;
+      unit.isBase = false;
+      unit.active = true;
+      unit.baseUnit = baseUnit;
+
+      await unitRepo.save(unit);
+      unitsBySymbol.set(seed.symbol, unit);
+      console.log(`   ✓ Unidad derivada creada: ${seed.name} (${seed.symbol})`);
+    }
+
+    // ============================================
+    // 12. PRODUCTOS DE EJEMPLO (JOYERÍA)
+    // ============================================
+    console.log('\n💎 Creando productos de ejemplo...');
+
+    type PriceListKey = (typeof priceListsConfig)[number]['key'];
+
+    type VariantSeed = {
+      sku: string;
+      baseCost?: number;
+      attributeValues?: Record<string, string>;
+      priceEntries: Array<{
+        listKey: PriceListKey;
+        grossPrice: number;
+        netPrice?: number;
+        taxCodes?: string[];
+      }>;
+      trackInventory?: boolean;
+      allowNegativeStock?: boolean;
+      weight?: number;
+      weightUnit?: 'g' | 'kg';
+    };
+
+    type ProductSeed = {
+      name: string;
+      description?: string;
+      brand?: string;
+      categoryCode: keyof typeof createdCategories;
+      variants: VariantSeed[];
+    };
+
+    const normalizeSeedWeightUnit = (unit?: VariantSeed['weightUnit']): 'kg' | 'g' => {
+      if (!unit) {
+        return 'kg';
+      }
+
+      return unit === 'g' ? 'g' : 'kg';
+    };
+
+    const productsData: ProductSeed[] = [
+      {
+        name: 'Anillo Solitario Clásico',
+        description: 'Elegante anillo solitario con diamante central',
+        brand: 'Brillante',
+        categoryCode: 'ANI',
+        variants: [
+          {
+            sku: 'ANI-SOL-ORO18-T6',
+            baseCost: 950000,
+            attributeValues: {
+              Material: 'Oro 18K',
+              Talla: '6',
+              Piedra: 'Diamante',
+              Quilates: '1.00ct',
+            },
+            weight: 6.4,
+            weightUnit: 'g',
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 1_890_000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 1_849_000, taxCodes: ['IVA-19'] },
+              { listKey: 'wholesale', grossPrice: 1_720_000, taxCodes: ['IVA-19'] },
+            ],
+          },
+          {
+            sku: 'ANI-SOL-ORO18-T7',
+            baseCost: 900000,
+            attributeValues: {
+              Material: 'Oro 18K',
+              Talla: '7',
+              Piedra: 'Diamante',
+              Quilates: '0.75ct',
+            },
+            weight: 6.1,
+            weightUnit: 'g',
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 1_790_000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 1_750_000, taxCodes: ['IVA-19'] },
+              { listKey: 'wholesale', grossPrice: 1_630_000, taxCodes: ['IVA-19'] },
+            ],
+          },
+        ],
+      },
+      {
+        name: 'Collar Cadena Veneciana',
+        description: 'Delicada cadena veneciana en oro',
+        brand: 'Brillante',
+        categoryCode: 'COL',
+        variants: [
+          {
+            sku: 'COL-VEN-ORO14-45',
+            baseCost: 220000,
+            attributeValues: {
+              Material: 'Oro 14K',
+              Largo: '45cm',
+            },
+            weight: 12.5,
+            weightUnit: 'g',
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 450000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 439000, taxCodes: ['IVA-19'] },
+              { listKey: 'wholesale', grossPrice: 398000, taxCodes: ['IVA-19'] },
+            ],
+          },
+          {
+            sku: 'COL-VEN-ORO14-50',
+            baseCost: 235000,
+            attributeValues: {
+              Material: 'Oro 14K',
+              Largo: '50cm',
+            },
+            weight: 13.2,
+            weightUnit: 'g',
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 475000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 462000, taxCodes: ['IVA-19'] },
+              { listKey: 'wholesale', grossPrice: 418000, taxCodes: ['IVA-19'] },
+            ],
+          },
+          {
+            sku: 'COL-VEN-PLATA-50',
+            baseCost: 110000,
+            attributeValues: {
+              Material: 'Plata 925',
+              Largo: '50cm',
+            },
+            weight: 9.8,
+            weightUnit: 'g',
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 189000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 179000, taxCodes: ['IVA-19'] },
+            ],
+          },
+        ],
+      },
+      {
+        name: 'Aros Perla Cultivada',
+        description: 'Aros clásicos con perla cultivada',
+        brand: 'Brillante',
+        categoryCode: 'ARE',
+        variants: [
+          {
+            sku: 'ARE-PER-PLATA',
+            baseCost: 85000,
+            attributeValues: {
+              Material: 'Plata 925',
+              Piedra: 'Perla',
+              Quilates: 'N/A',
+            },
+            weight: 3.2,
+            weightUnit: 'g',
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 180000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 169000, taxCodes: ['IVA-19'] },
+            ],
+          },
+          {
+            sku: 'ARE-PER-ORO18',
+            baseCost: 125000,
+            attributeValues: {
+              Material: 'Oro 18K',
+              Piedra: 'Perla',
+              Quilates: 'N/A',
+            },
+            weight: 3.5,
+            weightUnit: 'g',
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 245000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 235000, taxCodes: ['IVA-19'] },
+              { listKey: 'wholesale', grossPrice: 210000, taxCodes: ['IVA-19'] },
+            ],
+          },
+        ],
+      },
+      {
+        name: 'Anillo Halo Esmeralda',
+        description: 'Halo con esmeralda central y diamantes laterales.',
+        brand: 'Brillante High Jewelry',
+        categoryCode: 'ANI',
+        variants: [
+          {
+            sku: 'ANI-HALO-ESM-T5',
+            baseCost: 520_000,
+            attributeValues: {
+              Material: 'Oro Blanco',
+              Talla: '5',
+              Piedra: 'Esmeralda',
+            },
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 1_050_000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 1_020_000, taxCodes: ['IVA-19'] },
+            ],
+          },
+          {
+            sku: 'ANI-HALO-ESM-T7',
+            baseCost: 540_000,
+            attributeValues: {
+              Material: 'Oro Blanco',
+              Talla: '7',
+              Piedra: 'Esmeralda',
+            },
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 1_070_000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 1_040_000, taxCodes: ['IVA-19'] },
+              { listKey: 'wholesale', grossPrice: 980_000, taxCodes: ['IVA-19'] },
+            ],
+          },
+        ],
+      },
+      {
+        name: 'Pulsera Tennis Diamantes',
+        description: 'Pulsera tennis con diamantes engastados en oro.',
+        brand: 'Signature',
+        categoryCode: 'PUL',
+        variants: [
+          {
+            sku: 'PUL-TEN-DIA-19',
+            baseCost: 650_000,
+            attributeValues: { Material: 'Oro 18K' },
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 1_350_000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 1_320_000, taxCodes: ['IVA-19'] },
+            ],
+          },
+        ],
+      },
+      {
+        name: 'Collar Perla Austral',
+        description: 'Collar con perlas australes seleccionadas.',
+        brand: 'Australis',
+        categoryCode: 'COL',
+        variants: [
+          {
+            sku: 'COL-PER-AUS-45',
+            baseCost: 245_000,
+            attributeValues: { Material: 'Oro Rosa', Piedra: 'Perla' },
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 520_000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 505_000, taxCodes: ['IVA-19'] },
+            ],
+          },
+          {
+            sku: 'COL-PER-AUS-50',
+            baseCost: 260_000,
+            attributeValues: { Material: 'Oro Rosa', Piedra: 'Perla' },
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 545_000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 530_000, taxCodes: ['IVA-19'] },
+            ],
+          },
+        ],
+      },
+      {
+        name: 'Set Ceremonial Oro Blanco',
+        description: 'Set completo para ceremonias con incrustaciones brillantes.',
+        brand: 'Brillante Exclusive',
+        categoryCode: 'SET',
+        variants: [
+          {
+            sku: 'SET-CER-ORO-BLN',
+            baseCost: 780_000,
+            attributeValues: { Material: 'Oro Blanco' },
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 1_580_000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 1_540_000, taxCodes: ['IVA-19'] },
+            ],
+          },
+        ],
+      },
+      {
+        name: 'Accesorio Limpiador Joyas',
+        description: 'Spray limpiador suave para joyería delicada.',
+        brand: 'CarePlus',
+        categoryCode: 'ACC',
+        variants: [
+          {
+            sku: 'ACC-LIMPIADOR-SPRAY',
+            baseCost: 12_000,
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 29_900, taxCodes: ['EXENTO'] },
+              { listKey: 'online', grossPrice: 27_900, taxCodes: ['EXENTO'] },
+            ],
+          },
+        ],
+      },
+      {
+        name: 'Caja Regalo Lujo',
+        description: 'Caja de presentación de lujo con interior aterciopelado.',
+        brand: 'Brillante Accessoires',
+        categoryCode: 'ACC',
+        variants: [
+          {
+            sku: 'ACC-CAJA-LUJO',
+            baseCost: 18_000,
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 49_900, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 45_900, taxCodes: ['IVA-19'] },
+            ],
+          },
+        ],
+      },
+      {
+        name: 'Anillo Minimalista Plata',
+        description: 'Anillo minimalista de plata pulida para uso diario.',
+        brand: 'Linea Essential',
+        categoryCode: 'ANI',
+        variants: [
+          {
+            sku: 'ANI-MINI-PLATA-T6',
+            baseCost: 45_000,
+            attributeValues: { Material: 'Plata 925', Talla: '6' },
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 99_000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 95_000, taxCodes: ['IVA-19'] },
+            ],
+          },
+          {
+            sku: 'ANI-MINI-PLATA-T8',
+            baseCost: 47_000,
+            attributeValues: { Material: 'Plata 925', Talla: '8' },
+            priceEntries: [
+              { listKey: 'retail', grossPrice: 105_000, taxCodes: ['IVA-19'] },
+              { listKey: 'online', grossPrice: 98_000, taxCodes: ['IVA-19'] },
+            ],
+          },
+        ],
+      },
+    ];
+
+    const productRepo = db.getRepository(Product);
+    const variantRepo = db.getRepository(ProductVariant);
+    const priceListItemRepo = db.getRepository(PriceListItem);
+    const variantBySku: Record<string, ProductVariant> = {};
+
+    const mapAttributeValues = (values?: Record<string, string>): Record<string, string> | undefined => {
+      if (!values) {
+        return undefined;
+      }
+
+      const mapped: Record<string, string> = {};
+      let hasAtLeastOne = false;
+
+      for (const [attributeName, optionValue] of Object.entries(values)) {
+        const attribute = createdAttributes[attributeName];
+        if (!attribute || !optionValue) {
+          continue;
+        }
+        mapped[attribute.id] = optionValue;
+        hasAtLeastOne = true;
+      }
+
+      return hasAtLeastOne ? mapped : undefined;
+    };
+
+    for (const productSeed of productsData) {
+      const desiredSkus = new Set(productSeed.variants.map((variant) => variant.sku));
+
+      let product = await productRepo.findOne({
+        where: { name: productSeed.name },
+        withDeleted: true,
+      });
+
+      if (!product) {
+        product = new Product();
+        product.id = uuidv4();
+        product.productType = ProductType.PHYSICAL;
+      }
+
+      const category = createdCategories[productSeed.categoryCode];
+      const baseUnit = unitsBySymbol.get('un');
+
+      if (!baseUnit) {
+        console.log('   ✗ No se pudo asegurar variantes: unidad UN no disponible.');
+        continue;
+      }
+
+      product.name = productSeed.name;
+      product.description = productSeed.description;
+      product.brand = productSeed.brand;
+      product.categoryId = category?.id;
+      product.productType = ProductType.PHYSICAL;
+      product.isActive = true;
+      product.baseUnitId = baseUnit.id;
+      product.baseUnit = baseUnit;
+      product.taxIds = ivaDefault ? [ivaDefault.id] : undefined;
+      product.deletedAt = undefined;
+
+      await productRepo.save(product);
+
+      const existingVariants = await variantRepo.find({
+        where: { productId: product.id },
+        withDeleted: true,
+      });
+
+      for (const existing of existingVariants) {
+        if (!desiredSkus.has(existing.sku)) {
+          await db.createQueryBuilder()
+            .delete()
+            .from(PriceListItem)
+            .where('productVariantId = :variantId', { variantId: existing.id })
+            .execute();
+
+          await variantRepo.softRemove(existing);
+        }
+      }
+
+      for (const variantSeed of productSeed.variants) {
+
+        let variant = await variantRepo.findOne({
+          where: { sku: variantSeed.sku },
+          withDeleted: true,
+        });
+
+        if (!variant) {
+          variant = new ProductVariant();
+          variant.id = uuidv4();
+          variant.sku = variantSeed.sku;
+        }
+
+        const attributeValues = mapAttributeValues(variantSeed.attributeValues);
+
+        const preparedPriceEntries = (variantSeed.priceEntries ?? [])
+          .map((entry) => {
+            const priceList = priceListsByKey[entry.listKey];
+            if (!priceList) {
+              console.log(`   ✗ Lista de precios "${entry.listKey}" no existe, se omite para variante ${variantSeed.sku}`);
+              return null;
+            }
+
+            const taxes = (entry.taxCodes ?? ['IVA-19'])
+              .map((code) => taxesByCode[code])
+              .filter((tax): tax is Tax => Boolean(tax));
+
+            const computation = computePriceWithTaxes({
+              netPrice: entry.netPrice,
+              grossPrice: entry.grossPrice,
+              taxRates: taxes.map((tax) => tax.rate),
+            });
+
+            return {
+              priceList,
+              netPrice: computation.netPrice,
+              grossPrice: computation.grossPrice,
+              taxIds: taxes.map((tax) => tax.id),
+            };
+          })
+          .filter((entry): entry is { priceList: PriceList; netPrice: number; grossPrice: number; taxIds: string[] } => entry !== null);
+
+        if (preparedPriceEntries.length === 0) {
+          console.log(`   ⚠ Variante ${variantSeed.sku} sin precios válidos, se omite.`);
+          continue;
+        }
+
+        const primaryEntry = preparedPriceEntries[0];
+        const uniqueTaxIds = Array.from(new Set(preparedPriceEntries.flatMap((entry) => entry.taxIds)));
+
+        variant.productId = product.id;
+        variant.basePrice = primaryEntry.netPrice;
+        variant.baseCost = variantSeed.baseCost ?? Math.round(primaryEntry.netPrice * 0.45);
+        variant.unitId = baseUnit.id;
+        variant.unit = baseUnit;
+        variant.weight = variantSeed.weight !== undefined ? Number(variantSeed.weight) : undefined;
+        variant.weightUnit = normalizeSeedWeightUnit(variantSeed.weightUnit);
+        variant.attributeValues = attributeValues;
+        variant.isActive = true;
+        variant.trackInventory = variantSeed.trackInventory ?? true;
+        variant.allowNegativeStock = variantSeed.allowNegativeStock ?? false;
+        variant.taxIds = uniqueTaxIds.length > 0 ? uniqueTaxIds : undefined;
+        variant.deletedAt = undefined;
+
+        await variantRepo.save(variant);
+        variant.product = product;
+        variantBySku[variant.sku] = variant;
+
+        await db.createQueryBuilder()
+          .delete()
+          .from(PriceListItem)
+          .where('productVariantId = :variantId', { variantId: variant.id })
+          .execute();
+
+        for (const entry of preparedPriceEntries) {
+          const priceListItem = new PriceListItem();
+          priceListItem.id = uuidv4();
+          priceListItem.priceListId = entry.priceList.id;
+          priceListItem.productId = product.id;
+          priceListItem.productVariantId = variant.id;
+          priceListItem.netPrice = entry.netPrice;
+          priceListItem.grossPrice = entry.grossPrice;
+          priceListItem.taxIds = entry.taxIds.length > 0 ? entry.taxIds : null;
+
+          await priceListItemRepo.save(priceListItem);
+        }
+
+        console.log(`   ✓ Variante asegurada: ${variantSeed.sku}`);
+      }
+    }
+
+    // ============================================
+    // 13. CLIENTES Y PROVEEDORES
+    // ============================================
+    console.log('\n🧑‍🤝‍🧑 Creando clientes y proveedores...');
+
+    const personRepo = db.getRepository(Person);
+    const customerRepo = db.getRepository(Customer);
+    const supplierRepo = db.getRepository(Supplier);
+
+    type PersonSeed = {
+      ref: string;
+      type: PersonType;
+      firstName: string;
+      lastName?: string;
+      businessName?: string;
+      documentType?: DocumentType | null;
+      documentNumber?: string | null;
+      email?: string | null;
+      phone?: string | null;
+      address?: string | null;
+    };
+
+    const personSeeds: PersonSeed[] = [
+      {
+        ref: 'CAROLINA_ROJAS',
+        type: PersonType.NATURAL,
+        firstName: 'Carolina',
+        lastName: 'Rojas Soto',
+        documentType: DocumentType.RUN,
+        documentNumber: '13.456.789-0',
+        email: 'carolina.rojas@example.com',
+        phone: '+56 9 5123 7788',
+        address: 'Av. La Florida 1234, Santiago',
+      },
+      {
+        ref: 'LUIS_FERNANDEZ',
+        type: PersonType.NATURAL,
+        firstName: 'Luis',
+        lastName: 'Fernández Araya',
+        documentType: DocumentType.RUN,
+        documentNumber: '17.890.123-4',
+        email: 'lfernandez@example.com',
+        phone: '+56 9 6123 4455',
+        address: 'Av. Apoquindo 4321, Las Condes',
+      },
+      {
+        ref: 'METALURGICA_ANDINA',
+        type: PersonType.COMPANY,
+        firstName: 'Metalúrgica Andina',
+        businessName: 'Metalúrgica Andina Ltda.',
+        documentType: DocumentType.RUT,
+        documentNumber: '76.123.456-0',
+        email: 'contacto@metalurgicaandina.cl',
+        phone: '+56 2 2345 6677',
+        address: 'Parque Industrial Quilín, Macul',
+      },
+      {
+        ref: 'ANDREA_MOLINA',
+        type: PersonType.NATURAL,
+        firstName: 'Andrea',
+        lastName: 'Molina Garrido',
+        documentType: DocumentType.RUN,
+        documentNumber: '14.234.567-8',
+        email: 'andrea.molina@example.com',
+        phone: '+56 9 4432 1678',
+        address: 'Los Leones 389, Providencia',
+      },
+      {
+        ref: 'FELIPE_NAVARRO',
+        type: PersonType.NATURAL,
+        firstName: 'Felipe',
+        lastName: 'Navarro Pino',
+        documentType: DocumentType.RUN,
+        documentNumber: '16.543.210-5',
+        email: 'felipe.navarro@example.com',
+        phone: '+56 9 7821 1133',
+        address: 'Camino el Alba 1020, Las Condes',
+      },
+      {
+        ref: 'VALENTINA_ARAYA',
+        type: PersonType.NATURAL,
+        firstName: 'Valentina',
+        lastName: 'Araya Muñoz',
+        documentType: DocumentType.RUN,
+        documentNumber: '18.654.321-7',
+        email: 'valentina.araya@example.com',
+        phone: '+56 9 9310 2244',
+        address: 'Av. Perú 2600, Recoleta',
+      },
+      {
+        ref: 'MONICA_PAREDES',
+        type: PersonType.NATURAL,
+        firstName: 'Mónica',
+        lastName: 'Paredes Silva',
+        documentType: DocumentType.RUN,
+        documentNumber: '12.987.654-3',
+        email: 'monica.paredes@example.com',
+        phone: '+56 9 6001 4433',
+        address: 'Av. Ossa 840, La Reina',
+      },
+      {
+        ref: 'SEBASTIAN_OJEDA',
+        type: PersonType.NATURAL,
+        firstName: 'Sebastián',
+        lastName: 'Ojeda Cortés',
+        documentType: DocumentType.RUN,
+        documentNumber: '19.345.678-2',
+        email: 'sebastian.ojeda@example.com',
+        phone: '+56 9 7334 1199',
+        address: 'Av. Alemania 455, Temuco',
+      },
+      {
+        ref: 'CAMILA_TAPIA',
+        type: PersonType.NATURAL,
+        firstName: 'Camila',
+        lastName: 'Tapia Fuentes',
+        documentType: DocumentType.RUN,
+        documentNumber: '17.112.233-4',
+        email: 'camila.tapia@example.com',
+        phone: '+56 9 8899 5522',
+        address: 'Av. Libertad 980, Viña del Mar',
+      },
+      {
+        ref: 'IGNACIO_RIVERA',
+        type: PersonType.NATURAL,
+        firstName: 'Ignacio',
+        lastName: 'Rivera Sáez',
+        documentType: DocumentType.RUN,
+        documentNumber: '15.667.890-1',
+        email: 'ignacio.rivera@example.com',
+        phone: '+56 9 2121 7878',
+        address: 'Av. Alemania 1155, Osorno',
+      },
+      {
+        ref: 'PATRICIA_SALAS',
+        type: PersonType.NATURAL,
+        firstName: 'Patricia',
+        lastName: 'Salas Villalobos',
+        documentType: DocumentType.RUN,
+        documentNumber: '11.556.778-9',
+        email: 'patricia.salas@example.com',
+        phone: '+56 9 9987 3344',
+        address: 'Av. Pedro Aguirre Cerda 345, Antofagasta',
+      },
+      {
+        ref: 'GEMAS_DEL_SUR',
+        type: PersonType.COMPANY,
+        firstName: 'Gemas del Sur',
+        businessName: 'Gemas del Sur SpA',
+        documentType: DocumentType.RUT,
+        documentNumber: '77.234.567-8',
+        email: 'ventas@gemasdelsur.cl',
+        phone: '+56 2 2987 1100',
+        address: 'Parque Industrial Puerto Montt 500',
+      },
+      {
+        ref: 'TALLER_SILVA',
+        type: PersonType.COMPANY,
+        firstName: 'Taller Silva Orfebres',
+        businessName: 'Taller Orfebre Silva EIRL',
+        documentType: DocumentType.RUT,
+        documentNumber: '78.345.678-9',
+        email: 'contacto@tallersilva.cl',
+        phone: '+56 2 2211 7788',
+        address: 'Av. Italia 1460, Ñuñoa',
+      },
+      {
+        ref: 'JOYAS_PATAGONIA',
+        type: PersonType.COMPANY,
+        firstName: 'Joyas Patagonia',
+        businessName: 'Joyas Patagonia Ltda.',
+        documentType: DocumentType.RUT,
+        documentNumber: '76.987.654-3',
+        email: 'ventas@joyaspatagonia.cl',
+        phone: '+56 61 222 4455',
+        address: 'Costanera 550, Punta Arenas',
+      },
+      {
+        ref: 'LUMINOSA_IMPORTS',
+        type: PersonType.COMPANY,
+        firstName: 'Luminosa Imports',
+        businessName: 'Luminosa Imports S.A.',
+        documentType: DocumentType.RUT,
+        documentNumber: '79.123.456-7',
+        email: 'contacto@luminosaimports.cl',
+        phone: '+56 2 2314 6677',
+        address: 'Puerto Seco 1220, Iquique',
+      },
+    ];
+
+    for (const seed of personSeeds) {
+      let person: Person | null = null;
+
+      if (seed.documentNumber) {
+        person = await personRepo.findOne({
+          where: { documentNumber: seed.documentNumber },
+          withDeleted: true,
+        });
+      }
+
+      if (!person && seed.email) {
+        person = await personRepo.findOne({ where: { email: seed.email }, withDeleted: true });
+      }
+
+      if (!person) {
+        const nameWhere: Record<string, unknown> = {
+          firstName: seed.firstName,
+        };
+        if (seed.lastName) {
+          nameWhere.lastName = seed.lastName;
+        }
+
+        person = await personRepo.findOne({
+          where: nameWhere,
+          withDeleted: true,
+        });
+      }
+
+      if (!person) {
+        person = new Person();
+        person.id = uuidv4();
+      }
+
+      person.type = seed.type;
+      person.firstName = seed.firstName;
+      person.lastName = seed.lastName;
+      person.businessName = seed.businessName;
+      person.documentType = seed.documentType ?? null;
+      person.documentNumber = seed.documentNumber ?? undefined;
+      person.email = seed.email ?? undefined;
+      person.phone = seed.phone ?? undefined;
+      person.address = seed.address ?? undefined;
+      person.deletedAt = undefined;
+
+      person = await personRepo.save(person);
+      personsByRef[seed.ref] = person;
+      console.log(`   ✓ Persona asegurada: ${person.firstName}${person.lastName ? ` ${person.lastName}` : ''}`);
+    }
+
+    type CustomerSeed = {
+      ref: string;
+      personRef: string;
+      creditLimit: number;
+      defaultPaymentTermDays: number;
+      notes?: string;
+    };
+
+    const customerSeeds: CustomerSeed[] = [
+      {
+        ref: 'CLIENTE_CAROLINA',
+        personRef: 'CAROLINA_ROJAS',
+        creditLimit: 2_000_000,
+        defaultPaymentTermDays: 15,
+        notes: 'Cliente frecuente en compras de alta gama.',
+      },
+      {
+        ref: 'CLIENTE_LUIS',
+        personRef: 'LUIS_FERNANDEZ',
+        creditLimit: 1_000_000,
+        defaultPaymentTermDays: 10,
+        notes: 'Cliente preferencial para lanzamientos y reservas.',
+      },
+      {
+        ref: 'CLIENTE_ANDREA',
+        personRef: 'ANDREA_MOLINA',
+        creditLimit: 1_200_000,
+        defaultPaymentTermDays: 20,
+        notes: 'Prefiere pulseras personalizadas y pedidos especiales.',
+      },
+      {
+        ref: 'CLIENTE_FELIPE',
+        personRef: 'FELIPE_NAVARRO',
+        creditLimit: 900_000,
+        defaultPaymentTermDays: 7,
+        notes: 'Pagador puntual, enfoque en relojes de colección.',
+      },
+      {
+        ref: 'CLIENTE_VALENTINA',
+        personRef: 'VALENTINA_ARAYA',
+        creditLimit: 1_500_000,
+        defaultPaymentTermDays: 30,
+        notes: 'Cliente premium, atención personalizada y envíos a domicilio.',
+      },
+      {
+        ref: 'CLIENTE_MONICA',
+        personRef: 'MONICA_PAREDES',
+        creditLimit: 650_000,
+        defaultPaymentTermDays: 10,
+        notes: 'Visitas frecuentes para regalos corporativos.',
+      },
+      {
+        ref: 'CLIENTE_SEBASTIAN',
+        personRef: 'SEBASTIAN_OJEDA',
+        creditLimit: 800_000,
+        defaultPaymentTermDays: 12,
+        notes: 'Cliente nuevo del showroom Concepción.',
+      },
+      {
+        ref: 'CLIENTE_CAMILA',
+        personRef: 'CAMILA_TAPIA',
+        creditLimit: 700_000,
+        defaultPaymentTermDays: 14,
+        notes: 'Fanática de colecciones veraniegas y nuevas tendencias.',
+      },
+      {
+        ref: 'CLIENTE_IGNACIO',
+        personRef: 'IGNACIO_RIVERA',
+        creditLimit: 450_000,
+        defaultPaymentTermDays: 8,
+        notes: 'Compra online y retira en sucursal.',
+      },
+      {
+        ref: 'CLIENTE_PATRICIA',
+        personRef: 'PATRICIA_SALAS',
+        creditLimit: 1_100_000,
+        defaultPaymentTermDays: 20,
+        notes: 'Encargos desde Antofagasta, coordina envíos asegurados.',
+      },
+    ];
+
+    for (const seed of customerSeeds) {
+      const basePerson = personsByRef[seed.personRef];
+      if (!basePerson) {
+        console.log(`   ✗ Persona no encontrada para cliente ${seed.ref}`);
+        continue;
+      }
+
+      let customer = await customerRepo.findOne({ where: { personId: basePerson.id }, withDeleted: true });
+      if (!customer) {
+        customer = customerRepo.create({ personId: basePerson.id });
+      }
+
+      customer.creditLimit = seed.creditLimit;
+      customer.currentBalance = customer.currentBalance ?? 0;
+      customer.defaultPaymentTermDays = seed.defaultPaymentTermDays;
+      customer.isActive = true;
+      customer.notes = seed.notes;
+      customer.deletedAt = undefined;
+
+      customer = await customerRepo.save(customer);
+      customersByRef[seed.ref] = customer;
+      console.log(`   ✓ Cliente asegurado: ${seed.ref}`);
+    }
+
+    type SupplierSeed = {
+      ref: string;
+      personRef: string;
+      supplierType: SupplierType;
+      defaultPaymentTermDays: number;
+      notes?: string;
+    };
+
+    const supplierSeeds: SupplierSeed[] = [
+      {
+        ref: 'SUPPLIER_METALURGICA',
+        personRef: 'METALURGICA_ANDINA',
+        supplierType: SupplierType.MANUFACTURER,
+        defaultPaymentTermDays: 30,
+        notes: 'Proveedor principal de cadenas y piezas de oro 14K.',
+      },
+      {
+        ref: 'SUPPLIER_GEMAS_SUR',
+        personRef: 'GEMAS_DEL_SUR',
+        supplierType: SupplierType.DISTRIBUTOR,
+        defaultPaymentTermDays: 45,
+        notes: 'Distribuidor de piedras preciosas certificadas.',
+      },
+      {
+        ref: 'SUPPLIER_TALLER_SILVA',
+        personRef: 'TALLER_SILVA',
+        supplierType: SupplierType.LOCAL,
+        defaultPaymentTermDays: 20,
+        notes: 'Taller artesanal para piezas personalizadas.',
+      },
+      {
+        ref: 'SUPPLIER_PATAGONIA',
+        personRef: 'JOYAS_PATAGONIA',
+        supplierType: SupplierType.WHOLESALER,
+        defaultPaymentTermDays: 35,
+        notes: 'Especialistas en plata 950 y diseño patagónico.',
+      },
+      {
+        ref: 'SUPPLIER_LUMINOSA',
+        personRef: 'LUMINOSA_IMPORTS',
+        supplierType: SupplierType.DISTRIBUTOR,
+        defaultPaymentTermDays: 40,
+        notes: 'Importador de relojes y accesorios premium.',
+      },
+    ];
+
+    for (const seed of supplierSeeds) {
+      const basePerson = personsByRef[seed.personRef];
+      if (!basePerson) {
+        console.log(`   ✗ Persona no encontrada para proveedor ${seed.ref}`);
+        continue;
+      }
+
+      let supplier = await supplierRepo.findOne({ where: { personId: basePerson.id }, withDeleted: true });
+      if (!supplier) {
+        supplier = supplierRepo.create({ personId: basePerson.id });
+      }
+
+      supplier.supplierType = seed.supplierType;
+      supplier.alias = basePerson.businessName ?? basePerson.firstName;
+      supplier.defaultPaymentTermDays = seed.defaultPaymentTermDays;
+      supplier.isActive = true;
+      supplier.notes = seed.notes;
+      supplier.deletedAt = undefined;
+
+      supplier = await supplierRepo.save(supplier);
+      suppliersByRef[seed.ref] = supplier;
+      console.log(`   ✓ Proveedor asegurado: ${seed.ref}`);
+    }
+
+    // ============================================
+    // 14. SESIONES DE CAJA DEMO
+    // ============================================
+    console.log('\n💵 Creando sesiones de caja de demostración...');
+
+    const cashSessionRepo = db.getRepository(CashSession);
+    type CashSessionSeed = {
+      ref: string;
+      pointOfSaleRef: string;
+      status: CashSessionStatus;
+      openingAmount: number;
+      closingAmount?: number;
+      expectedAmount?: number;
+      difference?: number;
+      openedHoursAgo: number;
+      durationHours?: number;
+      notes: string;
+    };
+
+    const cashSessionSeeds: CashSessionSeed[] = [
+      {
+        ref: 'SESSION_MALL_OPEN',
+        pointOfSaleRef: 'POS_MALL_CAJA',
+        status: CashSessionStatus.OPEN,
+        openingAmount: 500_000,
+        openedHoursAgo: 4,
+        notes: 'Seed session SESSION_MALL_OPEN',
+      },
+      {
+        ref: 'SESSION_MALL_EVENTOS',
+        pointOfSaleRef: 'POS_MALL_EVENTOS',
+        status: CashSessionStatus.CLOSED,
+        openingAmount: 250_000,
+        closingAmount: 460_000,
+        expectedAmount: 460_000,
+        difference: 0,
+        openedHoursAgo: 30,
+        durationHours: 10,
+        notes: 'Seed session SESSION_MALL_EVENTOS',
+      },
+      {
+        ref: 'SESSION_CENTRO',
+        pointOfSaleRef: 'POS_CENTRO',
+        status: CashSessionStatus.CLOSED,
+        openingAmount: 180_000,
+        closingAmount: 320_000,
+        expectedAmount: 318_000,
+        difference: 2_000,
+        openedHoursAgo: 54,
+        durationHours: 9,
+        notes: 'Seed session SESSION_CENTRO',
+      },
+      {
+        ref: 'SESSION_VINA',
+        pointOfSaleRef: 'POS_VINA',
+        status: CashSessionStatus.CLOSED,
+        openingAmount: 150_000,
+        closingAmount: 298_000,
+        expectedAmount: 300_000,
+        difference: -2_000,
+        openedHoursAgo: 78,
+        durationHours: 8,
+        notes: 'Seed session SESSION_VINA',
+      },
+      {
+        ref: 'SESSION_CONCEPCION',
+        pointOfSaleRef: 'POS_CONCEPCION',
+        status: CashSessionStatus.OPEN,
+        openingAmount: 220_000,
+        openedHoursAgo: 6,
+        notes: 'Seed session SESSION_CONCEPCION',
+      },
+      {
+        ref: 'SESSION_LAS_CONDES',
+        pointOfSaleRef: 'POS_LAS_CONDES',
+        status: CashSessionStatus.OPEN,
+        openingAmount: 300_000,
+        openedHoursAgo: 2,
+        notes: 'Seed session SESSION_LAS_CONDES',
+      },
+    ];
+
+    const hoursToMs = (hours: number): number => Math.round(hours * 60 * 60 * 1000);
+
+    for (const seed of cashSessionSeeds) {
+      const pointOfSaleEntity = pointsOfSaleByRef[seed.pointOfSaleRef];
+      if (!pointOfSaleEntity) {
+        console.log(`   ✗ Punto de venta no encontrado para sesión ${seed.ref}`);
+        continue;
+      }
+
+      let cashSessionEntity = await cashSessionRepo.findOne({
+        where: { notes: seed.notes },
+        withDeleted: true,
+      });
+
+      if (!cashSessionEntity) {
+        cashSessionEntity = cashSessionRepo.create({ id: uuidv4() });
+      }
+
+      const openedAt = new Date(Date.now() - hoursToMs(seed.openedHoursAgo));
+      const closedAt = seed.status === CashSessionStatus.CLOSED
+        ? new Date(openedAt.getTime() + hoursToMs(seed.durationHours ?? 8))
+        : null;
+
+      cashSessionEntity.pointOfSaleId = pointOfSaleEntity.id;
+      cashSessionEntity.openedById = adminUser.id;
+      cashSessionEntity.closedById = seed.status === CashSessionStatus.CLOSED ? adminUser.id : null;
+      cashSessionEntity.status = seed.status;
+      cashSessionEntity.openingAmount = seed.openingAmount;
+      cashSessionEntity.closingAmount = seed.closingAmount ?? null;
+      cashSessionEntity.expectedAmount = seed.expectedAmount ?? null;
+      cashSessionEntity.difference = seed.difference ?? null;
+      cashSessionEntity.openedAt = openedAt;
+      cashSessionEntity.closedAt = closedAt ?? undefined;
+      cashSessionEntity.notes = seed.notes;
+      cashSessionEntity.deletedAt = undefined;
+
+      cashSessionEntity = await cashSessionRepo.save(cashSessionEntity);
+      cashSessionsByRef[seed.ref] = cashSessionEntity;
+      console.log(`   • Sesión de caja lista: ${seed.ref} (${cashSessionEntity.status})`);
+    }
+
+    const mainCashSession = cashSessionsByRef['SESSION_MALL_OPEN'] ?? Object.values(cashSessionsByRef)[0];
+
+    // ============================================
+    // 15. TRANSACCIONES DEMOSTRATIVAS
+    // ============================================
+    console.log('\n🧾 Registrando transacciones de ejemplo...');
+
+    // ============================================
+    // RESUMEN
+    // ============================================
+    const totalVariantsSeeded = productsData.reduce((acc, product) => acc + product.variants.length, 0);
+    const priceListsSummary = Object.values(priceListsByKey)
+      .map((list) => list.name)
+      .join(', ');
+
+    console.log('\n═══════════════════════════════════════════════════════════');
+    console.log('✅ Seed completado exitosamente!');
+    console.log('───────────────────────────────────────────────────────────');
+    console.log('\n📊 Resumen de datos:');
+    console.log(`   • Empresa: ${company.name}`);
+    console.log(`   • Sucursal: ${branch.name}`);
+    console.log(`   • Impuestos: IVA 19%, Exento`);
+    console.log(`   • Categorías: ${categoriesData.length} categorías de joyería`);
+    console.log(`   • Atributos: ${attributesData.length} atributos para variantes`);
+    console.log(`   • Productos: ${productsData.length} productos de ejemplo (${totalVariantsSeeded} variantes)`);
+    console.log(`   • Listas de precios: ${Object.values(priceListsByKey).length} (${priceListsSummary})`);
+    console.log(`   • Bodega: ${storage.name}`);
+    console.log(`   • Punto de venta: ${pointOfSale.name}`);
+    console.log(`   • Clientes asegurados: ${Object.keys(customersByRef).length}`);
+    console.log(`   • Proveedores asegurados: ${Object.keys(suppliersByRef).length}`);
+    console.log(`   • Transacciones demo recientes: ${transactionsCreated.length > 0 ? transactionsCreated.join(', ') : 'sin cambios'}`);
+    console.log('\n🔑 Credenciales de acceso:');
+    console.log('   Usuario: admin');
+    console.log('   Contraseña: 890890');
+    console.log('───────────────────────────────────────────────────────────\n');
+
+    process.exit(0);
+  } catch (error) {
+    console.error('\n───────────────────────────────────────────────────────────');
+    console.error('❌ Error en el seed:');
+    console.error(error);
+    process.exit(1);
+  }
+}
+
+seedFlowStore();
