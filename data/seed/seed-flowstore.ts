@@ -76,13 +76,13 @@ async function seedFlowStore() {
     // ============================================
     console.log('\n🏢 Creando empresa...');
     
-    let company = await db.getRepository(Company).findOne({ where: { name: 'Joyería Brillante' } });
+    let company = await db.getRepository(Company).findOne({ where: { name: 'Joyarte' } });
     
     const defaultBankAccount: PersonBankAccount = {
       bankName: BankName.BANCO_SANTANDER,
       accountType: AccountTypeName.CUENTA_CORRIENTE,
       accountNumber: '12345678-9',
-      accountHolderName: 'Joyería Brillante SpA',
+      accountHolderName: 'Joyarte SpA',
       isPrimary: true,
       notes: 'Cuenta principal de operaciones',
     };
@@ -92,7 +92,7 @@ async function seedFlowStore() {
       const companies = await db.getRepository(Company).find({ take: 1 });
       if (companies.length > 0) {
         company = companies[0];
-        company.name = 'Joyería Brillante';
+        company.name = 'Joyarte';
         company.defaultCurrency = 'CLP';
         company.isActive = true;
         company.settings = {
@@ -106,7 +106,7 @@ async function seedFlowStore() {
       } else {
         company = new Company();
         company.id = uuidv4();
-        company.name = 'Joyería Brillante';
+        company.name = 'Joyarte';
         company.defaultCurrency = 'CLP';
         company.isActive = true;
         company.settings = {
@@ -129,28 +129,90 @@ async function seedFlowStore() {
     }
 
     // ============================================
-    // 2. SUCURSAL PRINCIPAL
+    // 2. SUCURSALES
     // ============================================
-    console.log('\n🏬 Creando sucursal principal...');
-    
-    let branch = await db.getRepository(Branch).findOne({ 
-      where: { companyId: company.id } 
-    });
-    
-    if (!branch) {
-      branch = new Branch();
-      branch.id = uuidv4();
-      branch.companyId = company.id;
-      branch.name = 'Local Mall Plaza';
-      branch.address = 'Mall Plaza Vespucio, Local 234';
-      branch.phone = '+56 9 8765 4321';
-      branch.location = { lat: -33.5206, lng: -70.6025 }; // Mall Plaza Vespucio
-      branch.isActive = true;
-      branch.isHeadquarters = true;
-      branch = await db.getRepository(Branch).save(branch);
-      console.log(`   ✓ Sucursal creada: ${branch.name}`);
-    } else {
-      console.log(`   ⚠ Sucursal ya existe: ${branch.name}`);
+    console.log('\n🏬 Configurando sucursales...');
+
+    const branchRepo = db.getRepository(Branch);
+    const branchSeeds: Array<{
+      ref: string;
+      name: string;
+      address?: string;
+      phone?: string;
+      location?: { lat: number; lng: number } | null;
+      isHeadquarters: boolean;
+      legacyNames?: string[];
+    }> = [
+      {
+        ref: 'PARRAL',
+        name: 'Sucursal Parral',
+        address: 'Avenida Aníbal Pinto 123, Parral',
+        phone: '+56 9 1234 5678',
+        location: { lat: -36.1454, lng: -71.8244 },
+        isHeadquarters: true,
+        legacyNames: ['Local Mall Plaza'],
+      },
+      {
+        ref: 'ONLINE',
+        name: 'Tienda Online',
+        address: 'Canal e-commerce Joyarte',
+        phone: '+56 2 600 569 2783',
+        location: null,
+        isHeadquarters: false,
+        legacyNames: ['Tienda Online'],
+      },
+    ];
+
+    const branchesByRef: Record<string, Branch> = {};
+
+    for (const seed of branchSeeds) {
+      let branchEntity = await branchRepo.findOne({
+        where: { companyId: company.id, name: seed.name },
+        withDeleted: true,
+      });
+
+      if (!branchEntity && seed.legacyNames?.length) {
+        for (const legacyName of seed.legacyNames) {
+          const legacyBranch = await branchRepo.findOne({
+            where: { companyId: company.id, name: legacyName },
+            withDeleted: true,
+          });
+          if (legacyBranch) {
+            branchEntity = legacyBranch;
+            break;
+          }
+        }
+      }
+
+      const isNewBranch = !branchEntity;
+
+      if (!branchEntity) {
+        branchEntity = new Branch();
+        branchEntity.id = uuidv4();
+        branchEntity.companyId = company.id;
+      } else {
+        branchEntity.companyId = company.id ?? branchEntity.companyId ?? company.id;
+      }
+
+      branchEntity.name = seed.name;
+      branchEntity.address = seed.address ?? undefined;
+      branchEntity.phone = seed.phone ?? undefined;
+      branchEntity.location = seed.location ?? undefined;
+      branchEntity.isHeadquarters = seed.isHeadquarters;
+      branchEntity.isActive = true;
+      branchEntity.deletedAt = undefined;
+
+      branchEntity = await branchRepo.save(branchEntity);
+      branchesByRef[seed.ref] = branchEntity;
+
+      const prefix = isNewBranch ? '   ✓' : '   •';
+      const action = isNewBranch ? 'Sucursal creada' : 'Sucursal actualizada';
+      console.log(`${prefix} ${action}: ${branchEntity.name}`);
+    }
+
+    const primaryBranch = branchesByRef['PARRAL'] ?? Object.values(branchesByRef).find((candidate) => candidate.isHeadquarters);
+    if (!primaryBranch) {
+      throw new Error('No se pudo determinar la sucursal principal (PARRAL).');
     }
 
     // ============================================
@@ -165,15 +227,23 @@ async function seedFlowStore() {
       name: string;
       description?: string;
       type: CostCenterType;
-      branchRef: 'HEAD_BRANCH';
+      branchRef?: string;
     }> = [
       {
-        ref: 'OPERACIONES_MALL',
-        code: 'OPS-MALL',
-        name: 'Operaciones Mall Plaza',
-        description: 'Centro de costos principal para la tienda del Mall Plaza.',
+        ref: 'OPERACIONES_PARRAL',
+        code: 'OPS-PARRAL',
+        name: 'Operaciones Sucursal Parral',
+        description: 'Centro de costos principal para la operación presencial en Parral.',
         type: CostCenterType.OPERATIONS,
-        branchRef: 'HEAD_BRANCH',
+        branchRef: 'PARRAL',
+      },
+      {
+        ref: 'OPERACIONES_ONLINE',
+        code: 'OPS-ONLINE',
+        name: 'Operaciones Tienda Online',
+        description: 'Centro de costos para el canal e-commerce y logística de envíos.',
+        type: CostCenterType.OPERATIONS,
+        branchRef: 'ONLINE',
       },
     ];
 
@@ -182,22 +252,24 @@ async function seedFlowStore() {
     for (const entry of costCentersData) {
       let existing = await costCenterRepo.findOne({ where: { code: entry.code } });
 
+      const targetBranch = entry.branchRef ? branchesByRef[entry.branchRef] : undefined;
+
       if (!existing) {
         existing = new CostCenter();
         existing.companyId = company.id;
-        existing.branchId = entry.branchRef === 'HEAD_BRANCH' ? branch.id : undefined;
         existing.code = entry.code;
-        existing.name = entry.name;
-        existing.description = entry.description ?? undefined;
-        existing.type = entry.type;
-        existing.isActive = true;
-      } else {
-        existing.branchId = entry.branchRef === 'HEAD_BRANCH' ? branch.id : existing.branchId ?? branch.id;
-        existing.name = entry.name;
-        existing.description = entry.description ?? undefined;
-        existing.type = entry.type;
-        existing.isActive = true;
       }
+
+      if (targetBranch) {
+        existing.branchId = targetBranch.id;
+      } else if (!existing.branchId) {
+        existing.branchId = primaryBranch.id;
+      }
+
+      existing.name = entry.name;
+      existing.description = entry.description ?? undefined;
+      existing.type = entry.type;
+      existing.isActive = true;
 
       existing = await costCenterRepo.save(existing);
       costCenterRefMap[entry.ref] = existing;
@@ -215,24 +287,33 @@ async function seedFlowStore() {
       name: string;
       description?: string;
       type: OrganizationalUnitType;
-      branchRef?: 'HEAD_BRANCH';
-      costCenterRef?: keyof typeof costCenterRefMap;
+      branchRef?: string;
+      costCenterRef?: string;
       parentCode?: string;
     }> = [
       {
         code: 'ADM-CENTRAL',
         name: 'Administración Central',
-        description: 'Equipo central responsable de la gestión administrativa.',
+        description: 'Equipo central responsable de la gestión administrativa y financiera.',
         type: OrganizationalUnitType.HEADQUARTERS,
-        costCenterRef: 'OPERACIONES_MALL',
+        costCenterRef: 'OPERACIONES_PARRAL',
       },
       {
-        code: 'OPS-TIENDA',
-        name: 'Operaciones Tienda Mall Plaza',
-        description: 'Equipo operativo de la tienda principal.',
+        code: 'OPS-PARRAL',
+        name: 'Operaciones Sucursal Parral',
+        description: 'Equipo operativo de la sala de ventas presencial en Parral.',
         type: OrganizationalUnitType.STORE,
-        branchRef: 'HEAD_BRANCH',
-        costCenterRef: 'OPERACIONES_MALL',
+        branchRef: 'PARRAL',
+        costCenterRef: 'OPERACIONES_PARRAL',
+        parentCode: 'ADM-CENTRAL',
+      },
+      {
+        code: 'OPS-ONLINE',
+        name: 'Operaciones Tienda Online',
+        description: 'Equipo encargado del canal online, fulfillment y despacho.',
+        type: OrganizationalUnitType.STORE,
+        branchRef: 'ONLINE',
+        costCenterRef: 'OPERACIONES_ONLINE',
         parentCode: 'ADM-CENTRAL',
       },
     ];
@@ -247,6 +328,7 @@ async function seedFlowStore() {
 
       const parentUnitId = entry.parentCode ? organizationalUnitMap.get(entry.parentCode)?.id ?? null : null;
       const costCenterId = entry.costCenterRef ? costCenterRefMap[entry.costCenterRef]?.id ?? null : null;
+      const targetBranch = entry.branchRef ? branchesByRef[entry.branchRef] : undefined;
 
       if (!unit) {
         unit = organizationalUnitRepo.create({
@@ -256,7 +338,7 @@ async function seedFlowStore() {
           description: entry.description,
           unitType: entry.type,
           parentId: parentUnitId ?? undefined,
-          branchId: entry.branchRef === 'HEAD_BRANCH' ? branch.id : undefined,
+          branchId: targetBranch?.id,
           costCenterId: costCenterId ?? undefined,
           isActive: true,
         });
@@ -265,7 +347,7 @@ async function seedFlowStore() {
         unit.description = entry.description;
         unit.unitType = entry.type;
         unit.parentId = parentUnitId ?? undefined;
-        unit.branchId = entry.branchRef === 'HEAD_BRANCH' ? branch.id : unit.branchId ?? branch.id;
+        unit.branchId = targetBranch ? targetBranch.id : null;
         unit.costCenterId = costCenterId ?? undefined;
         unit.isActive = true;
         unit.deletedAt = undefined;
@@ -282,49 +364,105 @@ async function seedFlowStore() {
     console.log('\n💰 Creando impuestos...');
     
     // IVA 19%
-    let ivaDefault = await db.getRepository(Tax).findOne({ where: { code: 'IVA-19' } });
-    if (!ivaDefault) {
-      ivaDefault = new Tax();
-      ivaDefault.id = uuidv4();
-      ivaDefault.companyId = company.id;
-      ivaDefault.name = 'IVA 19%';
-      ivaDefault.code = 'IVA-19';
-      ivaDefault.taxType = TaxType.IVA;
-      ivaDefault.rate = 19;
-      ivaDefault.description = 'Impuesto al Valor Agregado estándar';
-      ivaDefault.isDefault = true;
-      ivaDefault.isActive = true;
-      await db.getRepository(Tax).save(ivaDefault);
-      console.log(`   ✓ Impuesto creado: ${ivaDefault.name}`);
-    } else {
-      console.log(`   ⚠ Impuesto ya existe: ${ivaDefault.name}`);
-    }
-    
-    // Exento
-    let taxExempt = await db.getRepository(Tax).findOne({ where: { code: 'EXENTO' } });
-    if (!taxExempt) {
-      taxExempt = new Tax();
-      taxExempt.id = uuidv4();
-      taxExempt.companyId = company.id;
-      taxExempt.name = 'Exento';
-      taxExempt.code = 'EXENTO';
-      taxExempt.taxType = TaxType.EXEMPT;
-      taxExempt.rate = 0;
-      taxExempt.description = 'Producto exento de impuestos';
-      taxExempt.isDefault = false;
-      taxExempt.isActive = true;
-      await db.getRepository(Tax).save(taxExempt);
-      console.log(`   ✓ Impuesto creado: ${taxExempt.name}`);
-    } else {
-      console.log(`   ⚠ Impuesto ya existe: ${taxExempt.name}`);
-    }
+    const taxDefinitions: Array<{
+      code: string;
+      name: string;
+      taxType: TaxType;
+      rate: number;
+      description: string;
+      isDefault?: boolean;
+    }> = [
+      {
+        code: 'IVA-19',
+        name: 'IVA 19%',
+        taxType: TaxType.IVA,
+        rate: 19,
+        description: 'Impuesto al Valor Agregado estándar. Cuenta 2.1.02 IVA Débito Fiscal.',
+        isDefault: true,
+      },
+      {
+        code: 'EXENTO',
+        name: 'Exento',
+        taxType: TaxType.EXEMPT,
+        rate: 0,
+        description: 'Producto exento de impuestos.',
+      },
+      {
+        code: 'ILA_BEBIDAS_10',
+        name: 'ILA Bebidas Analcohólicas 10%',
+        taxType: TaxType.SPECIFIC,
+        rate: 10,
+        description: 'Analcohólicas con azúcar ≤ 15g/100ml. Cuenta 2.1.03 ILA por Pagar.',
+      },
+      {
+        code: 'ILA_BEBIDAS_18',
+        name: 'ILA Bebidas Azucaradas 18%',
+        taxType: TaxType.SPECIFIC,
+        rate: 18,
+        description: 'Analcohólicas con azúcar > 15g/100ml. Cuenta 2.1.03 ILA por Pagar.',
+      },
+      {
+        code: 'ILA_CERVEZAS_20_5',
+        name: 'ILA Cervezas y Sidras 20.5%',
+        taxType: TaxType.SPECIFIC,
+        rate: 20.5,
+        description: 'Cervezas y sidras. Cuenta 2.1.03 ILA por Pagar.',
+      },
+      {
+        code: 'ILA_VINOS_20_5',
+        name: 'ILA Vinos y Chichas 20.5%',
+        taxType: TaxType.SPECIFIC,
+        rate: 20.5,
+        description: 'Vinos y chichas. Cuenta 2.1.03 ILA por Pagar.',
+      },
+      {
+        code: 'ILA_LICORES_31_5',
+        name: 'ILA Licores y Destilados 31.5%',
+        taxType: TaxType.SPECIFIC,
+        rate: 31.5,
+        description: 'Destilados (pisco, whisky, ron). Cuenta 2.1.03 ILA por Pagar.',
+      },
+      {
+        code: 'IMP_LUJO_15',
+        name: 'Impuesto de Lujo 15%',
+        taxType: TaxType.SPECIFIC,
+        rate: 15,
+        description: 'Joyas, artículos de lujo y objetos de alto valor. Cuenta 2.1.03 ILA por Pagar.',
+      },
+    ];
 
+    const taxRepo = db.getRepository(Tax);
     const taxesByCode: Record<string, Tax> = {};
-    if (ivaDefault) {
-      taxesByCode[ivaDefault.code] = ivaDefault;
-    }
-    if (taxExempt) {
-      taxesByCode[taxExempt.code] = taxExempt;
+
+    for (const definition of taxDefinitions) {
+      let taxEntity = await taxRepo.findOne({ where: { companyId: company.id, code: definition.code } });
+
+      if (!taxEntity) {
+        taxEntity = taxRepo.create({
+          id: uuidv4(),
+          companyId: company.id,
+          code: definition.code,
+          name: definition.name,
+          taxType: definition.taxType,
+          rate: definition.rate,
+          description: definition.description,
+          isDefault: Boolean(definition.isDefault),
+          isActive: true,
+        });
+        await taxRepo.save(taxEntity);
+        console.log(`   ✓ Impuesto creado: ${taxEntity.name}`);
+      } else {
+        taxEntity.name = definition.name;
+        taxEntity.taxType = definition.taxType;
+        taxEntity.rate = definition.rate;
+        taxEntity.description = definition.description;
+        taxEntity.isDefault = Boolean(definition.isDefault);
+        taxEntity.isActive = true;
+        await taxRepo.save(taxEntity);
+        console.log(`   • Impuesto actualizado: ${taxEntity.name}`);
+      }
+
+      taxesByCode[taxEntity.code] = taxEntity;
     }
 
     // ============================================
@@ -418,6 +556,20 @@ async function seedFlowStore() {
       console.log(`   • Cuenta ${accountEntity.code} (${accountEntity.name}) lista`);
     }
 
+    const allowedAccountCodes = new Set(accountingAccountsData.map((entry) => entry.code));
+    const legacyAccounts = existingAccounts.filter((account) => !allowedAccountCodes.has(account.code));
+
+    if (legacyAccounts.length > 0) {
+      for (const legacy of legacyAccounts) {
+        if (legacy.isActive) {
+          legacy.isActive = false;
+        }
+      }
+
+      await accountRepo.save(legacyAccounts);
+      console.log(`   • ${legacyAccounts.length} cuentas legacy desactivadas para mantener el plan base`);
+    }
+
     // ============================================
     // 3.2 CATEGORÍAS DE GASTO PARA IMPUTACIÓN
     // ============================================
@@ -437,7 +589,7 @@ async function seedFlowStore() {
         code: 'SERV_AGUA',
         name: 'Agua y alcantarillado',
         description: 'Consumo de agua potable, alcantarillado y derechos sanitarios.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_PARRAL',
         metadata: { group: 'Servicios básicos', examples: ['Essbio', 'Aguas Andinas', 'SMAPA'] },
       },
       {
@@ -445,7 +597,7 @@ async function seedFlowStore() {
         code: 'SERV_LUZ',
         name: 'Electricidad',
         description: 'Facturas eléctricas, cargos fijos y potencia contratada.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_PARRAL',
         metadata: { group: 'Servicios básicos', examples: ['Enel', 'CGE', 'SAESA'] },
       },
       {
@@ -453,7 +605,7 @@ async function seedFlowStore() {
         code: 'SERV_INTERNET',
         name: 'Internet y telecomunicaciones',
         description: 'Servicios de internet, telefonía IP y planes móviles corporativos.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_PARRAL',
         metadata: { group: 'Servicios básicos', examples: ['Movistar', 'Entel', 'Claro Empresas'] },
       },
       {
@@ -461,7 +613,7 @@ async function seedFlowStore() {
         code: 'SERV_BAS_OTH',
         name: 'Servicios básicos complementarios',
         description: 'Gas, calefacción y otros suministros esenciales no clasificados.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_PARRAL',
         metadata: { group: 'Servicios básicos', examples: ['Gasco', 'Abastible', 'Lipigas'] },
       },
       {
@@ -469,7 +621,7 @@ async function seedFlowStore() {
         code: 'RRHH_SUELDOS',
         name: 'Pago de remuneraciones',
         description: 'Nómina, jornales y honorarios del personal interno.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_PARRAL',
         metadata: {
           group: 'Personal',
           examples: ['Pago mensual', 'Liquidaciones'],
@@ -482,7 +634,7 @@ async function seedFlowStore() {
         code: 'RRHH_ADELANTO',
         name: 'Adelantos de sueldos',
         description: 'Adelantos extraordinarios o préstamos a colaboradores.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_PARRAL',
         metadata: {
           group: 'Personal',
           examples: ['Adelanto quincenal', 'Préstamo interno'],
@@ -495,7 +647,7 @@ async function seedFlowStore() {
         code: 'RRHH_BENEF',
         name: 'Beneficios y viáticos',
         description: 'Viáticos, colaciones, movilización y otros beneficios al personal.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_PARRAL',
         metadata: { group: 'Personal', examples: ['Viáticos', 'Giftcards', 'Caja de mercadería'] },
       },
       {
@@ -503,7 +655,7 @@ async function seedFlowStore() {
         code: 'SERV_EXTERNOS',
         name: 'Servicios profesionales externos',
         description: 'Asesorías contables, legales, TI y outsourcing de procesos.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_PARRAL',
         metadata: { group: 'Servicios externos', examples: ['Contador', 'Abogado', 'Consultor TI'] },
       },
       {
@@ -511,7 +663,7 @@ async function seedFlowStore() {
         code: 'MANT_LOCAL',
         name: 'Mantención y reparaciones del local',
         description: 'Reparaciones menores, ambientación y mejoras del espacio físico.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_PARRAL',
         metadata: { group: 'Infraestructura', examples: ['Pintura', 'Carpintería', 'Ambientación'] },
       },
       {
@@ -519,7 +671,7 @@ async function seedFlowStore() {
         code: 'SERV_LIMPIEZA',
         name: 'Limpieza y seguridad',
         description: 'Servicios periódicos de aseo, sanitización y vigilancia.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_PARRAL',
         metadata: { group: 'Infraestructura', examples: ['Empresas de aseo', 'Guardias'] },
       },
       {
@@ -527,7 +679,7 @@ async function seedFlowStore() {
         code: 'TI_SOFTWARE',
         name: 'Licencias y software',
         description: 'Suscripciones de software y licencias empresariales.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_ONLINE',
         metadata: { group: 'Tecnología', examples: ['Microsoft 365', 'Antivirus', 'ERP'] },
       },
       {
@@ -535,7 +687,7 @@ async function seedFlowStore() {
         code: 'TI_CLOUD',
         name: 'Servicios cloud y SaaS',
         description: 'Infraestructura cloud, hosting, almacenamiento y SaaS.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_ONLINE',
         metadata: { group: 'Tecnología', examples: ['AWS', 'Vercel', 'Google Workspace'] },
       },
       {
@@ -543,7 +695,7 @@ async function seedFlowStore() {
         code: 'MKT_DIGITAL',
         name: 'Marketing digital',
         description: 'Publicidad en redes sociales, campañas online y posicionamiento SEO.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_ONLINE',
         metadata: { group: 'Marketing', examples: ['Meta Ads', 'Google Ads', 'Email marketing'] },
       },
       {
@@ -551,7 +703,7 @@ async function seedFlowStore() {
         code: 'MKT_TRADIC',
         name: 'Marketing offline y eventos',
         description: 'Ferias, activaciones, impresos y material POP.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_PARRAL',
         metadata: { group: 'Marketing', examples: ['Eventos', 'Radio', 'Gigantografías'] },
       },
       {
@@ -559,7 +711,7 @@ async function seedFlowStore() {
         code: 'LOG_DESPACHO',
         name: 'Transporte y logística',
         description: 'Despachos, encomiendas, fletes y transporte de mercadería.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_ONLINE',
         metadata: { group: 'Operaciones', examples: ['Chilexpress', 'Transportes locales'] },
       },
       {
@@ -567,7 +719,7 @@ async function seedFlowStore() {
         code: 'OFI_SUMINISTROS',
         name: 'Suministros y papelería',
         description: 'Artículos de oficina, insumos de punto de venta y embalajes.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_PARRAL',
         metadata: { group: 'Operaciones', examples: ['Papelería', 'Tóner', 'Bolsas'] },
       },
       {
@@ -575,7 +727,7 @@ async function seedFlowStore() {
         code: 'RRHH_CAPAC',
         name: 'Capacitación y desarrollo',
         description: 'Cursos, certificaciones, talleres y actividades para el equipo.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_PARRAL',
         metadata: { group: 'Personal', examples: ['Cursos en línea', 'Workshops', 'Charlas'] },
       },
       {
@@ -583,7 +735,7 @@ async function seedFlowStore() {
         code: 'ADM_SEGUROS',
         name: 'Seguros y pólizas',
         description: 'Seguros comerciales, de incendio, responsabilidad civil y equipos.',
-        defaultCostCenterRef: 'OPERACIONES_MALL',
+        defaultCostCenterRef: 'OPERACIONES_PARRAL',
         metadata: { group: 'Administración', examples: ['Seguro local', 'Seguro equipos'] },
       },
     ];
@@ -679,7 +831,7 @@ async function seedFlowStore() {
         appliesTo: RuleScope.TRANSACTION,
         transactionType: TransactionType.SALE,
         paymentMethod: PaymentMethod.CREDIT_CARD,
-        debitAccountRef: 'BANCO_SANTANDER',
+        debitAccountRef: 'INSTITUCIONES_FINANCIERAS',
         creditAccountRef: 'VENTAS_MERCADERIAS',
         priority: 2,
         isActive: true,
@@ -688,7 +840,7 @@ async function seedFlowStore() {
         appliesTo: RuleScope.TRANSACTION,
         transactionType: TransactionType.SALE,
         paymentMethod: PaymentMethod.DEBIT_CARD,
-        debitAccountRef: 'BANCO_SANTANDER',
+        debitAccountRef: 'INSTITUCIONES_FINANCIERAS',
         creditAccountRef: 'VENTAS_MERCADERIAS',
         priority: 3,
         isActive: true,
@@ -697,7 +849,7 @@ async function seedFlowStore() {
         appliesTo: RuleScope.TRANSACTION,
         transactionType: TransactionType.SALE,
         paymentMethod: PaymentMethod.TRANSFER,
-        debitAccountRef: 'BANCO_SANTANDER',
+        debitAccountRef: 'INSTITUCIONES_FINANCIERAS',
         creditAccountRef: 'VENTAS_MERCADERIAS',
         priority: 4,
         isActive: true,
@@ -707,7 +859,7 @@ async function seedFlowStore() {
         transactionType: TransactionType.SALE,
         taxCode: 'IVA-19',
         debitAccountRef: 'CAJA_GENERAL',
-        creditAccountRef: 'IVA_DEBITO',
+        creditAccountRef: 'IVA_DEBITO_FISCAL',
         priority: 10,
         isActive: true,
       },
@@ -715,8 +867,8 @@ async function seedFlowStore() {
         appliesTo: RuleScope.TRANSACTION,
         transactionType: TransactionType.PURCHASE,
         paymentMethod: PaymentMethod.TRANSFER,
-        debitAccountRef: 'INVENTARIO_MERCADERIAS',
-        creditAccountRef: 'BANCO_SANTANDER',
+        debitAccountRef: 'EXISTENCIAS',
+        creditAccountRef: 'INSTITUCIONES_FINANCIERAS',
         priority: 1,
         isActive: true,
       },
@@ -724,8 +876,8 @@ async function seedFlowStore() {
         appliesTo: RuleScope.TRANSACTION_LINE,
         transactionType: TransactionType.PURCHASE,
         taxCode: 'IVA-19',
-        debitAccountRef: 'IVA_CREDITO',
-        creditAccountRef: 'INVENTARIO_MERCADERIAS',
+        debitAccountRef: 'IVA_CREDITO_FISCAL',
+        creditAccountRef: 'EXISTENCIAS',
         priority: 15,
         isActive: true,
       },
@@ -743,7 +895,7 @@ async function seedFlowStore() {
         transactionType: TransactionType.OPERATING_EXPENSE,
         paymentMethod: PaymentMethod.TRANSFER,
         debitAccountRef: 'GASTOS_GENERALES',
-        creditAccountRef: 'BANCO_SANTANDER',
+        creditAccountRef: 'INSTITUCIONES_FINANCIERAS',
         priority: 6,
         isActive: true,
       },
@@ -752,7 +904,7 @@ async function seedFlowStore() {
         transactionType: TransactionType.OPERATING_EXPENSE,
         paymentMethod: PaymentMethod.DEBIT_CARD,
         debitAccountRef: 'GASTOS_GENERALES',
-        creditAccountRef: 'BANCO_SANTANDER',
+        creditAccountRef: 'INSTITUCIONES_FINANCIERAS',
         priority: 7,
         isActive: true,
       },
@@ -761,7 +913,7 @@ async function seedFlowStore() {
         transactionType: TransactionType.OPERATING_EXPENSE,
         paymentMethod: PaymentMethod.CREDIT_CARD,
         debitAccountRef: 'GASTOS_GENERALES',
-        creditAccountRef: 'BANCO_SANTANDER',
+        creditAccountRef: 'INSTITUCIONES_FINANCIERAS',
         priority: 8,
         isActive: true,
       },
@@ -1035,12 +1187,12 @@ async function seedFlowStore() {
     console.log('\n📦 Creando bodega...');
     
     let storage = await db.getRepository(Storage).findOne({ 
-      where: { branchId: branch.id } 
+      where: { branchId: primaryBranch.id } 
     });
     if (!storage) {
       storage = new Storage();
       storage.id = uuidv4();
-      storage.branchId = branch.id;
+      storage.branchId = primaryBranch.id;
       storage.name = 'Vitrina Principal';
       storage.code = 'VIT-001';
       storage.type = StorageType.WAREHOUSE;
@@ -1059,12 +1211,12 @@ async function seedFlowStore() {
     console.log('\n🖥️  Creando punto de venta...');
     
     let pointOfSale = await db.getRepository(PointOfSale).findOne({ 
-      where: { branchId: branch.id } 
+      where: { branchId: primaryBranch.id } 
     });
     if (!pointOfSale) {
       pointOfSale = new PointOfSale();
       pointOfSale.id = uuidv4();
-      pointOfSale.branchId = branch.id;
+      pointOfSale.branchId = primaryBranch.id;
       pointOfSale.name = 'Caja Principal';
       pointOfSale.isActive = true;
       await db.getRepository(PointOfSale).save(pointOfSale);
@@ -1445,6 +1597,8 @@ async function seedFlowStore() {
       return hasAtLeastOne ? mapped : undefined;
     };
 
+    const defaultVatTax = taxesByCode['IVA-19'];
+
     for (const productSeed of productsData) {
       const desiredSkus = new Set(productSeed.variants.map((variant) => variant.sku));
 
@@ -1475,7 +1629,7 @@ async function seedFlowStore() {
       product.isActive = true;
       product.baseUnitId = baseUnit.id;
       product.baseUnit = baseUnit;
-      product.taxIds = ivaDefault ? [ivaDefault.id] : undefined;
+      product.taxIds = defaultVatTax ? [defaultVatTax.id] : undefined;
       product.deletedAt = undefined;
 
       await productRepo.save(product);
@@ -1599,8 +1753,27 @@ async function seedFlowStore() {
     console.log('───────────────────────────────────────────────────────────');
     console.log('\n📊 Resumen de datos:');
     console.log(`   • Empresa: ${company.name}`);
-    console.log(`   • Sucursal: ${branch.name}`);
-    console.log(`   • Impuestos: IVA 19%, Exento`);
+    const branchSummaryList = branchSeeds
+      .map((seed) => branchesByRef[seed.ref])
+      .filter((entry): entry is Branch => Boolean(entry));
+    const branchSummaryHeader = `   • Sucursales (${branchSummaryList.length}):`;
+    const branchDisplayNames = branchSummaryList.map((entry) => (entry.isHeadquarters ? `${entry.name} (Casa matriz)` : entry.name));
+    if (branchDisplayNames.length <= 3) {
+      console.log(`${branchSummaryHeader} ${branchDisplayNames.join(', ')}`);
+    } else {
+      console.log(branchSummaryHeader);
+      branchDisplayNames.forEach((name) => console.log(`      - ${name}`));
+    }
+    const taxNames = Object.values(taxesByCode)
+      .map((tax) => tax.name)
+      .sort((a, b) => a.localeCompare(b, 'es'));
+    const taxSummaryHeader = `   • Impuestos (${taxNames.length}):`;
+    if (taxNames.length <= 3) {
+      console.log(`${taxSummaryHeader} ${taxNames.join(', ')}`);
+    } else {
+      console.log(taxSummaryHeader);
+      taxNames.forEach((name) => console.log(`      - ${name}`));
+    }
     console.log(`   • Plan de cuentas: ${accountingAccountsData.length} cuentas activas`);
     console.log(`   • Categorías de gasto: ${expenseCategoriesData.length} categorías`);
     console.log(`   • Reglas contables: ${accountingRulesData.length} reglas automáticas`);

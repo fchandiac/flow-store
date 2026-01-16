@@ -16,6 +16,7 @@ interface UpdateTaxDialogProps {
     open: boolean;
     onClose: () => void;
     tax: TaxType;
+    lockCode?: boolean;
     'data-test-id'?: string;
 }
 
@@ -30,6 +31,7 @@ const UpdateTaxDialog: React.FC<UpdateTaxDialogProps> = ({
     open, 
     onClose,
     tax,
+    lockCode = false,
     'data-test-id': dataTestId 
 }) => {
     const router = useRouter();
@@ -61,6 +63,10 @@ const UpdateTaxDialog: React.FC<UpdateTaxDialogProps> = ({
     }, [tax]);
 
     const handleChange = (field: string, value: any) => {
+        if (lockCode && field === 'code') {
+            return;
+        }
+
         setFormData(prev => ({
             ...prev,
             [field]: value
@@ -84,15 +90,20 @@ const UpdateTaxDialog: React.FC<UpdateTaxDialogProps> = ({
         setErrors([]);
 
         try {
-            const result = await updateTax(tax.id, {
+            const payload: Parameters<typeof updateTax>[1] = {
                 name: formData.name,
-                code: formData.code,
                 taxType: formData.taxType as any,
                 rate: parseFloat(formData.rate),
                 description: formData.description || undefined,
                 isDefault: formData.isDefault,
                 isActive: formData.isActive,
-            });
+            };
+
+            if (!lockCode) {
+                payload.code = formData.code;
+            }
+
+            const result = await updateTax(tax.id, payload);
 
             if (result.success) {
                 success('Impuesto actualizado correctamente');
@@ -156,6 +167,7 @@ const UpdateTaxDialog: React.FC<UpdateTaxDialogProps> = ({
                         label="Código"
                         value={formData.code}
                         onChange={(e) => handleChange('code', e.target.value)}
+                        disabled={lockCode}
                         required
                         data-test-id="update-tax-code"
                     />

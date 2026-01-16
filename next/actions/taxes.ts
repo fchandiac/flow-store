@@ -4,6 +4,7 @@ import { getDb } from '@/data/db';
 import { Tax, TaxType } from '@/data/entities/Tax';
 import { revalidatePath } from 'next/cache';
 import { IsNull } from 'typeorm';
+import { isProtectedTaxCode } from '@/lib/taxProtection';
 
 // Types
 interface CreateTaxDTO {
@@ -172,6 +173,12 @@ export async function updateTax(id: string, data: UpdateTaxDTO): Promise<TaxResu
             return { success: false, error: 'Impuesto no encontrado' };
         }
         
+        const isProtected = isProtectedTaxCode(tax.code);
+
+        if (isProtected && data.code && data.code.trim().toUpperCase() !== tax.code.trim().toUpperCase()) {
+            return { success: false, error: 'El código de este impuesto no se puede modificar.' };
+        }
+
         // Verificar código único si se cambia
         if (data.code && data.code !== tax.code) {
             const existing = await repo.findOne({ 
@@ -233,6 +240,10 @@ export async function deleteTax(id: string): Promise<{ success: boolean; error?:
             return { success: false, error: 'Impuesto no encontrado' };
         }
         
+        if (isProtectedTaxCode(tax.code)) {
+            return { success: false, error: 'Este impuesto es obligatorio y no se puede eliminar.' };
+        }
+
         // No permitir eliminar si es el único activo
         const activeCount = await repo.count({
             where: { isActive: true, deletedAt: IsNull() }
@@ -252,7 +263,7 @@ export async function deleteTax(id: string): Promise<{ success: boolean; error?:
                 await repo.save(otherTax);
             }
         }
-        
+
         await repo.softDelete(id);
         revalidatePath('/admin/taxes');
         

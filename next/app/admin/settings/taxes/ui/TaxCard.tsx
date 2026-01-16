@@ -5,6 +5,7 @@ import Badge from '@/app/baseComponents/Badge/Badge';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import DeleteTaxDialog from './DeleteTaxDialog';
 import UpdateTaxDialog from './UpdateTaxDialog';
+import { isProtectedTaxCode } from '@/lib/taxProtection';
 
 export interface TaxType {
     id: string;
@@ -36,6 +37,7 @@ const getTaxTypeLabel = (type: string) => {
 const TaxCard: React.FC<TaxCardProps> = ({ tax, 'data-test-id': dataTestId }) => {
     const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
     const [openUpdateDialog, setOpenUpdateDialog] = useState(false);
+    const isProtected = isProtectedTaxCode(tax.code);
 
     return (
         <article 
@@ -99,7 +101,9 @@ const TaxCard: React.FC<TaxCardProps> = ({ tax, 'data-test-id': dataTestId }) =>
                     icon="delete"
                     variant="basicSecondary"
                     aria-label="Eliminar impuesto"
-                    onClick={() => setOpenDeleteDialog(true)}
+                    onClick={() => !isProtected && setOpenDeleteDialog(true)}
+                    disabled={isProtected}
+                    title={isProtected ? 'Este impuesto es obligatorio y no se puede eliminar' : undefined}
                     data-test-id={`${dataTestId}-delete-button`}
                 />
             </div>
@@ -109,6 +113,7 @@ const TaxCard: React.FC<TaxCardProps> = ({ tax, 'data-test-id': dataTestId }) =>
                 open={openUpdateDialog}
                 onClose={() => setOpenUpdateDialog(false)}
                 tax={tax}
+                lockCode={isProtected}
                 data-test-id={`${dataTestId}-update-dialog`}
             />
             

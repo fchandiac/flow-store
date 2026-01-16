@@ -8,6 +8,7 @@ import Alert from '@/app/baseComponents/Alert/Alert';
 import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { deleteTax } from '@/app/actions/taxes';
 import { TaxType } from './TaxCard';
+import { isProtectedTaxCode } from '@/lib/taxProtection';
 
 interface DeleteTaxDialogProps {
     open: boolean;
@@ -29,6 +30,11 @@ const DeleteTaxDialog: React.FC<DeleteTaxDialogProps> = ({
     const [errors, setErrors] = useState<string[]>([]);
 
     const handleDelete = async () => {
+        if (isProtectedTaxCode(tax.code)) {
+            setErrors(['Este impuesto es obligatorio y no se puede eliminar.']);
+            return;
+        }
+
         setIsDeleting(true);
         setErrors([]);
 
