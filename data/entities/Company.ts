@@ -7,6 +7,9 @@ import {
     UpdateDateColumn,
     DeleteDateColumn,
 } from "typeorm";
+import { PersonBankAccount } from "./Person";
+
+export type CompanyBankAccount = PersonBankAccount;
 
 @Entity("companies")
 export class Company {
@@ -27,6 +30,9 @@ export class Company {
 
     @Column({ type: 'json', nullable: true })
     settings?: Record<string, any>;
+
+    @Column({ type: 'json', nullable: true })
+    bankAccounts?: CompanyBankAccount[] | null;
 
     @CreateDateColumn()
     createdAt!: Date;

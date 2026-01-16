@@ -2,6 +2,7 @@
 
 import { getDb } from '@/data/db';
 import { Company } from '@/data/entities/Company';
+import { AccountTypeName, BankName, PersonBankAccount } from '@/data/entities/Person';
 import { revalidatePath } from 'next/cache';
 
 // Types
@@ -16,6 +17,15 @@ interface UpdateResult {
     success: boolean;
     company?: Company;
     error?: string;
+}
+
+export interface CompanyBankAccountInput {
+    bankName: BankName;
+    accountType: AccountTypeName;
+    accountNumber: string;
+    accountHolderName?: string;
+    notes?: string;
+    isPrimary?: boolean;
 }
 
 /**
@@ -78,6 +88,66 @@ export async function updateCompany(data: UpdateCompanyDTO): Promise<UpdateResul
         return { 
             success: false, 
             error: error instanceof Error ? error.message : 'Error al actualizar la compañía' 
+        };
+    }
+}
+
+export async function addCompanyBankAccount(data: CompanyBankAccountInput): Promise<UpdateResult> {
+    try {
+        const ds = await getDb();
+        const repo = ds.getRepository(Company);
+
+        const company = await repo.findOne({ where: {} });
+        if (!company) {
+            return { success: false, error: 'Compañía no encontrada' };
+        }
+
+        const bankAccounts: PersonBankAccount[] = Array.isArray(company.bankAccounts)
+            ? [...company.bankAccounts]
+            : [];
+
+        const normalizedAccountNumber = data.accountNumber.trim();
+        if (normalizedAccountNumber.length === 0) {
+            return { success: false, error: 'El número de cuenta es requerido' };
+        }
+
+        const duplicate = bankAccounts.some(
+            (account) => account.accountNumber.trim() === normalizedAccountNumber,
+        );
+
+        if (duplicate) {
+            return { success: false, error: 'La cuenta bancaria ya está registrada' };
+        }
+
+        if (data.isPrimary) {
+            for (const account of bankAccounts) {
+                account.isPrimary = false;
+            }
+        }
+
+        const newAccount: PersonBankAccount = {
+            bankName: data.bankName,
+            accountType: data.accountType,
+            accountNumber: normalizedAccountNumber,
+            accountHolderName: data.accountHolderName?.trim() || undefined,
+            notes: data.notes?.trim() || undefined,
+            isPrimary: data.isPrimary ?? bankAccounts.length === 0,
+        };
+
+        bankAccounts.push(newAccount);
+        company.bankAccounts = bankAccounts;
+
+        const savedCompany = await repo.save(company);
+
+        revalidatePath('/admin');
+        revalidatePath('/admin/settings/company');
+
+        return { success: true, company: JSON.parse(JSON.stringify(savedCompany)) };
+    } catch (error) {
+        console.error('[addCompanyBankAccount] Error:', error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'Error al agregar la cuenta bancaria',
         };
     }
 }

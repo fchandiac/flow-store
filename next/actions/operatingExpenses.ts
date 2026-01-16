@@ -48,7 +48,7 @@ export interface OperatingExpenseResult {
     error?: string;
 }
 
-const OPERATING_EXPENSES_PATH = '/admin/expenses/operating';
+const OPERATING_EXPENSES_PATH = '/admin/operating-expenses';
 
 export async function listOperatingExpenses(limit = 50): Promise<OperatingExpenseListItem[]> {
     const ds = await getDb();

@@ -1,6 +1,6 @@
 import { getDb } from '../db';
 import { User, UserRole } from '../entities/User';
-import { Person, PersonType, DocumentType } from '../entities/Person';
+import { Person, PersonType, DocumentType, BankName, AccountTypeName, PersonBankAccount } from '../entities/Person';
 import { Company } from '../entities/Company';
 import { Branch } from '../entities/Branch';
 import { Tax, TaxType } from '../entities/Tax';
@@ -78,6 +78,15 @@ async function seedFlowStore() {
     
     let company = await db.getRepository(Company).findOne({ where: { name: 'Joyería Brillante' } });
     
+    const defaultBankAccount: PersonBankAccount = {
+      bankName: BankName.BANCO_SANTANDER,
+      accountType: AccountTypeName.CUENTA_CORRIENTE,
+      accountNumber: '12345678-9',
+      accountHolderName: 'Joyería Brillante SpA',
+      isPrimary: true,
+      notes: 'Cuenta principal de operaciones',
+    };
+
     if (!company) {
       // Buscar cualquier empresa existente para actualizar
       const companies = await db.getRepository(Company).find({ take: 1 });
@@ -91,6 +100,7 @@ async function seedFlowStore() {
           requireCustomerForSale: false,
           defaultPaymentMethod: 'CASH',
         };
+        company.bankAccounts = [defaultBankAccount];
         await db.getRepository(Company).save(company);
         console.log(`   ✓ Empresa actualizada: ${company.name}`);
       } else {
@@ -104,11 +114,18 @@ async function seedFlowStore() {
           requireCustomerForSale: false,
           defaultPaymentMethod: 'CASH',
         };
+        company.bankAccounts = [defaultBankAccount];
         company = await db.getRepository(Company).save(company);
         console.log(`   ✓ Empresa creada: ${company.name}`);
       }
     } else {
-      console.log(`   ⚠ Empresa ya existe: ${company.name}`);
+      if (!company.bankAccounts || company.bankAccounts.length === 0) {
+        company.bankAccounts = [defaultBankAccount];
+        await db.getRepository(Company).save(company);
+        console.log(`   ✓ Empresa actualizada con cuenta bancaria por defecto: ${company.name}`);
+      } else {
+        console.log(`   ⚠ Empresa ya existe: ${company.name}`);
+      }
     }
 
     // ============================================
