@@ -1,5 +1,6 @@
 'use server';
 
+import { revalidatePath } from 'next/cache';
 import { getDb } from '@/data/db';
 import { getCompany } from './companies';
 import { AccountType } from '@/data/entities/AccountingAccount';
@@ -51,6 +52,40 @@ export interface AccountingPeriodSummary {
     closedAt?: string | null;
     locked: boolean;
 }
+
+export interface CreateAccountingPeriodInput {
+    startDate: string;
+    endDate: string;
+}
+
+export interface AccountingPeriodMutationResult {
+    success: boolean;
+    error?: string;
+    period?: AccountingPeriodSummary;
+}
+
+const ACCOUNTING_PERIODS_PATH = '/admin/accounting/periods';
+
+const periodNameFormatter = new Intl.DateTimeFormat('es-CL', {
+    month: 'short',
+    day: '2-digit',
+});
+
+const serializeAccountingPeriod = (period: AccountingPeriod): AccountingPeriodSummary => {
+    const start = new Date(period.startDate);
+    const end = new Date(period.endDate);
+    const name = `${periodNameFormatter.format(start)} — ${periodNameFormatter.format(end)}`;
+
+    return {
+        id: period.id,
+        name,
+        startDate: period.startDate,
+        endDate: period.endDate,
+        status: period.status,
+        closedAt: period.closedAt ? period.closedAt.toISOString() : null,
+        locked: period.status === AccountingPeriodStatus.LOCKED,
+    };
+};
 
 export async function getAccountingHierarchy(): Promise<AccountingAccountNode[]> {
     const company = await getCompany();
@@ -226,24 +261,62 @@ export async function getAccountingPeriods(): Promise<AccountingPeriodSummary[]>
         .orderBy('period.startDate', 'DESC')
         .getMany();
 
-    const rangeFormatter = new Intl.DateTimeFormat('es-CL', {
-        month: 'short',
-        day: '2-digit',
+    return periods.map((period) => serializeAccountingPeriod(period));
+}
+
+export async function createAccountingPeriod(input: CreateAccountingPeriodInput): Promise<AccountingPeriodMutationResult> {
+    const company = await getCompany();
+    if (!company) {
+        return { success: false, error: 'No hay compañía activa configurada.' };
+    }
+
+    const normalizedStart = input.startDate?.trim();
+    const normalizedEnd = input.endDate?.trim();
+
+    if (!normalizedStart || !normalizedEnd) {
+        return { success: false, error: 'Debes definir la fecha de inicio y término del período.' };
+    }
+
+    const startDate = new Date(normalizedStart);
+    const endDate = new Date(normalizedEnd);
+
+    if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+        return { success: false, error: 'Las fechas ingresadas no son válidas.' };
+    }
+
+    if (endDate < startDate) {
+        return { success: false, error: 'La fecha de término no puede ser anterior a la fecha de inicio.' };
+    }
+
+    const ds = await getDb();
+    const repo = ds.getRepository(AccountingPeriod);
+
+    const overlappingPeriods = await repo
+        .createQueryBuilder('period')
+        .where('period.companyId = :companyId', { companyId: company.id })
+        .andWhere('period.startDate <= :endDate AND period.endDate >= :startDate', {
+            startDate: normalizedStart,
+            endDate: normalizedEnd,
+        })
+        .getCount();
+
+    if (overlappingPeriods > 0) {
+        return { success: false, error: 'El período se superpone con otro período contable existente.' };
+    }
+
+    const entity = repo.create({
+        companyId: company.id,
+        startDate: normalizedStart,
+        endDate: normalizedEnd,
+        status: AccountingPeriodStatus.OPEN,
     });
 
-    return periods.map((period) => {
-        const start = new Date(period.startDate);
-        const end = new Date(period.endDate);
-        const name = `${rangeFormatter.format(start)} — ${rangeFormatter.format(end)}`;
+    const saved = await repo.save(entity);
 
-        return {
-            id: period.id,
-            name,
-            startDate: period.startDate,
-            endDate: period.endDate,
-            status: period.status,
-            closedAt: period.closedAt ? period.closedAt.toISOString() : null,
-            locked: period.status === AccountingPeriodStatus.LOCKED,
-        };
-    });
+    revalidatePath(ACCOUNTING_PERIODS_PATH);
+
+    return {
+        success: true,
+        period: serializeAccountingPeriod(saved),
+    };
 }

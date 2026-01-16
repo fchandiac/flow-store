@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import Dialog from '@/baseComponents/Dialog/Dialog';
 import Select, { type Option } from '@/baseComponents/Select/Select';
 import { TextField } from '@/baseComponents/TextField/TextField';
 import { Button } from '@/baseComponents/Button/Button';
 import Alert from '@/baseComponents/Alert/Alert';
-import { createOperatingExpense, type ExpenseCategoryOption } from '@/actions/operatingExpenses';
+import { createOperatingExpense } from '@/actions/operatingExpenses';
+import type { ExpenseCategoryOption, PayrollCategoryType } from '@/actions/expenseCategories';
 import type { CostCenterSummary } from '@/actions/costCenters';
 import type { PaymentMethod } from '@/data/entities/Transaction';
+import type { EmployeeListItem } from '@/actions/employees';
 
 interface OperatingExpensesDialogProps {
     open: boolean;
@@ -16,6 +18,7 @@ interface OperatingExpensesDialogProps {
     onSuccess?: () => void;
     categories: ExpenseCategoryOption[];
     costCenters: CostCenterSummary[];
+    employees: EmployeeListItem[];
 }
 
 interface FormState {
@@ -26,6 +29,7 @@ interface FormState {
     taxAmount: string;
     notes: string;
     externalReference: string;
+    employeeId: string | null;
 }
 
 const PAYMENT_METHOD_OPTIONS: Option[] = [
@@ -43,12 +47,79 @@ const INITIAL_FORM_STATE: FormState = {
     taxAmount: '',
     notes: '',
     externalReference: '',
+    employeeId: null,
 };
 
-export default function OperatingExpensesDialog({ open, onClose, onSuccess, categories, costCenters }: OperatingExpensesDialogProps) {
+const EMPLOYMENT_TYPE_LABELS: Record<string, string> = {
+    FULL_TIME: 'Jornada completa',
+    PART_TIME: 'Media jornada',
+    CONTRACTOR: 'Contrato externo',
+    TEMPORARY: 'Temporal',
+    INTERN: 'Práctica',
+};
+
+const EMPLOYEE_STATUS_LABELS: Record<string, string> = {
+    ACTIVE: 'Activo',
+    SUSPENDED: 'Suspendido',
+    TERMINATED: 'Terminado',
+};
+
+const CLP_FORMATTER = new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+});
+
+const formatEmployeeName = (employee: EmployeeListItem) => {
+    const { person } = employee;
+    if (person.businessName) {
+        return person.businessName;
+    }
+    const parts = [person.firstName, person.lastName].filter(Boolean);
+    return parts.length > 0 ? parts.join(' ') : person.firstName;
+};
+
+const formatCurrency = (value: number) => CLP_FORMATTER.format(value);
+
+export default function OperatingExpensesDialog({ open, onClose, onSuccess, categories, costCenters, employees }: OperatingExpensesDialogProps) {
     const [formState, setFormState] = useState<FormState>(INITIAL_FORM_STATE);
     const [errors, setErrors] = useState<string[]>([]);
     const [isPending, startTransition] = useTransition();
+    const lastAutoAmountRef = useRef<string | null>(null);
+    const lastAutoCostCenterRef = useRef<string | null>(null);
+
+    const categoryOptions = useMemo(
+        () => categories.map((category) => ({ id: category.id, label: category.name })),
+        [categories],
+    );
+
+    const selectedCategory = useMemo(() => {
+        if (!formState.expenseCategoryId) {
+            return null;
+        }
+        return categories.find((category) => category.id === formState.expenseCategoryId) ?? null;
+    }, [categories, formState.expenseCategoryId]);
+
+    const payrollType: PayrollCategoryType | null = selectedCategory?.payrollType ?? null;
+
+    const employeeOptions = useMemo(
+        () =>
+            employees
+                .slice()
+                .sort((a, b) => formatEmployeeName(a).localeCompare(formatEmployeeName(b), 'es'))
+                .map((employee) => ({ id: employee.id, label: formatEmployeeName(employee) })),
+        [employees],
+    );
+
+    const hasEmployeeOptions = employeeOptions.length > 0;
+
+    const selectedEmployee = useMemo(() => {
+        if (!formState.employeeId) {
+            return null;
+        }
+        return employees.find((employee) => employee.id === formState.employeeId) ?? null;
+    }, [employees, formState.employeeId]);
 
     useEffect(() => {
         if (open) {
@@ -68,11 +139,83 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
         }
     }, [costCenters, formState.costCenterId]);
 
+    useEffect(() => {
+        if (!selectedCategory?.payrollType && formState.employeeId) {
+            setFormState((prev) => ({ ...prev, employeeId: null }));
+        }
+    }, [selectedCategory?.payrollType, formState.employeeId]);
+
+    useEffect(() => {
+        if (selectedCategory?.payrollType && selectedEmployee?.costCenter?.id) {
+            const costCenterId = selectedEmployee.costCenter.id;
+
+            setFormState((prev) => {
+                const shouldUpdate =
+                    !prev.costCenterId ||
+                    (lastAutoCostCenterRef.current != null && prev.costCenterId === lastAutoCostCenterRef.current);
+
+                if (!shouldUpdate && prev.costCenterId === costCenterId) {
+                    return prev;
+                }
+
+                if (!shouldUpdate) {
+                    return prev;
+                }
+
+                lastAutoCostCenterRef.current = costCenterId;
+
+                return {
+                    ...prev,
+                    costCenterId,
+                };
+            });
+        } else if (!selectedCategory?.payrollType) {
+            lastAutoCostCenterRef.current = null;
+        }
+    }, [selectedCategory?.payrollType, selectedEmployee?.costCenter?.id]);
+
+    useEffect(() => {
+        if (selectedCategory?.payrollType === 'salary' && selectedEmployee?.baseSalary != null) {
+            const salaryValue = Math.round(Number(selectedEmployee.baseSalary));
+            const salaryString = Number.isFinite(salaryValue) ? String(salaryValue) : '';
+
+            setFormState((prev) => {
+                if (!salaryString) {
+                    return prev;
+                }
+
+                const shouldUpdate =
+                    prev.amount === '' ||
+                    (lastAutoAmountRef.current != null && prev.amount === lastAutoAmountRef.current);
+
+                if (!shouldUpdate && prev.amount === salaryString) {
+                    return prev;
+                }
+
+                if (!shouldUpdate) {
+                    return prev;
+                }
+
+                lastAutoAmountRef.current = salaryString;
+
+                return {
+                    ...prev,
+                    amount: salaryString,
+                };
+            });
+        } else {
+            lastAutoAmountRef.current = null;
+        }
+    }, [selectedCategory?.payrollType, selectedEmployee?.baseSalary, selectedEmployee?.id]);
+
     const resetForm = () => {
+        lastAutoAmountRef.current = null;
+        lastAutoCostCenterRef.current = null;
         setFormState({
             ...INITIAL_FORM_STATE,
             expenseCategoryId: categories[0]?.id ?? null,
             costCenterId: costCenters[0]?.id ?? null,
+            employeeId: null,
         });
     };
 
@@ -101,6 +244,11 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
             return;
         }
 
+        if (payrollType && !formState.employeeId) {
+            setErrors(['Selecciona el colaborador asociado al pago.']);
+            return;
+        }
+
         const parsedAmount = Number(formState.amount);
         const parsedTaxAmount = formState.taxAmount ? Number(formState.taxAmount) : 0;
 
@@ -125,6 +273,8 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
                 paymentMethod: formState.paymentMethod as PaymentMethod,
                 notes: formState.notes.trim() ? formState.notes.trim() : undefined,
                 externalReference: formState.externalReference.trim() ? formState.externalReference.trim() : undefined,
+                employeeId: payrollType ? formState.employeeId ?? undefined : undefined,
+                payrollType: payrollType ?? undefined,
             });
 
             if (!result.success) {
@@ -144,14 +294,12 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
             onClose={handleClose}
             title="Registrar gasto operativo"
             size="lg"
-            showCloseButton
-            closeButtonText="Cancelar"
         >
             <form className="space-y-4" onSubmit={handleSubmit}>
                 <div className="grid gap-4 md:grid-cols-2">
                     <Select
                         label="Categoría de gasto"
-                        options={categories.map((category) => ({ id: category.id, label: category.name }))}
+                        options={categoryOptions}
                         value={formState.expenseCategoryId}
                         onChange={(id) =>
                             setFormState((prev) => ({
@@ -224,6 +372,88 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
                         placeholder="N° de factura, folio, etc."
                     />
                 </div>
+
+                {payrollType && (
+                    <section className="space-y-4 rounded-lg border border-border bg-background p-4">
+                        <header>
+                            <h3 className="text-sm font-semibold text-foreground">
+                                {payrollType === 'salary'
+                                    ? 'Detalle de remuneración del colaborador'
+                                    : 'Registro de anticipo al colaborador'}
+                            </h3>
+                            <p className="text-xs text-muted-foreground">
+                                Selecciona el colaborador para adjuntar el detalle del pago. Esta información quedará registrada en el gasto.
+                            </p>
+                        </header>
+
+                        <div className="grid gap-4 md:grid-cols-2">
+                            <Select
+                                label="Colaborador"
+                                options={employeeOptions}
+                                value={formState.employeeId}
+                                onChange={(id) =>
+                                    setFormState((prev) => ({
+                                        ...prev,
+                                        employeeId: typeof id === 'string' ? id : id != null ? String(id) : null,
+                                    }))
+                                }
+                                placeholder={hasEmployeeOptions ? 'Selecciona al colaborador' : 'No hay colaboradores disponibles'}
+                                required
+                                disabled={!hasEmployeeOptions}
+                            />
+
+                            {selectedEmployee?.baseSalary != null && payrollType === 'salary' && (
+                                <TextField
+                                    label="Salario base"
+                                    value={formatCurrency(Number(selectedEmployee.baseSalary))}
+                                    onChange={() => {}}
+                                    readOnly
+                                />
+                            )}
+                        </div>
+
+                        {selectedEmployee && (
+                            <dl className="grid gap-3 rounded-md border border-dashed border-border/60 bg-white/60 p-3 text-xs text-muted-foreground md:grid-cols-2">
+                                <div>
+                                    <dt className="font-medium text-foreground">Documento</dt>
+                                    <dd>{selectedEmployee.person.documentNumber ?? 'Sin documento'}</dd>
+                                </div>
+                                <div>
+                                    <dt className="font-medium text-foreground">Tipo de contrato</dt>
+                                    <dd>
+                                        {EMPLOYMENT_TYPE_LABELS[selectedEmployee.employmentType] ?? selectedEmployee.employmentType}
+                                    </dd>
+                                </div>
+                                <div>
+                                    <dt className="font-medium text-foreground">Estado</dt>
+                                    <dd>{EMPLOYEE_STATUS_LABELS[selectedEmployee.status] ?? selectedEmployee.status}</dd>
+                                </div>
+                                <div>
+                                    <dt className="font-medium text-foreground">Centro de costos</dt>
+                                    <dd>
+                                        {selectedEmployee.costCenter
+                                            ? `${selectedEmployee.costCenter.name} (${selectedEmployee.costCenter.code})`
+                                            : 'No asignado'}
+                                    </dd>
+                                </div>
+                            </dl>
+                        )}
+
+                        {payrollType === 'salary' && (
+                            <Alert variant="info">
+                                {selectedEmployee?.baseSalary != null
+                                    ? 'El monto del gasto se completa con el salario base del colaborador. Puedes ajustarlo si corresponde a bonos u horas extra.'
+                                    : 'El colaborador no tiene un salario base registrado. Ingresa manualmente el monto correspondiente a la liquidación.'}
+                            </Alert>
+                        )}
+
+                        {payrollType && !hasEmployeeOptions && (
+                            <Alert variant="warning">
+                                Registra primero a tus colaboradores en Recursos Humanos para poder asociarlos a pagos de sueldos o anticipos.
+                            </Alert>
+                        )}
+                    </section>
+                )}
 
                 <TextField
                     label="Notas"

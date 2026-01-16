@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { IsNull } from 'typeorm';
 import { getDb } from '@/data/db';
 import { Employee, EmploymentType, EmployeeStatus } from '@/data/entities/Employee';
-import { Person } from '@/data/entities/Person';
+import { DocumentType, Person } from '@/data/entities/Person';
 import { CostCenter } from '@/data/entities/CostCenter';
 import { OrganizationalUnit } from '@/data/entities/OrganizationalUnit';
 import { getCompany } from './companies';
@@ -14,7 +14,7 @@ export interface EmployeePersonSummary {
 	firstName: string;
 	lastName: string | null;
 	businessName: string | null;
-	documentType: string | null;
+	documentType: DocumentType | null;
 	documentNumber: string | null;
 	email: string | null;
 	phone: string | null;
@@ -48,6 +48,16 @@ export interface CreateEmployeeInput {
 	employmentType: EmploymentType;
 	status: EmployeeStatus;
 	hireDate: string;
+	terminationDate?: string | null;
+	baseSalary?: number | null;
+}
+
+export interface UpdateEmployeeInput {
+	organizationalUnitId?: string | null;
+	costCenterId?: string | null;
+	employmentType?: EmploymentType;
+	status?: EmployeeStatus;
+	hireDate?: string;
 	terminationDate?: string | null;
 	baseSalary?: number | null;
 }
@@ -271,6 +281,149 @@ export async function createEmployee(input: CreateEmployeeInput): Promise<Employ
 		return {
 			success: false,
 			error: error instanceof Error ? error.message : 'Error al crear el empleado.',
+		};
+	}
+}
+
+export async function updateEmployee(id: string, input: UpdateEmployeeInput): Promise<EmployeeMutationResult> {
+	try {
+		const company = await getCompany();
+		if (!company) {
+			return { success: false, error: 'No hay compañía configurada.' };
+		}
+
+		const ds = await getDb();
+		const employeeRepo = ds.getRepository(Employee);
+		const costCenterRepo = ds.getRepository(CostCenter);
+		const organizationalUnitRepo = ds.getRepository(OrganizationalUnit);
+
+		const employee = await employeeRepo.findOne({
+			where: { id, companyId: company.id, deletedAt: IsNull() },
+			relations: ['person', 'branch', 'costCenter', 'organizationalUnit'],
+		});
+
+		if (!employee) {
+			return { success: false, error: 'Empleado no encontrado.' };
+		}
+
+		let nextCostCenterId = employee.costCenterId ?? null;
+		if (input.costCenterId !== undefined) {
+			const normalized = normalizeOptionalId(input.costCenterId ?? null);
+			if (normalized) {
+				const costCenter = await costCenterRepo.findOne({ where: { id: normalized } });
+				if (!costCenter) {
+					return { success: false, error: 'El centro de costos seleccionado no existe.' };
+				}
+				if (costCenter.companyId !== company.id) {
+					return { success: false, error: 'El centro de costos seleccionado pertenece a otra compañía.' };
+				}
+				nextCostCenterId = costCenter.id;
+			} else {
+				nextCostCenterId = null;
+			}
+		}
+
+		let nextOrganizationalUnitId = employee.organizationalUnitId ?? null;
+		let nextBranchId = employee.branchId ?? null;
+		if (input.organizationalUnitId !== undefined) {
+			const normalized = normalizeOptionalId(input.organizationalUnitId ?? null);
+			if (normalized) {
+				const organizationalUnit = await organizationalUnitRepo.findOne({
+					where: { id: normalized },
+					relations: ['branch'],
+				});
+				if (!organizationalUnit) {
+					return { success: false, error: 'La unidad organizativa seleccionada no existe.' };
+				}
+				if (organizationalUnit.companyId !== company.id) {
+					return { success: false, error: 'La unidad organizativa seleccionada pertenece a otra compañía.' };
+				}
+				nextOrganizationalUnitId = organizationalUnit.id;
+				nextBranchId = organizationalUnit.branchId ?? null;
+			} else {
+				nextOrganizationalUnitId = null;
+				nextBranchId = null;
+			}
+		}
+
+		let nextHireDate = employee.hireDate;
+		if (input.hireDate !== undefined) {
+			const trimmed = input.hireDate?.trim();
+			if (!trimmed) {
+				return { success: false, error: 'La fecha de ingreso es obligatoria.' };
+			}
+			nextHireDate = trimmed;
+		}
+
+		let nextTerminationDate = employee.terminationDate ?? null;
+		if (input.terminationDate !== undefined) {
+			nextTerminationDate = normalizeOptionalString(input.terminationDate);
+		}
+
+		const nextStatus = input.status ?? employee.status;
+		if (nextStatus === EmployeeStatus.TERMINATED) {
+			const termination = nextTerminationDate ?? null;
+			if (!termination) {
+				return { success: false, error: 'Los empleados terminados deben tener fecha de término.' };
+			}
+		}
+
+		if (nextTerminationDate) {
+			const hireTime = new Date(nextHireDate).getTime();
+			const terminationTime = new Date(nextTerminationDate).getTime();
+			if (Number.isNaN(hireTime) || Number.isNaN(terminationTime)) {
+				return { success: false, error: 'Las fechas de ingreso y término deben ser válidas.' };
+			}
+			if (terminationTime < hireTime) {
+				return { success: false, error: 'La fecha de término no puede ser anterior a la fecha de ingreso.' };
+			}
+		}
+
+		let nextBaseSalary = employee.baseSalary ?? null;
+		if (input.baseSalary !== undefined) {
+			if (input.baseSalary == null) {
+				nextBaseSalary = null;
+			} else {
+				const numericSalary = Number(input.baseSalary);
+				if (!Number.isFinite(numericSalary) || numericSalary < 0) {
+					return { success: false, error: 'El salario base debe ser un número positivo.' };
+				}
+				nextBaseSalary = Math.round(numericSalary).toString();
+			}
+		}
+
+		employee.costCenterId = nextCostCenterId ?? null;
+		employee.organizationalUnitId = nextOrganizationalUnitId ?? null;
+		employee.branchId = nextBranchId ?? null;
+
+		if (input.employmentType !== undefined) {
+			employee.employmentType = input.employmentType;
+		}
+
+		employee.status = nextStatus;
+		employee.hireDate = nextHireDate;
+		employee.terminationDate = nextTerminationDate ?? null;
+		employee.baseSalary = nextBaseSalary ?? null;
+
+		await employeeRepo.save(employee);
+
+		const updated = await employeeRepo.findOne({
+			where: { id: employee.id },
+			relations: ['person', 'branch', 'costCenter', 'organizationalUnit'],
+		});
+
+		revalidatePath(EMPLOYEES_PATH);
+
+		if (!updated) {
+			return { success: true };
+		}
+
+		return { success: true, employee: buildEmployeeListItem(updated) };
+	} catch (error) {
+		console.error('[updateEmployee] Error:', error);
+		return {
+			success: false,
+			error: error instanceof Error ? error.message : 'Error al actualizar el empleado.',
 		};
 	}
 }

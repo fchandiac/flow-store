@@ -3,12 +3,14 @@
 import { useMemo } from 'react';
 import DataGrid, { type DataGridColumn } from '@/baseComponents/DataGrid/DataGrid';
 import Badge from '@/baseComponents/Badge/Badge';
+import { Button } from '@/baseComponents/Button/Button';
 import type { EmployeeListItem } from '@/actions/employees';
 import { EmployeeStatus, EmploymentType } from '@/data/entities/Employee';
 
 interface EmployeesDataGridProps {
     employees: EmployeeListItem[];
     onAddClick: () => void;
+    onEditEmployee: (employee: EmployeeListItem) => void;
 }
 
 interface EmployeeRow extends EmployeeListItem {
@@ -88,7 +90,7 @@ const mapEmployeesToRows = (employees: EmployeeListItem[]): EmployeeRow[] =>
         baseSalaryLabel: employee.baseSalary != null ? currencyFormatter.format(employee.baseSalary) : '—',
     }));
 
-const buildColumns = (rows: EmployeeRow[]): DataGridColumn[] => {
+const buildColumns = (rows: EmployeeRow[], onEditEmployee: (employee: EmployeeListItem) => void): DataGridColumn[] => {
     const hasTerminationDates = rows.some((row) => row.terminationDateLabel);
 
     const columns: DataGridColumn[] = [
@@ -167,12 +169,32 @@ const buildColumns = (rows: EmployeeRow[]): DataGridColumn[] => {
         });
     }
 
+    columns.push({
+        field: 'actions',
+        headerName: 'Acciones',
+        width: 140,
+        align: 'center',
+        headerAlign: 'center',
+        renderCell: ({ row }) => (
+            <Button
+                variant="text"
+                size="sm"
+                onClick={(event) => {
+                    event.stopPropagation();
+                    onEditEmployee(row);
+                }}
+            >
+                Editar
+            </Button>
+        ),
+    });
+
     return columns;
 };
 
-export default function EmployeesDataGrid({ employees, onAddClick }: EmployeesDataGridProps) {
+export default function EmployeesDataGrid({ employees, onAddClick, onEditEmployee }: EmployeesDataGridProps) {
     const rows = useMemo(() => mapEmployeesToRows(employees), [employees]);
-    const columns = useMemo(() => buildColumns(rows), [rows]);
+    const columns = useMemo(() => buildColumns(rows, onEditEmployee), [rows, onEditEmployee]);
 
     return (
         <DataGrid

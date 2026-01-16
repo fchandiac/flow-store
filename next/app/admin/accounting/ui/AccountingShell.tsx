@@ -28,7 +28,7 @@ export default function AccountingShell({
                     Vista de solo lectura. Los saldos se calculan en línea según la operación.
                 </p>
             </header>
-            <section className="flex-1 overflow-auto rounded-xl border border-border/40 bg-white p-6 shadow-sm">
+            <section className="flex-1 overflow-auto">
                 {children}
             </section>
         </div>

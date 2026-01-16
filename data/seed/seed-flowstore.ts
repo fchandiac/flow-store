@@ -339,21 +339,48 @@ async function seedFlowStore() {
       type: AccountType;
       parentRef: string | null;
     }> = [
-      { ref: 'ACTIVO', code: '1', name: 'ACTIVO', type: AccountType.ASSET, parentRef: null },
-      { ref: 'ACTIVO_CIRCULANTE', code: '1.1', name: 'ACTIVO CIRCULANTE', type: AccountType.ASSET, parentRef: 'ACTIVO' },
-      { ref: 'CAJA_GENERAL', code: '1.1.01', name: 'CAJA GENERAL', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
-      { ref: 'BANCO_SANTANDER', code: '1.1.02', name: 'BANCO SANTANDER', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
-      { ref: 'CLIENTES_POR_COBRAR', code: '1.1.03', name: 'CLIENTES POR COBRAR', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
-      { ref: 'INVENTARIO_MERCADERIAS', code: '1.1.04', name: 'INVENTARIO DE MERCADERÍAS', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
-      { ref: 'IVA_CREDITO', code: '1.1.05', name: 'IVA CRÉDITO FISCAL', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
-      { ref: 'PASIVO', code: '2', name: 'PASIVO', type: AccountType.LIABILITY, parentRef: null },
-      { ref: 'PROVEEDORES', code: '2.1.01', name: 'PROVEEDORES', type: AccountType.LIABILITY, parentRef: 'PASIVO' },
-      { ref: 'IVA_DEBITO', code: '2.1.02', name: 'IVA DÉBITO FISCAL', type: AccountType.LIABILITY, parentRef: 'PASIVO' },
+      { ref: 'ACTIVOS', code: '1', name: 'ACTIVOS', type: AccountType.ASSET, parentRef: null },
+      { ref: 'ACTIVO_CIRCULANTE', code: '1.1', name: 'ACTIVO CIRCULANTE', type: AccountType.ASSET, parentRef: 'ACTIVOS' },
+      { ref: 'CAJA_GENERAL', code: '1.1.01', name: 'Caja General', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
+      { ref: 'INSTITUCIONES_FINANCIERAS', code: '1.1.02', name: 'Instituciones Financieras (Bancos)', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
+      { ref: 'CLIENTES_CXC', code: '1.1.03', name: 'Clientes (Cuentas por Cobrar)', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
+      { ref: 'EXISTENCIAS', code: '1.1.04', name: 'Existencias (Inventario)', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
+      { ref: 'IVA_CREDITO_FISCAL', code: '1.1.05', name: 'IVA Crédito Fiscal (19%)', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
+      { ref: 'PPM', code: '1.1.06', name: 'PPM (Pagos Provisionales Mensuales)', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
+      { ref: 'ACTIVO_FIJO', code: '1.2', name: 'ACTIVO FIJO', type: AccountType.ASSET, parentRef: 'ACTIVOS' },
+      { ref: 'MAQUINARIA_INSTALACIONES', code: '1.2.01', name: 'Maquinaria e Instalaciones', type: AccountType.ASSET, parentRef: 'ACTIVO_FIJO' },
+      { ref: 'VEHICULOS', code: '1.2.02', name: 'Vehículos', type: AccountType.ASSET, parentRef: 'ACTIVO_FIJO' },
+
+      { ref: 'PASIVOS', code: '2', name: 'PASIVOS', type: AccountType.LIABILITY, parentRef: null },
+      { ref: 'PASIVO_CIRCULANTE', code: '2.1', name: 'PASIVO CIRCULANTE', type: AccountType.LIABILITY, parentRef: 'PASIVOS' },
+      { ref: 'PROVEEDORES', code: '2.1.01', name: 'Proveedores (Cuentas por Pagar)', type: AccountType.LIABILITY, parentRef: 'PASIVO_CIRCULANTE' },
+      { ref: 'IVA_DEBITO_FISCAL', code: '2.1.02', name: 'IVA Débito Fiscal (19%)', type: AccountType.LIABILITY, parentRef: 'PASIVO_CIRCULANTE' },
+      { ref: 'RETENCIONES_HONORARIOS', code: '2.1.03', name: 'Retenciones de Honorarios (13.75%)', type: AccountType.LIABILITY, parentRef: 'PASIVO_CIRCULANTE' },
+      { ref: 'REMUNERACIONES_POR_PAGAR', code: '2.1.04', name: 'Remuneraciones por Pagar', type: AccountType.LIABILITY, parentRef: 'PASIVO_CIRCULANTE' },
+      { ref: 'LEYES_SOCIALES_POR_PAGAR', code: '2.1.05', name: 'Leyes Sociales por Pagar', type: AccountType.LIABILITY, parentRef: 'PASIVO_CIRCULANTE' },
+
+      { ref: 'PATRIMONIO', code: '3', name: 'PATRIMONIO', type: AccountType.EQUITY, parentRef: null },
+      { ref: 'CAPITAL_PAGADO', code: '3.1.01', name: 'Capital Pagado', type: AccountType.EQUITY, parentRef: 'PATRIMONIO' },
+      { ref: 'UTILIDADES_ACUMULADAS', code: '3.1.02', name: 'Utilidades / Pérdidas Acumuladas', type: AccountType.EQUITY, parentRef: 'PATRIMONIO' },
+
       { ref: 'INGRESOS', code: '4', name: 'INGRESOS', type: AccountType.INCOME, parentRef: null },
-      { ref: 'VENTAS_MERCADERIAS', code: '4.1.01', name: 'VENTAS MERCADERÍAS', type: AccountType.INCOME, parentRef: 'INGRESOS' },
-      { ref: 'EGRESOS', code: '5', name: 'EGRESOS', type: AccountType.EXPENSE, parentRef: null },
-      { ref: 'COSTO_VENTAS', code: '5.1.01', name: 'COSTO DE VENTAS', type: AccountType.EXPENSE, parentRef: 'EGRESOS' },
-      { ref: 'GASTOS_GENERALES', code: '5.1.02', name: 'GASTOS GENERALES', type: AccountType.EXPENSE, parentRef: 'EGRESOS' },
+      { ref: 'INGRESOS_OPERACIONALES', code: '4.1', name: 'Ingresos Operacionales', type: AccountType.INCOME, parentRef: 'INGRESOS' },
+      { ref: 'VENTAS_MERCADERIAS', code: '4.1.01', name: 'Ventas de Mercaderías', type: AccountType.INCOME, parentRef: 'INGRESOS_OPERACIONALES' },
+      { ref: 'VENTAS_SERVICIOS', code: '4.1.02', name: 'Ventas de Servicios', type: AccountType.INCOME, parentRef: 'INGRESOS_OPERACIONALES' },
+      { ref: 'INGRESOS_NO_OPERACIONALES', code: '4.2', name: 'Ingresos No Operacionales', type: AccountType.INCOME, parentRef: 'INGRESOS' },
+      { ref: 'INTERESES_GANADOS', code: '4.2.01', name: 'Intereses Ganados / Otros Ingresos', type: AccountType.INCOME, parentRef: 'INGRESOS_NO_OPERACIONALES' },
+
+      { ref: 'EGRESOS', code: '5', name: 'EGRESOS / GASTOS', type: AccountType.EXPENSE, parentRef: null },
+      { ref: 'COSTOS_VENTAS', code: '5.1', name: 'Costos de Ventas', type: AccountType.EXPENSE, parentRef: 'EGRESOS' },
+      { ref: 'CMV', code: '5.1.01', name: 'Costo de Mercaderías Vendidas (CMV)', type: AccountType.EXPENSE, parentRef: 'COSTOS_VENTAS' },
+      { ref: 'GASTOS_ADMIN', code: '5.2', name: 'Gastos de Administración', type: AccountType.EXPENSE, parentRef: 'EGRESOS' },
+      { ref: 'SUELDOS_SALARIOS', code: '5.2.01', name: 'Sueldos y Salarios', type: AccountType.EXPENSE, parentRef: 'GASTOS_ADMIN' },
+      { ref: 'ARRIENDOS', code: '5.2.02', name: 'Arriendos', type: AccountType.EXPENSE, parentRef: 'GASTOS_ADMIN' },
+      { ref: 'GASTOS_GENERALES', code: '5.2.03', name: 'Gastos Generales', type: AccountType.EXPENSE, parentRef: 'GASTOS_ADMIN' },
+      { ref: 'HONORARIOS_PROFESIONALES', code: '5.2.04', name: 'Honorarios Profesionales', type: AccountType.EXPENSE, parentRef: 'GASTOS_ADMIN' },
+      { ref: 'GASTOS_VENTAS', code: '5.3', name: 'Gastos de Ventas', type: AccountType.EXPENSE, parentRef: 'EGRESOS' },
+      { ref: 'PUBLICIDAD_MARKETING', code: '5.3.01', name: 'Publicidad y Marketing', type: AccountType.EXPENSE, parentRef: 'GASTOS_VENTAS' },
+      { ref: 'COMISIONES_VENTAS', code: '5.3.02', name: 'Comisiones por Ventas', type: AccountType.EXPENSE, parentRef: 'GASTOS_VENTAS' },
     ];
 
     const accountRepo = db.getRepository(AccountingAccount);
@@ -403,27 +430,161 @@ async function seedFlowStore() {
       name: string;
       description?: string;
       defaultCostCenterRef?: string;
+      metadata?: Record<string, unknown>;
     }> = [
       {
-        ref: 'SERVICIOS_BASICOS',
-        code: 'SERV_BASICOS',
-        name: 'Servicios básicos',
-        description: 'Electricidad, agua, telecomunicaciones y servicios esenciales.',
+        ref: 'SERVICIO_AGUA',
+        code: 'SERV_AGUA',
+        name: 'Agua y alcantarillado',
+        description: 'Consumo de agua potable, alcantarillado y derechos sanitarios.',
         defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: { group: 'Servicios básicos', examples: ['Essbio', 'Aguas Andinas', 'SMAPA'] },
       },
       {
-        ref: 'MARKETING_DIGITAL',
-        code: 'MKT_DIGITAL',
-        name: 'Marketing digital',
-        description: 'Publicidad en redes sociales, campañas online y posicionamiento SEO.',
+        ref: 'SERVICIO_ELECTRICIDAD',
+        code: 'SERV_LUZ',
+        name: 'Electricidad',
+        description: 'Facturas eléctricas, cargos fijos y potencia contratada.',
         defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: { group: 'Servicios básicos', examples: ['Enel', 'CGE', 'SAESA'] },
+      },
+      {
+        ref: 'SERVICIO_INTERNET',
+        code: 'SERV_INTERNET',
+        name: 'Internet y telecomunicaciones',
+        description: 'Servicios de internet, telefonía IP y planes móviles corporativos.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: { group: 'Servicios básicos', examples: ['Movistar', 'Entel', 'Claro Empresas'] },
+      },
+      {
+        ref: 'SERVICIO_BASICOS_OTROS',
+        code: 'SERV_BAS_OTH',
+        name: 'Servicios básicos complementarios',
+        description: 'Gas, calefacción y otros suministros esenciales no clasificados.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: { group: 'Servicios básicos', examples: ['Gasco', 'Abastible', 'Lipigas'] },
+      },
+      {
+        ref: 'SUELDOS_REMUNERACIONES',
+        code: 'RRHH_SUELDOS',
+        name: 'Pago de remuneraciones',
+        description: 'Nómina, jornales y honorarios del personal interno.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: {
+          group: 'Personal',
+          examples: ['Pago mensual', 'Liquidaciones'],
+          locked: true,
+          payroll: { type: 'salary' },
+        },
+      },
+      {
+        ref: 'SUELDOS_ADELANTOS',
+        code: 'RRHH_ADELANTO',
+        name: 'Adelantos de sueldos',
+        description: 'Adelantos extraordinarios o préstamos a colaboradores.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: {
+          group: 'Personal',
+          examples: ['Adelanto quincenal', 'Préstamo interno'],
+          locked: true,
+          payroll: { type: 'advance' },
+        },
+      },
+      {
+        ref: 'SUELDOS_BENEFICIOS',
+        code: 'RRHH_BENEF',
+        name: 'Beneficios y viáticos',
+        description: 'Viáticos, colaciones, movilización y otros beneficios al personal.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: { group: 'Personal', examples: ['Viáticos', 'Giftcards', 'Caja de mercadería'] },
+      },
+      {
+        ref: 'SERVICIOS_CONTRATADOS',
+        code: 'SERV_EXTERNOS',
+        name: 'Servicios profesionales externos',
+        description: 'Asesorías contables, legales, TI y outsourcing de procesos.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: { group: 'Servicios externos', examples: ['Contador', 'Abogado', 'Consultor TI'] },
       },
       {
         ref: 'MANTENCION_LOCAL',
         code: 'MANT_LOCAL',
-        name: 'Mantención del local',
-        description: 'Reparaciones menores, limpieza profunda y ambientación del showroom.',
+        name: 'Mantención y reparaciones del local',
+        description: 'Reparaciones menores, ambientación y mejoras del espacio físico.',
         defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: { group: 'Infraestructura', examples: ['Pintura', 'Carpintería', 'Ambientación'] },
+      },
+      {
+        ref: 'SERVICIOS_LIMPIEZA_SEGURIDAD',
+        code: 'SERV_LIMPIEZA',
+        name: 'Limpieza y seguridad',
+        description: 'Servicios periódicos de aseo, sanitización y vigilancia.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: { group: 'Infraestructura', examples: ['Empresas de aseo', 'Guardias'] },
+      },
+      {
+        ref: 'LICENCIAS_SOFTWARE',
+        code: 'TI_SOFTWARE',
+        name: 'Licencias y software',
+        description: 'Suscripciones de software y licencias empresariales.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: { group: 'Tecnología', examples: ['Microsoft 365', 'Antivirus', 'ERP'] },
+      },
+      {
+        ref: 'SERVICIOS_CLOUD',
+        code: 'TI_CLOUD',
+        name: 'Servicios cloud y SaaS',
+        description: 'Infraestructura cloud, hosting, almacenamiento y SaaS.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: { group: 'Tecnología', examples: ['AWS', 'Vercel', 'Google Workspace'] },
+      },
+      {
+        ref: 'PUBLICIDAD_DIGITAL',
+        code: 'MKT_DIGITAL',
+        name: 'Marketing digital',
+        description: 'Publicidad en redes sociales, campañas online y posicionamiento SEO.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: { group: 'Marketing', examples: ['Meta Ads', 'Google Ads', 'Email marketing'] },
+      },
+      {
+        ref: 'PUBLICIDAD_TRADICIONAL',
+        code: 'MKT_TRADIC',
+        name: 'Marketing offline y eventos',
+        description: 'Ferias, activaciones, impresos y material POP.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: { group: 'Marketing', examples: ['Eventos', 'Radio', 'Gigantografías'] },
+      },
+      {
+        ref: 'LOGISTICA_DESPACHO',
+        code: 'LOG_DESPACHO',
+        name: 'Transporte y logística',
+        description: 'Despachos, encomiendas, fletes y transporte de mercadería.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: { group: 'Operaciones', examples: ['Chilexpress', 'Transportes locales'] },
+      },
+      {
+        ref: 'SUMINISTROS_OFICINA',
+        code: 'OFI_SUMINISTROS',
+        name: 'Suministros y papelería',
+        description: 'Artículos de oficina, insumos de punto de venta y embalajes.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: { group: 'Operaciones', examples: ['Papelería', 'Tóner', 'Bolsas'] },
+      },
+      {
+        ref: 'CAPACITACION_PERSONAL',
+        code: 'RRHH_CAPAC',
+        name: 'Capacitación y desarrollo',
+        description: 'Cursos, certificaciones, talleres y actividades para el equipo.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: { group: 'Personal', examples: ['Cursos en línea', 'Workshops', 'Charlas'] },
+      },
+      {
+        ref: 'SEGUROS_POLIZAS',
+        code: 'ADM_SEGUROS',
+        name: 'Seguros y pólizas',
+        description: 'Seguros comerciales, de incendio, responsabilidad civil y equipos.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+        metadata: { group: 'Administración', examples: ['Seguro local', 'Seguro equipos'] },
       },
     ];
 
@@ -448,7 +609,7 @@ async function seedFlowStore() {
           requiresApproval: false,
           approvalThreshold: '0',
           isActive: true,
-          metadata: null,
+          metadata: entry.metadata ?? null,
           defaultCostCenterId,
         });
       } else {
@@ -459,6 +620,7 @@ async function seedFlowStore() {
         category.isActive = true;
         category.deletedAt = undefined;
         category.defaultCostCenterId = defaultCostCenterId;
+        category.metadata = entry.metadata ?? null;
       }
 
       category = await expenseCategoryRepo.save(category);
@@ -472,6 +634,27 @@ async function seedFlowStore() {
     console.log('\n🧾 Configurando reglas contables...');
 
     const accountingRuleRepo = db.getRepository(AccountingRule);
+    const paymentOutExpenseCategoryRefs = [
+      'SERVICIO_AGUA',
+      'SERVICIO_ELECTRICIDAD',
+      'SERVICIO_INTERNET',
+      'SERVICIO_BASICOS_OTROS',
+      'SUELDOS_REMUNERACIONES',
+      'SUELDOS_ADELANTOS',
+      'SUELDOS_BENEFICIOS',
+      'SERVICIOS_CONTRATADOS',
+      'MANTENCION_LOCAL',
+      'SERVICIOS_LIMPIEZA_SEGURIDAD',
+      'LICENCIAS_SOFTWARE',
+      'SERVICIOS_CLOUD',
+      'PUBLICIDAD_DIGITAL',
+      'PUBLICIDAD_TRADICIONAL',
+      'LOGISTICA_DESPACHO',
+      'SUMINISTROS_OFICINA',
+      'CAPACITACION_PERSONAL',
+      'SEGUROS_POLIZAS',
+    ];
+
     const accountingRulesData: Array<{
       appliesTo: RuleScope;
       transactionType: TransactionType;
@@ -548,33 +731,6 @@ async function seedFlowStore() {
       },
       {
         appliesTo: RuleScope.TRANSACTION,
-        transactionType: TransactionType.PAYMENT_OUT,
-        expenseCategoryRef: 'SERVICIOS_BASICOS',
-        debitAccountRef: 'GASTOS_GENERALES',
-        creditAccountRef: 'CAJA_GENERAL',
-        priority: 1,
-        isActive: true,
-      },
-      {
-        appliesTo: RuleScope.TRANSACTION,
-        transactionType: TransactionType.PAYMENT_OUT,
-        expenseCategoryRef: 'MARKETING_DIGITAL',
-        debitAccountRef: 'GASTOS_GENERALES',
-        creditAccountRef: 'CAJA_GENERAL',
-        priority: 2,
-        isActive: true,
-      },
-      {
-        appliesTo: RuleScope.TRANSACTION,
-        transactionType: TransactionType.PAYMENT_OUT,
-        expenseCategoryRef: 'MANTENCION_LOCAL',
-        debitAccountRef: 'GASTOS_GENERALES',
-        creditAccountRef: 'CAJA_GENERAL',
-        priority: 3,
-        isActive: true,
-      },
-      {
-        appliesTo: RuleScope.TRANSACTION,
         transactionType: TransactionType.OPERATING_EXPENSE,
         paymentMethod: PaymentMethod.CASH,
         debitAccountRef: 'GASTOS_GENERALES',
@@ -610,6 +766,18 @@ async function seedFlowStore() {
         isActive: true,
       },
     ];
+
+    paymentOutExpenseCategoryRefs.forEach((expenseCategoryRef, index) => {
+      accountingRulesData.push({
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.PAYMENT_OUT,
+        expenseCategoryRef,
+        debitAccountRef: 'GASTOS_GENERALES',
+        creditAccountRef: 'CAJA_GENERAL',
+        priority: 20 + index,
+        isActive: true,
+      });
+    });
 
     for (const ruleConfig of accountingRulesData) {
       const debitAccount = accountRefMap[ruleConfig.debitAccountRef];

@@ -3,15 +3,17 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DataGrid, { type DataGridColumn } from '@/baseComponents/DataGrid/DataGrid';
-import { Button } from '@/baseComponents/Button/Button';
 import OperatingExpensesDialog from './OperatingExpensesDialog';
-import type { OperatingExpenseListItem, ExpenseCategoryOption } from '@/actions/operatingExpenses';
+import type { OperatingExpenseListItem } from '@/actions/operatingExpenses';
+import type { ExpenseCategoryOption } from '@/actions/expenseCategories';
 import type { CostCenterSummary } from '@/actions/costCenters';
+import type { EmployeeListItem } from '@/actions/employees';
 
 interface OperatingExpensesViewProps {
     expenses: OperatingExpenseListItem[];
     categories: ExpenseCategoryOption[];
     costCenters: CostCenterSummary[];
+    employees: EmployeeListItem[];
 }
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
@@ -31,6 +33,7 @@ interface OperatingExpenseRow {
     id: string;
     documentNumber: string;
     categoryName: string;
+    employeeName: string;
     costCenterLabel: string;
     paymentMethodLabel: string;
     amountLabel: string;
@@ -39,7 +42,7 @@ interface OperatingExpenseRow {
     recordedBy: string;
 }
 
-export default function OperatingExpensesView({ expenses, categories, costCenters }: OperatingExpensesViewProps) {
+export default function OperatingExpensesView({ expenses, categories, costCenters, employees }: OperatingExpensesViewProps) {
     const router = useRouter();
     const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -49,6 +52,7 @@ export default function OperatingExpensesView({ expenses, categories, costCenter
                 id: expense.id,
                 documentNumber: expense.documentNumber,
                 categoryName: expense.expenseCategory?.name ?? '—',
+                employeeName: expense.payroll?.employeeName ?? '—',
                 costCenterLabel: expense.costCenter
                     ? `${expense.costCenter.name} (${expense.costCenter.code})`
                     : '—',
@@ -67,6 +71,7 @@ export default function OperatingExpensesView({ expenses, categories, costCenter
         () => [
             { field: 'documentNumber', headerName: 'Documento', minWidth: 150, flex: 1 },
             { field: 'categoryName', headerName: 'Categoría', minWidth: 180, flex: 1 },
+            { field: 'employeeName', headerName: 'Colaborador', minWidth: 200, flex: 1 },
             { field: 'costCenterLabel', headerName: 'Centro de costos', minWidth: 220, flex: 1 },
             { field: 'paymentMethodLabel', headerName: 'Método de pago', minWidth: 160, flex: 1 },
             {
@@ -98,16 +103,6 @@ export default function OperatingExpensesView({ expenses, categories, costCenter
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                    <h1 className="text-2xl font-semibold">Gastos operativos</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Revisa y registra gastos operativos asociados a categorías y centros de costos.
-                    </p>
-                </div>
-                <Button onClick={handleOpenDialog}>Registrar gasto</Button>
-            </div>
-
             <DataGrid
                 title="Historial de gastos operativos"
                 columns={columns}
@@ -123,6 +118,7 @@ export default function OperatingExpensesView({ expenses, categories, costCenter
                 onSuccess={handleRefresh}
                 categories={categories}
                 costCenters={costCenters}
+                employees={employees}
             />
         </div>
     );
