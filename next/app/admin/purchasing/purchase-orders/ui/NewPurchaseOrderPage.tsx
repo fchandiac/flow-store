@@ -45,6 +45,7 @@ interface TaxOption {
     id: string;
     name: string;
     rate: number;
+    code: string;
 }
 
 const quantityFormatter = new Intl.NumberFormat('es-CL', {
@@ -125,6 +126,63 @@ const NewPurchaseOrderPage = () => {
 
     const activeTaxesMap = useMemo(() => new Map(activeTaxes.map((tax) => [tax.id, tax])), [activeTaxes]);
 
+    const exemptTaxId = useMemo(() => {
+        const match = activeTaxes.find((tax) => tax.code?.trim().toUpperCase() === 'EXENTO');
+        return match?.id ?? null;
+    }, [activeTaxes]);
+
+    const nonExemptTaxIds = useMemo(() => {
+        return activeTaxes
+            .filter((tax) => tax.code?.trim().toUpperCase() !== 'EXENTO')
+            .map((tax) => tax.id);
+    }, [activeTaxes]);
+
+    const getDefaultTaxSelection = useCallback((): string[] => {
+        if (nonExemptTaxIds.length > 0) {
+            return [...nonExemptTaxIds];
+        }
+        return [];
+    }, [nonExemptTaxIds]);
+
+    const enforceExemptRules = useCallback(
+        (selection: string[]): string[] => {
+            const unique = Array.from(new Set(selection.filter((id) => activeTaxesMap.has(id))));
+            if (exemptTaxId && unique.includes(exemptTaxId)) {
+                return [exemptTaxId];
+            }
+            return unique;
+        },
+        [activeTaxesMap, exemptTaxId]
+    );
+
+    const computeCombinedRate = useCallback(
+        (taxIds: string[], fallbackRates: { id: string; rate: number }[] = []) => {
+            const fallbackMap = new Map(
+                fallbackRates.map((tax) => [tax.id, Number.isFinite(Number(tax.rate)) ? Number(tax.rate) : 0])
+            );
+
+            const total = taxIds.reduce((sum, id) => {
+                const active = activeTaxesMap.get(id);
+                const rate = Number.isFinite(Number(active?.rate)) ? Number(active?.rate) : fallbackMap.get(id) ?? 0;
+                return sum + (Number.isFinite(rate) ? rate : 0);
+            }, 0);
+
+            return Number.isFinite(total) ? Number(total.toFixed(4)) : 0;
+        },
+        [activeTaxesMap]
+    );
+
+    const areSameSelection = useCallback((current: string[] | undefined, expected: string[]) => {
+        if (!Array.isArray(current)) {
+            return expected.length === 0;
+        }
+        if (current.length !== expected.length) {
+            return false;
+        }
+        const currentSet = new Set(current);
+        return expected.every((id) => currentSet.has(id));
+    }, []);
+
     const loadInitialData = useCallback(async () => {
         try {
             const attributesPromise = getAttributes(true).catch((attrErr) => {
@@ -170,6 +228,7 @@ const NewPurchaseOrderPage = () => {
                     id: tax.id,
                     name: tax.name,
                     rate: Number(tax.rate ?? 0),
+                    code: tax.code,
                 }))
             );
 
@@ -226,41 +285,24 @@ const NewPurchaseOrderPage = () => {
         const product = productResults.find((item) => item.variantId === variantId);
         if (!product) return;
 
-        const computeRate = (ids: string[], fallbackRates: { id: string; rate: number }[]) => {
-            const totalRaw = ids.reduce((sum, id) => {
-                const match = activeTaxesMap.get(id) ?? fallbackRates.find((tax) => tax.id === id);
-                return sum + Number(match?.rate ?? 0);
-            }, 0);
-            return Number.isFinite(totalRaw) ? Number(totalRaw.toFixed(4)) : 0;
-        };
-
-        const activeTaxIds = Array.from(activeTaxesMap.keys());
-        const productTaxIds = product.taxes.map((tax) => tax.id).filter(Boolean);
-        const defaultSelectedTaxIds = (() => {
-            if (productTaxIds.length > 0) {
-                return taxesLoaded ? productTaxIds.filter((id) => activeTaxesMap.has(id)) : productTaxIds;
-            }
-            if (activeTaxIds.length > 0) {
-                return activeTaxIds;
-            }
-            return [];
-        })();
+        const fallbackRates = product.taxes ?? [];
+        const defaultSelection = getDefaultTaxSelection();
+        const defaultSelectedTaxIds = enforceExemptRules(defaultSelection);
+        const defaultTaxRate = computeCombinedRate(defaultSelectedTaxIds, fallbackRates);
 
         setLines((prev) => {
             const existingIndex = prev.findIndex((line) => line.variantId === variantId);
-            const defaultTaxRate = computeRate(defaultSelectedTaxIds, product.taxes);
             if (existingIndex !== -1) {
                 const updated = [...prev];
                 const existing = updated[existingIndex];
-                const hasSelected = Array.isArray(existing.selectedTaxIds);
-                const selectedTaxIds = hasSelected ? existing.selectedTaxIds : defaultSelectedTaxIds;
-                const fallbackRates = existing.taxes?.map((tax) => ({ id: tax.id, rate: tax.rate })) ?? product.taxes;
-                const recalculatedRate = computeRate(selectedTaxIds, fallbackRates);
+                const enforcedSelection = enforceExemptRules(existing.selectedTaxIds ?? []);
+                const appliedSelection = enforcedSelection.length > 0 ? enforcedSelection : enforceExemptRules(getDefaultTaxSelection());
+                const lineFallbackRates = existing.taxes?.map((tax) => ({ id: tax.id, rate: tax.rate })) ?? fallbackRates;
                 updated[existingIndex] = {
                     ...existing,
                     quantity: Number(existing.quantity + 1),
-                    selectedTaxIds,
-                    taxRate: recalculatedRate,
+                    selectedTaxIds: appliedSelection,
+                    taxRate: computeCombinedRate(appliedSelection, lineFallbackRates),
                 };
                 return updated;
             }
@@ -276,7 +318,7 @@ const NewPurchaseOrderPage = () => {
             };
             return [...prev, newLine];
         });
-    }, [productResults, activeTaxesMap, taxesLoaded]);
+    }, [productResults, getDefaultTaxSelection, enforceExemptRules, computeCombinedRate]);
 
     const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
         event.preventDefault();
@@ -313,31 +355,45 @@ const NewPurchaseOrderPage = () => {
     }, []);
 
     const handleToggleTax = useCallback((variantId: string, taxId: string, enabled: boolean) => {
+        const isExemptToggle = exemptTaxId !== null && taxId === exemptTaxId;
+
         setLines((prev) => prev.map((line) => {
             if (line.variantId !== variantId) {
                 return line;
             }
 
-            const baseSelected = line.selectedTaxIds || [];
-            const updatedSelected = enabled
-                ? Array.from(new Set([...baseSelected, taxId]))
-                : baseSelected.filter((id) => id !== taxId);
+            let nextSelection: string[];
 
-            const filteredSelection = updatedSelected.filter((id) => activeTaxesMap.has(id));
+            if (isExemptToggle) {
+                nextSelection = enabled ? [taxId] : getDefaultTaxSelection();
+            } else {
+                const selectionSet = new Set(line.selectedTaxIds ?? []);
+                if (enabled) {
+                    selectionSet.add(taxId);
+                    if (exemptTaxId) {
+                        selectionSet.delete(exemptTaxId);
+                    }
+                } else {
+                    selectionSet.delete(taxId);
+                }
+                nextSelection = Array.from(selectionSet);
+            }
 
-            const totalRateRaw = filteredSelection.reduce((sum, id) => {
-                const match = activeTaxesMap.get(id);
-                return sum + Number(match?.rate ?? 0);
-            }, 0);
-            const totalRate = Number.isFinite(totalRateRaw) ? Number(totalRateRaw.toFixed(4)) : 0;
+            const enforcedSelection = enforceExemptRules(nextSelection);
+            const finalSelection = enforcedSelection.length > 0
+                ? enforcedSelection
+                : enforceExemptRules(getDefaultTaxSelection());
+
+            const fallbackRates = line.taxes?.map((tax) => ({ id: tax.id, rate: tax.rate })) ?? [];
+            const recalculatedRate = computeCombinedRate(finalSelection, fallbackRates);
 
             return {
                 ...line,
-                selectedTaxIds: filteredSelection,
-                taxRate: totalRate,
+                selectedTaxIds: finalSelection,
+                taxRate: recalculatedRate,
             };
         }));
-    }, [activeTaxesMap]);
+    }, [exemptTaxId, getDefaultTaxSelection, enforceExemptRules, computeCombinedRate]);
 
     useEffect(() => {
         if (!taxesLoaded) {
@@ -348,32 +404,27 @@ const NewPurchaseOrderPage = () => {
             let changed = false;
             const updated = prev.map((line) => {
                 const selected = Array.isArray(line.selectedTaxIds) ? line.selectedTaxIds : [];
-                const filteredSelected = selected.filter((id) => activeTaxesMap.has(id));
-                const appliedSelected = filteredSelected.length > 0 || activeTaxesMap.size === 0
-                    ? filteredSelected
-                    : Array.from(activeTaxesMap.keys());
-                const totalRateRaw = appliedSelected.reduce((sum, id) => {
-                    const match = activeTaxesMap.get(id);
-                    return sum + Number(match?.rate ?? 0);
-                }, 0);
-                const totalRate = Number.isFinite(totalRateRaw) ? Number(totalRateRaw.toFixed(4)) : 0;
-                if (
-                    totalRate === line.taxRate &&
-                    appliedSelected.length === (line.selectedTaxIds?.length ?? 0) &&
-                    appliedSelected.every((id) => line.selectedTaxIds?.includes(id))
-                ) {
+                const enforced = enforceExemptRules(selected);
+                const appliedSelection = enforced.length > 0
+                    ? enforced
+                    : enforceExemptRules(getDefaultTaxSelection());
+                const fallbackRates = line.taxes?.map((tax) => ({ id: tax.id, rate: tax.rate })) ?? [];
+                const totalRate = computeCombinedRate(appliedSelection, fallbackRates);
+
+                if (areSameSelection(line.selectedTaxIds, appliedSelection) && totalRate === line.taxRate) {
                     return line;
                 }
+
                 changed = true;
                 return {
                     ...line,
-                    selectedTaxIds: appliedSelected,
+                    selectedTaxIds: appliedSelection,
                     taxRate: totalRate,
                 };
             });
             return changed ? updated : prev;
         });
-    }, [activeTaxesMap, taxesLoaded]);
+    }, [taxesLoaded, enforceExemptRules, getDefaultTaxSelection, computeCombinedRate, areSameSelection]);
 
     const handleRemoveLine = useCallback((variantId: string) => {
         setLines((prev) => prev.filter((line) => line.variantId !== variantId));
