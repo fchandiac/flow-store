@@ -34,7 +34,7 @@ Resumen de las entidades TypeORM definidas en `app/data/entities`, su tabla fís
 | Transaction | transactions | `branch`, `pointOfSale`, `cashSession`, `customer`, `supplier`, `user`, `relatedTransaction` (todas N:1) | TransactionLine
 | TransactionLine | transaction_lines | `transaction`, `product`, `productVariant`, `unit`, `tax` (todas N:1) | —
 | Unit | units | `baseUnit` (N:1 Unit) | Product, ProductVariant, TransactionLine
-| Employee | employees | `company`, `person`, `branch`, `costCenter`, `manager` | CashSession (operativa), Access control |
+| Employee | employees | `company`, `person`, `branch`, `costCenter` | CashSession (operativa), Access control |
 | User | users | `person` (N:1 Person) | Transaction, CashSession, Permission, Audit
 
 > Nota: varios archivos almacenan IDs extras (ej. `storageId` en Transaction) sin definir la relación ORM inversa; aun así forman parte del modelo lógico.
@@ -86,7 +86,7 @@ Resumen de las entidades TypeORM definidas en `app/data/entities`, su tabla fís
 ### Employee (`employees`)
 - Representa al trabajador interno enlazado a `Person`.
 - Relación N:1 con `Company`, `Person`, `Branch` y `CostCenter`.
-- Controla tipo de contratación, estado laboral y jerarquía (`reportsToId`).
+- Controla tipo de contratación y estado laboral.
 - Base para integraciones con `CashSession`, permisos y nómina.
 
 ### User (`users`)

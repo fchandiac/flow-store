@@ -13,6 +13,7 @@ import { Company } from "./Company";
 import { Person } from "./Person";
 import { Branch } from "./Branch";
 import { CostCenter } from "./CostCenter";
+import { OrganizationalUnit } from "./OrganizationalUnit";
 
 export enum EmploymentType {
     FULL_TIME = "FULL_TIME",
@@ -46,10 +47,7 @@ export class Employee {
     costCenterId?: string | null;
 
     @Column({ type: "uuid", nullable: true })
-    reportsToId?: string | null;
-
-    @Column({ type: "varchar", length: 150, nullable: true })
-    positionTitle?: string;
+    organizationalUnitId?: string | null;
 
     @Column({ type: "enum", enum: EmploymentType, default: EmploymentType.FULL_TIME })
     employmentType!: EmploymentType;
@@ -94,7 +92,7 @@ export class Employee {
     @JoinColumn({ name: "costCenterId" })
     costCenter?: CostCenter | null;
 
-    @ManyToOne(() => Employee, { onDelete: "SET NULL" })
-    @JoinColumn({ name: "reportsToId" })
-    manager?: Employee | null;
+    @ManyToOne(() => OrganizationalUnit, { onDelete: "SET NULL" })
+    @JoinColumn({ name: "organizationalUnitId" })
+    organizationalUnit?: OrganizationalUnit | null;
 }

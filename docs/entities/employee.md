@@ -28,9 +28,7 @@ class Employee {
     personId: UUID
     branchId?: UUID | null
     costCenterId?: UUID | null
-    reportsToId?: UUID | null
 
-    positionTitle?: string
     employmentType: EmploymentType
     status: EmployeeStatus
 
@@ -54,7 +52,6 @@ class Employee {
 | `personId` | FK obligatorio a `Person`; reutiliza datos personales. |
 | `branchId` | Sucursal primaria asignada al colaborador. |
 | `costCenterId` | Centro de costos principal para imputaciones OPEX. |
-| `reportsToId` | Relación jerárquica hacia otro `Employee`. |
 | `employmentType` | Tipo de contratación. |
 | `status` | Estado laboral vigente. |
 | `hireDate` | Fecha de ingreso a la compañía. |
@@ -81,7 +78,6 @@ Company ──< Employee >── Person
 | `person` | N:1 | Obliga a que todo empleado tenga ficha en `Person`. |
 | `branch` | N:1 | Se anula a `NULL` si la sucursal se elimina. |
 | `costCenter` | N:1 | Permite trazabilidad de gastos por centro. |
-| `manager` | N:1 (self) | Jerarquía opcional (`reportsToId`). |
 
 ---
 
@@ -108,7 +104,7 @@ SUSPENDED ──> TERMINATED
 1. **Asignación de Turnos**: `CashSession` puede vincular el `openedBy` a un usuario que, a su vez, referencia a un `Employee` para auditorías.
 2. **Gastos Operativos**: Los presupuestos (`Budget`) y aprobaciones por `CostCenter` requieren saber quién es el responsable.
 3. **Control de Acceso**: Emparejar `Employee` con `User` permite habilitar y suspender accesos siguiendo el estado laboral.
-4. **Reportes RH**: Generar planillas de dotación, rotación y estructura jerárquica usando `reportsToId`.
+4. **Reportes RH**: Generar planillas de dotación, rotación y estado contractual.
 
 ---
 
@@ -117,7 +113,6 @@ SUSPENDED ──> TERMINATED
 - `terminationDate` obligatorio cuando `status = TERMINATED`.
 - `hireDate <= terminationDate` si existe fecha de término.
 - Único `Employee` por `personId` y `companyId`.
-- Si `reportsToId` se usa, evitar ciclos (validación en servicio).
 - Sincronizar estado `Employee` con activación de `User` para evitar accesos indebidos.
 
 ---

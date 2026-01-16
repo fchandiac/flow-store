@@ -15,6 +15,12 @@ import { Product, ProductType } from '../entities/Product';
 import { ProductVariant } from '../entities/ProductVariant';
 import { Unit } from '../entities/Unit';
 import { UnitDimension } from '../entities/unit-dimension.enum';
+import { AccountingAccount, AccountType } from '../entities/AccountingAccount';
+import { ExpenseCategory } from '../entities/ExpenseCategory';
+import { AccountingRule, RuleScope } from '../entities/AccountingRule';
+import { PaymentMethod, TransactionType } from '../entities/Transaction';
+import { CostCenter, CostCenterType } from '../entities/CostCenter';
+import { OrganizationalUnit, OrganizationalUnitType } from '../entities/OrganizationalUnit';
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import { IsNull } from 'typeorm';
@@ -131,6 +137,129 @@ async function seedFlowStore() {
     }
 
     // ============================================
+    // 2.1 CENTROS DE COSTO BASE
+    // ============================================
+    console.log('\n🏷️  Configurando centros de costo...');
+
+    const costCenterRepo = db.getRepository(CostCenter);
+    const costCentersData: Array<{
+      ref: string;
+      code: string;
+      name: string;
+      description?: string;
+      type: CostCenterType;
+      branchRef: 'HEAD_BRANCH';
+    }> = [
+      {
+        ref: 'OPERACIONES_MALL',
+        code: 'OPS-MALL',
+        name: 'Operaciones Mall Plaza',
+        description: 'Centro de costos principal para la tienda del Mall Plaza.',
+        type: CostCenterType.OPERATIONS,
+        branchRef: 'HEAD_BRANCH',
+      },
+    ];
+
+    const costCenterRefMap: Record<string, CostCenter> = {};
+
+    for (const entry of costCentersData) {
+      let existing = await costCenterRepo.findOne({ where: { code: entry.code } });
+
+      if (!existing) {
+        existing = new CostCenter();
+        existing.companyId = company.id;
+        existing.branchId = entry.branchRef === 'HEAD_BRANCH' ? branch.id : undefined;
+        existing.code = entry.code;
+        existing.name = entry.name;
+        existing.description = entry.description ?? undefined;
+        existing.type = entry.type;
+        existing.isActive = true;
+      } else {
+        existing.branchId = entry.branchRef === 'HEAD_BRANCH' ? branch.id : existing.branchId ?? branch.id;
+        existing.name = entry.name;
+        existing.description = entry.description ?? undefined;
+        existing.type = entry.type;
+        existing.isActive = true;
+      }
+
+      existing = await costCenterRepo.save(existing);
+      costCenterRefMap[entry.ref] = existing;
+      console.log(`   • Centro de costo ${existing.code} (${existing.name}) listo`);
+    }
+
+    // ============================================
+    // 2.2 UNIDADES ORGANIZATIVAS BASE
+    // ============================================
+    console.log('\n🗂️  Configurando unidades organizativas...');
+
+    const organizationalUnitRepo = db.getRepository(OrganizationalUnit);
+    const organizationalUnitsData: Array<{
+      code: string;
+      name: string;
+      description?: string;
+      type: OrganizationalUnitType;
+      branchRef?: 'HEAD_BRANCH';
+      costCenterRef?: keyof typeof costCenterRefMap;
+      parentCode?: string;
+    }> = [
+      {
+        code: 'ADM-CENTRAL',
+        name: 'Administración Central',
+        description: 'Equipo central responsable de la gestión administrativa.',
+        type: OrganizationalUnitType.HEADQUARTERS,
+        costCenterRef: 'OPERACIONES_MALL',
+      },
+      {
+        code: 'OPS-TIENDA',
+        name: 'Operaciones Tienda Mall Plaza',
+        description: 'Equipo operativo de la tienda principal.',
+        type: OrganizationalUnitType.STORE,
+        branchRef: 'HEAD_BRANCH',
+        costCenterRef: 'OPERACIONES_MALL',
+        parentCode: 'ADM-CENTRAL',
+      },
+    ];
+
+    const organizationalUnitMap = new Map<string, OrganizationalUnit>();
+
+    for (const entry of organizationalUnitsData) {
+      let unit = await organizationalUnitRepo.findOne({
+        where: { companyId: company.id, code: entry.code },
+        withDeleted: true,
+      });
+
+      const parentUnitId = entry.parentCode ? organizationalUnitMap.get(entry.parentCode)?.id ?? null : null;
+      const costCenterId = entry.costCenterRef ? costCenterRefMap[entry.costCenterRef]?.id ?? null : null;
+
+      if (!unit) {
+        unit = organizationalUnitRepo.create({
+          companyId: company.id,
+          code: entry.code,
+          name: entry.name,
+          description: entry.description,
+          unitType: entry.type,
+          parentId: parentUnitId ?? undefined,
+          branchId: entry.branchRef === 'HEAD_BRANCH' ? branch.id : undefined,
+          costCenterId: costCenterId ?? undefined,
+          isActive: true,
+        });
+      } else {
+        unit.name = entry.name;
+        unit.description = entry.description;
+        unit.unitType = entry.type;
+        unit.parentId = parentUnitId ?? undefined;
+        unit.branchId = entry.branchRef === 'HEAD_BRANCH' ? branch.id : unit.branchId ?? branch.id;
+        unit.costCenterId = costCenterId ?? undefined;
+        unit.isActive = true;
+        unit.deletedAt = undefined;
+      }
+
+      unit = await organizationalUnitRepo.save(unit);
+      organizationalUnitMap.set(entry.code, unit);
+      console.log(`   • Unidad organizativa ${unit.code} (${unit.name}) lista`);
+    }
+
+    // ============================================
     // 3. IMPUESTOS
     // ============================================
     console.log('\n💰 Creando impuestos...');
@@ -179,6 +308,375 @@ async function seedFlowStore() {
     }
     if (taxExempt) {
       taxesByCode[taxExempt.code] = taxExempt;
+    }
+
+    // ============================================
+    // 3.1 PLAN DE CUENTAS CHILENO (RESUMIDO)
+    // ============================================
+    console.log('\n📚 Configurando plan de cuentas contable...');
+
+    const accountingAccountsData: Array<{
+      ref: string;
+      code: string;
+      name: string;
+      type: AccountType;
+      parentRef: string | null;
+    }> = [
+      { ref: 'ACTIVO', code: '1', name: 'ACTIVO', type: AccountType.ASSET, parentRef: null },
+      { ref: 'ACTIVO_CIRCULANTE', code: '1.1', name: 'ACTIVO CIRCULANTE', type: AccountType.ASSET, parentRef: 'ACTIVO' },
+      { ref: 'CAJA_GENERAL', code: '1.1.01', name: 'CAJA GENERAL', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
+      { ref: 'BANCO_SANTANDER', code: '1.1.02', name: 'BANCO SANTANDER', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
+      { ref: 'CLIENTES_POR_COBRAR', code: '1.1.03', name: 'CLIENTES POR COBRAR', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
+      { ref: 'INVENTARIO_MERCADERIAS', code: '1.1.04', name: 'INVENTARIO DE MERCADERÍAS', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
+      { ref: 'IVA_CREDITO', code: '1.1.05', name: 'IVA CRÉDITO FISCAL', type: AccountType.ASSET, parentRef: 'ACTIVO_CIRCULANTE' },
+      { ref: 'PASIVO', code: '2', name: 'PASIVO', type: AccountType.LIABILITY, parentRef: null },
+      { ref: 'PROVEEDORES', code: '2.1.01', name: 'PROVEEDORES', type: AccountType.LIABILITY, parentRef: 'PASIVO' },
+      { ref: 'IVA_DEBITO', code: '2.1.02', name: 'IVA DÉBITO FISCAL', type: AccountType.LIABILITY, parentRef: 'PASIVO' },
+      { ref: 'INGRESOS', code: '4', name: 'INGRESOS', type: AccountType.INCOME, parentRef: null },
+      { ref: 'VENTAS_MERCADERIAS', code: '4.1.01', name: 'VENTAS MERCADERÍAS', type: AccountType.INCOME, parentRef: 'INGRESOS' },
+      { ref: 'EGRESOS', code: '5', name: 'EGRESOS', type: AccountType.EXPENSE, parentRef: null },
+      { ref: 'COSTO_VENTAS', code: '5.1.01', name: 'COSTO DE VENTAS', type: AccountType.EXPENSE, parentRef: 'EGRESOS' },
+      { ref: 'GASTOS_GENERALES', code: '5.1.02', name: 'GASTOS GENERALES', type: AccountType.EXPENSE, parentRef: 'EGRESOS' },
+    ];
+
+    const accountRepo = db.getRepository(AccountingAccount);
+    const existingAccounts = await accountRepo.find({ where: { companyId: company.id } });
+    const existingByCode = new Map(existingAccounts.map((account) => [account.code, account]));
+    const accountRefMap: Record<string, AccountingAccount> = {};
+    const codeByRef = new Map(accountingAccountsData.map((entry) => [entry.ref, entry.code]));
+
+    for (const entry of accountingAccountsData) {
+      const parentAccount = entry.parentRef
+        ? accountRefMap[entry.parentRef] ?? existingByCode.get(codeByRef.get(entry.parentRef) ?? '') ?? null
+        : null;
+
+      let accountEntity = existingByCode.get(entry.code);
+
+      if (!accountEntity) {
+        accountEntity = accountRepo.create({
+          companyId: company.id,
+          code: entry.code,
+          name: entry.name,
+          type: entry.type,
+          parentId: parentAccount?.id ?? null,
+          isActive: true,
+        });
+      } else {
+        accountEntity.name = entry.name;
+        accountEntity.type = entry.type;
+        accountEntity.parentId = parentAccount?.id ?? null;
+        accountEntity.isActive = true;
+      }
+
+      accountEntity = await accountRepo.save(accountEntity);
+      existingByCode.set(accountEntity.code, accountEntity);
+      accountRefMap[entry.ref] = accountEntity;
+      console.log(`   • Cuenta ${accountEntity.code} (${accountEntity.name}) lista`);
+    }
+
+    // ============================================
+    // 3.2 CATEGORÍAS DE GASTO PARA IMPUTACIÓN
+    // ============================================
+    console.log('\n📑 Configurando categorías de gasto...');
+
+    const expenseCategoryRepo = db.getRepository(ExpenseCategory);
+    const expenseCategoriesData: Array<{
+      ref: string;
+      code: string;
+      name: string;
+      description?: string;
+      defaultCostCenterRef?: string;
+    }> = [
+      {
+        ref: 'SERVICIOS_BASICOS',
+        code: 'SERV_BASICOS',
+        name: 'Servicios básicos',
+        description: 'Electricidad, agua, telecomunicaciones y servicios esenciales.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+      },
+      {
+        ref: 'MARKETING_DIGITAL',
+        code: 'MKT_DIGITAL',
+        name: 'Marketing digital',
+        description: 'Publicidad en redes sociales, campañas online y posicionamiento SEO.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+      },
+      {
+        ref: 'MANTENCION_LOCAL',
+        code: 'MANT_LOCAL',
+        name: 'Mantención del local',
+        description: 'Reparaciones menores, limpieza profunda y ambientación del showroom.',
+        defaultCostCenterRef: 'OPERACIONES_MALL',
+      },
+    ];
+
+    const expenseCategoryRefMap: Record<string, ExpenseCategory> = {};
+
+    for (const entry of expenseCategoriesData) {
+      let category = await expenseCategoryRepo.findOne({
+        where: { companyId: company.id, code: entry.code },
+        withDeleted: true,
+      });
+
+      const defaultCostCenterId = entry.defaultCostCenterRef
+        ? costCenterRefMap[entry.defaultCostCenterRef]?.id ?? null
+        : null;
+
+      if (!category) {
+        category = expenseCategoryRepo.create({
+          companyId: company.id,
+          code: entry.code,
+          name: entry.name,
+          description: entry.description,
+          requiresApproval: false,
+          approvalThreshold: '0',
+          isActive: true,
+          metadata: null,
+          defaultCostCenterId,
+        });
+      } else {
+        category.name = entry.name;
+        category.description = entry.description;
+        category.requiresApproval = false;
+        category.approvalThreshold = '0';
+        category.isActive = true;
+        category.deletedAt = undefined;
+        category.defaultCostCenterId = defaultCostCenterId;
+      }
+
+      category = await expenseCategoryRepo.save(category);
+      expenseCategoryRefMap[entry.ref] = category;
+      console.log(`   • Categoría ${category.code} (${category.name}) lista`);
+    }
+
+    // ============================================
+    // 3.3 REGLAS CONTABLES BASE
+    // ============================================
+    console.log('\n🧾 Configurando reglas contables...');
+
+    const accountingRuleRepo = db.getRepository(AccountingRule);
+    const accountingRulesData: Array<{
+      appliesTo: RuleScope;
+      transactionType: TransactionType;
+      paymentMethod?: PaymentMethod;
+      taxCode?: string;
+      expenseCategoryRef?: string;
+      debitAccountRef: string;
+      creditAccountRef: string;
+      priority: number;
+      isActive: boolean;
+    }> = [
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.SALE,
+        paymentMethod: PaymentMethod.CASH,
+        debitAccountRef: 'CAJA_GENERAL',
+        creditAccountRef: 'VENTAS_MERCADERIAS',
+        priority: 1,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.SALE,
+        paymentMethod: PaymentMethod.CREDIT_CARD,
+        debitAccountRef: 'BANCO_SANTANDER',
+        creditAccountRef: 'VENTAS_MERCADERIAS',
+        priority: 2,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.SALE,
+        paymentMethod: PaymentMethod.DEBIT_CARD,
+        debitAccountRef: 'BANCO_SANTANDER',
+        creditAccountRef: 'VENTAS_MERCADERIAS',
+        priority: 3,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.SALE,
+        paymentMethod: PaymentMethod.TRANSFER,
+        debitAccountRef: 'BANCO_SANTANDER',
+        creditAccountRef: 'VENTAS_MERCADERIAS',
+        priority: 4,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION_LINE,
+        transactionType: TransactionType.SALE,
+        taxCode: 'IVA-19',
+        debitAccountRef: 'CAJA_GENERAL',
+        creditAccountRef: 'IVA_DEBITO',
+        priority: 10,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.PURCHASE,
+        paymentMethod: PaymentMethod.TRANSFER,
+        debitAccountRef: 'INVENTARIO_MERCADERIAS',
+        creditAccountRef: 'BANCO_SANTANDER',
+        priority: 1,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION_LINE,
+        transactionType: TransactionType.PURCHASE,
+        taxCode: 'IVA-19',
+        debitAccountRef: 'IVA_CREDITO',
+        creditAccountRef: 'INVENTARIO_MERCADERIAS',
+        priority: 15,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.PAYMENT_OUT,
+        expenseCategoryRef: 'SERVICIOS_BASICOS',
+        debitAccountRef: 'GASTOS_GENERALES',
+        creditAccountRef: 'CAJA_GENERAL',
+        priority: 1,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.PAYMENT_OUT,
+        expenseCategoryRef: 'MARKETING_DIGITAL',
+        debitAccountRef: 'GASTOS_GENERALES',
+        creditAccountRef: 'CAJA_GENERAL',
+        priority: 2,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.PAYMENT_OUT,
+        expenseCategoryRef: 'MANTENCION_LOCAL',
+        debitAccountRef: 'GASTOS_GENERALES',
+        creditAccountRef: 'CAJA_GENERAL',
+        priority: 3,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.OPERATING_EXPENSE,
+        paymentMethod: PaymentMethod.CASH,
+        debitAccountRef: 'GASTOS_GENERALES',
+        creditAccountRef: 'CAJA_GENERAL',
+        priority: 5,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.OPERATING_EXPENSE,
+        paymentMethod: PaymentMethod.TRANSFER,
+        debitAccountRef: 'GASTOS_GENERALES',
+        creditAccountRef: 'BANCO_SANTANDER',
+        priority: 6,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.OPERATING_EXPENSE,
+        paymentMethod: PaymentMethod.DEBIT_CARD,
+        debitAccountRef: 'GASTOS_GENERALES',
+        creditAccountRef: 'BANCO_SANTANDER',
+        priority: 7,
+        isActive: true,
+      },
+      {
+        appliesTo: RuleScope.TRANSACTION,
+        transactionType: TransactionType.OPERATING_EXPENSE,
+        paymentMethod: PaymentMethod.CREDIT_CARD,
+        debitAccountRef: 'GASTOS_GENERALES',
+        creditAccountRef: 'BANCO_SANTANDER',
+        priority: 8,
+        isActive: true,
+      },
+    ];
+
+    for (const ruleConfig of accountingRulesData) {
+      const debitAccount = accountRefMap[ruleConfig.debitAccountRef];
+      const creditAccount = accountRefMap[ruleConfig.creditAccountRef];
+
+      if (!debitAccount || !creditAccount) {
+        console.warn(
+          `   ⚠ No se pudo crear la regla (${ruleConfig.debitAccountRef} -> ${ruleConfig.creditAccountRef}) porque falta la cuenta contable`,
+        );
+        continue;
+      }
+
+      const taxId = ruleConfig.taxCode ? taxesByCode[ruleConfig.taxCode]?.id ?? null : null;
+      if (ruleConfig.taxCode && !taxId) {
+        console.warn(`   ⚠ Impuesto ${ruleConfig.taxCode} no encontrado, se omite regla.`);
+        continue;
+      }
+
+      const expenseCategoryId = ruleConfig.expenseCategoryRef
+        ? expenseCategoryRefMap[ruleConfig.expenseCategoryRef]?.id ?? null
+        : null;
+      if (ruleConfig.expenseCategoryRef && !expenseCategoryId) {
+        console.warn(
+          `   ⚠ Categoría de gasto ${ruleConfig.expenseCategoryRef} no encontrada, se omite regla.`,
+        );
+        continue;
+      }
+
+      const qb = accountingRuleRepo
+        .createQueryBuilder('rule')
+        .where('rule.companyId = :companyId', { companyId: company.id })
+        .andWhere('rule.appliesTo = :appliesTo', { appliesTo: ruleConfig.appliesTo })
+        .andWhere('rule.transactionType = :transactionType', { transactionType: ruleConfig.transactionType })
+        .andWhere('rule.debitAccountId = :debitAccountId', { debitAccountId: debitAccount.id })
+        .andWhere('rule.creditAccountId = :creditAccountId', { creditAccountId: creditAccount.id })
+        .andWhere('rule.priority = :priority', { priority: ruleConfig.priority });
+
+      if (ruleConfig.paymentMethod) {
+        qb.andWhere('rule.paymentMethod = :paymentMethod', { paymentMethod: ruleConfig.paymentMethod });
+      } else {
+        qb.andWhere('rule.paymentMethod IS NULL');
+      }
+
+      if (taxId) {
+        qb.andWhere('rule.taxId = :taxId', { taxId });
+      } else {
+        qb.andWhere('rule.taxId IS NULL');
+      }
+
+      if (expenseCategoryId) {
+        qb.andWhere('rule.expenseCategoryId = :expenseCategoryId', { expenseCategoryId });
+      } else {
+        qb.andWhere('rule.expenseCategoryId IS NULL');
+      }
+
+      let ruleEntity = await qb.getOne();
+
+      if (!ruleEntity) {
+        ruleEntity = accountingRuleRepo.create({
+          companyId: company.id,
+          appliesTo: ruleConfig.appliesTo,
+          transactionType: ruleConfig.transactionType,
+          paymentMethod: ruleConfig.paymentMethod ?? null,
+          taxId,
+          expenseCategoryId,
+          debitAccountId: debitAccount.id,
+          creditAccountId: creditAccount.id,
+          priority: ruleConfig.priority,
+          isActive: ruleConfig.isActive,
+        });
+      } else {
+        ruleEntity.paymentMethod = ruleConfig.paymentMethod ?? null;
+        ruleEntity.taxId = taxId;
+        ruleEntity.expenseCategoryId = expenseCategoryId;
+        ruleEntity.debitAccountId = debitAccount.id;
+        ruleEntity.creditAccountId = creditAccount.id;
+        ruleEntity.priority = ruleConfig.priority;
+        ruleEntity.isActive = ruleConfig.isActive;
+      }
+
+      await accountingRuleRepo.save(ruleEntity);
+      console.log(
+        `   • Regla ${ruleConfig.appliesTo} / ${ruleConfig.transactionType} (${ruleConfig.priority}) lista`,
+      );
     }
 
     // ============================================
@@ -918,6 +1416,11 @@ async function seedFlowStore() {
     console.log(`   • Empresa: ${company.name}`);
     console.log(`   • Sucursal: ${branch.name}`);
     console.log(`   • Impuestos: IVA 19%, Exento`);
+    console.log(`   • Plan de cuentas: ${accountingAccountsData.length} cuentas activas`);
+    console.log(`   • Categorías de gasto: ${expenseCategoriesData.length} categorías`);
+    console.log(`   • Reglas contables: ${accountingRulesData.length} reglas automáticas`);
+    console.log(`   • Centros de costo: ${costCentersData.length} activos`);
+    console.log(`   • Unidades organizativas: ${organizationalUnitsData.length} activas`);
     console.log(`   • Categorías: ${categoriesData.length} categorías de joyería`);
     console.log(`   • Atributos: ${attributesData.length} atributos para variantes`);
     console.log(`   • Productos: ${productsData.length} productos de ejemplo (${totalVariantsSeeded} variantes)`);

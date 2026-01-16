@@ -14,6 +14,8 @@ import { CashSession } from "./CashSession";
 import { Customer } from "./Customer";
 import { Supplier } from "./Supplier";
 import { User } from "./User";
+import { ExpenseCategory } from "./ExpenseCategory";
+import { CostCenter } from "./CostCenter";
 
 /**
  * Transaction Types:
@@ -27,6 +29,7 @@ import { User } from "./User";
  * - ADJUSTMENT_OUT: Ajuste de inventario negativo
  * - PAYMENT_IN: Pago recibido
  * - PAYMENT_OUT: Pago realizado
+ * - OPERATING_EXPENSE: Gasto operativo directo
  */
 export enum TransactionType {
     SALE = 'SALE',
@@ -40,6 +43,7 @@ export enum TransactionType {
     ADJUSTMENT_OUT = 'ADJUSTMENT_OUT',
     PAYMENT_IN = 'PAYMENT_IN',
     PAYMENT_OUT = 'PAYMENT_OUT',
+    OPERATING_EXPENSE = 'OPERATING_EXPENSE',
 }
 
 export enum TransactionStatus {
@@ -110,6 +114,12 @@ export class Transaction {
     @Column({ type: 'uuid', nullable: true })
     supplierId?: string;
 
+    @Column({ type: 'uuid', nullable: true })
+    expenseCategoryId?: string | null;
+
+    @Column({ type: 'uuid', nullable: true })
+    costCenterId?: string | null;
+
     @Column({ type: 'uuid' })
     userId!: string;
 
@@ -178,6 +188,14 @@ export class Transaction {
     @ManyToOne(() => User, { onDelete: 'RESTRICT' })
     @JoinColumn({ name: 'userId' })
     user?: User;
+
+    @ManyToOne(() => ExpenseCategory, { onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'expenseCategoryId' })
+    expenseCategory?: ExpenseCategory | null;
+
+    @ManyToOne(() => CostCenter, { onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'costCenterId' })
+    costCenter?: CostCenter | null;
 
     @ManyToOne(() => Transaction, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'relatedTransactionId' })

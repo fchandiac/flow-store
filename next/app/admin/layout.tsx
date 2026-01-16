@@ -52,6 +52,18 @@ const menuItems: SideBarMenuItem[] = [
         ],
     },
     {
+        id: 'expenses',
+        label: 'Gastos',
+        children: [
+            { id: 'operating-expenses', label: 'Gastos operativos', url: '/admin/expenses/operating' },
+        ],
+    },
+    {
+        id: 'human-resources',
+        label: 'RRHH',
+        url: '/admin/human-resources',
+    },
+    {
         id: 'caja',
         label: 'Caja',
         children: [

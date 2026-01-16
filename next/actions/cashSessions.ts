@@ -154,6 +154,9 @@ export async function getCashSessionById(id: string): Promise<SessionWithSummary
             case TransactionType.PAYMENT_OUT:
                 summary.cashOut += total;
                 break;
+            case TransactionType.OPERATING_EXPENSE:
+                summary.cashOut += total;
+                break;
         }
     }
     

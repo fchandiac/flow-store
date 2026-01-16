@@ -108,6 +108,7 @@ const MOVEMENT_DIRECTION: Record<TransactionType, InventoryMovementDirection | n
     [TransactionType.ADJUSTMENT_OUT]: "OUT",
     [TransactionType.PAYMENT_IN]: null,
     [TransactionType.PAYMENT_OUT]: null,
+    [TransactionType.OPERATING_EXPENSE]: null,
 };
 
 function resolveDirection(type: TransactionType): InventoryMovementDirection | null {

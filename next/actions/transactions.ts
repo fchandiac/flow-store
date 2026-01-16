@@ -670,6 +670,8 @@ function getDocumentPrefix(type: TransactionType): string {
             return 'PIE-';
         case TransactionType.PAYMENT_OUT:
             return 'PIS-';
+        case TransactionType.OPERATING_EXPENSE:
+            return 'GOP-';
         default:
             return 'DOC-';
     }

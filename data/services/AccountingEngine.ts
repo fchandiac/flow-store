@@ -104,11 +104,18 @@ function matchesTransactionRule(rule: AccountingRule, transaction: TransactionWi
     }
 
     if (rule.expenseCategoryId) {
-        const metadata = parseMetadata(transaction);
-        const transactionExpenseCategoryId =
-            metadata.expenseCategoryId ?? metadata.expense_category_id ?? metadata.expenseCategory?.id ?? null;
-        if (transactionExpenseCategoryId !== rule.expenseCategoryId) {
-            return false;
+        const explicitCategoryId = transaction.expenseCategoryId ?? null;
+        if (explicitCategoryId) {
+            if (explicitCategoryId !== rule.expenseCategoryId) {
+                return false;
+            }
+        } else {
+            const metadata = parseMetadata(transaction);
+            const transactionExpenseCategoryId =
+                metadata.expenseCategoryId ?? metadata.expense_category_id ?? metadata.expenseCategory?.id ?? null;
+            if (transactionExpenseCategoryId !== rule.expenseCategoryId) {
+                return false;
+            }
         }
     }
 

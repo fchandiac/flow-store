@@ -1,7 +1,7 @@
 'use server'
 
 import { getDb } from '@/data/db';
-import { DocumentType, Person, PersonType } from '@/data/entities/Person';
+import { DocumentType, Person, PersonBankAccount, PersonType } from '@/data/entities/Person';
 import { Customer } from '@/data/entities/Customer';
 import { Supplier } from '@/data/entities/Supplier';
 import { revalidatePath } from 'next/cache';
@@ -43,9 +43,54 @@ interface UpdatePersonDTO {
     address?: string;
 }
 
+export interface PersonPlainObject {
+    id: string;
+    type: PersonType;
+    firstName: string;
+    lastName: string | null;
+    businessName: string | null;
+    documentType: DocumentType | null;
+    documentNumber: string | null;
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+    bankAccounts: PersonBankAccount[] | null;
+    createdAt: string;
+    updatedAt: string;
+    deletedAt: string | null;
+}
+
+const toIsoString = (value: Date | string | null | undefined): string | null => {
+    if (!value) {
+        return null;
+    }
+    if (value instanceof Date) {
+        return value.toISOString();
+    }
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+};
+
+const serializePerson = (person: Person): PersonPlainObject => ({
+    id: person.id,
+    type: person.type,
+    firstName: person.firstName,
+    lastName: person.lastName ?? null,
+    businessName: person.businessName ?? null,
+    documentType: person.documentType ?? null,
+    documentNumber: person.documentNumber ?? null,
+    email: person.email ?? null,
+    phone: person.phone ?? null,
+    address: person.address ?? null,
+    bankAccounts: person.bankAccounts ?? null,
+    createdAt: toIsoString(person.createdAt) ?? new Date().toISOString(),
+    updatedAt: toIsoString(person.updatedAt) ?? new Date().toISOString(),
+    deletedAt: toIsoString(person.deletedAt),
+});
+
 interface PersonResult {
     success: boolean;
-    person?: Person;
+    person?: PersonPlainObject;
     error?: string;
 }
 
@@ -79,7 +124,6 @@ export async function getPersons(params?: GetPersonsParams): Promise<PersonsResp
             { search: `%${params.search}%` }
         );
     }
-    
     queryBuilder
         .orderBy('person.firstName', 'ASC')
         .addOrderBy('person.lastName', 'ASC')
@@ -92,9 +136,9 @@ export async function getPersons(params?: GetPersonsParams): Promise<PersonsResp
 }
 
 /**
- * Obtiene una persona por ID
- */
-export async function getPersonById(id: string): Promise<Person | null> {
+            createdAt: toIsoString(person.createdAt) ?? new Date().toISOString(),
+            updatedAt: toIsoString(person.updatedAt) ?? new Date().toISOString(),
+            deletedAt: toIsoString(person.deletedAt),
     const ds = await getDb();
     const repo = ds.getRepository(Person);
     
@@ -170,9 +214,10 @@ export async function createPerson(data: CreatePersonDTO): Promise<PersonResult>
         });
         
         await repo.save(person);
+        const plainPerson = serializePerson(person);
         revalidatePath('/admin/persons');
         
-        return { success: true, person };
+        return { success: true, person: plainPerson };
     } catch (error) {
         console.error('Error creating person:', error);
         return { 
@@ -238,9 +283,10 @@ export async function updatePerson(id: string, data: UpdatePersonDTO): Promise<P
         }
         
         await repo.save(person);
+        const plainPerson = serializePerson(person);
         revalidatePath('/admin/persons');
         
-        return { success: true, person };
+        return { success: true, person: plainPerson };
     } catch (error) {
         console.error('Error updating person:', error);
         return { 
