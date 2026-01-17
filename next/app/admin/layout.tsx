@@ -89,6 +89,7 @@ const menuItems: SideBarMenuItem[] = [
             { id: 'price-lists', label: 'Listas de Precios', url: '/admin/settings/price-lists' },
             { id: 'attributes', label: 'Atributos', url: '/admin/settings/attributes' },
             { id: 'units', label: 'Unidades', url: '/admin/settings/units' },
+            { id: 'scale', label: 'Scale', url: '/admin/settings/scale' },
         ],
     },
     {

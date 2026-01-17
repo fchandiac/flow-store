@@ -19,6 +19,7 @@ import {
 } from '../services/apiService';
 import { RootStackParamList } from '../navigation/types';
 import { usePosStore, type CashSessionSummary, type PointOfSaleSummary } from '../store/usePosStore';
+import { formatCurrency } from '../utils/formatCurrency';
 
 export type SessionSetupScreenProps = NativeStackScreenProps<RootStackParamList, 'SessionSetup'>;
 
@@ -67,7 +68,11 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
   }, [navigation, user]);
 
   useEffect(() => {
-    if (user && pointOfSale && cashSession) {
+    if (!user || !pointOfSale || !cashSession) {
+      return;
+    }
+
+    if (cashSession.openingAmount > 0) {
       navigation.reset({ index: 0, routes: [{ name: 'Pos' }] });
     }
   }, [cashSession, navigation, pointOfSale, user]);
@@ -222,6 +227,13 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
       branchName: selectedPointOfSale.branchName,
     });
     setCashSession(activeSession);
+    if (activeSession.openingAmount > 0) {
+      navigation.reset({ index: 0, routes: [{ name: 'Pos' }] });
+    } else {
+      navigation.navigate('Opening', {
+        suggestedOpeningAmount: activeSession.openingAmount,
+      });
+    }
   }, [activeSession, navigation, selectedPointOfSale, setCashSession, setPointOfSale, user]);
 
   const isSessionOwner = Boolean(activeSession && user?.id && activeSession.openedById === user.id);
@@ -301,6 +313,9 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
                   {sessionOwnerName ? (
                     <Text style={styles.sessionInfo}>Abierta por {sessionOwnerName}</Text>
                   ) : null}
+                  <Text style={styles.sessionInfo}>
+                    Monto de apertura registrado: {formatCurrency(activeSession.openingAmount ?? 0)}
+                  </Text>
                   {isSessionOwner ? (
                     <TouchableOpacity
                       activeOpacity={0.85}

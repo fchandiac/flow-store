@@ -3,6 +3,10 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -10,7 +14,13 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { checkoutSale, searchProducts, type ProductSearchResultPage } from '../services/apiService';
+import {
+  checkoutSale,
+  registerCashDeposit,
+  registerCashWithdrawal,
+  searchProducts,
+  type ProductSearchResultPage,
+} from '../services/apiService';
 import { RootStackParamList } from '../navigation/types';
 import {
   selectCartItems,
@@ -32,6 +42,7 @@ function PosScreen({ navigation }: PosScreenProps) {
   const removeItem = usePosStore((state) => state.removeItem);
   const clearCart = usePosStore((state) => state.clearCart);
   const setUser = usePosStore((state) => state.setUser);
+  const updateCashSessionExpectedAmount = usePosStore((state) => state.updateCashSessionExpectedAmount);
 
   const cartItems = usePosStore(selectCartItems);
   const cartTotals = usePosStore(selectCartTotals);
@@ -40,6 +51,13 @@ function PosScreen({ navigation }: PosScreenProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<ProductSearchResultPage | null>(null);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [isCashMenuVisible, setIsCashMenuVisible] = useState(false);
+  const [cashMovementType, setCashMovementType] = useState<'INCOME' | 'OUTCOME' | null>(null);
+  const [isCashMovementModalVisible, setIsCashMovementModalVisible] = useState(false);
+  const [cashMovementAmount, setCashMovementAmount] = useState('');
+  const [cashMovementReason, setCashMovementReason] = useState('');
+  const [cashMovementError, setCashMovementError] = useState<string | null>(null);
+  const [isSubmittingCashMovement, setIsSubmittingCashMovement] = useState(false);
 
   useEffect(() => {
     if (!user) {
@@ -112,8 +130,293 @@ function PosScreen({ navigation }: PosScreenProps) {
     navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
   };
 
+  const parseMovementAmount = (value: string): number | null => {
+    if (!value) {
+      return null;
+    }
+    const sanitized = value.replace(/[^0-9.,-]/g, '').replace(',', '.');
+    const parsed = Number(sanitized);
+    if (!Number.isFinite(parsed)) {
+      return null;
+    }
+    return Number(parsed.toFixed(2));
+  };
+
+  const resetCashMovementState = () => {
+    setCashMovementAmount('');
+    setCashMovementReason('');
+    setCashMovementError(null);
+  };
+
+  const closeCashMovementModal = (force = false) => {
+    if (isSubmittingCashMovement && !force) {
+      return;
+    }
+    setIsCashMovementModalVisible(false);
+    setCashMovementType(null);
+    resetCashMovementState();
+  };
+
+  const handleCashMovement = (action: 'INCOME' | 'OUTCOME' | 'CLOSE') => {
+    setIsCashMenuVisible(false);
+
+    if (action === 'INCOME' || action === 'OUTCOME') {
+      if (!user || !pointOfSale || !session) {
+        Alert.alert('Sesión requerida', 'Debes iniciar sesión y abrir caja antes de registrar movimientos.');
+        return;
+      }
+      setCashMovementType(action);
+      resetCashMovementState();
+      setIsCashMovementModalVisible(true);
+      return;
+    }
+
+    Alert.alert('Cierre de caja', 'Esta acción aún no está disponible.');
+  };
+
+  const handleSubmitCashMovement = async () => {
+    if (!cashMovementType || !user || !pointOfSale || !session) {
+      setCashMovementError('No se pudo determinar la sesión de caja activa.');
+      return;
+    }
+
+    const parsedAmount = parseMovementAmount(cashMovementAmount);
+    if (parsedAmount === null || parsedAmount <= 0) {
+      setCashMovementError('Debes ingresar un monto válido mayor a 0.');
+      return;
+    }
+
+    setCashMovementError(null);
+    setIsSubmittingCashMovement(true);
+
+    try {
+      const payload =
+        cashMovementType === 'INCOME'
+          ? await registerCashDeposit({
+              userName: user.userName,
+              pointOfSaleId: pointOfSale.id,
+              cashSessionId: session.id,
+              amount: parsedAmount,
+              reason: cashMovementReason.trim() || undefined,
+            })
+          : await registerCashWithdrawal({
+              userName: user.userName,
+              pointOfSaleId: pointOfSale.id,
+              cashSessionId: session.id,
+              amount: parsedAmount,
+              reason: cashMovementReason.trim() || undefined,
+            });
+
+      updateCashSessionExpectedAmount(payload.expectedAmount);
+
+      const successTitle = cashMovementType === 'INCOME' ? 'Ingreso registrado' : 'Egreso registrado';
+      const formattedAmount = formatCurrency(payload.transaction.total ?? parsedAmount);
+      Alert.alert(successTitle, `Documento ${payload.transaction.documentNumber} por ${formattedAmount}.`);
+
+      setIsSubmittingCashMovement(false);
+      closeCashMovementModal(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo registrar el movimiento.';
+      setCashMovementError(message);
+      setIsSubmittingCashMovement(false);
+    }
+  };
+
+  const currentExpectedAmount = session
+    ? Number((session.expectedAmount ?? session.openingAmount ?? 0).toFixed(2))
+    : 0;
+
+  const previewAmount = cashMovementType ? parseMovementAmount(cashMovementAmount) : null;
+
+  const projectedExpectedAmount =
+    session && previewAmount !== null && previewAmount > 0 && cashMovementType
+      ? Number(
+          (
+            currentExpectedAmount +
+            (cashMovementType === 'INCOME' ? previewAmount : -previewAmount)
+          ).toFixed(2),
+        )
+      : null;
+
+  const cashMovementTitle =
+    cashMovementType === 'OUTCOME'
+      ? 'Registrar egreso de dinero'
+      : cashMovementType === 'INCOME'
+        ? 'Registrar ingreso de dinero'
+        : 'Movimiento de caja';
+
+  const submitButtonStyles = [styles.primaryButton, styles.cashMovementSubmitButton];
+  if (cashMovementType === 'OUTCOME') {
+    submitButtonStyles.push(styles.cashMovementWithdrawButton);
+  } else {
+    submitButtonStyles.push(styles.cashMovementDepositButton);
+  }
+  if (isSubmittingCashMovement) {
+    submitButtonStyles.push(styles.cashMovementSubmitButtonDisabled);
+  }
+
+  const cancelButtonStyles = [styles.secondaryButton];
+  if (isSubmittingCashMovement) {
+    cancelButtonStyles.push(styles.secondaryButtonDisabled);
+  }
+
   return (
     <View style={styles.root}>
+      <Modal
+        transparent
+        visible={isCashMenuVisible}
+        animationType="fade"
+        onRequestClose={() => setIsCashMenuVisible(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setIsCashMenuVisible(false)}>
+          <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.modalTitle}>Movimientos de caja</Text>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.modalOption}
+              onPress={() => handleCashMovement('INCOME')}
+            >
+              <Text style={styles.modalOptionLabel}>Ingreso de dinero</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.modalOption}
+              onPress={() => handleCashMovement('OUTCOME')}
+            >
+              <Text style={styles.modalOptionLabel}>Egreso de dinero</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={styles.modalOption}
+              onPress={() => handleCashMovement('CLOSE')}
+            >
+              <Text style={styles.modalOptionLabel}>Cierre de caja</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              style={[styles.modalOption, styles.modalCancel]}
+              onPress={() => setIsCashMenuVisible(false)}
+            >
+              <Text style={styles.modalCancelLabel}>Cancelar</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
+      <Modal
+        transparent
+        visible={isCashMovementModalVisible}
+        animationType="slide"
+        onRequestClose={() => closeCashMovementModal()}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => closeCashMovementModal()}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.cashMovementContainer}
+          >
+            <Pressable
+              style={styles.cashMovementCard}
+              onPress={(event) => event.stopPropagation()}
+            >
+              <Text style={styles.cashMovementTitle}>{cashMovementTitle}</Text>
+              <Text style={styles.cashMovementSubtitle}>
+                Ingresa el monto del movimiento y agrega un motivo opcional para dejar registro.
+              </Text>
+
+              {session ? (
+                <View style={styles.cashMovementInfoBlock}>
+                  <Text style={styles.cashMovementInfoLabel}>Saldo esperado actual</Text>
+                  <Text style={styles.cashMovementInfoValue}>{formatCurrency(currentExpectedAmount)}</Text>
+                  {projectedExpectedAmount !== null ? (
+                    <Text style={styles.cashMovementInfoHint}>
+                      Saldo proyectado después de este movimiento: {formatCurrency(projectedExpectedAmount)}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : (
+                <Text style={styles.cashMovementWarning}>
+                  No hay una sesión de caja activa. Inicia sesión y configura la caja antes de registrar movimientos.
+                </Text>
+              )}
+
+              <View style={styles.cashMovementField}>
+                <Text style={styles.cashMovementLabel}>Monto</Text>
+                <TextInput
+                  value={cashMovementAmount}
+                  onChangeText={(value) => {
+                    setCashMovementAmount(value);
+                    if (cashMovementError) {
+                      setCashMovementError(null);
+                    }
+                  }}
+                  style={styles.cashMovementInput}
+                  placeholder="0"
+                  placeholderTextColor="#64748b"
+                  keyboardType="decimal-pad"
+                  returnKeyType="done"
+                  onSubmitEditing={handleSubmitCashMovement}
+                  editable={!isSubmittingCashMovement}
+                  autoFocus
+                />
+              </View>
+
+              <View style={styles.cashMovementField}>
+                <Text style={styles.cashMovementLabel}>Motivo (opcional)</Text>
+                <TextInput
+                  value={cashMovementReason}
+                  onChangeText={(value) => {
+                    setCashMovementReason(value);
+                    if (cashMovementError) {
+                      setCashMovementError(null);
+                    }
+                  }}
+                  style={[styles.cashMovementInput, styles.cashMovementTextArea]}
+                  placeholder="Ej: retiro para pagos menores"
+                  placeholderTextColor="#64748b"
+                  multiline
+                  numberOfLines={3}
+                  editable={!isSubmittingCashMovement}
+                />
+              </View>
+
+              {cashMovementError ? (
+                <Text style={styles.cashMovementError}>{cashMovementError}</Text>
+              ) : null}
+
+              <View style={styles.cashMovementActions}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={cancelButtonStyles}
+                  onPress={() => closeCashMovementModal()}
+                  disabled={isSubmittingCashMovement}
+                >
+                  <Text style={styles.secondaryButtonLabel}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  style={submitButtonStyles}
+                  onPress={handleSubmitCashMovement}
+                  disabled={isSubmittingCashMovement}
+                >
+                  {isSubmittingCashMovement ? (
+                    <ActivityIndicator
+                      color={cashMovementType === 'OUTCOME' ? '#f8fafc' : '#0b1120'}
+                    />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.cashMovementSubmitLabel,
+                        cashMovementType === 'OUTCOME' ? styles.cashMovementSubmitLabelLight : null,
+                      ]}
+                    >
+                      {cashMovementType === 'OUTCOME' ? 'Registrar egreso' : 'Registrar ingreso'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>{pointOfSale?.name ?? 'Punto de venta'}</Text>
@@ -122,9 +425,18 @@ function PosScreen({ navigation }: PosScreenProps) {
           </Text>
           {session ? <Text style={styles.headerSubtitle}>Sesión {session.id}</Text> : null}
         </View>
-        <TouchableOpacity style={styles.logoutButton} activeOpacity={0.85} onPress={handleLogout}>
-          <Text style={styles.logoutLabel}>Cerrar sesión</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.cashButton}
+            activeOpacity={0.85}
+            onPress={() => setIsCashMenuVisible(true)}
+          >
+            <Text style={styles.cashButtonLabel}>Movimientos de caja</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.logoutButton} activeOpacity={0.85} onPress={handleLogout}>
+            <Text style={styles.logoutLabel}>Cerrar sesión</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.columns}>
@@ -285,6 +597,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 16,
   },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   columns: {
     flex: 1,
     flexDirection: 'row',
@@ -321,6 +637,18 @@ const styles = StyleSheet.create({
   },
   logoutLabel: {
     color: '#fff1f2',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  cashButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+    backgroundColor: '#0ea5e9',
+    marginRight: 12,
+  },
+  cashButtonLabel: {
+    color: '#ecfeff',
     fontWeight: '600',
     fontSize: 14,
   },
@@ -531,6 +859,171 @@ const styles = StyleSheet.create({
     color: '#042f2e',
     fontSize: 16,
     fontWeight: '700',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    borderRadius: 16,
+    padding: 24,
+    backgroundColor: '#0f172a',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#1f2937',
+  },
+  modalTitle: {
+    fontSize: 18,
+    color: '#f8fafc',
+    fontWeight: '600',
+    marginBottom: 20,
+  },
+  modalOption: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#1e293b',
+    marginBottom: 12,
+  },
+  modalOptionLabel: {
+    color: '#f8fafc',
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  modalCancel: {
+    backgroundColor: '#dc2626',
+    marginTop: 4,
+  },
+  modalCancelLabel: {
+    textAlign: 'center',
+    color: '#fff1f2',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cashMovementContainer: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  cashMovementCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 18,
+    padding: 24,
+    backgroundColor: '#0f172a',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#1f2937',
+  },
+  cashMovementTitle: {
+    fontSize: 20,
+    color: '#f8fafc',
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  cashMovementSubtitle: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  cashMovementInfoBlock: {
+    marginBottom: 20,
+  },
+  cashMovementInfoLabel: {
+    color: '#94a3b8',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  cashMovementInfoValue: {
+    color: '#38bdf8',
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  cashMovementInfoHint: {
+    color: '#94a3b8',
+    fontSize: 12,
+    marginTop: 6,
+  },
+  cashMovementWarning: {
+    color: '#facc15',
+    fontSize: 13,
+    marginBottom: 20,
+  },
+  cashMovementField: {
+    marginBottom: 16,
+  },
+  cashMovementLabel: {
+    color: '#f8fafc',
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  cashMovementInput: {
+    backgroundColor: '#0b1120',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#1f2937',
+    color: '#f8fafc',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+  },
+  cashMovementTextArea: {
+    minHeight: 96,
+    textAlignVertical: 'top',
+  },
+  cashMovementError: {
+    color: '#f87171',
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  cashMovementActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  secondaryButton: {
+    flex: 1,
+    marginRight: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: '#1f2937',
+    alignItems: 'center',
+  },
+  secondaryButtonDisabled: {
+    opacity: 0.6,
+  },
+  secondaryButtonLabel: {
+    color: '#e2e8f0',
+    fontWeight: '600',
+    fontSize: 15,
+  },
+  cashMovementSubmitButton: {
+    flex: 1,
+    paddingVertical: 12,
+  },
+  cashMovementDepositButton: {
+    backgroundColor: '#22c55e',
+  },
+  cashMovementWithdrawButton: {
+    backgroundColor: '#f97316',
+  },
+  cashMovementSubmitButtonDisabled: {
+    opacity: 0.7,
+  },
+  cashMovementSubmitLabel: {
+    color: '#082f49',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  cashMovementSubmitLabelLight: {
+    color: '#f8fafc',
   },
 });
 

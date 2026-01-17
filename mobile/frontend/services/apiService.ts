@@ -283,6 +283,48 @@ export async function registerOpeningTransaction(input: OpeningTransactionInput)
   };
 }
 
+type CashMovementInput = {
+  userName: string;
+  pointOfSaleId: string;
+  cashSessionId: string;
+  amount: number;
+  reason?: string;
+};
+
+type CashMovementPayload = {
+  transaction: {
+    id: string;
+    documentNumber: string;
+    createdAt: string;
+    total: number;
+  };
+  expectedAmount: number;
+};
+
+export async function registerCashDeposit(input: CashMovementInput): Promise<CashMovementPayload> {
+  const payload = await request<CashMovementPayload>('/api/cash-sessions/cash-deposits', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+  return {
+    transaction: payload.transaction,
+    expectedAmount: payload.expectedAmount,
+  };
+}
+
+export async function registerCashWithdrawal(input: CashMovementInput): Promise<CashMovementPayload> {
+  const payload = await request<CashMovementPayload>('/api/cash-sessions/cash-withdrawals', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+  return {
+    transaction: payload.transaction,
+    expectedAmount: payload.expectedAmount,
+  };
+}
+
 type ProductSearchPayload = {
   products: Array<{
     productId: string | null;
@@ -442,6 +484,8 @@ export default {
   fetchPointsOfSale,
   createCashSession,
   registerOpeningTransaction,
+  registerCashDeposit,
+  registerCashWithdrawal,
   searchProducts,
   createSale,
   checkoutSale,

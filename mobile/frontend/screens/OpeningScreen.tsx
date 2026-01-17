@@ -14,6 +14,7 @@ import {
 import { registerOpeningTransaction } from '../services/apiService';
 import { RootStackParamList } from '../navigation/types';
 import { usePosStore } from '../store/usePosStore';
+import { formatCurrency } from '../utils/formatCurrency';
 
 export type OpeningScreenProps = NativeStackScreenProps<RootStackParamList, 'Opening'>;
 
@@ -30,9 +31,18 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
     return session?.openingAmount ?? 0;
   }, [route.params?.suggestedOpeningAmount, session?.openingAmount]);
 
-  const [amountInput, setAmountInput] = useState(() =>
-    suggestedAmount ? String(Number(suggestedAmount.toFixed(2))) : '',
+  const initialAmount = useMemo(() => {
+    if (!Number.isFinite(suggestedAmount)) {
+      return null;
+    }
+    const rounded = Math.max(0, Math.round(suggestedAmount));
+    return Number.isFinite(rounded) ? rounded : null;
+  }, [suggestedAmount]);
+
+  const [amountDigits, setAmountDigits] = useState(() =>
+    initialAmount !== null ? String(initialAmount) : '',
   );
+  const [amountValue, setAmountValue] = useState<number | null>(initialAmount);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -45,12 +55,39 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
     }
   }, [navigation, pointOfSale, session, user]);
 
+  useEffect(() => {
+    if (initialAmount !== null) {
+      setAmountDigits(String(initialAmount));
+      setAmountValue(initialAmount);
+    }
+  }, [initialAmount]);
+
+  const formattedAmount = amountValue !== null ? formatCurrency(amountValue) : '—';
+
+  const handleAmountChange = (raw: string) => {
+    const digitsOnly = raw.replace(/[^0-9]/g, '');
+    if (!digitsOnly) {
+      setAmountDigits('');
+      setAmountValue(null);
+      return;
+    }
+
+    const numeric = Number.parseInt(digitsOnly, 10);
+    if (Number.isNaN(numeric) || numeric < 0) {
+      setAmountDigits('');
+      setAmountValue(null);
+      return;
+    }
+
+    setAmountDigits(digitsOnly);
+    setAmountValue(numeric);
+  };
+
   const handleConfirmOpening = async () => {
     if (!user || !session) {
       return;
     }
-    const normalized = Number.parseFloat(amountInput.replace(',', '.'));
-    if (!Number.isFinite(normalized) || normalized < 0) {
+    if (amountValue === null) {
       Alert.alert('Monto inválido', 'Ingresa un monto de apertura válido.');
       return;
     }
@@ -60,7 +97,7 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
       const result = await registerOpeningTransaction({
         cashSessionId: session.id,
         userName: user.userName,
-        openingAmount: Number(normalized.toFixed(2)),
+        openingAmount: amountValue,
       });
       setCashSession(result.session);
       Alert.alert('Sesión abierta', 'El monto de apertura fue registrado.');
@@ -86,14 +123,18 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
         {pointOfSale ? <Text style={styles.meta}>Punto de venta: {pointOfSale.name}</Text> : null}
         {session ? <Text style={styles.meta}>Sesión: {session.id}</Text> : null}
         <TextInput
-          keyboardType="decimal-pad"
-          onChangeText={setAmountInput}
+          keyboardType="number-pad"
+          onChangeText={handleAmountChange}
           placeholder="Monto de apertura"
           placeholderTextColor="#6b7280"
           style={styles.input}
-          value={amountInput}
+          value={amountDigits}
           editable={!isSubmitting}
         />
+        <View style={styles.formattedRow}>
+          <Text style={styles.formattedLabel}>Monto formateado:</Text>
+          <Text style={styles.formattedValue}>{formattedAmount}</Text>
+        </View>
         <TouchableOpacity
           activeOpacity={0.85}
           disabled={isSubmitting}
@@ -155,7 +196,22 @@ const styles = StyleSheet.create({
     paddingVertical: Platform.select({ ios: 14, default: 12 }),
     fontSize: 16,
     marginTop: 8,
+    marginBottom: 12,
+  },
+  formattedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 20,
+  },
+  formattedLabel: {
+    fontSize: 14,
+    color: '#94a3b8',
+  },
+  formattedValue: {
+    fontSize: 18,
+    color: '#f8fafc',
+    fontWeight: '600',
   },
   button: {
     borderRadius: 12,

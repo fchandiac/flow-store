@@ -2,7 +2,7 @@
 
 import { getDb } from '@/data/db';
 import { CashSession, CashSessionStatus } from '@/data/entities/CashSession';
-import { Transaction, TransactionType } from '@/data/entities/Transaction';
+import { Transaction, TransactionType, PaymentMethod } from '@/data/entities/Transaction';
 import { User } from '@/data/entities/User';
 import { revalidatePath } from 'next/cache';
 import { getCurrentSession } from './auth.server';
@@ -92,6 +92,28 @@ export interface CashSessionListItem {
 export interface CashSessionListResult {
     rows: CashSessionListItem[];
     total: number;
+}
+
+export interface CashSessionMovementItem {
+    id: string;
+    transactionType: TransactionType;
+    transactionTypeLabel: string;
+    direction: 'IN' | 'OUT' | 'NEUTRAL';
+    documentNumber: string;
+    createdAt: string;
+    total: number;
+    paymentMethod: PaymentMethod | null;
+    paymentMethodLabel: string | null;
+    userId: string | null;
+    userUserName: string | null;
+    userFullName: string | null;
+    notes: string | null;
+    reason: string | null;
+    metadata?: Record<string, unknown> | null;
+}
+
+export interface CashSessionMovementsResult {
+    movements: CashSessionMovementItem[];
 }
 
 const toNumber = (value: unknown): number | null => {
@@ -209,6 +231,114 @@ export async function listCashSessions(params?: { filters?: CashSessionListFilte
     });
 
     return JSON.parse(JSON.stringify({ rows, total: response.total }));
+}
+
+const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
+    [TransactionType.SALE]: 'Venta',
+    [TransactionType.PURCHASE]: 'Compra',
+    [TransactionType.PURCHASE_ORDER]: 'Orden de compra',
+    [TransactionType.SALE_RETURN]: 'Devolución de venta',
+    [TransactionType.PURCHASE_RETURN]: 'Devolución de compra',
+    [TransactionType.TRANSFER_OUT]: 'Transferencia salida',
+    [TransactionType.TRANSFER_IN]: 'Transferencia entrada',
+    [TransactionType.ADJUSTMENT_IN]: 'Ajuste positivo',
+    [TransactionType.ADJUSTMENT_OUT]: 'Ajuste negativo',
+    [TransactionType.PAYMENT_IN]: 'Pago recibido',
+    [TransactionType.PAYMENT_OUT]: 'Pago emitido',
+    [TransactionType.CASH_DEPOSIT]: 'Depósito en efectivo',
+    [TransactionType.OPERATING_EXPENSE]: 'Gasto operativo',
+    [TransactionType.CASH_SESSION_OPENING]: 'Apertura de caja',
+    [TransactionType.CASH_SESSION_WITHDRAWAL]: 'Retiro de caja',
+    [TransactionType.CASH_SESSION_DEPOSIT]: 'Ingreso de caja',
+};
+
+const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+    [PaymentMethod.CASH]: 'Efectivo',
+    [PaymentMethod.CREDIT_CARD]: 'Tarjeta de crédito',
+    [PaymentMethod.DEBIT_CARD]: 'Tarjeta de débito',
+    [PaymentMethod.TRANSFER]: 'Transferencia',
+    [PaymentMethod.CHECK]: 'Cheque',
+    [PaymentMethod.CREDIT]: 'Crédito',
+    [PaymentMethod.MIXED]: 'Pago mixto',
+};
+
+const IN_FLOW_TYPES: Set<TransactionType> = new Set([
+    TransactionType.SALE,
+    TransactionType.PAYMENT_IN,
+    TransactionType.CASH_SESSION_DEPOSIT,
+    TransactionType.CASH_DEPOSIT,
+    TransactionType.ADJUSTMENT_IN,
+    TransactionType.TRANSFER_IN,
+]);
+
+const OUT_FLOW_TYPES: Set<TransactionType> = new Set([
+    TransactionType.SALE_RETURN,
+    TransactionType.PAYMENT_OUT,
+    TransactionType.OPERATING_EXPENSE,
+    TransactionType.CASH_SESSION_WITHDRAWAL,
+    TransactionType.ADJUSTMENT_OUT,
+    TransactionType.TRANSFER_OUT,
+]);
+
+export async function getCashSessionMovements(sessionId: string): Promise<CashSessionMovementsResult> {
+    const ds = await getDb();
+    const repo = ds.getRepository(Transaction);
+
+    const transactions = await repo
+        .createQueryBuilder('tx')
+        .leftJoinAndSelect('tx.user', 'user')
+        .leftJoinAndSelect('user.person', 'userPerson')
+        .where('tx.cashSessionId = :sessionId', { sessionId })
+        .orderBy('tx.createdAt', 'DESC')
+        .getMany();
+
+    const movements: CashSessionMovementItem[] = transactions.map((tx) => {
+        const total = Number(tx.total) || 0;
+        const direction = IN_FLOW_TYPES.has(tx.transactionType)
+            ? 'IN'
+            : OUT_FLOW_TYPES.has(tx.transactionType)
+                ? 'OUT'
+                : 'NEUTRAL';
+
+        const createdAt = tx.createdAt instanceof Date ? tx.createdAt.toISOString() : new Date(tx.createdAt).toISOString();
+
+        const metadata = (tx.metadata ?? null) as Record<string, unknown> | null;
+        const reason = (() => {
+            if (!metadata) {
+                return null;
+            }
+            const depositReason = typeof metadata['depositReason'] === 'string' ? metadata['depositReason'] : null;
+            if (depositReason) {
+                return depositReason;
+            }
+            const withdrawalReason = typeof metadata['withdrawalReason'] === 'string' ? metadata['withdrawalReason'] : null;
+            if (withdrawalReason) {
+                return withdrawalReason;
+            }
+            const description = typeof metadata['description'] === 'string' ? metadata['description'] : null;
+            return description;
+        })();
+
+        return {
+            id: tx.id,
+            transactionType: tx.transactionType,
+            transactionTypeLabel: TRANSACTION_TYPE_LABELS[tx.transactionType] ?? tx.transactionType,
+            direction,
+            documentNumber: tx.documentNumber,
+            createdAt,
+            total,
+            paymentMethod: tx.paymentMethod ?? null,
+            paymentMethodLabel: tx.paymentMethod ? PAYMENT_METHOD_LABELS[tx.paymentMethod] ?? tx.paymentMethod : null,
+            userId: tx.userId ?? null,
+            userUserName: tx.user?.userName ?? null,
+            userFullName: buildFullName((tx.user as (typeof tx.user & { person?: { firstName?: string | null; lastName?: string | null } | null }) | undefined)?.person ?? null),
+            notes: tx.notes ?? null,
+            reason,
+            metadata,
+        };
+    });
+
+    return JSON.parse(JSON.stringify({ movements }));
 }
 
 /**

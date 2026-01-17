@@ -114,13 +114,11 @@ const UpdatePointOfSaleDialog: React.FC<UpdatePointOfSaleDialogProps> = ({
         return acc;
     }, []);
 
-    if (
-        pointOfSale.defaultPriceList &&
-        !priceListOptions.some((option) => option.id === pointOfSale.defaultPriceList.id)
-    ) {
+    const existingDefault = pointOfSale.defaultPriceList;
+    if (existingDefault && !priceListOptions.some((option) => option.id === existingDefault.id)) {
         priceListOptions.push({
-            id: pointOfSale.defaultPriceList.id,
-            label: pointOfSale.defaultPriceList.name,
+            id: existingDefault.id,
+            label: existingDefault.name,
         });
     }
 

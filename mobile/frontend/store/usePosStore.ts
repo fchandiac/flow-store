@@ -70,6 +70,7 @@ type PosState = {
   setUser: (user: AuthenticatedUser | null) => void;
   setPointOfSale: (pos: PointOfSaleSummary | null) => void;
   setCashSession: (session: CashSessionSummary | null) => void;
+  updateCashSessionExpectedAmount: (expectedAmount: number) => void;
   resetSession: () => void;
   addProductToCart: (product: ProductSearchResult) => void;
   incrementItem: (variantId: string) => void;
@@ -109,6 +110,18 @@ export const usePosStore = create<PosState>((set, get) => ({
   },
   setPointOfSale: (pointOfSale) => set({ pointOfSale }),
   setCashSession: (cashSession) => set({ cashSession }),
+  updateCashSessionExpectedAmount: (expectedAmount) =>
+    set((state) => {
+      if (!state.cashSession) {
+        return {};
+      }
+      return {
+        cashSession: {
+          ...state.cashSession,
+          expectedAmount,
+        },
+      };
+    }),
   resetSession: () => set({ pointOfSale: null, cashSession: null, cartItems: [] }),
   addProductToCart: (product) => {
     const existing = get().cartItems.find((item) => item.variantId === product.variantId);

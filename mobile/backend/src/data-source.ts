@@ -19,6 +19,7 @@ import { ExpenseCategory } from '../../../data/entities/ExpenseCategory';
 import { CostCenter } from '../../../data/entities/CostCenter';
 import { Person } from '../../../data/entities/Person';
 import { Category } from '../../../data/entities/Category';
+import { PriceList } from '../../../data/entities/PriceList';
 
 const envFiles = ['.env', '.env.local'];
 
@@ -66,6 +67,7 @@ export const appDataSource = new DataSource({
     CostCenter,
     Person,
     Category,
+    PriceList,
   ],
   migrations: [],
   subscribers: [],

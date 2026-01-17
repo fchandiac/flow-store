@@ -1,19 +1,23 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import DataGrid, { type DataGridColumn } from '@/baseComponents/DataGrid/DataGrid';
 import Select, { type Option } from '@/baseComponents/Select/Select';
 import IconButton from '@/baseComponents/IconButton/IconButton';
 import Badge, { type BadgeVariant } from '@/baseComponents/Badge/Badge';
 import { Button } from '@/baseComponents/Button/Button';
+import Dialog from '@/baseComponents/Dialog/Dialog';
 import { useAlert } from '@/globalstate/alert/useAlert';
 import {
   listCashSessions,
   type CashSessionListItem,
   type CashSessionListFilters,
   closeCashSessionFromAdmin,
+  getCashSessionMovements,
+  type CashSessionMovementItem,
 } from '@/actions/cashSessions';
 import { CashSessionStatus } from '@/data/entities/CashSession';
+import { PaymentMethod, TransactionType } from '@/data/entities/Transaction';
 
 const currencyFormatter = new Intl.NumberFormat('es-CL', {
   style: 'currency',
@@ -28,6 +32,41 @@ const dateTimeFormatter = new Intl.DateTimeFormat('es-CL', {
 });
 
 type StatusFilter = 'ALL' | CashSessionStatus;
+
+const MOVEMENT_TYPE_LABELS: Record<TransactionType, string> = {
+  [TransactionType.SALE]: 'Venta',
+  [TransactionType.PURCHASE]: 'Compra',
+  [TransactionType.PURCHASE_ORDER]: 'Orden de compra',
+  [TransactionType.SALE_RETURN]: 'Devolución de venta',
+  [TransactionType.PURCHASE_RETURN]: 'Devolución de compra',
+  [TransactionType.TRANSFER_OUT]: 'Transferencia salida',
+  [TransactionType.TRANSFER_IN]: 'Transferencia entrada',
+  [TransactionType.ADJUSTMENT_IN]: 'Ajuste positivo',
+  [TransactionType.ADJUSTMENT_OUT]: 'Ajuste negativo',
+  [TransactionType.PAYMENT_IN]: 'Pago recibido',
+  [TransactionType.PAYMENT_OUT]: 'Pago emitido',
+  [TransactionType.CASH_DEPOSIT]: 'Depósito en efectivo',
+  [TransactionType.OPERATING_EXPENSE]: 'Gasto operativo',
+  [TransactionType.CASH_SESSION_OPENING]: 'Apertura de caja',
+  [TransactionType.CASH_SESSION_WITHDRAWAL]: 'Retiro de caja',
+  [TransactionType.CASH_SESSION_DEPOSIT]: 'Ingreso de caja',
+};
+
+const PAYMENT_METHOD_LABELS: Partial<Record<PaymentMethod, string>> = {
+  [PaymentMethod.CASH]: 'Efectivo',
+  [PaymentMethod.CREDIT_CARD]: 'Tarjeta de crédito',
+  [PaymentMethod.DEBIT_CARD]: 'Tarjeta de débito',
+  [PaymentMethod.TRANSFER]: 'Transferencia',
+  [PaymentMethod.CHECK]: 'Cheque',
+  [PaymentMethod.CREDIT]: 'Crédito',
+  [PaymentMethod.MIXED]: 'Pago mixto',
+};
+
+const MOVEMENT_DIRECTION_META: Record<CashSessionMovementItem['direction'], { label: string; amountClass: string }> = {
+  IN: { label: 'Entrada', amountClass: 'text-emerald-600' },
+  OUT: { label: 'Salida', amountClass: 'text-rose-600' },
+  NEUTRAL: { label: 'Neutral', amountClass: 'text-slate-500' },
+};
 
 const statusOptions: Option[] = [
   { id: 'ALL', label: 'Todas' },
@@ -62,6 +101,11 @@ const CashSessionsDataGrid = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [closingSessionId, setClosingSessionId] = useState<string | null>(null);
+  const [movementsDialogOpen, setMovementsDialogOpen] = useState(false);
+  const [movementsSession, setMovementsSession] = useState<CashSessionListItem | null>(null);
+  const [movements, setMovements] = useState<CashSessionMovementItem[]>([]);
+  const [movementsLoading, setMovementsLoading] = useState(false);
+  const [movementsLoadingSessionId, setMovementsLoadingSessionId] = useState<string | null>(null);
 
   const loadSessions = useCallback(async () => {
     setLoading(true);
@@ -110,6 +154,31 @@ const CashSessionsDataGrid = () => {
   const handleStatusChange = useCallback((value: string | number | null) => {
     const nextValue = (value ?? 'ALL') as StatusFilter;
     setStatusFilter(nextValue);
+  }, []);
+
+  const handleOpenMovements = useCallback(async (session: CashSessionListItem) => {
+    setMovementsSession(session);
+    setMovements([]);
+    setMovementsDialogOpen(true);
+    setMovementsLoading(true);
+    setMovementsLoadingSessionId(session.id);
+    try {
+      const response = await getCashSessionMovements(session.id);
+      setMovements(response.movements ?? []);
+    } catch (err) {
+      console.error('Error fetching cash session movements:', err);
+      error('No se pudieron cargar los movimientos de la sesión');
+      setMovements([]);
+    } finally {
+      setMovementsLoading(false);
+      setMovementsLoadingSessionId(null);
+    }
+  }, [error]);
+
+  const handleCloseMovementsDialog = useCallback(() => {
+    setMovementsDialogOpen(false);
+    setMovementsSession(null);
+    setMovements([]);
   }, []);
 
   const columns: DataGridColumn[] = useMemo(() => [
@@ -252,43 +321,38 @@ const CashSessionsDataGrid = () => {
       },
     },
     {
-      field: 'notes',
-      headerName: 'Notas',
-      flex: 1,
-      minWidth: 220,
-      renderCell: ({ value }) => {
-        const notes = typeof value === 'string' ? value.trim() : '';
-        return (
-          <span className="text-sm text-neutral-700">
-            {notes.length > 0 ? notes : '—'}
-          </span>
-        );
-      },
-    },
-    {
       field: 'actions',
       headerName: 'Acciones',
-      width: 180,
+      width: 160,
       renderCell: ({ row }) => {
         const isOpen = row.status === CashSessionStatus.OPEN;
-        if (!isOpen) {
-          return <span className="text-xs text-neutral-500">Sin acciones</span>;
-        }
         const isClosing = closingSessionId === row.id;
         return (
-          <Button
-            type="button"
-            size="sm"
-            variant="outlined"
-            onClick={() => void handleCloseSession(row.id)}
-            disabled={isClosing}
-          >
-            {isClosing ? 'Cerrando…' : 'Cerrar sesión'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <IconButton
+              icon="more_horiz"
+              variant="ghost"
+              size="sm"
+              ariaLabel="Ver movimientos de la sesión"
+              onClick={() => void handleOpenMovements(row)}
+              isLoading={movementsLoadingSessionId === row.id && movementsLoading}
+            />
+            {isOpen && (
+              <IconButton
+                icon="lock"
+                variant="outlined"
+                size="sm"
+                ariaLabel="Cerrar sesión de caja"
+                onClick={() => void handleCloseSession(row.id)}
+                disabled={isClosing}
+                isLoading={isClosing}
+              />
+            )}
+          </div>
         );
       },
     },
-  ], [closingSessionId, handleCloseSession]);
+  ], [closingSessionId, handleCloseSession, handleOpenMovements, movementsLoading, movementsLoadingSessionId]);
 
   const headerActions = (
     <div className="flex flex-wrap items-end gap-3">
@@ -317,16 +381,149 @@ const CashSessionsDataGrid = () => {
     </div>
   );
 
+  const selectedSessionSummary = useMemo(() => {
+    if (!movementsSession) {
+      return null;
+    }
+    const openedAtDate = movementsSession.openedAt ? new Date(movementsSession.openedAt) : null;
+    const openedLabel = openedAtDate && !Number.isNaN(openedAtDate.getTime())
+      ? dateTimeFormatter.format(openedAtDate)
+      : 'Fecha desconocida';
+    const closedAtDate = movementsSession.closedAt ? new Date(movementsSession.closedAt) : null;
+    const closedLabel = closedAtDate && !Number.isNaN(closedAtDate.getTime())
+      ? dateTimeFormatter.format(closedAtDate)
+      : null;
+
+    return {
+      openedLabel,
+      closedLabel,
+    };
+  }, [movementsSession]);
+
   return (
-    <DataGrid
-      title="Sesiones de caja"
-      columns={columns}
-      rows={rows}
-      totalRows={rows.length}
-      height="70vh"
-      headerActions={headerActions}
-      showBorder
-    />
+    <Fragment>
+      <DataGrid
+        title="Sesiones de caja"
+        columns={columns}
+        rows={rows}
+        totalRows={rows.length}
+        height="70vh"
+        headerActions={headerActions}
+      />
+
+      <Dialog
+        open={movementsDialogOpen}
+        onClose={handleCloseMovementsDialog}
+        title="Movimientos de la sesión"
+        size="lg"
+        scroll="paper"
+        showCloseButton
+      >
+        {movementsSession ? (
+          <div className="flex flex-col gap-4">
+            <div className="rounded-lg bg-slate-100 px-4 py-3 text-sm text-slate-700">
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold text-slate-900">
+                  {movementsSession.pointOfSaleName ?? 'Punto de venta desconocido'}
+                </span>
+                {movementsSession.branchName && (
+                  <span className="text-xs text-slate-500">Sucursal {movementsSession.branchName}</span>
+                )}
+                <span>
+                  Apertura: <strong>{selectedSessionSummary?.openedLabel ?? '—'}</strong>
+                </span>
+                {selectedSessionSummary?.closedLabel ? (
+                  <span>
+                    Cierre: <strong>{selectedSessionSummary.closedLabel}</strong>
+                  </span>
+                ) : (
+                  <span>Cierre: <strong className="text-amber-600">Pendiente</strong></span>
+                )}
+                <span>
+                  Saldo esperado actual:{' '}
+                  <strong>{currencyFormatter.format(Number(movementsSession.expectedAmount ?? movementsSession.openingAmount ?? 0))}</strong>
+                </span>
+              </div>
+            </div>
+
+            {movementsLoading ? (
+              <div className="flex items-center justify-center gap-2 rounded-lg border border-slate-200 px-4 py-6 text-sm text-slate-600">
+                <span className="material-symbols-outlined animate-spin text-base" aria-hidden>
+                  progress_activity
+                </span>
+                Cargando movimientos…
+              </div>
+            ) : movements.length > 0 ? (
+              <ul className="space-y-3">
+                {movements.map((movement) => {
+                  const movementDate = movement.createdAt ? new Date(movement.createdAt) : null;
+                  const movementDateLabel = movementDate && !Number.isNaN(movementDate.getTime())
+                    ? dateTimeFormatter.format(movementDate)
+                    : 'Fecha desconocida';
+                  const directionMeta = MOVEMENT_DIRECTION_META[movement.direction];
+                  const paymentLabel = movement.paymentMethodLabel
+                    ?? (movement.paymentMethod ? PAYMENT_METHOD_LABELS[movement.paymentMethod] ?? movement.paymentMethod : null);
+                  const operatorLabel = movement.userFullName
+                    ?? movement.userUserName
+                    ?? (movement.userId ? `Usuario ${movement.userId.slice(0, 6)}` : 'Usuario no registrado');
+                  const notes = movement.notes?.trim?.() ?? '';
+                  const reason = movement.reason?.trim?.() ?? '';
+
+                  return (
+                    <li
+                      key={movement.id}
+                      className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-white px-4 py-3 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex flex-col gap-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold text-slate-900">
+                              {movement.documentNumber}
+                            </span>
+                            <Badge variant="info-outlined">
+                              {MOVEMENT_TYPE_LABELS[movement.transactionType] ?? movement.transactionType}
+                            </Badge>
+                            <Badge variant={movement.direction === 'IN' ? 'success' : movement.direction === 'OUT' ? 'error' : 'secondary'}>
+                              {directionMeta.label}
+                            </Badge>
+                          </div>
+                          <span className="text-xs text-slate-500">
+                            {movementDateLabel} · {operatorLabel}
+                          </span>
+                          {paymentLabel && (
+                            <span className="text-xs text-slate-500">Medio de pago: {paymentLabel}</span>
+                          )}
+                          {reason && (
+                            <span className="text-xs text-slate-500">Motivo: {reason}</span>
+                          )}
+                          {notes.length > 0 && (
+                            <span className="text-xs text-slate-500">Notas: {notes}</span>
+                          )}
+                        </div>
+                        <span className={`text-sm font-semibold ${directionMeta.amountClass}`}>
+                          {currencyFormatter.format(movement.total)}
+                        </span>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 px-4 py-8 text-sm text-slate-500">
+                <span className="material-symbols-outlined text-3xl text-slate-300" aria-hidden>
+                  receipt_long
+                </span>
+                No se registran movimientos para esta sesión.
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-slate-200 px-4 py-6 text-sm text-slate-500">
+            Selecciona una sesión para visualizar sus movimientos.
+          </div>
+        )}
+      </Dialog>
+    </Fragment>
   );
 };
 

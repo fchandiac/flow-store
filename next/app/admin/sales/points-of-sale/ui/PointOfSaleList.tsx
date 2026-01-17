@@ -30,7 +30,7 @@ const PointOfSaleList: React.FC<PointOfSaleListProps> = ({
     const router = useRouter();
     const [search, setSearch] = useState(searchParams.get('search') || '');
 
-    const handleSearchChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const handleSearchChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const value = e.target.value;
         setSearch(value);
 

@@ -307,6 +307,23 @@ export async function createAccountingPeriod(input: CreateAccountingPeriodInput)
     const ds = await getDb();
     const repo = ds.getRepository(AccountingPeriod);
 
+    const existingOpenPeriod = await repo.findOne({
+        where: {
+            companyId: company.id,
+            status: AccountingPeriodStatus.OPEN,
+        },
+    });
+
+    if (existingOpenPeriod) {
+        const formatter = new Intl.DateTimeFormat('es-CL');
+        const formattedStart = formatter.format(new Date(existingOpenPeriod.startDate));
+        const formattedEnd = formatter.format(new Date(existingOpenPeriod.endDate));
+        return {
+            success: false,
+            error: `Ya existe un período contable activo desde ${formattedStart} hasta ${formattedEnd}. Debes cerrarlo antes de crear uno nuevo.`,
+        };
+    }
+
     const overlappingPeriods = await repo
         .createQueryBuilder('period')
         .where('period.companyId = :companyId', { companyId: company.id })

@@ -1,6 +1,7 @@
 import { getDb } from '../db';
 import { User, UserRole } from '../entities/User';
 import { Person, PersonType, DocumentType, BankName, AccountTypeName, PersonBankAccount } from '../entities/Person';
+import { Customer } from '../entities/Customer';
 import { Company } from '../entities/Company';
 import { Branch } from '../entities/Branch';
 import { Tax, TaxType } from '../entities/Tax';
@@ -120,6 +121,7 @@ async function seedFlowStore() {
 
   const transactionRepo = db.getRepository(Transaction);
   const transactionLineRepo = db.getRepository(TransactionLine);
+  const customerSummaries: string[] = [];
 
   console.log('\n🧾 Eliminando aportes de capital legacy...');
   try {
@@ -1431,7 +1433,104 @@ async function seedFlowStore() {
     }
 
     // ============================================
-    // 9.1 CAPITAL INICIAL
+    // 9.1 CLIENTES BASE
+    // ============================================
+    console.log('\n🧑‍🤝‍🧑 Creando clientes base...');
+
+    const personRepo = db.getRepository(Person);
+    const customerRepo = db.getRepository(Customer);
+    const customerSeeds = [
+      {
+        ref: 'CLIENTE_CAMILA_PAREDES',
+        firstName: 'Camila',
+        lastName: 'Paredes',
+        documentNumber: '17.456.789-5',
+        email: 'camila.paredes@joyarte.cl',
+        phone: '+56 9 2222 1111',
+        address: 'Av. Aníbal Pinto 345, Parral',
+        creditLimit: 450_000,
+        defaultPaymentTermDays: 15,
+        notes: 'Cliente frecuente en vitrina principal.',
+      },
+      {
+        ref: 'CLIENTE_MIGUEL_MESA',
+        firstName: 'Miguel',
+        lastName: 'Mesa',
+        documentNumber: '18.235.678-4',
+        email: 'miguel.mesa@joyarte.cl',
+        phone: '+56 9 3311 8899',
+        address: 'Pasaje Los Artesanos 120, Parral',
+        creditLimit: 600_000,
+        defaultPaymentTermDays: 30,
+        notes: 'Solicita ajustes de anillos y pagos diferidos.',
+      },
+      {
+        ref: 'CLIENTE_VALERIA_ROJAS',
+        firstName: 'Valeria',
+        lastName: 'Rojas',
+        documentNumber: '16.789.543-2',
+        email: 'valeria.rojas@joyarte.cl',
+        phone: '+56 9 9988 7766',
+        address: 'Camino El Boldal S/N, Parral',
+        creditLimit: 350_000,
+        defaultPaymentTermDays: 10,
+        notes: 'Preferencia por lanzamientos exclusivos.',
+      },
+    ] as const;
+
+    for (const seed of customerSeeds) {
+      let person = await personRepo.findOne({ where: { documentNumber: seed.documentNumber }, withDeleted: true });
+
+      const isNewPerson = !person;
+      if (!person) {
+        person = new Person();
+        person.id = uuidv4();
+      }
+
+      person.type = PersonType.NATURAL;
+      person.firstName = seed.firstName;
+      person.lastName = seed.lastName ?? undefined;
+      person.businessName = undefined;
+      person.documentType = DocumentType.RUN;
+      person.documentNumber = seed.documentNumber;
+      person.email = seed.email ?? undefined;
+      person.phone = seed.phone ?? undefined;
+      person.address = seed.address ?? undefined;
+      person.deletedAt = undefined;
+
+      person = await personRepo.save(person);
+
+      let customer = await customerRepo.findOne({ where: { personId: person.id }, withDeleted: true });
+      const isNewCustomer = !customer;
+
+      if (!customer) {
+        customer = new Customer();
+        customer.id = uuidv4();
+        customer.personId = person.id;
+      }
+
+      customer.creditLimit = seed.creditLimit;
+      customer.currentBalance = 0;
+      customer.defaultPaymentTermDays = seed.defaultPaymentTermDays;
+      customer.isActive = true;
+      customer.notes = seed.notes ?? undefined;
+      customer.deletedAt = undefined;
+
+      await customerRepo.save(customer);
+
+      const displayName = [person.firstName, person.lastName].filter(Boolean).join(' ').trim() || person.businessName || seed.ref;
+      const personPrefix = isNewPerson ? '   ✓ Persona creada' : '   • Persona actualizada';
+      const customerPrefix = isNewCustomer ? '   ✓ Cliente creado' : '   • Cliente actualizado';
+
+      if (isNewPerson) {
+        console.log(`${personPrefix}: ${displayName}`);
+      }
+      console.log(`${customerPrefix}: ${displayName}`);
+      customerSummaries.push(displayName);
+    }
+
+    // ============================================
+    // 9.2 CAPITAL INICIAL
     // ============================================
     console.log('\n🏦 Registrando capital inicial...');
     try {
@@ -1961,6 +2060,24 @@ async function seedFlowStore() {
       .map((list) => list.name)
       .join(', ');
 
+    const [personCount, customerCount, userCount, permissionCount, priceListItemCount] = await Promise.all([
+      db.getRepository(Person).count({ where: { deletedAt: IsNull() } }),
+      db.getRepository(Customer).count({ where: { deletedAt: IsNull() } }),
+      db.getRepository(User).count({ where: { deletedAt: IsNull() } }),
+      db.getRepository(Permission).count({ where: { deletedAt: IsNull() } }),
+      db.getRepository(PriceListItem).count({ where: { deletedAt: IsNull() } }),
+    ]);
+
+    const storagesSummaryList = await db.getRepository(Storage).find({
+      where: { deletedAt: IsNull() },
+      order: { name: 'ASC' },
+    });
+
+    const storageDisplayNames = storagesSummaryList.map((entry) => entry.name);
+    const storageSummaryText = storageDisplayNames.length > 0 ? storageDisplayNames.join(', ') : '—';
+    const uniqueCustomerSummaries = Array.from(new Set(customerSummaries));
+    const customerSummaryText = uniqueCustomerSummaries.length > 0 ? uniqueCustomerSummaries.join(', ') : '—';
+
     console.log('\n═══════════════════════════════════════════════════════════');
     console.log('✅ Seed completado exitosamente!');
     console.log('───────────────────────────────────────────────────────────');
@@ -1990,13 +2107,18 @@ async function seedFlowStore() {
     console.log(`   • Plan de cuentas: ${accountingAccountsData.length} cuentas activas`);
     console.log(`   • Categorías de gasto: ${expenseCategoriesData.length} categorías`);
     console.log(`   • Reglas contables: ${accountingRulesData.length} reglas automáticas`);
+    console.log(`   • Permisos asignados: ${permissionCount}`);
+    console.log(`   • Usuarios activos: ${userCount}`);
+    console.log(`   • Personas registradas: ${personCount}`);
+    console.log(`   • Clientes activos: ${customerCount}${customerSummaryText !== '—' ? ` (${customerSummaryText})` : ''}`);
     console.log(`   • Centros de costo: ${costCentersData.length} activos`);
     console.log(`   • Unidades organizativas: ${organizationalUnitsData.length} activas`);
     console.log(`   • Categorías: ${categoriesData.length} categorías de joyería`);
     console.log(`   • Atributos: ${attributesData.length} atributos para variantes`);
     console.log(`   • Productos: ${productsData.length} productos de ejemplo (${totalVariantsSeeded} variantes)`);
     console.log(`   • Listas de precios: ${Object.values(priceListsByKey).length} (${priceListsSummary})`);
-    console.log(`   • Bodega: ${storage.name}`);
+    console.log(`   • Ítems de listas de precio: ${priceListItemCount}`);
+    console.log(`   • Bodegas: ${storagesSummaryList.length} (${storageSummaryText})`);
     const pointOfSaleSummary = pointsOfSale.map((pos) => {
       const listName = Object.values(priceListsByKey).find((list) => list.id === pos.defaultPriceListId)?.name ?? 'Sin lista';
       return `${pos.name} → ${listName}`;

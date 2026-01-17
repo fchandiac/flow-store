@@ -75,6 +75,7 @@
     "@fontsource/material-symbols-outlined": "^5.2.30",
     "@fontsource/material-symbols-rounded": "^5.2.30",
     "@fontsource/material-symbols-sharp": "^5.2.30",
+    "@serialport/parser-readline": "^13.0.0",
     "@types/leaflet": "^1.9.21",
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
@@ -91,6 +92,7 @@
     "react-leaflet": "^5.0.0",
     "recharts": "^3.6.0",
     "reflect-metadata": "^0.2.2",
+    "serialport": "^13.0.0",
     "typeorm": "^0.3.27",
     "xlsx": "^0.18.5"
   }
