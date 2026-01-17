@@ -3,6 +3,8 @@
 import ProductSearch from './ui/ProductSearch';
 import CartPanel from './ui/CartPanel';
 import PaymentDialog from './ui/PaymentDialog';
+import CashEntryDialog from './ui/CashEntryDialog';
+import CashOutDialog from './ui/CashOutDialog';
 
 export default function PointOfSalePage() {
     return (
@@ -12,6 +14,8 @@ export default function PointOfSalePage() {
                 <CartPanel />
             </div>
             <PaymentDialog />
+            <CashEntryDialog />
+            <CashOutDialog />
         </div>
     );
 }

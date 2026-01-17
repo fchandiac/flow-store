@@ -1,9 +1,8 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { Session } from "next-auth";
-import { signIn, useSession } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { TextField } from "@/app/baseComponents/TextField/TextField";
 import { Button } from "@/app/baseComponents/Button/Button";
 import Alert from "@/app/baseComponents/Alert/Alert";
@@ -21,19 +20,18 @@ export default function LoginPage() {
     const [error, setError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const resolvePostLoginRoute = useCallback((activeSession?: Session | null) => {
-        const role = (activeSession?.user as { role?: string } | undefined)?.role;
-        if (role === "ADMIN") {
-            return "/admin";
-        }
-        return "/pointOfSale";
-    }, []);
-
     useEffect(() => {
         if (status === "authenticated") {
-            router.replace(resolvePostLoginRoute(session));
+            const role = (session?.user as { role?: string } | undefined)?.role;
+            if (role !== "ADMIN") {
+                setError("Solo usuarios con rol Administrador pueden iniciar sesión.");
+                setIsSubmitting(false);
+                void signOut({ redirect: false });
+                return;
+            }
+            router.replace("/admin");
         }
-    }, [status, router, resolvePostLoginRoute, session]);
+    }, [status, router, session]);
 
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
@@ -68,7 +66,7 @@ export default function LoginPage() {
                 setIsSubmitting(false);
                 return;
             }
-            router.replace(resolvePostLoginRoute(session));
+            setIsSubmitting(false);
         } catch (err) {
             console.error('[Login] Error:', err);
             setError("Error al procesar la autenticación");

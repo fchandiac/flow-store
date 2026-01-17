@@ -554,6 +554,13 @@ export async function cancelTransaction(
         notes: `Devolución de ${original.documentNumber}: ${reason}`
     }));
     
+    const cancellationMetadata = {
+        origin: 'PURCHASE_CANCELLATION',
+        originalTransactionId: original.id,
+        originalDocumentNumber: original.documentNumber,
+        cancellationReason: reason,
+    };
+
     const result = await createTransaction({
         transactionType: cancelType,
         branchId: original.branchId,
@@ -566,13 +573,29 @@ export async function cancelTransaction(
         paymentMethod: original.paymentMethod,
         externalReference: original.documentNumber,
         notes: `Devolución de ${original.documentNumber}: ${reason}`,
-        lines: cancelLines
+        lines: cancelLines,
+        relatedTransactionId: original.id,
+        metadata: cancellationMetadata,
     });
     
-    if (result.success) {
-        // Marcar la original como cancelada
-        await transactionRepo.update(transactionId, { 
-            status: TransactionStatus.CANCELLED 
+    if (result.success && result.transaction) {
+        const existingMetadata = original.metadata
+            ? JSON.parse(JSON.stringify(original.metadata))
+            : {};
+
+        const updatedMetadata = {
+            ...existingMetadata,
+            cancellation: {
+                transactionId: result.transaction.id,
+                documentNumber: result.transaction.documentNumber,
+                reason,
+                cancelledAt: new Date().toISOString(),
+            },
+        };
+
+        await transactionRepo.update(transactionId, {
+            status: TransactionStatus.CANCELLED,
+            metadata: updatedMetadata as any,
         });
     }
     

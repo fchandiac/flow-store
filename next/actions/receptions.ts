@@ -9,7 +9,7 @@ import { Supplier } from '@/data/entities/Supplier';
 import { Storage } from '@/data/entities/Storage';
 import { In } from 'typeorm';
 import { getCurrentSession } from './auth.server';
-import { createTransaction, type TransactionLineDTO } from './transactions';
+import { createTransaction, cancelTransaction, type TransactionLineDTO } from './transactions';
 
 // ==================== TYPES ====================
 
@@ -17,6 +17,7 @@ export interface ReceptionListItem {
     id: string;
     documentNumber: string;
     status: TransactionStatus;
+    transactionType: TransactionType;
     supplierId?: string | null;
     supplierName?: string | null;
     storageId?: string | null;
@@ -30,6 +31,12 @@ export interface ReceptionListItem {
     purchaseOrderNumber?: string | null;
     isDirect?: boolean;
     hasDiscrepancies?: boolean;
+    relatedTransactionId?: string | null;
+    relatedDocumentNumber?: string | null;
+    externalReference?: string | null;
+    cancelledByDocumentNumber?: string | null;
+    cancelsDocumentNumber?: string | null;
+    cancellationReason?: string | null;
 }
 
 export interface GetReceptionsParams {
@@ -295,45 +302,57 @@ export async function getReceptions(params?: GetReceptionsParams): Promise<Recep
 
     const queryBuilder = ds
         .getRepository(Transaction)
-        .createQueryBuilder('reception')
-        .leftJoinAndSelect('reception.supplier', 'supplier')
+        .createQueryBuilder('transaction')
+        .leftJoinAndSelect('transaction.supplier', 'supplier')
         .leftJoinAndSelect('supplier.person', 'supplierPerson')
-        .leftJoinAndSelect('reception.user', 'user')
-        .where('reception.transactionType = :type', { type: TransactionType.PURCHASE })
-        .andWhere('reception.status = :status', { status: TransactionStatus.CONFIRMED });
+        .leftJoinAndSelect('transaction.user', 'user')
+        .leftJoinAndSelect('transaction.relatedTransaction', 'relatedTransaction')
+        .where('transaction.transactionType IN (:...types)', {
+            types: [TransactionType.PURCHASE, TransactionType.PURCHASE_RETURN],
+        });
+
+    if (params?.status) {
+        queryBuilder.andWhere('transaction.status = :status', {
+            status: params.status,
+        });
+    } else {
+        queryBuilder.andWhere('transaction.status IN (:...statuses)', {
+            statuses: [TransactionStatus.CONFIRMED, TransactionStatus.CANCELLED],
+        });
+    }
 
     if (params?.search) {
-        queryBuilder.andWhere('reception.documentNumber LIKE :search', {
+        queryBuilder.andWhere('transaction.documentNumber LIKE :search', {
             search: `%${params.search}%`,
         });
     }
 
     if (params?.supplierId) {
-        queryBuilder.andWhere('reception.supplierId = :supplierId', {
+        queryBuilder.andWhere('transaction.supplierId = :supplierId', {
             supplierId: params.supplierId,
         });
     }
 
     if (params?.storageId) {
-        queryBuilder.andWhere('reception.storageId = :storageId', {
+        queryBuilder.andWhere('transaction.storageId = :storageId', {
             storageId: params.storageId,
         });
     }
 
     if (params?.dateFrom) {
-        queryBuilder.andWhere('reception.createdAt >= :dateFrom', {
+        queryBuilder.andWhere('transaction.createdAt >= :dateFrom', {
             dateFrom: params.dateFrom,
         });
     }
 
     if (params?.dateTo) {
-        queryBuilder.andWhere('reception.createdAt <= :dateTo', {
+        queryBuilder.andWhere('transaction.createdAt <= :dateTo', {
             dateTo: params.dateTo,
         });
     }
 
     queryBuilder
-        .orderBy('reception.createdAt', 'DESC')
+        .orderBy('transaction.createdAt', 'DESC')
         .skip(offset)
         .take(limit);
 
@@ -358,19 +377,39 @@ export async function getReceptions(params?: GetReceptionsParams): Promise<Recep
         });
     }
 
+    const storageNames = new Map<string, string>();
+    const storageIds = Array.from(
+        new Set(
+            receptions
+                .map((reception) => reception.storageId)
+                .filter((id): id is string => Boolean(id))
+        )
+    );
+
+    if (storageIds.length > 0) {
+        const storages = await ds.getRepository(Storage).find({
+            where: { id: In(storageIds) },
+        });
+        storages.forEach((storage) => {
+            storageNames.set(storage.id, storage.name);
+        });
+    }
+
     const results: ReceptionListItem[] = receptions.map((reception) => {
         const supplier = reception.supplier;
         const supplierPerson = supplier?.person;
         const metadata = reception.metadata as any;
+        const cancellationMetadata = metadata?.cancellation;
 
         return {
             id: reception.id,
             documentNumber: reception.documentNumber,
             status: reception.status,
+            transactionType: reception.transactionType,
             supplierId: reception.supplierId ?? null,
             supplierName: supplierPerson?.businessName ?? supplierPerson?.firstName ?? null,
             storageId: reception.storageId ?? null,
-            storageName: null, // TODO: join storage
+            storageName: reception.storageId ? storageNames.get(reception.storageId) ?? null : null,
             total: Number(reception.total),
             subtotal: Number(reception.subtotal),
             createdAt: reception.createdAt.toISOString(),
@@ -380,6 +419,18 @@ export async function getReceptions(params?: GetReceptionsParams): Promise<Recep
             purchaseOrderNumber: metadata?.purchaseOrderNumber ?? null,
             isDirect: metadata?.isDirect ?? false,
             hasDiscrepancies: metadata?.hasDiscrepancies ?? false,
+            relatedTransactionId: reception.relatedTransactionId ?? null,
+            relatedDocumentNumber: reception.relatedTransaction?.documentNumber ?? null,
+            externalReference: reception.externalReference ?? null,
+            cancelledByDocumentNumber: cancellationMetadata?.documentNumber ?? null,
+            cancelsDocumentNumber:
+                reception.transactionType === TransactionType.PURCHASE_RETURN
+                    ? metadata?.originalDocumentNumber ?? reception.externalReference ?? null
+                    : null,
+            cancellationReason:
+                reception.transactionType === TransactionType.PURCHASE
+                    ? cancellationMetadata?.reason ?? null
+                    : metadata?.cancellationReason ?? null,
         };
     });
 
@@ -937,6 +988,47 @@ export async function createDirectReception(
         return {
             success: false,
             error: err instanceof Error ? err.message : 'Error al crear la recepción',
+        };
+    }
+}
+
+export interface CancelReceptionResult {
+    success: boolean;
+    error?: string;
+}
+
+export async function cancelReception(receptionId: string, reason: string): Promise<CancelReceptionResult> {
+    try {
+        const trimmedReason = reason?.trim();
+        if (!receptionId) {
+            return { success: false, error: 'Recepción inválida' };
+        }
+
+        const session = await getCurrentSession();
+        if (!session) {
+            return { success: false, error: 'Usuario no autenticado' };
+        }
+
+        const result = await cancelTransaction(
+            receptionId,
+            session.id,
+            trimmedReason && trimmedReason.length > 0 ? trimmedReason : 'Anulación de recepción'
+        );
+
+        if (!result.success) {
+            return {
+                success: false,
+                error: result.error ?? 'No se pudo anular la recepción',
+            };
+        }
+
+        revalidatePath('/admin/purchasing/receptions');
+        return { success: true };
+    } catch (err) {
+        console.error('Error cancelling reception:', err);
+        return {
+            success: false,
+            error: err instanceof Error ? err.message : 'Error al anular la recepción',
         };
     }
 }

@@ -11,6 +11,10 @@ import {
     TransactionType,
 } from "@/data/entities/Transaction";
 import { TransactionLine } from "@/data/entities/TransactionLine";
+import { getCurrentSession } from "./auth.server";
+import { createTransaction, type TransactionLineDTO } from "./transactions";
+import { randomUUID } from "crypto";
+import { revalidatePath } from "next/cache";
 
 export interface InventoryStorageBreakdown {
     storageId: string;
@@ -57,6 +61,7 @@ export interface InventoryRowDTO {
     unitConversionFactor: number;
     baseCost: number;
     basePrice: number;
+    pmp: number;
     trackInventory: boolean;
     totalStock: number;
     totalStockBase: number;
@@ -255,6 +260,7 @@ export async function getInventoryStock(params?: GetInventoryStockParams): Promi
     const variantRows = variants.map<InventoryRowDTO>((variant) => {
         const product = variant.product as Product | undefined;
         const baseCost = Number(variant.baseCost || 0);
+        const pmp = Number(variant.pmp ?? 0);
         const basePrice = Number(variant.basePrice || 0);
         const unitConversionFactor = Number(variant.unit?.conversionFactor ?? 1);
 
@@ -270,6 +276,7 @@ export async function getInventoryStock(params?: GetInventoryStockParams): Promi
             unitConversionFactor,
             baseCost,
             basePrice,
+            pmp,
             trackInventory: variant.trackInventory,
             totalStock: 0,
             totalStockBase: 0,
@@ -419,11 +426,12 @@ export async function getInventoryStock(params?: GetInventoryStockParams): Promi
         row.availableStock = row.totalStock - row.committedStock + row.incomingStock;
         row.availableStockBase = row.totalStockBase - row.committedStockBase + row.incomingStockBase;
 
+        const costBasis = row.pmp > 0 ? row.pmp : row.baseCost;
         const costPerBaseUnit = row.unitConversionFactor
-            ? row.baseCost / row.unitConversionFactor
-            : row.baseCost;
+            ? costBasis / row.unitConversionFactor
+            : costBasis;
 
-        row.inventoryValueCost = Number((row.totalStock * row.baseCost).toFixed(2));
+        row.inventoryValueCost = Number((row.totalStock * costBasis).toFixed(2));
         row.inventoryValueCostBase = Number((row.totalStockBase * costPerBaseUnit).toFixed(2));
 
         row.isBelowMinimum = row.minimumStock > 0 && row.totalStock < row.minimumStock;
@@ -467,4 +475,260 @@ export async function getInventoryStock(params?: GetInventoryStockParams): Promi
     });
 
     return JSON.parse(JSON.stringify(result));
+}
+
+const buildVariantDisplayName = (variant: ProductVariant): string | undefined => {
+    if (!variant.attributeValues) return undefined;
+    const values = Object.values(variant.attributeValues)
+        .filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+    if (values.length === 0) return undefined;
+    return values.join(" · ");
+};
+
+type InventoryActionResult = { success: true; documentNumbers?: string[]; message?: string } | { success: false; error: string };
+
+export interface TransferVariantStockInput {
+    variantId: string;
+    sourceStorageId: string;
+    targetStorageId: string;
+    quantity: number;
+    note?: string;
+}
+
+export async function transferVariantStock(input: TransferVariantStockInput): Promise<InventoryActionResult> {
+    const quantity = Number(input.quantity);
+    if (!Number.isFinite(quantity) || quantity <= 0) {
+        return { success: false, error: "La cantidad a transferir debe ser mayor que cero." };
+    }
+
+    if (input.sourceStorageId === input.targetStorageId) {
+        return { success: false, error: "Debes seleccionar una bodega de destino distinta a la de origen." };
+    }
+
+    const session = await getCurrentSession();
+    if (!session?.id) {
+        return { success: false, error: "No se pudo determinar el usuario en sesión." };
+    }
+
+    const ds = await getDb();
+    const variantRepo = ds.getRepository(ProductVariant);
+    const storageRepo = ds.getRepository(Storage);
+
+    const [variant, sourceStorage, targetStorage] = await Promise.all([
+        variantRepo.findOne({ where: { id: input.variantId }, relations: ["product"] }),
+        storageRepo.findOne({ where: { id: input.sourceStorageId }, relations: ["branch"] }),
+        storageRepo.findOne({ where: { id: input.targetStorageId }, relations: ["branch"] }),
+    ]);
+
+    if (!variant) {
+        return { success: false, error: "Variante no encontrada." };
+    }
+    if (!sourceStorage) {
+        return { success: false, error: "Bodega de origen no encontrada." };
+    }
+    if (!targetStorage) {
+        return { success: false, error: "Bodega de destino no encontrada." };
+    }
+
+    const conversion = Number(variant.unit?.conversionFactor ?? 1);
+    const quantityInBase = Number((quantity * conversion).toFixed(6));
+    const variantDisplayName = buildVariantDisplayName(variant);
+
+    const productId = variant.productId ?? variant.product?.id;
+    if (!productId) {
+        return { success: false, error: "La variante no está asociada a un producto válido." };
+    }
+
+    const baseLine: TransactionLineDTO = {
+        productId,
+        productVariantId: variant.id,
+        productName: variant.product?.name ?? "Producto",
+        productSku: variant.sku,
+        variantName: variantDisplayName,
+        quantity,
+        quantityInBase,
+        unitId: variant.unitId,
+        unitOfMeasure: variant.unit?.symbol ?? undefined,
+        unitConversionFactor: conversion,
+        unitPrice: 0,
+        unitCost: Number(variant.baseCost ?? 0),
+        discountPercentage: 0,
+        discountAmount: 0,
+        taxRate: 0,
+        taxAmount: 0,
+        notes: undefined,
+    };
+
+    const transferGroupId = randomUUID();
+    const metadataBase = {
+        source: "inventory-stock-grid",
+        transferGroupId,
+        variantId: variant.id,
+        fromStorageId: sourceStorage.id,
+        toStorageId: targetStorage.id,
+        quantity,
+        unitOfMeasure: variant.unit?.symbol ?? variant.unitId,
+    };
+
+    const outResult = await createTransaction({
+        transactionType: TransactionType.TRANSFER_OUT,
+        branchId: sourceStorage.branchId ?? undefined,
+        storageId: sourceStorage.id,
+        targetStorageId: targetStorage.id,
+        userId: session.id,
+        lines: [
+            {
+                ...baseLine,
+                notes: input.note,
+            },
+        ],
+        notes: input.note ?? `Transferencia hacia ${targetStorage.name}`,
+        metadata: {
+            ...metadataBase,
+            direction: "OUT",
+        },
+    });
+
+    if (!outResult.success) {
+        return { success: false, error: outResult.error ?? "No se pudo registrar la salida de stock." };
+    }
+
+    const inResult = await createTransaction({
+        transactionType: TransactionType.TRANSFER_IN,
+        branchId: targetStorage.branchId ?? undefined,
+        storageId: targetStorage.id,
+        targetStorageId: sourceStorage.id,
+        userId: session.id,
+        lines: [
+            {
+                ...baseLine,
+                notes: input.note,
+            },
+        ],
+        notes: input.note ?? `Transferencia desde ${sourceStorage.name}`,
+        metadata: {
+            ...metadataBase,
+            direction: "IN",
+        },
+    });
+
+    if (!inResult.success) {
+        return { success: false, error: inResult.error ?? "No se pudo registrar la entrada de stock." };
+    }
+
+    revalidatePath("/admin/inventory/stock");
+
+    const documents = [
+        outResult.transaction?.documentNumber,
+        inResult.transaction?.documentNumber,
+    ].filter((value): value is string => Boolean(value));
+
+    return { success: true, documentNumbers: documents };
+}
+
+export interface AdjustVariantStockInput {
+    variantId: string;
+    storageId: string;
+    currentQuantity: number;
+    targetQuantity: number;
+    note?: string;
+}
+
+export async function adjustVariantStockLevel(input: AdjustVariantStockInput): Promise<InventoryActionResult> {
+    const currentQuantity = Number(input.currentQuantity ?? 0);
+    const targetQuantity = Number(input.targetQuantity);
+
+    if (!Number.isFinite(targetQuantity) || targetQuantity < 0) {
+        return { success: false, error: "El nuevo stock debe ser un número mayor o igual a cero." };
+    }
+
+    const difference = targetQuantity - currentQuantity;
+    if (Math.abs(difference) < 1e-6) {
+        return { success: true, message: "El stock ya se encuentra en el valor indicado." };
+    }
+
+    const session = await getCurrentSession();
+    if (!session?.id) {
+        return { success: false, error: "No se pudo determinar el usuario en sesión." };
+    }
+
+    const ds = await getDb();
+    const variantRepo = ds.getRepository(ProductVariant);
+    const storageRepo = ds.getRepository(Storage);
+
+    const [variant, storage] = await Promise.all([
+        variantRepo.findOne({ where: { id: input.variantId }, relations: ["product"] }),
+        storageRepo.findOne({ where: { id: input.storageId }, relations: ["branch"] }),
+    ]);
+
+    if (!variant) {
+        return { success: false, error: "Variante no encontrada." };
+    }
+    if (!storage) {
+        return { success: false, error: "Bodega no encontrada." };
+    }
+
+    const conversion = Number(variant.unit?.conversionFactor ?? 1);
+    const quantity = Math.abs(difference);
+    const quantityInBase = Number((quantity * conversion).toFixed(6));
+    const variantDisplayName = buildVariantDisplayName(variant);
+
+    const productId = variant.productId ?? variant.product?.id;
+    if (!productId) {
+        return { success: false, error: "La variante no está asociada a un producto válido." };
+    }
+
+    const line: TransactionLineDTO = {
+        productId,
+        productVariantId: variant.id,
+        productName: variant.product?.name ?? "Producto",
+        productSku: variant.sku,
+        variantName: variantDisplayName,
+        quantity,
+        quantityInBase,
+        unitId: variant.unitId,
+        unitOfMeasure: variant.unit?.symbol ?? undefined,
+        unitConversionFactor: conversion,
+        unitPrice: 0,
+        unitCost: Number(variant.baseCost ?? 0),
+        discountPercentage: 0,
+        discountAmount: 0,
+        taxRate: 0,
+        taxAmount: 0,
+        notes: input.note,
+    };
+
+    const transactionType = difference > 0
+        ? TransactionType.ADJUSTMENT_IN
+        : TransactionType.ADJUSTMENT_OUT;
+
+    const result = await createTransaction({
+        transactionType,
+        branchId: storage.branchId ?? undefined,
+        storageId: storage.id,
+        userId: session.id,
+        lines: [line],
+        notes: input.note,
+        metadata: {
+            source: "inventory-stock-grid",
+            adjustment: {
+                previousQuantity: currentQuantity,
+                newQuantity: targetQuantity,
+                storageId: storage.id,
+                variantId: variant.id,
+            },
+        },
+    });
+
+    if (!result.success) {
+        return { success: false, error: result.error ?? "No se pudo registrar el ajuste de stock." };
+    }
+
+    revalidatePath("/admin/inventory/stock");
+
+    const documentNumbers = result.transaction?.documentNumber
+        ? [result.transaction.documentNumber]
+        : undefined;
+
+    return { success: true, documentNumbers };
 }

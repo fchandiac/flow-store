@@ -1,6 +1,9 @@
 import { getDb } from '../db';
 import { User, UserRole } from '../entities/User';
 import { Person, PersonType, DocumentType, BankName, AccountTypeName, PersonBankAccount } from '../entities/Person';
+import { Supplier, SupplierType } from '../entities/Supplier';
+import { Employee, EmploymentType, EmployeeStatus } from '../entities/Employee';
+import { AccountingPeriod, AccountingPeriodStatus } from '../entities/AccountingPeriod';
 import { Company } from '../entities/Company';
 import { Branch } from '../entities/Branch';
 import { Tax, TaxType } from '../entities/Tax';
@@ -1182,27 +1185,70 @@ async function seedFlowStore() {
     }
 
     // ============================================
-    // 7. BODEGA PRINCIPAL
+    // 7. ALMACENES BASE
     // ============================================
-    console.log('\n📦 Creando bodega...');
-    
-    let storage = await db.getRepository(Storage).findOne({ 
-      where: { branchId: primaryBranch.id } 
+    console.log('\n📦 Configurando almacenes...');
+
+    const storageRepo = db.getRepository(Storage);
+
+    let parralStorage = await storageRepo.findOne({
+      where: { branchId: primaryBranch.id, category: StorageCategory.IN_BRANCH },
+      withDeleted: true,
     });
-    if (!storage) {
-      storage = new Storage();
-      storage.id = uuidv4();
-      storage.branchId = primaryBranch.id;
-      storage.name = 'Vitrina Principal';
-      storage.code = 'VIT-001';
-      storage.type = StorageType.WAREHOUSE;
-      storage.category = StorageCategory.IN_BRANCH;
-      storage.isDefault = true;
-      storage.isActive = true;
-      await db.getRepository(Storage).save(storage);
-      console.log(`   ✓ Bodega creada: ${storage.name}`);
+
+    if (!parralStorage) {
+      parralStorage = new Storage();
+      parralStorage.id = uuidv4();
+      parralStorage.branchId = primaryBranch.id;
+      parralStorage.name = 'Almacén Parral';
+      parralStorage.code = 'ALM-PARRAL';
+      parralStorage.type = StorageType.WAREHOUSE;
+      parralStorage.category = StorageCategory.IN_BRANCH;
+      parralStorage.isDefault = true;
+      parralStorage.isActive = true;
+      await storageRepo.save(parralStorage);
+      console.log(`   ✓ Almacén creado: ${parralStorage.name}`);
     } else {
-      console.log(`   ⚠ Bodega ya existe: ${storage.name}`);
+      parralStorage.branchId = primaryBranch.id;
+      parralStorage.name = parralStorage.name || 'Almacén Parral';
+      parralStorage.code = parralStorage.code || 'ALM-PARRAL';
+      parralStorage.category = StorageCategory.IN_BRANCH;
+      parralStorage.type = StorageType.WAREHOUSE;
+      parralStorage.isDefault = true;
+      parralStorage.isActive = true;
+      parralStorage.deletedAt = undefined;
+      await storageRepo.save(parralStorage);
+      console.log(`   • Almacén actualizado: ${parralStorage.name}`);
+    }
+
+    let centralStorage = await storageRepo.findOne({
+      where: { category: StorageCategory.CENTRAL },
+      withDeleted: true,
+    });
+
+    if (!centralStorage) {
+      centralStorage = new Storage();
+      centralStorage.id = uuidv4();
+      centralStorage.branchId = null;
+      centralStorage.name = 'Almacén Central';
+      centralStorage.code = 'ALM-CENTRAL';
+      centralStorage.type = StorageType.WAREHOUSE;
+      centralStorage.category = StorageCategory.CENTRAL;
+      centralStorage.isDefault = false;
+      centralStorage.isActive = true;
+      await storageRepo.save(centralStorage);
+      console.log(`   ✓ Almacén creado: ${centralStorage.name}`);
+    } else {
+      centralStorage.branchId = null;
+      centralStorage.name = centralStorage.name || 'Almacén Central';
+      centralStorage.code = centralStorage.code || 'ALM-CENTRAL';
+      centralStorage.type = StorageType.WAREHOUSE;
+      centralStorage.category = StorageCategory.CENTRAL;
+      centralStorage.isDefault = centralStorage.isDefault ?? false;
+      centralStorage.isActive = true;
+      centralStorage.deletedAt = undefined;
+      await storageRepo.save(centralStorage);
+      console.log(`   • Almacén actualizado: ${centralStorage.name}`);
     }
 
     // ============================================
@@ -1262,6 +1308,391 @@ async function seedFlowStore() {
       await db.getRepository(User).save(adminUser);
       console.log(`   ✓ Usuario actualizado: ${adminUser.userName} (contraseña: 890890)`);
     }
+
+    // ============================================
+    // 9.1 PROVEEDORES BASE
+    // ============================================
+    console.log('\n🤝 Configurando proveedores base...');
+
+    const personRepo = db.getRepository(Person);
+    const supplierRepo = db.getRepository(Supplier);
+
+    type SupplierSeedConfig = {
+      companyName: string;
+      businessName: string;
+      alias: string;
+      documentNumber: string;
+      email: string;
+      phone: string;
+      address: string;
+      supplierType: SupplierType;
+      defaultPaymentTermDays: number;
+      notes?: string;
+      bankAccounts: PersonBankAccount[];
+    };
+
+    const supplierSeeds: SupplierSeedConfig[] = [
+      {
+        companyName: 'Metalúrgica Andina',
+        businessName: 'Metalúrgica Andina SpA',
+        alias: 'Metalúrgica Andina',
+        documentNumber: '76123456-7',
+        email: 'compras@metalurgicaandina.cl',
+        phone: '+56 2 2345 6789',
+        address: 'Parque Industrial, Talca',
+        supplierType: SupplierType.MANUFACTURER,
+        defaultPaymentTermDays: 30,
+        bankAccounts: [
+          {
+            bankName: BankName.BANCO_BCI,
+            accountType: AccountTypeName.CUENTA_CORRIENTE,
+            accountNumber: '12345678',
+            accountHolderName: 'Metalúrgica Andina SpA',
+            isPrimary: true,
+            notes: 'Cuenta principal para compras mayoristas',
+          },
+          {
+            bankName: BankName.BANCO_CHILE,
+            accountType: AccountTypeName.CUENTA_VISTA,
+            accountNumber: '87654321',
+            accountHolderName: 'Metalúrgica Andina SpA',
+            notes: 'Cuenta secundaria para pagos urgentes',
+          },
+        ],
+      },
+      {
+        companyName: 'Gemas del Sur',
+        businessName: 'Gemas del Sur Limitada',
+        alias: 'Gemas del Sur',
+        documentNumber: '77111222-3',
+        email: 'ventas@gemasdelsur.cl',
+        phone: '+56 9 8765 4321',
+        address: 'Av. Costanera 987, Puerto Varas',
+        supplierType: SupplierType.DISTRIBUTOR,
+        defaultPaymentTermDays: 45,
+        bankAccounts: [
+          {
+            bankName: BankName.BANCO_SANTANDER,
+            accountType: AccountTypeName.CUENTA_CORRIENTE,
+            accountNumber: '33445566',
+            accountHolderName: 'Gemas del Sur Ltda.',
+            isPrimary: true,
+            notes: 'Cuenta principal con línea de crédito',
+          },
+          {
+            bankName: BankName.BANCO_ITAU,
+            accountType: AccountTypeName.CUENTA_CORRIENTE,
+            accountNumber: '66554433',
+            accountHolderName: 'Gemas del Sur Ltda.',
+            notes: 'Cuenta para operaciones internacionales',
+          },
+        ],
+      },
+    ];
+
+    for (const seed of supplierSeeds) {
+      let person = await personRepo.findOne({
+        where: { documentNumber: seed.documentNumber },
+        withDeleted: true,
+      });
+
+      const isNewPerson = !person;
+
+      if (!person) {
+        person = new Person();
+        person.id = uuidv4();
+      }
+
+      person.type = PersonType.COMPANY;
+      person.firstName = seed.companyName;
+      person.lastName = undefined;
+      person.businessName = seed.businessName;
+      person.documentType = DocumentType.RUT;
+      person.documentNumber = seed.documentNumber;
+      person.email = seed.email;
+      person.phone = seed.phone;
+      person.address = seed.address;
+      person.bankAccounts = seed.bankAccounts;
+      person.deletedAt = undefined;
+
+      person = await personRepo.save(person);
+
+      let supplier = await supplierRepo.findOne({
+        where: { personId: person.id },
+        withDeleted: true,
+      });
+
+      const isNewSupplier = !supplier;
+
+      if (!supplier) {
+        supplier = new Supplier();
+        supplier.id = uuidv4();
+        supplier.personId = person.id;
+      } else if (!supplier.personId) {
+        supplier.personId = person.id;
+      }
+
+      supplier.alias = seed.alias;
+      supplier.supplierType = seed.supplierType;
+      supplier.defaultPaymentTermDays = seed.defaultPaymentTermDays;
+      supplier.notes = seed.notes;
+      supplier.isActive = true;
+      supplier.deletedAt = undefined;
+
+      await supplierRepo.save(supplier);
+
+      const statusLabel = isNewSupplier || isNewPerson ? '✓' : '•';
+      console.log(`   ${statusLabel} Proveedor listo: ${seed.alias}`);
+    }
+
+    // ============================================
+    // 9.2 EMPLEADOS BASE
+    // ============================================
+    console.log('\n🧑‍💼 Configurando empleados base...');
+
+    const employeeRepo = db.getRepository(Employee);
+
+    type EmployeeSeedConfig = {
+      firstName: string;
+      lastName: string;
+      documentNumber: string;
+      email: string;
+      phone: string;
+      address?: string;
+      employmentType: EmploymentType;
+      status: EmployeeStatus;
+      hireDate: string;
+      branchRef?: string;
+      organizationalUnitCode?: string;
+      costCenterRef?: string;
+      baseSalary?: number;
+      metadata?: Record<string, unknown>;
+    };
+
+    const employeeSeeds: EmployeeSeedConfig[] = [
+      {
+        firstName: 'Valentina',
+        lastName: 'Rivas',
+        documentNumber: '12.345.678-9',
+        email: 'valentina.rivas@joyarte.cl',
+        phone: '+56 9 1111 2233',
+        address: 'Oficina Central Joyarte, Parral',
+        employmentType: EmploymentType.FULL_TIME,
+        status: EmployeeStatus.ACTIVE,
+        hireDate: '2023-02-01',
+        branchRef: 'PARRAL',
+        organizationalUnitCode: 'ADM-CENTRAL',
+        costCenterRef: 'OPERACIONES_PARRAL',
+        baseSalary: 1200000,
+        metadata: { role: 'Gerenta de Administración' },
+      },
+      {
+        firstName: 'Carlos',
+        lastName: 'Méndez',
+        documentNumber: '14.567.890-1',
+        email: 'carlos.mendez@joyarte.cl',
+        phone: '+56 9 2222 3344',
+        address: 'Casa Matriz Joyarte, Parral',
+        employmentType: EmploymentType.FULL_TIME,
+        status: EmployeeStatus.ACTIVE,
+        hireDate: '2023-05-15',
+        branchRef: 'PARRAL',
+        organizationalUnitCode: 'ADM-CENTRAL',
+        costCenterRef: 'OPERACIONES_PARRAL',
+        baseSalary: 950000,
+        metadata: { role: 'Analista Contable' },
+      },
+      {
+        firstName: 'María',
+        lastName: 'Torres',
+        documentNumber: '16.789.012-3',
+        email: 'maria.torres@joyarte.cl',
+        phone: '+56 9 3333 4455',
+        address: 'Sucursal Parral, Avenida Aníbal Pinto 123',
+        employmentType: EmploymentType.FULL_TIME,
+        status: EmployeeStatus.ACTIVE,
+        hireDate: '2024-01-10',
+        branchRef: 'PARRAL',
+        organizationalUnitCode: 'OPS-PARRAL',
+        costCenterRef: 'OPERACIONES_PARRAL',
+        baseSalary: 800000,
+        metadata: { role: 'Supervisora de Ventas' },
+      },
+      {
+        firstName: 'Jorge',
+        lastName: 'Salinas',
+        documentNumber: '17.901.234-5',
+        email: 'jorge.salinas@joyarte.cl',
+        phone: '+56 9 4444 5566',
+        address: 'Sucursal Parral, Avenida Aníbal Pinto 123',
+        employmentType: EmploymentType.FULL_TIME,
+        status: EmployeeStatus.ACTIVE,
+        hireDate: '2024-03-05',
+        branchRef: 'PARRAL',
+        organizationalUnitCode: 'OPS-PARRAL',
+        costCenterRef: 'OPERACIONES_PARRAL',
+        baseSalary: 650000,
+        metadata: { role: 'Vendedor Senior' },
+      },
+      {
+        firstName: 'Isidora',
+        lastName: 'Campos',
+        documentNumber: '18.234.567-8',
+        email: 'isidora.campos@joyarte.cl',
+        phone: '+56 9 5555 6677',
+        address: 'Sucursal Parral, Avenida Aníbal Pinto 123',
+        employmentType: EmploymentType.PART_TIME,
+        status: EmployeeStatus.ACTIVE,
+        hireDate: '2024-07-22',
+        branchRef: 'PARRAL',
+        organizationalUnitCode: 'OPS-PARRAL',
+        costCenterRef: 'OPERACIONES_PARRAL',
+        baseSalary: 420000,
+        metadata: { role: 'Asistente de Ventas' },
+      },
+    ];
+
+    for (const seed of employeeSeeds) {
+      let person = await personRepo.findOne({
+        where: { documentNumber: seed.documentNumber },
+        withDeleted: true,
+      });
+
+      const isNewPerson = !person;
+
+      if (!person) {
+        person = new Person();
+        person.id = uuidv4();
+      }
+
+      person.type = PersonType.NATURAL;
+      person.firstName = seed.firstName;
+      person.lastName = seed.lastName;
+      person.businessName = undefined;
+      person.documentType = DocumentType.RUN;
+      person.documentNumber = seed.documentNumber;
+      person.email = seed.email;
+      person.phone = seed.phone;
+      person.address = seed.address;
+      person.bankAccounts = null;
+      person.deletedAt = undefined;
+
+      person = await personRepo.save(person);
+
+      let employee = await employeeRepo.findOne({
+        where: { personId: person.id },
+        withDeleted: true,
+      });
+
+      const isNewEmployee = !employee;
+
+      if (!employee) {
+        employee = new Employee();
+        employee.id = uuidv4();
+        employee.companyId = company.id;
+        employee.personId = person.id;
+      } else {
+        employee.companyId = company.id ?? employee.companyId;
+        employee.personId = person.id;
+      }
+
+      const branch = seed.branchRef ? branchesByRef[seed.branchRef] : undefined;
+      const costCenter = seed.costCenterRef ? costCenterRefMap[seed.costCenterRef] : undefined;
+      const orgUnit = seed.organizationalUnitCode ? organizationalUnitMap.get(seed.organizationalUnitCode) : undefined;
+
+      employee.branchId = branch?.id ?? null;
+      employee.costCenterId = costCenter?.id ?? null;
+      employee.organizationalUnitId = orgUnit?.id ?? null;
+      employee.employmentType = seed.employmentType;
+      employee.status = seed.status;
+      employee.hireDate = seed.hireDate;
+      employee.terminationDate = null;
+      employee.baseSalary = seed.baseSalary ? String(seed.baseSalary) : null;
+      employee.metadata = seed.metadata ?? null;
+      employee.deletedAt = undefined;
+
+      await employeeRepo.save(employee);
+
+      const statusLabel = isNewEmployee || isNewPerson ? '✓' : '•';
+      console.log(`   ${statusLabel} Empleado listo: ${seed.firstName} ${seed.lastName}`);
+    }
+
+    // ============================================
+    // 9.3 PERIODOS CONTABLES
+    // ============================================
+    console.log('\n📆 Configurando periodos contables...');
+
+    const accountingPeriodRepo = db.getRepository(AccountingPeriod);
+
+    const monthRange = (start: number, end: number) =>
+      Array.from({ length: end - start + 1 }, (_, index) => start + index);
+
+    const formatDate = (year: number, month: number, day: number) =>
+      new Date(Date.UTC(year, month - 1, day)).toISOString().slice(0, 10);
+
+    const getMonthEndDay = (year: number, month: number) =>
+      new Date(Date.UTC(year, month, 0)).getUTCDate();
+
+    const accountingPeriodSeeds = [
+      ...monthRange(7, 12).map((month) => ({
+        year: 2025,
+        month,
+        status: AccountingPeriodStatus.CLOSED,
+      })),
+      ...monthRange(1, 12).map((month) => ({
+        year: 2026,
+        month,
+        status: AccountingPeriodStatus.OPEN,
+      })),
+    ];
+
+    let createdPeriods = 0;
+    let updatedPeriods = 0;
+
+    for (const seed of accountingPeriodSeeds) {
+      const monthEndDay = getMonthEndDay(seed.year, seed.month);
+      const startDate = formatDate(seed.year, seed.month, 1);
+      const endDate = formatDate(seed.year, seed.month, monthEndDay);
+
+      let period = await accountingPeriodRepo.findOne({
+        where: { companyId: company.id, startDate },
+      });
+
+      const isNewPeriod = !period;
+
+      if (!period) {
+        period = new AccountingPeriod();
+        period.id = uuidv4();
+        period.companyId = company.id;
+        period.startDate = startDate;
+      } else {
+        period.companyId = company.id;
+        period.startDate = startDate;
+      }
+
+      period.endDate = endDate;
+      period.status = seed.status;
+
+      if (seed.status === AccountingPeriodStatus.CLOSED) {
+        period.closedAt = new Date(Date.UTC(seed.year, seed.month - 1, monthEndDay, 23, 59, 59));
+        period.closedBy = adminUser?.id ?? null;
+      } else {
+        period.closedAt = null;
+        period.closedBy = null;
+      }
+
+      await accountingPeriodRepo.save(period);
+
+      if (isNewPeriod) {
+        createdPeriods++;
+      } else {
+        updatedPeriods++;
+      }
+    }
+
+    console.log(
+      `   ✓ Periodos contables listos (creados: ${createdPeriods}, actualizados: ${updatedPeriods})`,
+    );
 
     // ============================================
     // 10. PERMISOS PARA ADMIN

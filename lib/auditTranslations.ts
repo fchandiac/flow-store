@@ -92,6 +92,15 @@ export const TRANSACTION_TYPE_TRANSLATIONS: Record<string, string> = {
   TRAY_DELIVERY_TO_CLIENT: 'Entrega de bandejas a cliente',
 
   // Core operations
+  SALE: 'Venta',
+  PURCHASE: 'Compra',
+  PURCHASE_ORDER: 'Orden de compra',
+  SALE_RETURN: 'Devolución de venta',
+  PURCHASE_RETURN: 'Devolución de compra',
+  ADJUSTMENT_IN: 'Ajuste de entrada',
+  ADJUSTMENT_OUT: 'Ajuste de salida',
+  TRANSFER_IN: 'Transferencia de entrada',
+  TRANSFER_OUT: 'Transferencia de salida',
   RECEPTION: 'Recepción',
   PALLET_TRAY_ASSIGNMENT: 'Asignación de bandejas a pallet',
   PALLET_TRAY_RELEASE: 'Liberación de bandejas de pallet',
@@ -99,6 +108,9 @@ export const TRANSACTION_TYPE_TRANSLATIONS: Record<string, string> = {
   // Financial operations
   ADVANCE: 'Anticipo',
   SETTLEMENT: 'Liquidación',
+  PAYMENT_IN: 'Pago recibido',
+  PAYMENT_OUT: 'Pago realizado',
+  OPERATING_EXPENSE: 'Gasto operativo',
 
   // Dispatch operations
   DISPATCH: 'Despacho',

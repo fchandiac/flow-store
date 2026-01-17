@@ -96,6 +96,12 @@ interface POSContextValue {
     isPaymentDialogOpen: boolean;
     openPaymentDialog: () => void;
     closePaymentDialog: () => void;
+    isCashEntryDialogOpen: boolean;
+    openCashEntryDialog: () => void;
+    closeCashEntryDialog: () => void;
+    isCashOutDialogOpen: boolean;
+    openCashOutDialog: () => void;
+    closeCashOutDialog: () => void;
     selectedCustomer: POSCustomerSummary | null;
     setSelectedCustomer: (customer: POSCustomerSummary | null) => void;
     paymentAllocations: POSPaymentEntry[];
@@ -186,6 +192,8 @@ export function PointOfSaleProvider({ children }: { children: React.ReactNode })
     const [cart, dispatch] = useReducer(cartReducer, []);
     const [isFetching, startTransition] = useTransition();
     const [isPaymentDialogOpen, setPaymentDialogOpen] = useState(false);
+    const [isCashEntryDialogOpen, setCashEntryDialogOpen] = useState(false);
+    const [isCashOutDialogOpen, setCashOutDialogOpen] = useState(false);
     const [selectedCustomer, setSelectedCustomerState] = useState<POSCustomerSummary | null>(null);
     const [paymentAllocations, setPaymentAllocations] = useState<POSPaymentEntry[]>([]);
     const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
@@ -296,6 +304,22 @@ export function PointOfSaleProvider({ children }: { children: React.ReactNode })
         setPaymentDialogOpen(false);
     }, []);
 
+    const openCashEntryDialog = useCallback(() => {
+        setCashEntryDialogOpen(true);
+    }, []);
+
+    const closeCashEntryDialog = useCallback(() => {
+        setCashEntryDialogOpen(false);
+    }, []);
+
+    const openCashOutDialog = useCallback(() => {
+        setCashOutDialogOpen(true);
+    }, []);
+
+    const closeCashOutDialog = useCallback(() => {
+        setCashOutDialogOpen(false);
+    }, []);
+
     const setSelectedCustomer = useCallback((customer: POSCustomerSummary | null) => {
         setSelectedCustomerState(customer);
     }, []);
@@ -372,6 +396,12 @@ export function PointOfSaleProvider({ children }: { children: React.ReactNode })
         isPaymentDialogOpen,
         openPaymentDialog,
         closePaymentDialog,
+        isCashEntryDialogOpen,
+        openCashEntryDialog,
+        closeCashEntryDialog,
+        isCashOutDialogOpen,
+        openCashOutDialog,
+        closeCashOutDialog,
         selectedCustomer,
         setSelectedCustomer,
         paymentAllocations,

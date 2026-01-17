@@ -234,11 +234,6 @@ export default function ProductSearch() {
                                             Unidad: {item.unitOfMeasure}
                                         </Badge>
                                     )}
-                                    {item.taxIds.length > 0 && (
-                                        <Badge variant="info" data-test-id="pos-tax-badge">
-                                            {item.taxIds.length} impuesto(s)
-                                        </Badge>
-                                    )}
                                 </div>
                             </article>
                         );

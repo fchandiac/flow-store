@@ -4,6 +4,7 @@ import Badge from "@/app/baseComponents/Badge/Badge";
 import { supplierTypeLabels } from "../constants";
 import { SupplierSummarySection } from "./components/SupplierSummarySection";
 import { SupplierBankAccountsSection } from "./components/SupplierBankAccountsSection";
+import { SupplierPurchasesSection } from "./components/SupplierPurchasesSection";
 import type { SupplierWithPerson } from "../types";
 import { DocumentType } from "@/data/entities/Person";
 
@@ -14,10 +15,11 @@ interface SupplierDetailDialogProps {
   onSupplierUpdate?: (supplier: SupplierWithPerson) => void;
 }
 
-type SectionId = "summary" | "bankAccounts";
+type SectionId = "summary" | "purchases" | "bankAccounts";
 
 const sections: Array<{ id: SectionId; label: string; icon: string }> = [
   { id: "summary", label: "Resumen", icon: "badge" },
+  { id: "purchases", label: "Compras", icon: "shopping_cart" },
   { id: "bankAccounts", label: "Cuentas bancarias", icon: "account_balance" },
 ];
 
@@ -72,6 +74,8 @@ export const SupplierDetailDialog: React.FC<SupplierDetailDialogProps> = ({ open
             onSupplierUpdate={onSupplierUpdate}
           />
         );
+      case "purchases":
+        return <SupplierPurchasesSection supplierId={supplier.id} />;
       case "summary":
       default:
         return <SupplierSummarySection supplier={supplier} />;

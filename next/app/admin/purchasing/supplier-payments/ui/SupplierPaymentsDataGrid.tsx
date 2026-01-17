@@ -125,7 +125,6 @@ const SupplierPaymentsDataGrid = () => {
             field: 'documentNumber',
             headerName: 'Documento',
             flex: 0.9,
-            minWidth: 160,
             renderCell: (params) => (
                 <div className='flex flex-col'>
                     <span className='font-mono text-sm font-semibold text-gray-900'>
@@ -143,7 +142,6 @@ const SupplierPaymentsDataGrid = () => {
             field: 'supplierName',
             headerName: 'Proveedor',
             flex: 1.4,
-            minWidth: 220,
             renderCell: (params) => {
                 const row = params.row as SupplierPaymentListItem;
                 return (
@@ -164,7 +162,6 @@ const SupplierPaymentsDataGrid = () => {
             field: 'total',
             headerName: 'Monto',
             flex: 0.8,
-            minWidth: 140,
             align: 'right',
             renderCell: (params) => (
                 <span className='text-sm font-semibold text-gray-900'>
@@ -176,7 +173,6 @@ const SupplierPaymentsDataGrid = () => {
             field: 'paymentStatus',
             headerName: 'Estado de pago',
             flex: 0.9,
-            minWidth: 160,
             renderCell: (params) => {
                 const row = params.row as SupplierPaymentListItem;
                 const normalized = normalizePaymentStatus(row.paymentStatus);
@@ -191,14 +187,12 @@ const SupplierPaymentsDataGrid = () => {
             field: 'paymentDueDate',
             headerName: 'Vencimiento',
             flex: 1.1,
-            minWidth: 180,
             renderCell: (params) => buildDueDateDisplay(params.row as SupplierPaymentListItem),
         },
         {
             field: 'createdAt',
             headerName: 'Creado',
             flex: 1,
-            minWidth: 170,
             renderCell: (params) => (
                 <span className='text-sm text-gray-600'>
                     {moment((params.row as SupplierPaymentListItem).createdAt).format('DD-MM-YYYY HH:mm')}
@@ -209,7 +203,6 @@ const SupplierPaymentsDataGrid = () => {
             field: 'origin',
             headerName: 'Origen',
             flex: 1,
-            minWidth: 170,
             renderCell: (params) => {
                 const row = params.row as SupplierPaymentListItem;
                 const origin = row.origin ? row.origin.toUpperCase() : null;
@@ -236,7 +229,6 @@ const SupplierPaymentsDataGrid = () => {
             field: 'paymentMethod',
             headerName: 'Método',
             flex: 0.7,
-            minWidth: 150,
             renderCell: (params) => {
                 const row = params.row as SupplierPaymentListItem;
                 const method = row.paymentMethod;
@@ -252,7 +244,6 @@ const SupplierPaymentsDataGrid = () => {
             field: 'status',
             headerName: 'Estado trx',
             flex: 0.8,
-            minWidth: 150,
             renderCell: (params) => {
                 const row = params.row as SupplierPaymentListItem;
                 const status = row.status;

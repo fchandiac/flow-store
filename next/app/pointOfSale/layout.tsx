@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import TopBar from '@/baseComponents/TopBar/TopBar';
 import type { SideBarMenuItem } from '@/baseComponents/TopBar/SideBar';
+import DropdownList, { dropdownOptionClass } from '@/baseComponents/DropdownList/DropdownList';
+import { Button } from '@/baseComponents/Button/Button';
 import { PointOfSaleProvider, usePointOfSale } from './context/PointOfSaleContext';
 
 /**
@@ -37,24 +39,94 @@ function PointOfSaleHeader() {
         priceLists,
         isLoading,
         isFetching,
+        openCashEntryDialog,
+        openCashOutDialog,
     } = usePointOfSale();
 
     const selectedPriceList = priceLists.find((list) => list.id === selectedPriceListId);
     const isBusy = isLoading || isFetching;
+    const [isCashMenuOpen, setIsCashMenuOpen] = useState(false);
+    const cashMenuRef = useRef<HTMLDivElement | null>(null);
+    const cashOptions = useMemo(
+        () => [
+            { id: 'cash-in', label: 'Ingreso de dinero', onSelect: openCashEntryDialog },
+            { id: 'cash-out', label: 'Egreso de dinero', onSelect: openCashOutDialog },
+            { id: 'close-session', label: 'Cierre de caja', onSelect: () => {} },
+            { id: 'returns', label: 'Devolución de productos', onSelect: () => {} },
+        ],
+        [openCashEntryDialog, openCashOutDialog]
+    );
+
+    useEffect(() => {
+        if (!isCashMenuOpen) {
+            return;
+        }
+
+        const handleClickOutside = (event: MouseEvent) => {
+            if (!cashMenuRef.current?.contains(event.target as Node)) {
+                setIsCashMenuOpen(false);
+            }
+        };
+
+        const handleEscape = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsCashMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleEscape);
+
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleEscape);
+        };
+    }, [isCashMenuOpen]);
 
     return (
         <section className="border-b bg-white px-6 py-3">
             <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-4">
                 <div className="flex flex-wrap items-center gap-3">
                     <h1 className="text-xl font-semibold text-gray-900">Punto de Venta</h1>
-                    <span className="text-sm text-muted-foreground">
-                        Gestiona las ventas en sucursal desde un solo lugar.
-                    </span>
                     {isBusy && (
                         <span className="material-symbols-outlined animate-spin text-base text-muted-foreground">
                             progress_activity
                         </span>
                     )}
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                    <div ref={cashMenuRef} className="relative">
+                        <Button
+                            variant="text"
+                            size="sm"
+                            onClick={() => setIsCashMenuOpen((prev) => !prev)}
+                            className="flex items-center gap-1 text-sm font-medium text-blue-600 hover:text-blue-700"
+                            data-test-id="pos-cash-movements-button"
+                        >
+                            Movimientos de caja
+                            <span className="material-symbols-outlined text-base" aria-hidden="true">
+                                {isCashMenuOpen ? 'expand_less' : 'expand_more'}
+                            </span>
+                        </Button>
+                        <DropdownList
+                            open={isCashMenuOpen}
+                            className="mt-2 min-w-[220px] shadow-lg"
+                            testId="pos-cash-movements-menu"
+                        >
+                            {cashOptions.map((option) => (
+                                <li
+                                    key={option.id}
+                                    className={`${dropdownOptionClass} cursor-pointer text-gray-700`}
+                                    onClick={() => {
+                                        setIsCashMenuOpen(false);
+                                        option.onSelect?.();
+                                    }}
+                                >
+                                    {option.label}
+                                </li>
+                            ))}
+                        </DropdownList>
+                    </div>
                 </div>
                 <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">

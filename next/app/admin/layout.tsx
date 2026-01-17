@@ -20,7 +20,15 @@ const menuItems: SideBarMenuItem[] = [
         children: [
             { id: 'transactions', label: 'Transacciones', url: '/admin/sales/transactions' },
             { id: 'customers', label: 'Clientes', url: '/admin/sales/customers' },
+            { id: 'points-of-sale', label: 'Puntos de Venta', url: '/admin/sales/points-of-sale' },
+                        { id: 'cash-sessions', label: 'Sesiones de Caja', url: '' },
+            { id: 'cash-reports', label: 'Cortes de Caja', url: '' },
         ],
+    },
+    {
+        id: 'point-of-sale-cart',
+        label: 'Carro de compra',
+        url: '/pointOfSale',
     },
     {
         id: 'inventario',
@@ -61,14 +69,7 @@ const menuItems: SideBarMenuItem[] = [
         label: 'RRHH',
         url: '/admin/human-resources',
     },
-    {
-        id: 'caja',
-        label: 'Caja',
-        children: [
-            { id: 'cash-sessions', label: 'Sesiones de Caja', url: '/admin/cash-sessions' },
-            { id: 'cash-reports', label: 'Cortes de Caja', url: '/admin/cash-reports' },
-        ],
-    },
+  
     {
         id: 'reportes',
         label: 'Reportes',
@@ -82,7 +83,6 @@ const menuItems: SideBarMenuItem[] = [
             { id: 'branches', label: 'Sucursales', url: '/admin/settings/branches' },
             { id: 'cost-centers', label: 'Centros de Costos', url: '/admin/settings/cost-centers' },
             { id: 'storages', label: 'Almacenes', url: '/admin/settings/storages' },
-            { id: 'points-of-sale', label: 'Puntos de Venta', url: '/admin/settings/points-of-sale' },
             { id: 'users', label: 'Usuarios', url: '/admin/settings/users' },
             { id: 'taxes', label: 'Impuestos', url: '/admin/settings/taxes' },
             { id: 'price-lists', label: 'Listas de Precios', url: '/admin/settings/price-lists' },

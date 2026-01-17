@@ -57,7 +57,117 @@ interface TaxOption {
     name: string;
     rate: number;
     isDefault: boolean;
+    code?: string | null;
 }
+
+interface PaymentEntry {
+    id: string;
+    amount: number;
+    dueDate: string;
+}
+
+const createPaymentId = (): string => {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID();
+    }
+    return `pay-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const addDaysToDate = (baseDate: string, days: number): string => {
+    const base = DATE_ONLY_REGEX.test(baseDate) ? `${baseDate}T00:00:00` : baseDate;
+    const parsed = new Date(base);
+    if (Number.isNaN(parsed.getTime())) {
+        return formatDateOnly(new Date());
+    }
+    const cloned = new Date(parsed);
+    cloned.setDate(cloned.getDate() + days);
+    return formatDateOnly(cloned);
+};
+
+const cascadeDueDates = (payments: PaymentEntry[], baseDate: string, termDays: number): PaymentEntry[] => {
+    if (payments.length === 0) {
+        return [];
+    }
+    const sanitizedTerm = Number.isFinite(termDays) ? Math.max(0, Math.round(termDays)) : 0;
+    return payments.map((payment, index) => ({
+        ...payment,
+        dueDate: addDaysToDate(baseDate, sanitizedTerm * (index + 1)),
+    }));
+};
+
+const normalizePositiveAmount = (value: number): number => {
+    if (!Number.isFinite(value)) {
+        return 0;
+    }
+    const rounded = Math.round(value);
+    return rounded < 0 ? 0 : rounded;
+};
+
+const distributeAmountEvenly = (total: number, count: number): number[] => {
+    const sanitizedTotal = normalizePositiveAmount(total);
+    if (count <= 0) {
+        return [];
+    }
+    const base = Math.floor(sanitizedTotal / count);
+    let remainder = sanitizedTotal - base * count;
+    return Array.from({ length: count }, () => {
+        const extra = remainder > 0 ? 1 : 0;
+        if (remainder > 0) {
+            remainder -= 1;
+        }
+        return base + extra;
+    });
+};
+
+const rebalancePayments = (payments: PaymentEntry[], total: number): PaymentEntry[] => {
+    const sanitizedTotal = normalizePositiveAmount(total);
+    if (payments.length === 0) {
+        return [];
+    }
+    if (sanitizedTotal === 0) {
+        return payments.map((payment) => ({ ...payment, amount: 0 }));
+    }
+    const weightsBase = payments.reduce((sum, payment) => sum + normalizePositiveAmount(payment.amount), 0);
+    if (weightsBase === 0) {
+        const distributed = distributeAmountEvenly(sanitizedTotal, payments.length);
+        return payments.map((payment, index) => ({
+            ...payment,
+            amount: distributed[index] ?? 0,
+        }));
+    }
+
+    let remainder = sanitizedTotal;
+    return payments.map((payment, index) => {
+        const weight = normalizePositiveAmount(payment.amount);
+        let amount = Math.floor((weight / weightsBase) * sanitizedTotal);
+        if (!Number.isFinite(amount) || amount < 0) {
+            amount = 0;
+        }
+        if (index === payments.length - 1) {
+            amount = remainder;
+        } else {
+            if (amount > remainder) {
+                amount = remainder;
+            }
+            remainder -= amount;
+        }
+        return {
+            ...payment,
+            amount,
+        };
+    });
+};
+
+const parseCurrencyInput = (value: string): number => {
+    if (!value) {
+        return 0;
+    }
+    const digitsOnly = value.replace(/[^0-9]/g, '');
+    if (!digitsOnly) {
+        return 0;
+    }
+    return normalizePositiveAmount(Number(digitsOnly));
+};
 
 const quantityFormatter = new Intl.NumberFormat('es-CL', {
     minimumFractionDigits: 0,
@@ -137,25 +247,55 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const [activeTaxes, setActiveTaxes] = useState<TaxOption[]>([]);
     const [taxesLoaded, setTaxesLoaded] = useState(false);
     const activeTaxesMap = useMemo(() => new Map(activeTaxes.map((tax) => [tax.id, tax])), [activeTaxes]);
-    const supplierMap = useMemo(() => new Map(suppliers.map((supplier) => [supplier.value, supplier])), [suppliers]);
-    const defaultTaxIds = useMemo(() => {
-        const defaults = activeTaxes.filter((tax) => tax.isDefault).map((tax) => tax.id);
-        if (defaults.length > 0) {
-            return defaults;
-        }
-        return activeTaxes.map((tax) => tax.id);
+    const exemptTaxId = useMemo(() => {
+        const match = activeTaxes.find((tax) => tax.code?.trim().toUpperCase() === 'EXENTO');
+        return match?.id ?? null;
     }, [activeTaxes]);
-
+    const nonExemptTaxIds = useMemo(
+        () => activeTaxes.filter((tax) => tax.code?.trim().toUpperCase() !== 'EXENTO').map((tax) => tax.id),
+        [activeTaxes]
+    );
+    const getDefaultTaxSelection = useCallback((): string[] => {
+        if (nonExemptTaxIds.length > 0) {
+            return [...nonExemptTaxIds];
+        }
+        return exemptTaxId ? [exemptTaxId] : [];
+    }, [nonExemptTaxIds, exemptTaxId]);
+    const enforceExemptRules = useCallback(
+        (selection: string[]): string[] => {
+            const unique = Array.from(new Set(selection.filter((id) => activeTaxesMap.has(id))));
+            if (exemptTaxId && unique.includes(exemptTaxId)) {
+                return [exemptTaxId];
+            }
+            return unique;
+        },
+        [activeTaxesMap, exemptTaxId]
+    );
     const computeTaxRate = useCallback(
         (
-            taxIds: string[],
+            selectedIds: string[],
             fallbackRates?: { id: string; rate: number }[],
             fallbackRate?: number
         ) => {
-            const totalRaw = taxIds.reduce((sum, id) => {
-                const match = activeTaxesMap.get(id) ?? fallbackRates?.find((tax) => tax.id === id);
-                return sum + Number(match?.rate ?? 0);
+            if (!Array.isArray(selectedIds) || selectedIds.length === 0) {
+                const sanitizedFallback = Number.isFinite(fallbackRate ?? 0) ? Number(fallbackRate ?? 0) : 0;
+                return Number(sanitizedFallback.toFixed(4));
+            }
+
+            const fallbackMap = fallbackRates
+                ? new Map(fallbackRates.map((item) => [item.id, item.rate]))
+                : undefined;
+
+            const totalRaw = selectedIds.reduce((sum, id) => {
+                const activeTax = activeTaxesMap.get(id);
+                if (activeTax) {
+                    const sanitizedRate = Number.isFinite(activeTax.rate) ? Number(activeTax.rate) : 0;
+                    return sum + sanitizedRate;
+                }
+                const fallback = fallbackMap?.get(id) ?? 0;
+                return sum + (Number.isFinite(fallback) ? fallback : 0);
             }, 0);
+
             const normalized = Number.isFinite(totalRaw) ? Number(totalRaw.toFixed(4)) : 0;
             if (normalized === 0 && typeof fallbackRate === 'number') {
                 const sanitizedFallback = Number.isFinite(fallbackRate) ? Number(fallbackRate) : 0;
@@ -166,20 +306,43 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
         [activeTaxesMap]
     );
 
-    const calculatePaymentDate = useCallback(
-        (baseDate: string, supplierIdValue: string | null) => {
-            const normalizedBase = normalizeDateInput(baseDate) ?? getTodayDate();
-            if (!supplierIdValue) {
-                return normalizedBase;
+    const resolveTaxSelection = useCallback(
+        (
+            candidate: string[],
+            fallbackRates?: { id: string; rate: number }[],
+            fallbackRate?: number
+        ) => {
+            if (activeTaxes.length === 0) {
+                const unique = Array.from(new Set(candidate.filter((id) => typeof id === 'string' && id.trim().length > 0)));
+                const sanitizedFallback = Number.isFinite(fallbackRate ?? 0) ? Number(fallbackRate ?? 0) : 0;
+                return {
+                    selection: unique,
+                    rate: Number(sanitizedFallback.toFixed(4)),
+                };
             }
-            const supplier = supplierMap.get(supplierIdValue);
-            const termDaysRaw = supplier?.defaultPaymentTermDays ?? 0;
-            const termDays = Number.isFinite(termDaysRaw) ? Math.round(termDaysRaw) : 0;
-            const candidate = addDaysToDateOnly(normalizedBase, termDays);
-            return candidate < normalizedBase ? normalizedBase : candidate;
+
+            const sanitizedSelection = enforceExemptRules(candidate);
+            const defaultSelection = enforceExemptRules(getDefaultTaxSelection());
+            const appliedSelection = sanitizedSelection.length > 0 ? sanitizedSelection : defaultSelection;
+            const rate = computeTaxRate(appliedSelection, fallbackRates, fallbackRate);
+            return {
+                selection: appliedSelection,
+                rate,
+            };
         },
-        [supplierMap]
+        [activeTaxes, enforceExemptRules, getDefaultTaxSelection, computeTaxRate]
     );
+
+    const areSameSelection = useCallback((current: string[] | undefined, expected: string[]) => {
+        if (!Array.isArray(current)) {
+            return expected.length === 0;
+        }
+        if (current.length !== expected.length) {
+            return false;
+        }
+        const currentSet = new Set(current);
+        return expected.every((id) => currentSet.has(id));
+    }, []);
 
     const [supplierId, setSupplierId] = useState<string | null>(null);
     const [storageId, setStorageId] = useState<string | null>(null);
@@ -200,7 +363,26 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const [addingProductId, setAddingProductId] = useState<string | null>(null);
 
     const [lines, setLines] = useState<ReceptionLine[]>([]);
+    const [payments, setPayments] = useState<PaymentEntry[]>([]);
+    const [paymentDatesTouched, setPaymentDatesTouched] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+
+    const supplierMap = useMemo(() => new Map(suppliers.map((supplier) => [supplier.value, supplier])), [suppliers]);
+
+    const calculatePaymentDate = useCallback(
+        (baseDate: string, supplierIdValue: string | null) => {
+            const normalizedBase = normalizeDateInput(baseDate) ?? getTodayDate();
+            if (!supplierIdValue) {
+                return normalizedBase;
+            }
+            const supplier = supplierMap.get(supplierIdValue);
+            const termDaysRaw = supplier?.defaultPaymentTermDays ?? 0;
+            const termDays = Number.isFinite(termDaysRaw) ? Math.round(termDaysRaw) : 0;
+            const candidate = addDaysToDateOnly(normalizedBase, termDays);
+            return candidate < normalizedBase ? normalizedBase : candidate;
+        },
+        [supplierMap]
+    );
 
     const searchProductTimeout = useRef<NodeJS.Timeout | null>(null);
     const latestProductSearchId = useRef(0);
@@ -209,6 +391,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
         (value: string | null) => {
             const nextSupplierId = value ?? null;
             setSupplierId(nextSupplierId);
+            setPaymentDatesTouched(false);
             setPaymentDateTouched(false);
             setPaymentDate(calculatePaymentDate(receptionDate, nextSupplierId));
         },
@@ -218,6 +401,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const handleReceptionDateChange = useCallback(
         (value: string) => {
             setReceptionDate(value);
+            setPaymentDatesTouched(false);
             if (!paymentDateTouched) {
                 setPaymentDate(calculatePaymentDate(value, supplierId));
             }
@@ -271,6 +455,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                     name: tax.name,
                     rate: Number(tax.rate ?? 0),
                     isDefault: Boolean(tax.isDefault),
+                    code: tax.code ?? null,
                 }))
             );
 
@@ -371,14 +556,12 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                 : line.taxId
                 ? [line.taxId]
                 : [];
-            const filteredSelection = originalSelection.filter((id) => activeTaxesMap.has(id));
-            const appliedSelection = filteredSelection.length > 0
-                ? filteredSelection
-                : defaultTaxIds.length > 0
-                ? [...defaultTaxIds]
-                : [];
             const fallbackTaxRate = typeof line.taxRate === 'number' ? line.taxRate : undefined;
-            const effectiveTaxRate = computeTaxRate(appliedSelection, undefined, fallbackTaxRate);
+            const { selection: appliedSelection, rate: effectiveTaxRate } = resolveTaxSelection(
+                originalSelection,
+                undefined,
+                fallbackTaxRate
+            );
 
             return {
                 productVariantId: line.productVariantId,
@@ -398,6 +581,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
         });
 
         setLines(orderLines);
+        setPaymentDatesTouched(false);
     };
 
     // Agregar producto manualmente
@@ -419,20 +603,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                 const variantTaxIds = Array.isArray(detail.taxIds)
                     ? detail.taxIds.filter((id) => typeof id === 'string' && id.trim().length > 0)
                     : [];
-                const candidateSelection = variantTaxIds.length > 0
-                    ? variantTaxIds
-                    : defaultTaxIds.length > 0
-                    ? [...defaultTaxIds]
-                    : [];
-                const filteredSelection = taxesLoaded
-                    ? candidateSelection.filter((id) => activeTaxesMap.has(id))
-                    : candidateSelection;
-                const appliedSelection = filteredSelection.length > 0
-                    ? filteredSelection
-                    : defaultTaxIds.length > 0
-                    ? [...defaultTaxIds]
-                    : [];
-                const effectiveTaxRate = computeTaxRate(appliedSelection);
+                const { selection: appliedSelection, rate: effectiveTaxRate } = resolveTaxSelection(variantTaxIds);
 
                 const defaultPrice = detail.pmp || detail.baseCost || detail.basePrice || 0;
                 const variantLabel = formatVariantAttributes(detail.attributeValues, attributeNames);
@@ -467,7 +638,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                 setAddingProductId(null);
             }
         },
-        [lines, error, defaultTaxIds, taxesLoaded, activeTaxesMap, computeTaxRate, attributeNames]
+        [lines, error, resolveTaxSelection, attributeNames]
     );
 
     const handleToggleTax = useCallback(
@@ -478,22 +649,46 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                         return line;
                     }
 
-                    const baseSelected = Array.isArray(line.selectedTaxIds) ? line.selectedTaxIds : [];
-                    const updatedSelection = enabled
-                        ? Array.from(new Set([...baseSelected, taxId]))
-                        : baseSelected.filter((id) => id !== taxId);
-                    const filteredSelection = updatedSelection.filter((id) => activeTaxesMap.has(id));
-                    const nextTaxRate = computeTaxRate(filteredSelection);
+                    const baseSelection = Array.isArray(line.selectedTaxIds) ? line.selectedTaxIds : [];
+                    const isExemptToggle = exemptTaxId !== null && taxId === exemptTaxId;
+                    const fallbackRate = typeof line.taxRate === 'number' ? line.taxRate : undefined;
+
+                    let candidateSelection: string[];
+
+                    if (isExemptToggle) {
+                        candidateSelection = enabled ? [taxId] : getDefaultTaxSelection();
+                    } else {
+                        const selectionSet = new Set(baseSelection);
+                        if (enabled) {
+                            selectionSet.add(taxId);
+                            if (exemptTaxId) {
+                                selectionSet.delete(exemptTaxId);
+                            }
+                        } else {
+                            selectionSet.delete(taxId);
+                        }
+                        candidateSelection = Array.from(selectionSet);
+                    }
+
+                    const { selection: finalSelection, rate: recalculatedRate } = resolveTaxSelection(
+                        candidateSelection,
+                        undefined,
+                        fallbackRate
+                    );
+
+                    if (areSameSelection(baseSelection, finalSelection) && Math.abs(recalculatedRate - Number(line.taxRate ?? 0)) < 0.0001) {
+                        return line;
+                    }
 
                     return {
                         ...line,
-                        selectedTaxIds: filteredSelection,
-                        taxRate: nextTaxRate,
+                        selectedTaxIds: finalSelection,
+                        taxRate: recalculatedRate,
                     };
                 })
             );
         },
-        [activeTaxesMap, computeTaxRate]
+        [exemptTaxId, getDefaultTaxSelection, resolveTaxSelection, areSameSelection]
     );
 
     useEffect(() => {
@@ -505,34 +700,27 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
             let changed = false;
             const updated = currentLines.map((line) => {
                 const currentSelection = Array.isArray(line.selectedTaxIds) ? line.selectedTaxIds : [];
-                const filteredSelection = currentSelection.filter((id) => activeTaxesMap.has(id));
-                const shouldApplyDefaults = filteredSelection.length === 0 && activeTaxesMap.size > 0;
-                const appliedSelection = shouldApplyDefaults
-                    ? defaultTaxIds.length > 0
-                        ? [...defaultTaxIds]
-                        : []
-                    : filteredSelection;
-                const nextTaxRate = computeTaxRate(appliedSelection, undefined, line.taxRate);
-                const sameSelection =
-                    appliedSelection.length === currentSelection.length &&
-                    appliedSelection.every((id) => currentSelection.includes(id));
-                const sameRate = Math.abs(nextTaxRate - Number(line.taxRate ?? 0)) < 0.0001;
+                const { selection: resolvedSelection, rate: resolvedRate } = resolveTaxSelection(
+                    currentSelection,
+                    undefined,
+                    line.taxRate
+                );
 
-                if (sameSelection && sameRate) {
+                if (areSameSelection(currentSelection, resolvedSelection) && Math.abs(resolvedRate - Number(line.taxRate ?? 0)) < 0.0001) {
                     return line;
                 }
 
                 changed = true;
                 return {
                     ...line,
-                    selectedTaxIds: appliedSelection,
-                    taxRate: nextTaxRate,
+                    selectedTaxIds: resolvedSelection,
+                    taxRate: resolvedRate,
                 };
             });
 
             return changed ? updated : currentLines;
         });
-    }, [activeTaxesMap, computeTaxRate, defaultTaxIds, taxesLoaded]);
+    }, [taxesLoaded, resolveTaxSelection, areSameSelection]);
 
     // Actualizar línea
     const updateLine = (index: number, updates: Partial<ReceptionLine>) => {
@@ -560,6 +748,8 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
         setProductSearch('');
         setProductResults([]);
         setLines([]);
+        setPayments([]);
+        setPaymentDatesTouched(false);
         setShowPendingOrders(false);
         
         // Recargar órdenes pendientes
@@ -586,6 +776,187 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
             total: subtotalValue + taxesValue,
         };
     }, [lines]);
+
+    const totalAmount = useMemo(() => normalizePositiveAmount(totals.total), [totals.total]);
+
+    const paymentTermDays = useMemo(() => {
+        if (
+            selectedPurchaseOrder &&
+            typeof selectedPurchaseOrder.paymentTermDays === 'number' &&
+            Number.isFinite(selectedPurchaseOrder.paymentTermDays)
+        ) {
+            return Math.max(0, Math.round(Number(selectedPurchaseOrder.paymentTermDays)));
+        }
+        if (supplierId) {
+            const supplier = supplierMap.get(supplierId);
+            const rawTerm = supplier?.defaultPaymentTermDays ?? 0;
+            if (Number.isFinite(rawTerm)) {
+                return Math.max(0, Math.round(Number(rawTerm)));
+            }
+        }
+        return 0;
+    }, [selectedPurchaseOrder, supplierId, supplierMap]);
+
+    const paymentBaseDate = useMemo(() => normalizeDateInput(receptionDate) ?? getTodayDate(), [receptionDate]);
+
+    const paymentTotals = useMemo(
+        () => payments.reduce((sum, payment) => sum + normalizePositiveAmount(payment.amount), 0),
+        [payments]
+    );
+
+    const arePaymentDatesValid = useMemo(
+        () => payments.every((payment) => Boolean(payment.dueDate) && DATE_ONLY_REGEX.test(payment.dueDate)),
+        [payments]
+    );
+
+    const paymentTotalsMatch = paymentTotals === totalAmount;
+    const paymentDifference = paymentTotals - totalAmount;
+    const paymentsValid =
+        totalAmount === 0
+            ? payments.length === 0
+            : payments.length > 0 && paymentTotalsMatch && arePaymentDatesValid;
+    const canEditPaymentAmounts = payments.length > 1;
+
+    const handleAddPayment = useCallback(() => {
+        if (totalAmount === 0) {
+            return;
+        }
+        setPaymentDatesTouched(false);
+        setPayments((prev) => {
+            const count = Math.max(1, prev.length + 1);
+            const distributed = distributeAmountEvenly(totalAmount, count);
+            return distributed.map((amount, index) => {
+                const existing = prev[index];
+                if (existing) {
+                    return {
+                        ...existing,
+                        amount,
+                        dueDate:
+                            existing.dueDate ?? addDaysToDate(paymentBaseDate, paymentTermDays * (index + 1)),
+                    };
+                }
+                return {
+                    id: createPaymentId(),
+                    amount,
+                    dueDate: addDaysToDate(paymentBaseDate, paymentTermDays * (index + 1)),
+                };
+            });
+        });
+    }, [totalAmount, paymentBaseDate, paymentTermDays]);
+
+    const handleRemovePayment = useCallback(
+        (paymentId: string) => {
+            setPaymentDatesTouched(false);
+            setPayments((prev) => {
+                if (prev.length <= 1) {
+                    return prev;
+                }
+                const filtered = prev.filter((payment) => payment.id !== paymentId);
+                if (filtered.length === prev.length) {
+                    return prev;
+                }
+                if (totalAmount === 0) {
+                    return [];
+                }
+                const distributed = distributeAmountEvenly(totalAmount, filtered.length);
+                return filtered.map((payment, index) => ({
+                    ...payment,
+                    amount: distributed[index] ?? payment.amount,
+                }));
+            });
+        },
+        [totalAmount]
+    );
+
+    const handlePaymentAmountChange = useCallback((paymentId: string, rawValue: string) => {
+        const sanitized = parseCurrencyInput(rawValue);
+        setPayments((prev) =>
+            prev.map((payment) => (payment.id === paymentId ? { ...payment, amount: sanitized } : payment))
+        );
+    }, []);
+
+    const handlePaymentDateChange = useCallback((paymentId: string, rawValue: string) => {
+        const normalized = normalizeDateInput(rawValue);
+        if (!normalized) {
+            return;
+        }
+        setPaymentDatesTouched(true);
+        setPayments((prev) =>
+            prev.map((payment) => (payment.id === paymentId ? { ...payment, dueDate: normalized } : payment))
+        );
+    }, []);
+
+    useEffect(() => {
+        if (payments.length === 0) {
+            if (paymentDate !== paymentBaseDate) {
+                setPaymentDate(paymentBaseDate);
+            }
+            setPaymentDateTouched(false);
+            return;
+        }
+
+        const initialDueDate = payments[0]?.dueDate ?? paymentBaseDate;
+        const latestDueDate = payments.reduce((latest, payment) => {
+            const candidate = payment.dueDate ?? latest;
+            return candidate > latest ? candidate : latest;
+        }, initialDueDate);
+
+        if (latestDueDate && latestDueDate !== paymentDate) {
+            setPaymentDate(latestDueDate);
+        }
+        setPaymentDateTouched(false);
+    }, [payments, paymentBaseDate, paymentDate]);
+
+    useEffect(() => {
+        if (totalAmount === 0) {
+            setPayments((prev) => (prev.length === 0 ? prev : []));
+            setPaymentDatesTouched(false);
+            return;
+        }
+
+        setPayments((prev) => {
+            if (prev.length === 0) {
+                const distributed = distributeAmountEvenly(totalAmount, 1);
+                return distributed.map((amount, index) => ({
+                    id: createPaymentId(),
+                    amount,
+                    dueDate: addDaysToDate(paymentBaseDate, paymentTermDays * (index + 1)),
+                }));
+            }
+
+            let next = prev;
+            let changed = false;
+
+            if (prev.length === 1) {
+                const currentAmount = normalizePositiveAmount(prev[0].amount);
+                if (currentAmount !== totalAmount) {
+                    next = [{ ...prev[0], amount: totalAmount }];
+                    changed = true;
+                }
+            } else {
+                const currentSum = prev.reduce((sum, payment) => sum + normalizePositiveAmount(payment.amount), 0);
+                if (currentSum !== totalAmount) {
+                    next = rebalancePayments(prev, totalAmount);
+                    changed = true;
+                }
+            }
+
+            if (!paymentDatesTouched) {
+                const cascaded = cascadeDueDates(next, paymentBaseDate, paymentTermDays);
+                const dueChanged =
+                    cascaded.length !== next.length ||
+                    cascaded.some((payment, index) => payment.dueDate !== next[index]?.dueDate);
+                if (dueChanged) {
+                    next = cascaded;
+                    changed = true;
+                }
+            }
+
+            return changed ? next : prev;
+        });
+    }, [totalAmount, paymentBaseDate, paymentTermDays, paymentDatesTouched]);
+
+    const isSubmitDisabled = submitting || !supplierId || !storageId || lines.length === 0 || !paymentsValid;
 
     // Validar y confirmar recepción
     const handleConfirm = async () => {
@@ -618,6 +989,11 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
 
         if (normalizedPaymentDate < normalizedReceptionDate) {
             error('La fecha de pago debe ser igual o posterior a la fecha de recepción');
+            return;
+        }
+
+        if (!paymentsValid) {
+            error('Distribuye el total de la recepción entre los pagos antes de confirmar.');
             return;
         }
 
@@ -670,8 +1046,6 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                 resetForm();
                 if (onSuccess) {
                     onSuccess();
-                } else {
-                    router.push('/admin/purchasing/receptions');
                 }
             } else {
                 error(result.error ?? 'Error al crear la recepción');
@@ -843,7 +1217,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                 </div>
                             </div>
                         </div>
-                        <div className="grid flex-1 grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3 xl:gap-4">
+                        <div className="grid flex-1 grid-cols-1 gap-3">
                             <Select
                                 label="Proveedor *"
                                 options={suppliers}
@@ -864,16 +1238,6 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                 type="date"
                                 value={receptionDate}
                                 onChange={(event) => handleReceptionDateChange(event.target.value)}
-                            />
-                            <TextField
-                                label="Fecha de pago"
-                                type="date"
-                                value={paymentDate}
-                                min={receptionDate || undefined}
-                                onChange={(event) => {
-                                    setPaymentDate(event.target.value);
-                                    setPaymentDateTouched(true);
-                                }}
                             />
                             {!selectedPurchaseOrder && (
                                 <TextField
@@ -1073,12 +1437,119 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                 </span>
                             </div>
                         </div>
+                        <div className="rounded-md border border-border bg-muted/20 p-4 space-y-3">
+                            <div className="flex items-start justify-between gap-2">
+                                <div>
+                                    <h3 className="text-sm font-semibold text-muted-foreground uppercase">Pagos</h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        Distribuye el total de la recepción entre uno o más pagos y ajusta las fechas según sea necesario.
+                                    </p>
+                                </div>
+                                <IconButton
+                                    icon="add"
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={handleAddPayment}
+                                    disabled={totalAmount === 0}
+                                    title="Agregar pago"
+                                />
+                            </div>
+                            {payments.length === 0 ? (
+                                <p className="text-xs text-muted-foreground">
+                                    Agrega productos para calcular el total a pagar.
+                                </p>
+                            ) : (
+                                <div className="space-y-3">
+                                    {payments.map((payment, index) => (
+                                        <div
+                                            key={payment.id}
+                                            className="space-y-2 rounded-md border border-border bg-background p-3"
+                                        >
+                                            <div className="flex items-start justify-between gap-2">
+                                                <div>
+                                                    <p className="text-sm font-medium text-foreground">Pago {index + 1}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {canEditPaymentAmounts
+                                                            ? 'Ajusta el monto si necesitas repartir el total.'
+                                                            : 'Se aplicará un pago único por el total.'}
+                                                    </p>
+                                                </div>
+                                                {canEditPaymentAmounts && (
+                                                    <IconButton
+                                                        icon="delete"
+                                                        variant="text"
+                                                        size="xs"
+                                                        onClick={() => handleRemovePayment(payment.id)}
+                                                        title="Eliminar pago"
+                                                    />
+                                                )}
+                                            </div>
+                                            <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
+                                                <TextField
+                                                    label="Monto del pago"
+                                                    type="currency"
+                                                    value={String(normalizePositiveAmount(payment.amount))}
+                                                    onChange={(event) =>
+                                                        handlePaymentAmountChange(payment.id, event.target.value)
+                                                    }
+                                                    disabled={!canEditPaymentAmounts}
+                                                    className="w-full sm:w-64"
+                                                />
+                                                <TextField
+                                                    label="Fecha de pago"
+                                                    type="date"
+                                                    value={payment.dueDate ?? paymentBaseDate}
+                                                    onChange={(event) =>
+                                                        handlePaymentDateChange(payment.id, event.target.value)
+                                                    }
+                                                    className="w-full sm:w-48"
+                                                />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                            <div className="space-y-1 rounded-md bg-background/60 px-3 py-2 text-xs text-muted-foreground">
+                                <div className="flex items-center justify-between">
+                                    <span>Total de la recepción</span>
+                                    <span className="font-semibold text-foreground">
+                                        {currencyFormatter.format(totalAmount)}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <span>Total asignado a pagos</span>
+                                    <span
+                                        className={`font-semibold ${paymentsValid ? 'text-foreground' : 'text-red-500'}`}
+                                    >
+                                        {currencyFormatter.format(paymentTotals)}
+                                    </span>
+                                </div>
+                                {!paymentsValid && (
+                                    <div className="flex items-center justify-between text-red-500">
+                                        {paymentTotalsMatch ? (
+                                            <>
+                                                <span>Fechas de pago pendientes</span>
+                                                <span>Revisa las fechas</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <span>Diferencia pendiente</span>
+                                                <span>{currencyFormatter.format(Math.abs(paymentDifference))}</span>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+                                <p className="text-[11px]">
+                                    El total de los pagos debe coincidir con el total de la recepción para habilitar la confirmación.
+                                </p>
+                            </div>
+                        </div>
                         <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:justify-end">
                             <Button
                                 onClick={handleConfirm}
                                 variant="primary"
                                 className="w-full sm:w-auto"
-                                disabled={submitting || lines.length === 0}
+                                disabled={isSubmitDisabled}
                             >
                                 {submitting ? 'Confirmando…' : 'Confirmar recepción'}
                             </Button>
