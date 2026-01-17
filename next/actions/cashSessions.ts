@@ -3,7 +3,9 @@
 import { getDb } from '@/data/db';
 import { CashSession, CashSessionStatus } from '@/data/entities/CashSession';
 import { Transaction, TransactionType } from '@/data/entities/Transaction';
+import { User } from '@/data/entities/User';
 import { revalidatePath } from 'next/cache';
+import { getCurrentSession } from './auth.server';
 
 // Types
 interface GetSessionsParams {
@@ -366,6 +368,7 @@ export async function closeCashSession(data: CloseSessionDTO): Promise<CloseResu
         
         await repo.save(sessionWithSummary);
         revalidatePath('/pos');
+        revalidatePath('/admin/sales/cash-sessions');
         
         return { 
             success: true, 
@@ -379,6 +382,49 @@ export async function closeCashSession(data: CloseSessionDTO): Promise<CloseResu
             error: error instanceof Error ? error.message : 'Error al cerrar la sesión de caja' 
         };
     }
+}
+
+export async function closeCashSessionFromAdmin(sessionId: string): Promise<CloseResult> {
+    const session = await getCurrentSession();
+
+    if (!session?.id) {
+        return { success: false, error: 'Sesión de usuario no encontrada' };
+    }
+
+    const ds = await getDb();
+    const userRepo = ds.getRepository(User);
+
+    let user = await userRepo.findOne({ where: { id: session.id } });
+
+    if (!user && session.userName) {
+        user = await userRepo.findOne({ where: { userName: session.userName } });
+    }
+
+    if (!user) {
+        return {
+            success: false,
+            error: 'No se encontró el usuario en la base de datos. Por favor cierra sesión e inicia nuevamente.',
+        };
+    }
+
+    const sessionWithSummary = await getCashSessionById(sessionId);
+
+    if (!sessionWithSummary) {
+        return { success: false, error: 'Sesión no encontrada' };
+    }
+
+    if (sessionWithSummary.status !== CashSessionStatus.OPEN) {
+        return { success: false, error: 'La sesión ya se encuentra cerrada' };
+    }
+
+    const expectedAmount = sessionWithSummary.summary.expectedBalance ?? 0;
+
+    return closeCashSession({
+        sessionId,
+        userId: user.id,
+        closingAmount: expectedAmount,
+        notes: 'Cierre registrado desde panel de administración',
+    });
 }
 
 /**

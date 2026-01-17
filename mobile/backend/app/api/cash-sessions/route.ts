@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getDataSource } from '../../../src/db';
-import { CashSession, CashSessionStatus } from '../../../../../data/entities/CashSession';
-import { PointOfSale } from '../../../../../data/entities/PointOfSale';
-import { User } from '../../../../../data/entities/User';
-import { persistCashSessionOpeningTransaction } from '../../../src/services/cashSessionService';
+import { CashSession, CashSessionStatus } from '@/data/entities/CashSession';
+import { PointOfSale } from '@/data/entities/PointOfSale';
+import { User } from '@/data/entities/User';
 
 interface CreateCashSessionRequest {
   userName?: string;
@@ -67,20 +66,15 @@ export async function POST(request: Request) {
       const newSession = cashSessionRepo.create({
         pointOfSaleId: pointOfSale.id,
         openedById: user.id,
-        openingAmount,
+        openingAmount: 0,
+        expectedAmount: null,
         openedAt,
         status: CashSessionStatus.OPEN,
       });
 
       const savedSession = await cashSessionRepo.save(newSession);
-      const savedTransaction = await persistCashSessionOpeningTransaction(manager, {
-        cashSession: savedSession,
-        pointOfSale,
-        user,
-        openingAmount,
-      });
 
-      return { savedSession, savedTransaction } as const;
+      return { savedSession } as const;
     });
 
     if (result === undefined) {
@@ -97,7 +91,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const { savedSession, savedTransaction } = result;
+    const { savedSession } = result;
 
     const cashSessionPayload = {
       id: savedSession.id,
@@ -108,28 +102,21 @@ export async function POST(request: Request) {
       openedAt: savedSession.openedAt,
       createdAt: savedSession.createdAt,
       updatedAt: savedSession.updatedAt,
-    };
-
-    const transactionPayload = {
-      id: savedTransaction.id,
-      documentNumber: savedTransaction.documentNumber,
-      transactionType: savedTransaction.transactionType,
-      status: savedTransaction.status,
-      branchId: savedTransaction.branchId,
-      pointOfSaleId: savedTransaction.pointOfSaleId,
-      cashSessionId: savedTransaction.cashSessionId,
-      userId: savedTransaction.userId,
-      subtotal: Number(savedTransaction.subtotal),
-      taxAmount: Number(savedTransaction.taxAmount),
-      discountAmount: Number(savedTransaction.discountAmount),
-      total: Number(savedTransaction.total),
-      paymentMethod: savedTransaction.paymentMethod,
-      metadata: savedTransaction.metadata ?? null,
-      createdAt: savedTransaction.createdAt,
+      expectedAmount: savedSession.expectedAmount ?? null,
     };
 
     return NextResponse.json(
-      { success: true, cashSession: cashSessionPayload, transaction: transactionPayload },
+      {
+        success: true,
+        cashSession: cashSessionPayload,
+        suggestedOpeningAmount: openingAmount,
+        pointOfSale: {
+          id: pointOfSale.id,
+          name: pointOfSale.name,
+          deviceId: pointOfSale.deviceId ?? null,
+          branchId: pointOfSale.branchId ?? null,
+        },
+      },
       { status: 201 },
     );
   } catch (error) {

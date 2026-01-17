@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getDataSource } from '../../../../src/db';
-import { CashSession, CashSessionStatus } from '../../../../../../data/entities/CashSession';
-import { PointOfSale } from '../../../../../../data/entities/PointOfSale';
-import { User } from '../../../../../../data/entities/User';
+import { CashSession, CashSessionStatus } from '@/data/entities/CashSession';
+import { PointOfSale } from '@/data/entities/PointOfSale';
+import { User } from '@/data/entities/User';
 import {
   CashSessionMovementError,
   persistCashSessionDepositTransaction,

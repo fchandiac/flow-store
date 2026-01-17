@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { getDataSource } from '../../../../src/db';
-import { CashSession, CashSessionStatus } from '../../../../../../data/entities/CashSession';
-import { PointOfSale } from '../../../../../../data/entities/PointOfSale';
-import { User } from '../../../../../../data/entities/User';
-import { Transaction, TransactionType } from '../../../../../../data/entities/Transaction';
+import { CashSession, CashSessionStatus } from '@/data/entities/CashSession';
+import { PointOfSale } from '@/data/entities/PointOfSale';
+import { User } from '@/data/entities/User';
+import { Transaction, TransactionType } from '@/data/entities/Transaction';
 import { persistCashSessionOpeningTransaction } from '../../../../src/services/cashSessionService';
 
 interface CreateOpeningTransactionRequest {
@@ -171,6 +171,7 @@ export async function POST(request: Request) {
           status: session.status,
           openingAmount: Number(session.openingAmount),
           openedAt: session.openedAt,
+          expectedAmount: session.expectedAmount ?? null,
         },
       },
       { status: 201 },

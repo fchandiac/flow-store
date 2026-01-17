@@ -25,6 +25,7 @@ export async function persistCashSessionOpeningTransaction(
   const { cashSession, pointOfSale, user } = params;
   const openingAmount = sanitizeAmount(params.openingAmount);
   const transactionRepo = manager.getRepository(Transaction);
+  const cashSessionRepo = manager.getRepository(CashSession);
 
   const documentNumber = buildCashSessionDocumentNumber(cashSession.openedAt ?? new Date(), pointOfSale);
 
@@ -45,6 +46,11 @@ export async function persistCashSessionOpeningTransaction(
   });
 
   const saved = await transactionRepo.save(transaction);
+
+  cashSession.openingAmount = openingAmount;
+  cashSession.expectedAmount = openingAmount;
+  await cashSessionRepo.save(cashSession);
+
   return serializeTransaction(saved);
 }
 

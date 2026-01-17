@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { getDataSource } from '../../../../src/db';
-import { User } from '../../../../../../data/entities/User';
+import { User } from '@/data/entities/User';
 
 interface LoginRequest {
   userName?: string;

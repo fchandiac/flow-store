@@ -11,6 +11,7 @@ import {
   listCashSessions,
   type CashSessionListItem,
   type CashSessionListFilters,
+  closeCashSessionFromAdmin,
 } from '@/actions/cashSessions';
 import { CashSessionStatus } from '@/data/entities/CashSession';
 
@@ -56,10 +57,11 @@ const mapFilters = (status: StatusFilter): CashSessionListFilters => ({
 });
 
 const CashSessionsDataGrid = () => {
-  const { error } = useAlert();
+  const { error, success, warning } = useAlert();
   const [rows, setRows] = useState<CashSessionListItem[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
+  const [closingSessionId, setClosingSessionId] = useState<string | null>(null);
 
   const loadSessions = useCallback(async () => {
     setLoading(true);
@@ -79,6 +81,31 @@ const CashSessionsDataGrid = () => {
   useEffect(() => {
     void loadSessions();
   }, [loadSessions]);
+
+  const handleCloseSession = useCallback(async (sessionId: string) => {
+    setClosingSessionId(sessionId);
+    try {
+      const result = await closeCashSessionFromAdmin(sessionId);
+      if (!result.success) {
+        error(result.error ?? 'No se pudo cerrar la sesión de caja');
+        return;
+      }
+
+      const difference = result.difference ?? 0;
+      if (Math.abs(difference) > 0.009) {
+        warning(`Sesión cerrada con diferencia de ${currencyFormatter.format(difference)}`);
+      } else {
+        success('Sesión cerrada correctamente');
+      }
+
+      await loadSessions();
+    } catch (err) {
+      console.error('Error closing cash session from admin:', err);
+      error('No se pudo cerrar la sesión de caja');
+    } finally {
+      setClosingSessionId(null);
+    }
+  }, [error, success, warning, loadSessions]);
 
   const handleStatusChange = useCallback((value: string | number | null) => {
     const nextValue = (value ?? 'ALL') as StatusFilter;
@@ -238,7 +265,30 @@ const CashSessionsDataGrid = () => {
         );
       },
     },
-  ], []);
+    {
+      field: 'actions',
+      headerName: 'Acciones',
+      width: 180,
+      renderCell: ({ row }) => {
+        const isOpen = row.status === CashSessionStatus.OPEN;
+        if (!isOpen) {
+          return <span className="text-xs text-neutral-500">Sin acciones</span>;
+        }
+        const isClosing = closingSessionId === row.id;
+        return (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => void handleCloseSession(row.id)}
+            disabled={isClosing}
+          >
+            {isClosing ? 'Cerrando…' : 'Cerrar sesión'}
+          </Button>
+        );
+      },
+    },
+  ], [closingSessionId, handleCloseSession]);
 
   const headerActions = (
     <div className="flex flex-wrap items-end gap-3">

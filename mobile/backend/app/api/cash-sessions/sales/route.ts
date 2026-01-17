@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
 import { getDataSource } from '../../../../src/db';
-import { CashSession, CashSessionStatus } from '../../../../../../data/entities/CashSession';
-import { PointOfSale } from '../../../../../../data/entities/PointOfSale';
-import { User } from '../../../../../../data/entities/User';
+import { CashSession, CashSessionStatus } from '@/data/entities/CashSession';
+import { PointOfSale } from '@/data/entities/PointOfSale';
+import { User } from '@/data/entities/User';
 import {
   PaymentMethod,
-} from '../../../../../../data/entities/Transaction';
+} from '@/data/entities/Transaction';
 import {
   createSaleTransaction,
   SaleCreationError,
