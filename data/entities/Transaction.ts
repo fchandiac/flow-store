@@ -30,6 +30,8 @@ import { CostCenter } from "./CostCenter";
  * - PAYMENT_IN: Pago recibido
  * - PAYMENT_OUT: Pago realizado
  * - OPERATING_EXPENSE: Gasto operativo directo
+ * - CASH_SESSION_OPENING: Apertura formal de caja para una sesión
+ * - CASH_SESSION_WITHDRAWAL: Retiro manual de efectivo desde la sesión
  */
 export enum TransactionType {
     SALE = 'SALE',
@@ -43,7 +45,10 @@ export enum TransactionType {
     ADJUSTMENT_OUT = 'ADJUSTMENT_OUT',
     PAYMENT_IN = 'PAYMENT_IN',
     PAYMENT_OUT = 'PAYMENT_OUT',
+    CASH_DEPOSIT = 'CASH_DEPOSIT',
     OPERATING_EXPENSE = 'OPERATING_EXPENSE',
+    CASH_SESSION_OPENING = 'CASH_SESSION_OPENING',
+    CASH_SESSION_WITHDRAWAL = 'CASH_SESSION_WITHDRAWAL',
 }
 
 export enum TransactionStatus {
@@ -139,6 +144,9 @@ export class Transaction {
     // Pago
     @Column({ type: 'enum', enum: PaymentMethod, nullable: true })
     paymentMethod?: PaymentMethod;
+
+    @Column({ type: 'varchar', length: 120, nullable: true })
+    bankAccountKey?: string;
 
     @Column({ type: 'decimal', precision: 15, scale: 2, nullable: true })
     amountPaid?: number;

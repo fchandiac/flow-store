@@ -1,0 +1,33 @@
+{
+  "name": "flowstore-mobile-backend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:generate": "typeorm migration:generate -d src/data-source.ts",
+    "db:run": "typeorm migration:run -d src/data-source.ts"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "mysql2": "^3.11.4",
+    "next": "14.1.0",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "reflect-metadata": "^0.1.13",
+    "typeorm": "^0.3.20"
+  },
+  "devDependencies": {
+    "@types/node": "20.11.5",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/react": "18.2.48",
+    "@types/react-dom": "18.2.18",
+    "eslint": "^8.56.0",
+    "eslint-config-next": "14.1.0",
+    "ts-node": "10.9.2",
+    "typescript": "5.3.3"
+  }
+}

@@ -14,6 +14,7 @@ interface GetTransactionsParams {
     search?: string;
     type?: TransactionType;
     status?: TransactionStatus;
+    paymentMethod?: PaymentMethod;
     branchId?: string;
     pointOfSaleId?: string;
     cashSessionId?: string;
@@ -55,6 +56,7 @@ export interface CreateTransactionDTO {
     branchId?: string;
     pointOfSaleId?: string;
     cashSessionId?: string;
+    bankAccountKey?: string | null;
     storageId?: string;
     targetStorageId?: string;
     customerId?: string;
@@ -134,7 +136,9 @@ export async function getTransactions(params?: GetTransactionsParams): Promise<T
         .leftJoinAndSelect('transaction.customer', 'customer')
         .leftJoinAndSelect('customer.person', 'customerPerson')
         .leftJoinAndSelect('transaction.supplier', 'supplier')
-        .leftJoinAndSelect('supplier.person', 'supplierPerson');
+        .leftJoinAndSelect('supplier.person', 'supplierPerson')
+        .leftJoinAndSelect('transaction.user', 'transactionUser')
+        .leftJoinAndSelect('transactionUser.person', 'transactionUserPerson');
     
     if (params?.search) {
         queryBuilder.andWhere(
@@ -149,6 +153,10 @@ export async function getTransactions(params?: GetTransactionsParams): Promise<T
     
     if (params?.status) {
         queryBuilder.andWhere('transaction.status = :status', { status: params.status });
+    }
+
+    if (params?.paymentMethod) {
+        queryBuilder.andWhere('transaction.paymentMethod = :paymentMethod', { paymentMethod: params.paymentMethod });
     }
     
     if (params?.branchId) {
@@ -190,6 +198,151 @@ export async function getTransactions(params?: GetTransactionsParams): Promise<T
     const [data, total] = await queryBuilder.getManyAndCount();
     
     return { data, total };
+}
+
+const buildPersonFullName = (person?: { firstName?: string | null; lastName?: string | null; businessName?: string | null } | null): string | null => {
+    if (!person) {
+        return null;
+    }
+
+    if (person.businessName && person.businessName.trim().length > 0) {
+        return person.businessName.trim();
+    }
+
+    const firstName = person.firstName?.trim() ?? '';
+    const lastName = person.lastName?.trim() ?? '';
+    const fullName = `${firstName} ${lastName}`.trim();
+    return fullName.length > 0 ? fullName : null;
+};
+
+const normalizeStartOfDay = (value?: string): Date | undefined => {
+    if (!value) {
+        return undefined;
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return undefined;
+    }
+    date.setUTCHours(0, 0, 0, 0);
+    return date;
+};
+
+const normalizeEndOfDay = (value?: string): Date | undefined => {
+    if (!value) {
+        return undefined;
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+        return undefined;
+    }
+    date.setUTCHours(23, 59, 59, 999);
+    return date;
+};
+
+export interface SalesTransactionFilters {
+    status?: TransactionStatus;
+    paymentMethod?: PaymentMethod;
+    branchId?: string;
+    pointOfSaleId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    search?: string;
+}
+
+export interface SalesTransactionListItem {
+    id: string;
+    documentNumber: string;
+    createdAt: string;
+    status: TransactionStatus;
+    paymentMethod: PaymentMethod | null;
+    total: number;
+    subtotal: number;
+    taxAmount: number;
+    discountAmount: number;
+    branchName: string | null;
+    pointOfSaleName: string | null;
+    cashSessionId: string | null;
+    customerName: string | null;
+    userId: string | null;
+    userName: string | null;
+    userFullName: string | null;
+    notes: string | null;
+}
+
+export interface SalesTransactionListResult {
+    rows: SalesTransactionListItem[];
+    total: number;
+    page: number;
+    pageSize: number;
+}
+
+export async function listSaleTransactions(params?: {
+    filters?: SalesTransactionFilters;
+    page?: number;
+    pageSize?: number;
+}): Promise<SalesTransactionListResult> {
+    const filters = params?.filters ?? {};
+    const page = Math.max(params?.page ?? 1, 1);
+    const requestedPageSize = params?.pageSize ?? 25;
+    const pageSize = Math.min(Math.max(requestedPageSize, 1), 200);
+
+    const dateFrom = normalizeStartOfDay(filters.dateFrom);
+    const dateTo = normalizeEndOfDay(filters.dateTo);
+
+    const response = await getTransactions({
+        page,
+        limit: pageSize,
+        type: TransactionType.SALE,
+        status: filters.status,
+        paymentMethod: filters.paymentMethod,
+        branchId: filters.branchId,
+        pointOfSaleId: filters.pointOfSaleId,
+        dateFrom,
+        dateTo,
+        search: filters.search?.trim() || undefined,
+    });
+
+    const rows: SalesTransactionListItem[] = response.data.map((transaction) => {
+        const branch = transaction.branch ?? null;
+        const pointOfSale = transaction.pointOfSale ?? null;
+        const customer = transaction.customer ?? null;
+        const customerPerson = customer?.person ?? null;
+        const user = transaction.user as (User & { person?: { firstName?: string | null; lastName?: string | null } | null }) | null;
+        const userPerson = user?.person ?? null;
+
+        const paymentMethod = transaction.paymentMethod ?? null;
+
+        return {
+            id: transaction.id,
+            documentNumber: transaction.documentNumber,
+            createdAt: transaction.createdAt instanceof Date
+                ? transaction.createdAt.toISOString()
+                : new Date(transaction.createdAt as any).toISOString(),
+            status: transaction.status,
+            paymentMethod,
+            total: Number(transaction.total ?? 0),
+            subtotal: Number(transaction.subtotal ?? 0),
+            taxAmount: Number(transaction.taxAmount ?? 0),
+            discountAmount: Number(transaction.discountAmount ?? 0),
+            branchName: branch?.name ?? null,
+            pointOfSaleName: pointOfSale?.name ?? null,
+            cashSessionId: transaction.cashSessionId ?? null,
+            customerName: buildPersonFullName(customerPerson ?? null),
+            userId: user?.id ?? null,
+            userName: user?.userName ?? null,
+            userFullName: buildPersonFullName(userPerson ?? null),
+            notes: transaction.notes ?? null,
+        };
+    });
+
+    return JSON.parse(
+        JSON.stringify({
+            rows,
+            total: response.total,
+            page,
+            pageSize,
+        }),
+    );
 }
 
 /**
@@ -326,6 +479,7 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
             documentNumber,
             externalReference: data.externalReference,
             paymentMethod: data.paymentMethod ?? PaymentMethod.CASH,
+            bankAccountKey: data.bankAccountKey ?? undefined,
             subtotal,
             discountAmount: totalDiscount,
             taxAmount: totalTax,
@@ -695,6 +849,8 @@ function getDocumentPrefix(type: TransactionType): string {
             return 'PIS-';
         case TransactionType.OPERATING_EXPENSE:
             return 'GOP-';
+        case TransactionType.CASH_SESSION_WITHDRAWAL:
+            return 'RCS-';
         default:
             return 'DOC-';
     }

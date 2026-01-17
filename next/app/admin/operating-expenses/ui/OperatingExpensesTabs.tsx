@@ -7,12 +7,14 @@ import type { OperatingExpenseListItem } from '@/actions/operatingExpenses';
 import type { ExpenseCategoryOption } from '@/actions/expenseCategories';
 import type { CostCenterSummary } from '@/actions/costCenters';
 import type { EmployeeListItem } from '@/actions/employees';
+import type { PersonBankAccount } from '@/data/entities/Person';
 
 interface OperatingExpensesTabsProps {
     expenses: OperatingExpenseListItem[];
     categories: ExpenseCategoryOption[];
     costCenters: CostCenterSummary[];
     employees: EmployeeListItem[];
+    companyBankAccounts: PersonBankAccount[];
 }
 
 type TabKey = 'expenses' | 'categories';
@@ -30,7 +32,7 @@ const TAB_ITEMS: Array<{ key: TabKey; label: string; description?: string }> = [
     },
 ];
 
-export default function OperatingExpensesTabs({ expenses, categories, costCenters, employees }: OperatingExpensesTabsProps) {
+export default function OperatingExpensesTabs({ expenses, categories, costCenters, employees, companyBankAccounts }: OperatingExpensesTabsProps) {
     const [activeTab, setActiveTab] = useState<TabKey>('expenses');
 
     const { title, description } = useMemo(() => {
@@ -75,6 +77,7 @@ export default function OperatingExpensesTabs({ expenses, categories, costCenter
                         categories={categories}
                         costCenters={costCenters}
                         employees={employees}
+                        companyBankAccounts={companyBankAccounts}
                     />
                 ) : (
                     <OperatingExpenseCategoriesView

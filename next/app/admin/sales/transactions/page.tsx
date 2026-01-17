@@ -1,6 +1,4 @@
-import { Suspense } from 'react';
-import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
-import TransactionsTable from './ui/TransactionsTable';
+import SalesTransactionsDataGrid from './ui/SalesTransactionsDataGrid';
 
 /**
  * Gestión de Transacciones
@@ -16,9 +14,7 @@ export default function TransactionsPage() {
                     Consulta operaciones de venta, devoluciones y movimientos de inventario asociados.
                 </p>
             </header>
-            <Suspense fallback={<div className="flex justify-center py-10"><DotProgress /></div>}>
-                <TransactionsTable />
-            </Suspense>
+            <SalesTransactionsDataGrid />
         </div>
     );
 }

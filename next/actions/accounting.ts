@@ -152,12 +152,20 @@ export async function getLedgerPreview(): Promise<LedgerEntry[]> {
         return [];
     }
 
+    const accountTypeById = new Map<string, AccountType>(
+        ledger.accounts.map((account) => [account.id, account.type]),
+    );
     const runningBalance = new Map<string, number>();
 
     const entries: LedgerEntry[] = ledger.postings.map((posting: LedgerPosting) => {
         const previous = runningBalance.get(posting.accountId) ?? 0;
         const current = previous + posting.debit - posting.credit;
         runningBalance.set(posting.accountId, current);
+
+        const accountType = accountTypeById.get(posting.accountId);
+        const normalizedBalance = accountType
+            ? normalizeBalanceForPresentation(accountType, current)
+            : current;
 
         return {
             id: posting.id,
@@ -169,7 +177,7 @@ export async function getLedgerPreview(): Promise<LedgerEntry[]> {
             description: posting.description,
             debit: posting.debit,
             credit: posting.credit,
-            balance: current,
+            balance: normalizedBalance,
             costCenter: null,
         };
     });

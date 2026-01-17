@@ -113,7 +113,10 @@ const MOVEMENT_DIRECTION: Record<TransactionType, InventoryMovementDirection | n
     [TransactionType.ADJUSTMENT_OUT]: "OUT",
     [TransactionType.PAYMENT_IN]: null,
     [TransactionType.PAYMENT_OUT]: null,
+    [TransactionType.CASH_DEPOSIT]: null,
     [TransactionType.OPERATING_EXPENSE]: null,
+    [TransactionType.CASH_SESSION_OPENING]: null,
+    [TransactionType.CASH_SESSION_WITHDRAWAL]: null,
 };
 
 function resolveDirection(type: TransactionType): InventoryMovementDirection | null {
@@ -678,6 +681,14 @@ export async function adjustVariantStockLevel(input: AdjustVariantStockInput): P
         return { success: false, error: "La variante no está asociada a un producto válido." };
     }
 
+    const variantPmp = variant.pmp !== null && variant.pmp !== undefined ? Number(variant.pmp) : NaN;
+    const variantBaseCost = variant.baseCost !== null && variant.baseCost !== undefined ? Number(variant.baseCost) : NaN;
+    const valuationCost = Number.isFinite(variantPmp) && variantPmp > 0
+        ? variantPmp
+        : Number.isFinite(variantBaseCost) && variantBaseCost > 0
+            ? variantBaseCost
+            : 0;
+
     const line: TransactionLineDTO = {
         productId,
         productVariantId: variant.id,
@@ -689,8 +700,8 @@ export async function adjustVariantStockLevel(input: AdjustVariantStockInput): P
         unitId: variant.unitId,
         unitOfMeasure: variant.unit?.symbol ?? undefined,
         unitConversionFactor: conversion,
-        unitPrice: 0,
-        unitCost: Number(variant.baseCost ?? 0),
+        unitPrice: valuationCost,
+        unitCost: valuationCost,
         discountPercentage: 0,
         discountAmount: 0,
         taxRate: 0,
@@ -716,6 +727,7 @@ export async function adjustVariantStockLevel(input: AdjustVariantStockInput): P
                 newQuantity: targetQuantity,
                 storageId: storage.id,
                 variantId: variant.id,
+                valuationCost,
             },
         },
     });

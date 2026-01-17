@@ -8,12 +8,14 @@ import type { OperatingExpenseListItem } from '@/actions/operatingExpenses';
 import type { ExpenseCategoryOption } from '@/actions/expenseCategories';
 import type { CostCenterSummary } from '@/actions/costCenters';
 import type { EmployeeListItem } from '@/actions/employees';
+import type { PersonBankAccount } from '@/data/entities/Person';
 
 interface OperatingExpensesViewProps {
     expenses: OperatingExpenseListItem[];
     categories: ExpenseCategoryOption[];
     costCenters: CostCenterSummary[];
     employees: EmployeeListItem[];
+    companyBankAccounts: PersonBankAccount[];
 }
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
@@ -42,7 +44,7 @@ interface OperatingExpenseRow {
     recordedBy: string;
 }
 
-export default function OperatingExpensesView({ expenses, categories, costCenters, employees }: OperatingExpensesViewProps) {
+export default function OperatingExpensesView({ expenses, categories, costCenters, employees, companyBankAccounts }: OperatingExpensesViewProps) {
     const router = useRouter();
     const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -119,6 +121,7 @@ export default function OperatingExpensesView({ expenses, categories, costCenter
                 categories={categories}
                 costCenters={costCenters}
                 employees={employees}
+                companyBankAccounts={companyBankAccounts}
             />
         </div>
     );

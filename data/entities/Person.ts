@@ -50,6 +50,7 @@ export enum BankName {
 }
 
 export interface PersonBankAccount {
+    accountKey?: string;
     bankName: BankName;
     accountType: AccountTypeName;
     accountNumber: string;

@@ -2,6 +2,7 @@
 
 import { getDb } from '@/data/db';
 import { Company } from '@/data/entities/Company';
+import { randomUUID } from 'crypto';
 import { AccountTypeName, BankName, PersonBankAccount } from '@/data/entities/Person';
 import { revalidatePath } from 'next/cache';
 
@@ -20,6 +21,7 @@ interface UpdateResult {
 }
 
 export interface CompanyBankAccountInput {
+    accountKey?: string;
     bankName: BankName;
     accountType: AccountTypeName;
     accountNumber: string;
@@ -39,7 +41,30 @@ export async function getCompany(): Promise<Company | null> {
         where: {},
         order: { createdAt: 'ASC' }
     });
-    
+
+    if (!company) {
+        return null;
+    }
+
+    if (Array.isArray(company.bankAccounts)) {
+        let mutated = false;
+        const normalizedAccounts = company.bankAccounts.map((account) => {
+            if (account.accountKey) {
+                return account;
+            }
+            mutated = true;
+            return {
+                ...account,
+                accountKey: randomUUID(),
+            } satisfies PersonBankAccount;
+        });
+
+        if (mutated) {
+            company.bankAccounts = normalizedAccounts;
+            await repo.save(company);
+        }
+    }
+
     return company;
 }
 
@@ -103,7 +128,10 @@ export async function addCompanyBankAccount(data: CompanyBankAccountInput): Prom
         }
 
         const bankAccounts: PersonBankAccount[] = Array.isArray(company.bankAccounts)
-            ? [...company.bankAccounts]
+            ? company.bankAccounts.map((account) => ({
+                  ...account,
+                  accountKey: account.accountKey ?? randomUUID(),
+              }))
             : [];
 
         const normalizedAccountNumber = data.accountNumber.trim();
@@ -126,6 +154,7 @@ export async function addCompanyBankAccount(data: CompanyBankAccountInput): Prom
         }
 
         const newAccount: PersonBankAccount = {
+            accountKey: data.accountKey ?? randomUUID(),
             bankName: data.bankName,
             accountType: data.accountType,
             accountNumber: normalizedAccountNumber,

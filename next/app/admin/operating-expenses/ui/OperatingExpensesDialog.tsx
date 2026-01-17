@@ -9,8 +9,9 @@ import Alert from '@/baseComponents/Alert/Alert';
 import { createOperatingExpense } from '@/actions/operatingExpenses';
 import type { ExpenseCategoryOption, PayrollCategoryType } from '@/actions/expenseCategories';
 import type { CostCenterSummary } from '@/actions/costCenters';
-import type { PaymentMethod } from '@/data/entities/Transaction';
+import { PaymentMethod } from '@/data/entities/Transaction';
 import type { EmployeeListItem } from '@/actions/employees';
+import type { PersonBankAccount } from '@/data/entities/Person';
 
 interface OperatingExpensesDialogProps {
     open: boolean;
@@ -19,12 +20,15 @@ interface OperatingExpensesDialogProps {
     categories: ExpenseCategoryOption[];
     costCenters: CostCenterSummary[];
     employees: EmployeeListItem[];
+    companyBankAccounts: PersonBankAccount[];
 }
 
 interface FormState {
     expenseCategoryId: string | null;
     costCenterId: string | null;
     paymentMethod: PaymentMethod | null;
+    bankAccountKey: string | null;
+    cashSessionId: string;
     amount: string;
     taxAmount: string;
     notes: string;
@@ -33,16 +37,18 @@ interface FormState {
 }
 
 const PAYMENT_METHOD_OPTIONS: Option[] = [
-    { id: 'CASH', label: 'Efectivo' },
-    { id: 'TRANSFER', label: 'Transferencia bancaria' },
-    { id: 'DEBIT_CARD', label: 'Tarjeta de débito' },
-    { id: 'CREDIT_CARD', label: 'Tarjeta de crédito' },
+    { id: PaymentMethod.CASH, label: 'Efectivo' },
+    { id: PaymentMethod.TRANSFER, label: 'Transferencia bancaria' },
+    { id: PaymentMethod.DEBIT_CARD, label: 'Tarjeta de débito' },
+    { id: PaymentMethod.CREDIT_CARD, label: 'Tarjeta de crédito' },
 ];
 
 const INITIAL_FORM_STATE: FormState = {
     expenseCategoryId: null,
     costCenterId: null,
-    paymentMethod: 'CASH' as PaymentMethod,
+    paymentMethod: PaymentMethod.CASH,
+    bankAccountKey: null,
+    cashSessionId: '',
     amount: '',
     taxAmount: '',
     notes: '',
@@ -82,7 +88,7 @@ const formatEmployeeName = (employee: EmployeeListItem) => {
 
 const formatCurrency = (value: number) => CLP_FORMATTER.format(value);
 
-export default function OperatingExpensesDialog({ open, onClose, onSuccess, categories, costCenters, employees }: OperatingExpensesDialogProps) {
+export default function OperatingExpensesDialog({ open, onClose, onSuccess, categories, costCenters, employees, companyBankAccounts }: OperatingExpensesDialogProps) {
     const [formState, setFormState] = useState<FormState>(INITIAL_FORM_STATE);
     const [errors, setErrors] = useState<string[]>([]);
     const [isPending, startTransition] = useTransition();
@@ -120,6 +126,20 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
         }
         return employees.find((employee) => employee.id === formState.employeeId) ?? null;
     }, [employees, formState.employeeId]);
+
+    const bankAccountOptions = useMemo<Option[]>(() => {
+        return companyBankAccounts
+            .filter((account) => Boolean(account?.accountKey))
+            .map((account) => {
+                const suffix = account.isPrimary ? ' · Principal' : '';
+                return {
+                    id: account.accountKey as string,
+                    label: `${account.bankName} · ${account.accountNumber} (${account.accountType})${suffix}`,
+                } satisfies Option;
+            });
+    }, [companyBankAccounts]);
+
+    const hasBankAccountOptions = bankAccountOptions.length > 0;
 
     useEffect(() => {
         if (open) {
@@ -208,6 +228,55 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
         }
     }, [selectedCategory?.payrollType, selectedEmployee?.baseSalary, selectedEmployee?.id]);
 
+    useEffect(() => {
+        if (formState.paymentMethod !== PaymentMethod.TRANSFER) {
+            return;
+        }
+        if (formState.bankAccountKey) {
+            return;
+        }
+        const candidate = bankAccountOptions[0]?.id;
+        if (!candidate) {
+            return;
+        }
+        setFormState((prev) => {
+            if (prev.paymentMethod !== PaymentMethod.TRANSFER || prev.bankAccountKey) {
+                return prev;
+            }
+            const nextValue = typeof candidate === 'string' ? candidate : String(candidate);
+            return {
+                ...prev,
+                bankAccountKey: nextValue,
+            };
+        });
+    }, [bankAccountOptions, formState.bankAccountKey, formState.paymentMethod]);
+
+    useEffect(() => {
+        if (formState.paymentMethod === PaymentMethod.TRANSFER) {
+            return;
+        }
+        if (formState.bankAccountKey === null) {
+            return;
+        }
+        setFormState((prev) => ({
+            ...prev,
+            bankAccountKey: null,
+        }));
+    }, [formState.paymentMethod, formState.bankAccountKey]);
+
+    useEffect(() => {
+        if (formState.paymentMethod === PaymentMethod.CASH) {
+            return;
+        }
+        if (formState.cashSessionId === '') {
+            return;
+        }
+        setFormState((prev) => ({
+            ...prev,
+            cashSessionId: '',
+        }));
+    }, [formState.paymentMethod, formState.cashSessionId]);
+
     const resetForm = () => {
         lastAutoAmountRef.current = null;
         lastAutoCostCenterRef.current = null;
@@ -216,6 +285,7 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
             expenseCategoryId: categories[0]?.id ?? null,
             costCenterId: costCenters[0]?.id ?? null,
             employeeId: null,
+            bankAccountKey: hasBankAccountOptions ? String(bankAccountOptions[0]?.id ?? '') || null : null,
         });
     };
 
@@ -243,6 +313,25 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
             setErrors(['Selecciona un método de pago.']);
             return;
         }
+        
+        if (formState.paymentMethod === PaymentMethod.TRANSFER) {
+            if (!hasBankAccountOptions) {
+                setErrors(['Configura una cuenta bancaria de la compañía antes de registrar transferencias.']);
+                return;
+            }
+            if (!formState.bankAccountKey) {
+                setErrors(['Selecciona la cuenta bancaria utilizada para la transferencia.']);
+                return;
+            }
+        }
+        
+        if (formState.paymentMethod === PaymentMethod.CASH) {
+            const cashSessionId = formState.cashSessionId.trim();
+            if (!cashSessionId) {
+                setErrors(['Indica la sesión de caja asociada al pago en efectivo.']);
+                return;
+            }
+        }
 
         if (payrollType && !formState.employeeId) {
             setErrors(['Selecciona el colaborador asociado al pago.']);
@@ -265,12 +354,20 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
         setErrors([]);
 
         startTransition(async () => {
+            const trimmedCashSessionId = formState.paymentMethod === PaymentMethod.CASH
+                ? formState.cashSessionId.trim()
+                : '';
+
             const result = await createOperatingExpense({
                 expenseCategoryId: formState.expenseCategoryId as string,
                 costCenterId: formState.costCenterId as string,
                 amount: parsedAmount,
                 taxAmount: parsedTaxAmount,
                 paymentMethod: formState.paymentMethod as PaymentMethod,
+                bankAccountKey: formState.paymentMethod === PaymentMethod.TRANSFER
+                    ? formState.bankAccountKey ?? undefined
+                    : undefined,
+                cashSessionId: trimmedCashSessionId.length > 0 ? trimmedCashSessionId : undefined,
                 notes: formState.notes.trim() ? formState.notes.trim() : undefined,
                 externalReference: formState.externalReference.trim() ? formState.externalReference.trim() : undefined,
                 employeeId: payrollType ? formState.employeeId ?? undefined : undefined,
@@ -372,6 +469,51 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
                         placeholder="N° de factura, folio, etc."
                     />
                 </div>
+
+                {formState.paymentMethod === PaymentMethod.TRANSFER && (
+                    <section className="space-y-3 rounded-lg border border-border bg-background p-4">
+                        <Select
+                            label="Cuenta bancaria de la compañía"
+                            options={bankAccountOptions}
+                            value={formState.bankAccountKey}
+                            onChange={(id) =>
+                                setFormState((prev) => ({
+                                    ...prev,
+                                    bankAccountKey: typeof id === 'string' ? id : id != null ? String(id) : null,
+                                }))
+                            }
+                            required
+                            disabled={!hasBankAccountOptions}
+                            placeholder={hasBankAccountOptions ? undefined : 'No hay cuentas configuradas'}
+                        />
+
+                        {!hasBankAccountOptions && (
+                            <Alert variant="warning">
+                                Registra las cuentas bancarias de la compañía en Configuración → Información fiscal antes de registrar transferencias.
+                            </Alert>
+                        )}
+                    </section>
+                )}
+
+                {formState.paymentMethod === PaymentMethod.CASH && (
+                    <section className="space-y-3 rounded-lg border border-border bg-background p-4">
+                        <TextField
+                            label="Sesión de caja"
+                            value={formState.cashSessionId}
+                            onChange={(event) =>
+                                setFormState((prev) => ({
+                                    ...prev,
+                                    cashSessionId: event.target.value,
+                                }))
+                            }
+                            required
+                            placeholder="ID de la sesión abierta (UUID)"
+                        />
+                        <Alert variant="info">
+                            Vincula el gasto con la sesión de caja que financió el movimiento para mantener conciliados los saldos.
+                        </Alert>
+                    </section>
+                )}
 
                 {payrollType && (
                     <section className="space-y-4 rounded-lg border border-border bg-background p-4">

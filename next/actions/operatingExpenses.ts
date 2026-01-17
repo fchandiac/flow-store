@@ -47,6 +47,8 @@ export interface CreateOperatingExpenseInput {
     amount: number;
     taxAmount?: number;
     paymentMethod: PaymentMethod;
+    bankAccountKey?: string | null;
+    cashSessionId?: string | null;
     notes?: string;
     externalReference?: string;
     employeeId?: string;
@@ -303,12 +305,21 @@ export async function createOperatingExpense(input: CreateOperatingExpenseInput)
             );
         }
 
+        if (input.paymentMethod === PaymentMethod.TRANSFER && !input.bankAccountKey) {
+            throw new Error('Debes seleccionar la cuenta bancaria utilizada para la transferencia.');
+        }
+
         const transaction = new Transaction();
         transaction.transactionType = TransactionType.OPERATING_EXPENSE;
         transaction.status = TransactionStatus.CONFIRMED;
         transaction.branchId = costCenter.branchId ?? undefined;
         transaction.pointOfSaleId = undefined;
-        transaction.cashSessionId = undefined;
+        transaction.cashSessionId = input.paymentMethod === PaymentMethod.CASH
+            ? input.cashSessionId ?? undefined
+            : undefined;
+        transaction.bankAccountKey = input.paymentMethod === PaymentMethod.TRANSFER && input.bankAccountKey
+            ? input.bankAccountKey
+            : undefined;
         transaction.storageId = undefined;
         transaction.targetStorageId = undefined;
         transaction.customerId = undefined;

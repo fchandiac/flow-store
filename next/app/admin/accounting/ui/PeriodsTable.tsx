@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import DataGrid, { type DataGridColumn } from '@/baseComponents/DataGrid/DataGrid';
 import Badge, { type BadgeVariant } from '@/baseComponents/Badge/Badge';
 import Alert from '@/baseComponents/Alert/Alert';
+import IconButton from '@/baseComponents/IconButton/IconButton';
+import Dialog from '@/baseComponents/Dialog/Dialog';
 import type { AccountingPeriodSummary } from '@/actions/accounting';
 import CreateAccountingPeriodDialog from './CreateAccountingPeriodDialog';
 
@@ -62,6 +64,8 @@ const getStatusInfo = (status: string, locked: boolean): { label: string; varian
 export default function PeriodsTable({ periods }: PeriodsTableProps) {
     const router = useRouter();
     const [dialogOpen, setDialogOpen] = useState(false);
+    const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+    const [selectedPeriod, setSelectedPeriod] = useState<AccountingPeriodRow | null>(null);
 
     const rows: AccountingPeriodRow[] = useMemo(() => {
         return periods.map((period) => {
@@ -79,6 +83,16 @@ export default function PeriodsTable({ periods }: PeriodsTableProps) {
         });
     }, [periods]);
 
+    const openDetailDialog = useCallback((row: AccountingPeriodRow) => {
+        setSelectedPeriod(row);
+        setDetailDialogOpen(true);
+    }, []);
+
+    const closeDetailDialog = useCallback(() => {
+        setDetailDialogOpen(false);
+        setSelectedPeriod(null);
+    }, []);
+
     const columns: DataGridColumn[] = useMemo(
         () => [
             { field: 'name', headerName: 'Período', minWidth: 160, flex: 1.1 },
@@ -93,9 +107,25 @@ export default function PeriodsTable({ periods }: PeriodsTableProps) {
                 renderCell: ({ row }) => <Badge variant={row.statusBadge}>{row.statusLabel}</Badge>,
             },
             { field: 'closedAtLabel', headerName: 'Cerrado el', minWidth: 200, flex: 1 },
-            { field: 'statusNote', headerName: 'Notas', minWidth: 280, flex: 1.8 },
+            {
+                field: 'actions',
+                headerName: 'Acciones',
+                minWidth: 120,
+                flex: 0.6,
+                align: 'center',
+                headerAlign: 'center',
+                renderCell: ({ row }) => (
+                    <IconButton
+                        icon="more_horiz"
+                        variant="ghost"
+                        size="sm"
+                        ariaLabel="Ver detalles del período"
+                        onClick={() => openDetailDialog(row as AccountingPeriodRow)}
+                    />
+                ),
+            },
         ],
-        [],
+        [openDetailDialog],
     );
 
     const handleOpenDialog = useCallback(() => {
@@ -135,6 +165,42 @@ export default function PeriodsTable({ periods }: PeriodsTableProps) {
                 onSuccess={handleCreated}
                 existingPeriods={periods}
             />
+
+            <Dialog
+                open={detailDialogOpen}
+                onClose={closeDetailDialog}
+                title={selectedPeriod ? selectedPeriod.name : 'Detalle del período'}
+                size="sm"
+            >
+                {selectedPeriod && (
+                    <div className="space-y-4">
+                        <div className="flex flex-col gap-1">
+                            <span className="text-xs font-medium text-muted-foreground">Estado</span>
+                            <div className="flex items-center gap-2">
+                                <Badge variant={selectedPeriod.statusBadge}>{selectedPeriod.statusLabel}</Badge>
+                                <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                                    {selectedPeriod.status}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                            <span className="text-xs font-medium text-muted-foreground">Fechas</span>
+                            <span className="text-sm font-semibold text-foreground">{selectedPeriod.dateRange}</span>
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                            <span className="text-xs font-medium text-muted-foreground">Cerrado el</span>
+                            <span className="text-sm text-foreground">{selectedPeriod.closedAtLabel}</span>
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                            <span className="text-xs font-medium text-muted-foreground">Notas</span>
+                            <span className="text-sm text-foreground">{selectedPeriod.statusNote}</span>
+                        </div>
+                    </div>
+                )}
+            </Dialog>
         </div>
     );
 }
