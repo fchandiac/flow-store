@@ -49,7 +49,7 @@ class PrinterManager {
       null;
   }
 
-  async connectUsbPrinter() {
+  async connectUsbPrinter(target) {
     if (!this.usbPrinter) {
       throw new Error('El módulo de impresora USB no está disponible.');
     }
@@ -59,7 +59,23 @@ class PrinterManager {
       throw new Error('No se detectaron impresoras USB disponibles.');
     }
 
-    const printer = discovered[0];
+    let printer = discovered[0];
+
+    if (target?.vendorId != null && target?.productId != null) {
+      const match = discovered.find(candidate => {
+        return (
+          String(candidate.vendor_id) === String(target.vendorId) &&
+          String(candidate.product_id) === String(target.productId)
+        );
+      });
+
+      if (!match) {
+        throw new Error('No se encontró la impresora USB seleccionada.');
+      }
+
+      printer = match;
+    }
+
     await this.usbPrinter.connectPrinter(printer.vendor_id, printer.product_id);
     this.currentUsbPrinter = printer;
     return printer;

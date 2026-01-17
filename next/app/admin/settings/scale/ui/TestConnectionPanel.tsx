@@ -19,6 +19,7 @@ interface TestResult {
     unit?: string | null;
     portPath?: string;
     details?: string;
+    commandSent?: string | null;
 }
 
 const initialResult: TestResult = {
@@ -67,7 +68,7 @@ export default function TestConnectionPanel() {
                 type="button"
                 onClick={handleTestConnection}
                 disabled={isTesting}
-                className="mt-4 inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+                className="mt-4 inline-flex items-center justify-center rounded-md border border-primary bg-transparent px-4 py-2 text-sm font-medium text-primary disabled:opacity-60"
             >
                 {isTesting ? 'Probando…' : 'Probar conexión'}
             </button>
@@ -80,14 +81,19 @@ export default function TestConnectionPanel() {
                         Puerto: <span className="font-mono">{result.portPath}</span>
                     </p>
                 ) : null}
+                {result.commandSent ? (
+                    <p className="text-xs text-muted-foreground">
+                        Comando enviado: <span className="font-mono">{JSON.stringify(result.commandSent)}</span>
+                    </p>
+                ) : null}
                 {result.rawFrame ? (
-                    <div className="mt-3 rounded-lg border border-emerald-500/40 bg-emerald-500/10 p-3">
-                        <p className="text-[11px] uppercase tracking-wide text-emerald-300">
+                    <div className="mt-3 rounded-lg border border-border bg-background p-3">
+                        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
                             Lectura cruda
                         </p>
-                        <p className="mt-1 font-mono text-lg text-emerald-100">{result.rawFrame}</p>
+                        <p className="mt-1 font-mono text-lg text-foreground whitespace-pre-wrap break-all">{result.rawFrame}</p>
                         {typeof result.numericValue === 'number' ? (
-                            <p className="mt-2 text-sm text-emerald-100">
+                            <p className="mt-2 text-sm text-foreground">
                                 Peso interpretado: <span className="font-semibold">{result.numericValue}</span>
                                 {result.unit ? <span className="ml-1 font-semibold">{result.unit}</span> : null}
                             </p>

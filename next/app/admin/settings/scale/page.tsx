@@ -1,5 +1,4 @@
 import TestConnectionPanel from './ui/TestConnectionPanel';
-import ScaleInfoPanel from './ui/ScaleInfoPanel';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,7 +42,6 @@ export default function ScalePage() {
                 </section>
                 <TestConnectionPanel />
             </div>
-            <ScaleInfoPanel />
         </div>
     );
 }

@@ -8,6 +8,7 @@ import LoginScreen from './screens/LoginScreen';
 import OpeningScreen from './screens/OpeningScreen';
 import PosScreen from './screens/PosScreen';
 import SessionSetupScreen from './screens/SessionSetupScreen';
+import SettingsScreen from './screens/SettingsScreen';
 import { type RootStackParamList } from './navigation/types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -43,6 +44,11 @@ export default function App() {
             options={{ title: 'Apertura de caja' }}
           />
           <Stack.Screen name="Pos" component={PosScreen} options={{ headerShown: false }} />
+          <Stack.Screen
+            name="Settings"
+            component={SettingsScreen}
+            options={{ title: 'Configuración del punto de venta' }}
+          />
         </Stack.Navigator>
       </NavigationContainer>
     </SafeAreaProvider>

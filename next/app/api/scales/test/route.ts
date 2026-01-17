@@ -3,7 +3,8 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 
 const DEFAULT_PORT_PATH = process.env.SCALE_SERIAL_PORT ?? '/dev/cu.usbserial-FTB6SPL3';
-const DEFAULT_TIMEOUT_MS = Number(process.env.SCALE_READ_TIMEOUT_MS ?? 4000);
+const DEFAULT_TIMEOUT_MS = Number(process.env.SCALE_READ_TIMEOUT_MS ?? 10000);
+const REQUEST_COMMAND = process.env.SCALE_REQUEST_COMMAND ?? '';
 
 type ScaleSuccessPayload = {
     connected: true;
@@ -21,6 +22,7 @@ type ScaleSuccessPayload = {
     numericValue: number | null;
     unit: string | null;
     portPath: string;
+    commandSent: string | null;
 };
 
 type ScaleErrorPayload = {
@@ -28,6 +30,7 @@ type ScaleErrorPayload = {
     message: string;
     details?: string;
     portPath: string;
+    commandSent: string | null;
 };
 
 type ScaleDevicePayload = ScaleSuccessPayload | ScaleErrorPayload;
@@ -50,6 +53,7 @@ export async function POST() {
                 message,
                 details: error instanceof Error ? error.message : String(error),
                 portPath: DEFAULT_PORT_PATH,
+                commandSent: REQUEST_COMMAND ? Buffer.from(REQUEST_COMMAND, 'utf8').toString('utf8') : null,
             },
             { status: 500 },
         );
@@ -61,6 +65,7 @@ export async function POST() {
                 connected: false,
                 message: 'Los módulos seriales cargados no exponen los constructores esperados.',
                 portPath: DEFAULT_PORT_PATH,
+                commandSent: REQUEST_COMMAND ? Buffer.from(REQUEST_COMMAND, 'utf8').toString('utf8') : null,
             },
             { status: 500 },
         );
@@ -95,6 +100,7 @@ export async function POST() {
                 message: 'No se pudo abrir el puerto serial de la balanza.',
                 details: error instanceof Error ? error.message : String(error),
                 portPath: DEFAULT_PORT_PATH,
+                commandSent: REQUEST_COMMAND ? Buffer.from(REQUEST_COMMAND, 'utf8').toString('utf8') : null,
             },
             { status: 500 },
         );
@@ -117,6 +123,24 @@ export async function POST() {
         });
 
     try {
+        if (REQUEST_COMMAND) {
+            await new Promise<void>((resolve, reject) => {
+                port.write(REQUEST_COMMAND, (writeError: unknown) => {
+                    if (writeError) {
+                        reject(writeError instanceof Error ? writeError : new Error(String(writeError)));
+                        return;
+                    }
+                    port.drain((drainError: unknown) => {
+                        if (drainError) {
+                            reject(drainError instanceof Error ? drainError : new Error(String(drainError)));
+                            return;
+                        }
+                        resolve();
+                    });
+                });
+            });
+        }
+
         const rawFrame = await new Promise<string>((resolve, reject) => {
             const timeoutId = setTimeout(() => {
                 parser.removeListener('data', onData);
@@ -173,6 +197,7 @@ export async function POST() {
             numericValue,
             unit: unitMatch ? unitMatch[0] : null,
             portPath: DEFAULT_PORT_PATH,
+            commandSent: REQUEST_COMMAND ? Buffer.from(REQUEST_COMMAND, 'utf8').toString('utf8') : null,
         };
 
         return NextResponse.json(payload, { status: 200 });
@@ -183,6 +208,7 @@ export async function POST() {
                 message: 'Error al leer datos desde la balanza.',
                 details: error instanceof Error ? error.message : String(error),
                 portPath: DEFAULT_PORT_PATH,
+                commandSent: REQUEST_COMMAND ? Buffer.from(REQUEST_COMMAND, 'utf8').toString('utf8') : null,
             },
             { status: 500 },
         );

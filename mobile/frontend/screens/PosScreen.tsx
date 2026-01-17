@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { type NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useEffect, useState } from 'react';
 import {
@@ -427,14 +428,31 @@ function PosScreen({ navigation }: PosScreenProps) {
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity
-            style={styles.cashButton}
+            style={[styles.headerIconButton, styles.headerIconButtonFirst, styles.headerIconButtonPrimary]}
             activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir movimientos de caja"
             onPress={() => setIsCashMenuVisible(true)}
           >
-            <Text style={styles.cashButtonLabel}>Movimientos de caja</Text>
+            <Ionicons name="cash-outline" size={22} color="#ecfeff" />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.logoutButton} activeOpacity={0.85} onPress={handleLogout}>
-            <Text style={styles.logoutLabel}>Cerrar sesión</Text>
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Abrir configuración"
+            onPress={() => navigation.navigate('Settings')}
+          >
+            <Ionicons name="settings-outline" size={22} color="#f8fafc" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.headerIconButton, styles.headerIconButtonDanger]}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar sesión"
+            onPress={handleLogout}
+          >
+            <Ionicons name="log-out-outline" size={22} color="#fee2e2" />
           </TouchableOpacity>
         </View>
       </View>
@@ -629,28 +647,23 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     marginTop: 4,
   },
-  logoutButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: '#ef4444',
+  headerIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#1f2937',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
   },
-  logoutLabel: {
-    color: '#fff1f2',
-    fontWeight: '600',
-    fontSize: 14,
+  headerIconButtonFirst: {
+    marginLeft: 0,
   },
-  cashButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
+  headerIconButtonPrimary: {
     backgroundColor: '#0ea5e9',
-    marginRight: 12,
   },
-  cashButtonLabel: {
-    color: '#ecfeff',
-    fontWeight: '600',
-    fontSize: 14,
+  headerIconButtonDanger: {
+    backgroundColor: '#ef4444',
   },
   card: {
     borderRadius: 16,

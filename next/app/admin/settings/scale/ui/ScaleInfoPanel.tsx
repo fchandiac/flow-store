@@ -35,6 +35,9 @@ export default function ScaleInfoPanel() {
                 <p className="mt-2 text-xs text-muted-foreground">
                     Personaliza la ruta con la variable de entorno <span className="font-mono">SCALE_SERIAL_PORT</span> si tu FTDI monta un nombre distinto.
                 </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                    Si tu balanza requiere un comando para enviar el peso, define <span className="font-mono">SCALE_REQUEST_COMMAND</span> (por ejemplo <span className="font-mono">"P\r\n"</span>). Deja vacía la variable para leer tras presionar PRINT manualmente.
+                </p>
             </div>
 
             <div>

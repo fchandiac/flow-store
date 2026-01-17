@@ -2,7 +2,7 @@
 const nextConfig = {
   output: 'standalone',
   reactStrictMode: true,
-  serverExternalPackages: ['typeorm', 'mysql2', 'bcryptjs'],
+  serverExternalPackages: ['typeorm', 'mysql2', 'bcryptjs', 'serialport', '@serialport/parser-readline'],
   eslint: {
     ignoreDuringBuilds: true,
   },

@@ -61,12 +61,21 @@ export type CartItem = {
   total: number;
 };
 
+export type UsbPrinterSelection = {
+  vendorId: string;
+  productId: string;
+  deviceName?: string | null;
+};
+
 type PosState = {
   user: AuthenticatedUser | null;
   pointOfSale: PointOfSaleSummary | null;
   cashSession: CashSessionSummary | null;
   cartItems: CartItem[];
   secondaryMode: SecondaryDisplayMode;
+  preferredUsbPrinter: UsbPrinterSelection | null;
+  preferredCustomerDisplayId: string | null;
+  preferredCustomerDisplayWidth: number | null;
   setUser: (user: AuthenticatedUser | null) => void;
   setPointOfSale: (pos: PointOfSaleSummary | null) => void;
   setCashSession: (session: CashSessionSummary | null) => void;
@@ -79,6 +88,8 @@ type PosState = {
   removeItem: (variantId: string) => void;
   clearCart: () => void;
   setSecondaryMode: (mode: SecondaryDisplayMode) => void;
+  setPreferredUsbPrinter: (printer: UsbPrinterSelection | null) => void;
+  setPreferredCustomerDisplay: (payload: { id: string | null; width?: number | null }) => void;
 };
 
 function recalcTotals(item: CartItem): CartItem {
@@ -102,6 +113,9 @@ export const usePosStore = create<PosState>((set, get) => ({
   cashSession: null,
   cartItems: [],
   secondaryMode: 'cart',
+  preferredUsbPrinter: null,
+  preferredCustomerDisplayId: null,
+  preferredCustomerDisplayWidth: null,
   setUser: (user) => {
     set({ user });
     if (!user) {
@@ -179,6 +193,13 @@ export const usePosStore = create<PosState>((set, get) => ({
   },
   clearCart: () => set({ cartItems: [] }),
   setSecondaryMode: (mode) => set({ secondaryMode: mode }),
+  setPreferredUsbPrinter: (printer) => set({ preferredUsbPrinter: printer }),
+  setPreferredCustomerDisplay: ({ id, width }) =>
+    set((state) => ({
+      preferredCustomerDisplayId: id,
+      preferredCustomerDisplayWidth:
+        width !== undefined ? (width ?? null) : id ? state.preferredCustomerDisplayWidth : null,
+    })),
 }));
 
 export const selectUser = (state: PosState) => state.user;
@@ -213,3 +234,6 @@ export const selectCartTotals = (state: PosState) => {
   return cachedTotals;
 };
 export const selectCartTotal = (state: PosState) => selectCartTotals(state).total;
+export const selectPreferredUsbPrinter = (state: PosState) => state.preferredUsbPrinter;
+export const selectPreferredCustomerDisplayId = (state: PosState) => state.preferredCustomerDisplayId;
+export const selectPreferredCustomerDisplayWidth = (state: PosState) => state.preferredCustomerDisplayWidth;

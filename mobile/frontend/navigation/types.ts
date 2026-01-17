@@ -3,4 +3,5 @@ export type RootStackParamList = {
   SessionSetup: undefined;
   Opening: { suggestedOpeningAmount?: number } | undefined;
   Pos: undefined;
+  Settings: undefined;
 };
