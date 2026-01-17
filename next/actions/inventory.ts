@@ -117,6 +117,7 @@ const MOVEMENT_DIRECTION: Record<TransactionType, InventoryMovementDirection | n
     [TransactionType.OPERATING_EXPENSE]: null,
     [TransactionType.CASH_SESSION_OPENING]: null,
     [TransactionType.CASH_SESSION_WITHDRAWAL]: null,
+    [TransactionType.CASH_SESSION_DEPOSIT]: null,
 };
 
 function resolveDirection(type: TransactionType): InventoryMovementDirection | null {

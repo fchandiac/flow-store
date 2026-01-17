@@ -19,11 +19,12 @@ import { AccountingAccount, AccountType } from '../entities/AccountingAccount';
 import { ExpenseCategory } from '../entities/ExpenseCategory';
 import { AccountingRule, RuleScope } from '../entities/AccountingRule';
 import { Transaction, TransactionStatus, PaymentMethod, TransactionType } from '../entities/Transaction';
+import { TransactionLine } from '../entities/TransactionLine';
 import { CostCenter, CostCenterType } from '../entities/CostCenter';
 import { OrganizationalUnit, OrganizationalUnitType } from '../entities/OrganizationalUnit';
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
-import { IsNull } from 'typeorm';
+import { In, IsNull } from 'typeorm';
 import { computePriceWithTaxes } from '../../lib/pricing/priceCalculations';
 
 // Helper para hashear contraseñas (debe coincidir con authOptions.ts)
@@ -38,6 +39,9 @@ const clpFormatter = new Intl.NumberFormat('es-CL', {
 });
 
 const formatCLP = (value: number): string => clpFormatter.format(value);
+
+const INITIAL_CAPITAL_DOCUMENT = 'CAP-INITIAL-0001';
+const INITIAL_CAPITAL_AMOUNT = 10_000_000;
 
 /**
  * Seed para FlowStore - Joyería
@@ -76,6 +80,71 @@ async function seedFlowStore() {
   } catch (syncError) {
     console.error('   ✗ Error verificando conexión:', syncError);
     process.exit(1);
+  }
+
+  console.log('\n🧨 Reiniciando base de datos...');
+  const resetRunner = db.createQueryRunner();
+  let foreignKeysDisabled = false;
+  try {
+    await resetRunner.connect();
+    await resetRunner.query('SET FOREIGN_KEY_CHECKS = 0');
+    foreignKeysDisabled = true;
+
+    const tables: Array<{ tableName: string | null }> = await resetRunner.query(
+      "SELECT table_name AS tableName FROM information_schema.tables WHERE table_schema = DATABASE() AND table_type = 'BASE TABLE'",
+    );
+    const tablesToSkip = new Set(['migrations', 'typeorm_metadata']);
+
+    for (const { tableName } of tables) {
+      if (!tableName || tablesToSkip.has(tableName)) {
+        continue;
+      }
+      await resetRunner.query(`TRUNCATE TABLE \`${tableName}\``);
+    }
+
+    await resetRunner.query('SET FOREIGN_KEY_CHECKS = 1');
+    foreignKeysDisabled = false;
+    console.log('   ✓ Base de datos reiniciada');
+  } catch (resetError) {
+    console.log('   ⚠ No se pudo reiniciar la base de datos:', resetError instanceof Error ? resetError.message : resetError);
+  } finally {
+    if (foreignKeysDisabled) {
+      try {
+        await resetRunner.query('SET FOREIGN_KEY_CHECKS = 1');
+      } catch (fkError) {
+        console.log('   ⚠ No se pudieron restaurar llaves foráneas automáticamente:', fkError instanceof Error ? fkError.message : fkError);
+      }
+    }
+    await resetRunner.release();
+  }
+
+  const transactionRepo = db.getRepository(Transaction);
+  const transactionLineRepo = db.getRepository(TransactionLine);
+
+  console.log('\n🧾 Eliminando aportes de capital legacy...');
+  try {
+    const legacyContributionDocs = ['CAP-2025-11-30', 'CAP-2025-12-15'];
+    const legacyTransactions = await transactionRepo.find({
+      where: {
+        documentNumber: In(legacyContributionDocs),
+        transactionType: TransactionType.PAYMENT_IN,
+      },
+    });
+
+    if (legacyTransactions.length === 0) {
+      console.log('   • Sin aportes de capital legacy que limpiar');
+    } else {
+      const legacyIds = legacyTransactions.map((tx) => tx.id);
+      if (legacyIds.length > 0) {
+        await transactionLineRepo.delete({ transactionId: In(legacyIds) });
+        await transactionRepo.delete(legacyIds);
+      }
+      legacyTransactions.forEach((tx) => {
+        console.log(`   ✓ Eliminado aporte legado: ${tx.documentNumber}`);
+      });
+    }
+  } catch (cleanupError) {
+    console.log('   ⚠ No se pudieron limpiar aportes legacy:', cleanupError instanceof Error ? cleanupError.message : cleanupError);
   }
 
   try {
@@ -156,6 +225,10 @@ async function seedFlowStore() {
         console.log('   • Cuentas bancarias normalizadas con identificadores internos.');
       }
     }
+
+    const primaryBankAccount = Array.isArray(company.bankAccounts)
+      ? company.bankAccounts.find((account) => account.isPrimary) ?? company.bankAccounts[0] ?? null
+      : null;
 
     // ============================================
     // 2. SUCURSALES
@@ -1314,6 +1387,54 @@ async function seedFlowStore() {
     }
 
     // ============================================
+    // 9.1 CAPITAL INICIAL
+    // ============================================
+    console.log('\n🏦 Registrando capital inicial...');
+    try {
+      const existingInitialCapital = await transactionRepo.findOne({
+        where: {
+          documentNumber: INITIAL_CAPITAL_DOCUMENT,
+          transactionType: TransactionType.PAYMENT_IN,
+        },
+      });
+
+      if (existingInitialCapital) {
+        console.log(`   ⚠ Capital inicial ya existe: ${INITIAL_CAPITAL_DOCUMENT}`);
+      } else if (!primaryBankAccount?.accountKey) {
+        console.log('   ⚠ No se pudo registrar capital inicial: falta cuenta bancaria principal.');
+      } else {
+        const capitalTransaction = transactionRepo.create({
+          documentNumber: INITIAL_CAPITAL_DOCUMENT,
+          transactionType: TransactionType.PAYMENT_IN,
+          status: TransactionStatus.CONFIRMED,
+          branchId: primaryBranch.id,
+          pointOfSaleId: pointOfSale?.id ?? null,
+          userId: adminUser.id,
+          subtotal: INITIAL_CAPITAL_AMOUNT,
+          taxAmount: 0,
+          discountAmount: 0,
+          total: INITIAL_CAPITAL_AMOUNT,
+          paymentMethod: PaymentMethod.TRANSFER,
+          bankAccountKey: primaryBankAccount.accountKey,
+          amountPaid: INITIAL_CAPITAL_AMOUNT,
+          changeAmount: 0,
+          notes: 'Capital inicial de la empresa',
+          metadata: {
+            source: 'seed-flowstore',
+            capitalContribution: true,
+            initialCapital: true,
+            occurredOn: '2025-01-01',
+          },
+        });
+
+        await transactionRepo.save(capitalTransaction);
+        console.log(`   ✓ Capital inicial registrado: ${INITIAL_CAPITAL_DOCUMENT} por ${formatCLP(INITIAL_CAPITAL_AMOUNT)}`);
+      }
+    } catch (initialCapitalError) {
+      console.log('   ⚠ No se pudo registrar capital inicial:', initialCapitalError instanceof Error ? initialCapitalError.message : initialCapitalError);
+    }
+
+    // ============================================
     // 10. PERMISOS PARA ADMIN
     // ============================================
     console.log('\n🔐 Asignando permisos al administrador...');
@@ -1791,94 +1912,6 @@ async function seedFlowStore() {
     }
 
     // ============================================
-    // 15. APORTES DE CAPITAL Q4 2025
-    // ============================================
-    console.log('\n💼 Registrando aportes de capital Q4 2025...');
-
-    const transactionRepo = db.getRepository(Transaction);
-    const transactionsCreated: string[] = [];
-
-    const primaryBankAccount = Array.isArray(company.bankAccounts)
-      ? company.bankAccounts.find((account) => account.isPrimary) ?? company.bankAccounts[0]
-      : null;
-
-    if (!primaryBankAccount?.accountKey) {
-      console.log('   ⚠ No se pudo registrar aportes de capital: falta accountKey en las cuentas bancarias.');
-    } else {
-      const capitalContributionSeeds: Array<{
-        documentNumber: string;
-        amount: number;
-        note: string;
-        metadata: Record<string, unknown>;
-      }> = [
-        {
-          documentNumber: 'CAP-2025-11-30',
-          amount: 6_500_000,
-          note: 'Aporte de capital para campaña navideña 2025.',
-          metadata: {
-            occurredOn: '2025-11-30',
-            source: 'seed-flowstore',
-            contributor: 'Socios Joyarte',
-          },
-        },
-        {
-          documentNumber: 'CAP-2025-12-15',
-          amount: 4_250_000,
-          note: 'Inyección de liquidez para compras de cierre de año.',
-          metadata: {
-            occurredOn: '2025-12-15',
-            source: 'seed-flowstore',
-            contributor: 'Socios Joyarte',
-          },
-        },
-      ];
-
-      for (const seed of capitalContributionSeeds) {
-        const existingTransaction = await transactionRepo.findOne({
-          where: {
-            documentNumber: seed.documentNumber,
-            transactionType: TransactionType.PAYMENT_IN,
-          },
-        });
-
-        if (existingTransaction) {
-          console.log(`   ⚠ Aporte ya existe: ${seed.documentNumber}`);
-          continue;
-        }
-
-        let contributionTransaction = transactionRepo.create({
-          documentNumber: seed.documentNumber,
-          transactionType: TransactionType.PAYMENT_IN,
-          status: TransactionStatus.CONFIRMED,
-          branchId: primaryBranch.id,
-          pointOfSaleId: pointOfSale?.id ?? null,
-          userId: adminUser.id,
-          subtotal: seed.amount,
-          taxAmount: 0,
-          discountAmount: 0,
-          total: seed.amount,
-          paymentMethod: PaymentMethod.TRANSFER,
-          bankAccountKey: primaryBankAccount.accountKey,
-          amountPaid: seed.amount,
-          changeAmount: 0,
-          notes: seed.note,
-          metadata: {
-            ...seed.metadata,
-            capitalContribution: true,
-            bankAccount: {
-              bankName: primaryBankAccount.bankName,
-              accountNumber: primaryBankAccount.accountNumber,
-            },
-          },
-        });
-
-        contributionTransaction = await transactionRepo.save(contributionTransaction);
-        transactionsCreated.push(contributionTransaction.documentNumber);
-        console.log(`   ✓ Aporte registrado: ${contributionTransaction.documentNumber} por ${formatCLP(seed.amount)}`);
-      }
-    }
-
-    // ============================================
     // RESUMEN
     // ============================================
     const totalVariantsSeeded = productsData.reduce((acc, product) => acc + product.variants.length, 0);
@@ -1923,9 +1956,7 @@ async function seedFlowStore() {
     console.log(`   • Listas de precios: ${Object.values(priceListsByKey).length} (${priceListsSummary})`);
     console.log(`   • Bodega: ${storage.name}`);
     console.log(`   • Punto de venta: ${pointOfSale.name}`);
-    console.log(
-      `   • Aportes de capital registrados: ${transactionsCreated.length > 0 ? transactionsCreated.join(', ') : 'sin cambios'}`,
-    );
+    console.log(`   • Capital inicial: ${INITIAL_CAPITAL_DOCUMENT} por ${formatCLP(INITIAL_CAPITAL_AMOUNT)}`);
     console.log('\n🔑 Credenciales de acceso:');
     console.log('   Usuario: admin');
     console.log('   Contraseña: 890890');

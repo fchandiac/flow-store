@@ -132,6 +132,78 @@ export async function persistCashSessionWithdrawalTransaction(
   };
 }
 
+export interface CashSessionDepositParams {
+  cashSession: CashSession;
+  pointOfSale: PointOfSale;
+  user: User;
+  amount: number;
+  reason?: string;
+}
+
+export interface CashSessionDepositResult {
+  transaction: SerializedTransaction;
+  expectedAmount: number;
+}
+
+export async function persistCashSessionDepositTransaction(
+  manager: EntityManager,
+  params: CashSessionDepositParams,
+): Promise<CashSessionDepositResult> {
+  if (params.cashSession.status !== CashSessionStatus.OPEN) {
+    throw new CashSessionMovementError('La sesión de caja debe estar abierta.');
+  }
+
+  if (params.cashSession.pointOfSaleId && params.cashSession.pointOfSaleId !== params.pointOfSale.id) {
+    throw new CashSessionMovementError('La sesión de caja no pertenece al punto de venta indicado.');
+  }
+
+  const amount = sanitizeAmount(params.amount);
+  if (amount <= 0) {
+    throw new CashSessionMovementError('El monto a ingresar debe ser mayor a 0.');
+  }
+
+  const documentNumber = buildCashSessionDepositDocumentNumber(new Date(), params.pointOfSale);
+
+  const transactionRepo = manager.getRepository(Transaction);
+  const cashSessionRepo = manager.getRepository(CashSession);
+
+  const metadataPayload = {
+    cashSessionId: params.cashSession.id,
+    pointOfSaleId: params.pointOfSale.id,
+    pointOfSaleName: params.pointOfSale.name,
+    depositReason: params.reason?.trim() || null,
+    movementSource: 'mobile-backend',
+  };
+
+  const transaction = transactionRepo.create({
+    transactionType: TransactionType.CASH_SESSION_DEPOSIT,
+    status: TransactionStatus.CONFIRMED,
+    branchId: params.pointOfSale.branchId ?? null,
+    pointOfSaleId: params.pointOfSale.id,
+    cashSessionId: params.cashSession.id,
+    userId: params.user.id,
+    documentNumber,
+    paymentMethod: PaymentMethod.CASH,
+    subtotal: amount,
+    discountAmount: 0,
+    taxAmount: 0,
+    total: amount,
+    notes: params.reason?.trim() || null,
+    metadata: JSON.parse(JSON.stringify(metadataPayload)),
+  });
+
+  const savedTransaction = await transactionRepo.save(transaction);
+
+  const expectedAmount = await recomputeCashSessionExpectedAmount(manager, params.cashSession);
+  params.cashSession.expectedAmount = expectedAmount;
+  await cashSessionRepo.save(params.cashSession);
+
+  return {
+    transaction: serializeTransaction(savedTransaction),
+    expectedAmount,
+  };
+}
+
 async function recomputeCashSessionExpectedAmount(
   manager: EntityManager,
   cashSession: CashSession,
@@ -152,6 +224,9 @@ async function recomputeCashSessionExpectedAmount(
     switch (tx.transactionType) {
       case TransactionType.SALE:
       case TransactionType.PAYMENT_IN:
+        cashIn += total;
+        break;
+      case TransactionType.CASH_SESSION_DEPOSIT:
         cashIn += total;
         break;
       case TransactionType.SALE_RETURN:
@@ -213,6 +288,21 @@ function buildCashSessionWithdrawalDocumentNumber(now: Date, pointOfSale: PointO
     .slice(-6);
   const randomSegment = randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase();
   const parts = ['CSW', iso];
+  if (suffixSource.length > 0) {
+    parts.push(suffixSource);
+  }
+  parts.push(randomSegment);
+  return parts.join('-');
+}
+
+function buildCashSessionDepositDocumentNumber(now: Date, pointOfSale: PointOfSale): string {
+  const iso = now.toISOString().replace(/[-:T.Z]/g, '').slice(0, 14);
+  const suffixSource = (pointOfSale.deviceId ?? pointOfSale.name ?? pointOfSale.id)
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '')
+    .slice(-6);
+  const randomSegment = randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase();
+  const parts = ['CSD', iso];
   if (suffixSource.length > 0) {
     parts.push(suffixSource);
   }

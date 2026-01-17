@@ -363,6 +363,8 @@ function getDocumentPrefix(type: TransactionType): string {
       return 'GOP-';
     case TransactionType.CASH_SESSION_WITHDRAWAL:
       return 'RCS-';
+    case TransactionType.CASH_SESSION_DEPOSIT:
+      return 'ICS-';
     default:
       return 'DOC-';
   }

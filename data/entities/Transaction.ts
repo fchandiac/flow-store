@@ -32,6 +32,7 @@ import { CostCenter } from "./CostCenter";
  * - OPERATING_EXPENSE: Gasto operativo directo
  * - CASH_SESSION_OPENING: Apertura formal de caja para una sesión
  * - CASH_SESSION_WITHDRAWAL: Retiro manual de efectivo desde la sesión
+ * - CASH_SESSION_DEPOSIT: Ingreso manual de efectivo para reforzar la sesión
  */
 export enum TransactionType {
     SALE = 'SALE',
@@ -49,6 +50,7 @@ export enum TransactionType {
     OPERATING_EXPENSE = 'OPERATING_EXPENSE',
     CASH_SESSION_OPENING = 'CASH_SESSION_OPENING',
     CASH_SESSION_WITHDRAWAL = 'CASH_SESSION_WITHDRAWAL',
+    CASH_SESSION_DEPOSIT = 'CASH_SESSION_DEPOSIT',
 }
 
 export enum TransactionStatus {

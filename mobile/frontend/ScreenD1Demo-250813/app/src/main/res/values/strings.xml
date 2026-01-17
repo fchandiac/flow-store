@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">ScreenDemo(D1/D1 Pro)</string>
+    <string name="tips">Ps: 1. Input 1, click "sendLCDCommand", 2: change 1 to 4, click "sendLCDCommand",  3. After the first two steps are completed, click "sendLCDCommand" at will</string>
+</resources>

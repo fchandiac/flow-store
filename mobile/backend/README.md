@@ -23,3 +23,4 @@ una interfaz mínima de presentación.
 	- `POST /api/cash-sessions/opening-transaction`: registra la transacción de apertura para una sesión existente.
 	- `POST /api/cash-sessions/sales`: registra una venta (`TransactionType.SALE`) asociada a una sesión abierta y crea sus líneas.
 	- `POST /api/cash-sessions/cash-withdrawals`: registra un retiro manual de efectivo (`TransactionType.CASH_SESSION_WITHDRAWAL`) y actualiza el saldo esperado de la sesión.
+	- `POST /api/cash-sessions/cash-deposits`: registra un refuerzo de efectivo (`TransactionType.CASH_SESSION_DEPOSIT`) y recalcula el saldo esperado de la sesión.

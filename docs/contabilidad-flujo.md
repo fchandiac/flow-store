@@ -96,6 +96,7 @@ Los siguientes tipos existen en el dominio pero aún no tienen reglas activas en
 - Métodos de pago `CHECK`, `CREDIT`, `MIXED`: requieren definir cuentas puente antes de habilitarlos.
 - `CASH_SESSION_OPENING`: registra la apertura de caja y detalla la sesión en `metadata`, pero aún no se generan asientos automáticos.
 - `CASH_SESSION_WITHDRAWAL`: refleja retiros manuales de efectivo; ajusta `expectedAmount` de la sesión pero no dispara asientos.
+- `CASH_SESSION_DEPOSIT`: registra ingresos manuales de efectivo para la sesión y solo actualiza el estado operativo de caja.
 
 Al ejecutar el motor contable, estas transacciones simplemente no generan `LedgerPosting` hasta que se creen reglas correspondientes.
 

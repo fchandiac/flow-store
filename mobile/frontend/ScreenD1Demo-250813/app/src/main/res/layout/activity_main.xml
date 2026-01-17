@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:orientation="vertical"
+    tools:context=".MainActivity">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="10dp"
+                android:background="#ED18EFDD"
+                android:gravity="center"
+                android:text="Text:"
+                android:textAllCaps="false"
+                android:textColor="#333333"
+                android:textSize="14dp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="10dp"
+                android:background="#ED18EFDD"
+                android:gravity="center|left"
+                android:text="@string/tips"
+                android:textAllCaps="false"
+                android:textColor="#333333"
+                android:textSize="14dp" />
+        </LinearLayout>
+
+        <EditText
+            android:id="@+id/etNumber"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginHorizontal="20dp"
+            android:layout_marginTop="10dp"
+            android:hint="LCD FLAG"
+            android:text="1"
+            android:textColor="#333333"
+            android:textSize="14dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="20dp"
+            android:layout_marginTop="10dp"
+            android:background="#ED18EFDD"
+            android:gravity="center"
+            android:text="Font-Size:"
+            android:textAllCaps="false"
+            android:textColor="#333333"
+            android:textSize="14dp" />
+
+        <EditText
+            android:id="@+id/etSize"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginHorizontal="20dp"
+            android:layout_marginTop="10dp"
+            android:hint="size/BottomText"
+            android:text="48"
+            android:textColor="#333333"
+            android:textSize="14dp" />
+
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/send1"
+                android:layout_width="280dp"
+                android:layout_height="80dp"
+                android:layout_marginHorizontal="10dp"
+                android:layout_marginTop="10dp"
+                android:background="#ED18EFDD"
+                android:gravity="center"
+                android:text="sendLCDCommand"
+                android:textAllCaps="false"
+                android:textColor="#333333"
+                android:textSize="14dp" />
+
+            <TextView
+                android:id="@+id/send11"
+                android:layout_width="280dp"
+                android:layout_height="match_parent"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="10dp"
+                android:background="#ED18EFDD"
+                android:gravity="center"
+                android:text="setTextSize"
+                android:textAllCaps="false"
+                android:textColor="#333333"
+                android:textSize="14dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:layout_marginHorizontal="10dp"
+            android:layout_marginTop="20dp"
+            android:gravity="bottom"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/send2"
+                android:layout_width="280dp"
+                android:layout_height="match_parent"
+                android:layout_marginTop="10dp"
+                android:background="#ED18EFDD"
+                android:gravity="center"
+                android:text="sendLCDString"
+                android:textAllCaps="false"
+                android:textColor="#333333"
+                android:textSize="14dp" />
+
+            <TextView
+                android:id="@+id/send3"
+                android:layout_width="280dp"
+                android:layout_height="match_parent"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="10dp"
+                android:background="#ED18EFDD"
+                android:gravity="center"
+                android:text="sendLCDMultiString"
+                android:textAllCaps="false"
+                android:textColor="#333333"
+                android:textSize="14dp" />
+
+            <TextView
+                android:id="@+id/send4"
+                android:layout_width="280dp"
+                android:layout_height="match_parent"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="10dp"
+                android:background="#ED18EFDD"
+                android:gravity="center"
+                android:text="sendLCDFillString"
+                android:textAllCaps="false"
+                android:textColor="#333333"
+                android:textSize="14dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/send5"
+                android:layout_width="280dp"
+                android:layout_height="match_parent"
+                android:layout_marginHorizontal="20dp"
+                android:layout_marginTop="10dp"
+                android:background="#ED18EFDD"
+                android:gravity="center"
+                android:text="sendLCDDoubleString"
+                android:textAllCaps="false"
+                android:textColor="#333333"
+                android:textSize="14dp" />
+        </LinearLayout>
+
+
+        <TextView
+            android:id="@+id/send6"
+            android:layout_width="280dp"
+            android:layout_height="80dp"
+            android:layout_marginHorizontal="10dp"
+            android:layout_marginTop="30dp"
+            android:background="#ED18EFDD"
+            android:gravity="center"
+            android:text="sendLCDBitmap"
+            android:textAllCaps="false"
+            android:textColor="#333333"
+            android:textSize="14dp" />
+
+        <TextView
+            android:id="@+id/send7"
+            android:layout_width="150dp"
+            android:layout_height="80dp"
+            android:layout_marginHorizontal="20dp"
+            android:layout_marginTop="10dp"
+            android:background="#ED18EFDD"
+            android:gravity="center"
+            android:text="sendLCDBitmap7"
+            android:textAllCaps="false"
+            android:textColor="#333333"
+            android:textSize="14dp"
+            android:visibility="visible" />
+
+        <ImageView
+            android:id="@+id/iv"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp" />
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

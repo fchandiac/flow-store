@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">副屏显示Demo(D1/D1 Pro)</string>
+    <string name="tips">ps:1.输入1点击“sendLCDCommand”，2:把1改成4点击“sendLCDCommand”，3.前两步骤完成后除“sendLCDCommand”其他可随意点击</string>
+</resources>

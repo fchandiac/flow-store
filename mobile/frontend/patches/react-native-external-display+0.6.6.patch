@@ -1,0 +1,85 @@
+diff --git a/node_modules/react-native-external-display/android/src/main/java/com/externaldisplay/ExternalDisplayHelper.java b/node_modules/react-native-external-display/android/src/main/java/com/externaldisplay/ExternalDisplayHelper.java
+index 6ec288a..93f7196 100644
+--- a/node_modules/react-native-external-display/android/src/main/java/com/externaldisplay/ExternalDisplayHelper.java
++++ b/node_modules/react-native-external-display/android/src/main/java/com/externaldisplay/ExternalDisplayHelper.java
+@@ -15,6 +15,7 @@ import android.view.ViewGroup.LayoutParams;
+ import android.widget.LinearLayout;
+ import android.hardware.display.DisplayManager;
+ 
++import java.lang.reflect.Method;
+ import java.util.Map;
+ import java.util.HashMap;
+ 
+@@ -35,27 +36,56 @@ class ExternalDisplayScreen extends Presentation {
+ 
+ @TargetApi(Build.VERSION_CODES.JELLY_BEAN_MR1)
+ class ExternalDisplayHelper implements DisplayManager.DisplayListener {
++  private static final int DISPLAY_TYPE_UNKNOWN = -1;
++  private static final int DISPLAY_TYPE_BUILT_IN = 1;
++
+   public static Map<String, Object> getScreenInfo(Display[] displays) {
+     HashMap<String, Object> info = new HashMap<String, Object>();
++
++    if (displays == null) {
++      return info;
++    }
++
+     for (Display display : displays) {
+-      int displayId = display.getDisplayId();
+-      if (
+-        display.getDisplayId() == Display.DEFAULT_DISPLAY ||
+-        (display.getFlags() & Display.FLAG_PRESENTATION) == 0
+-      ) {
++      if (display == null || !display.isValid()) {
+         continue;
+       }
++
++      int displayId = display.getDisplayId();
++      int displayType = resolveDisplayType(display);
+       HashMap<String, Object> data = new HashMap<String, Object>();
+       DisplayMetrics displayMetrics = new DisplayMetrics();
+       display.getMetrics(displayMetrics);
++
++      boolean isMainScreen = displayId == Display.DEFAULT_DISPLAY || displayType == DISPLAY_TYPE_BUILT_IN;
++
+       data.put("id", displayId);
+-      data.put("width",  displayMetrics.widthPixels);
++      data.put("width", displayMetrics.widthPixels);
+       data.put("height", displayMetrics.heightPixels);
+-      info.put(String.valueOf(display.getDisplayId()), data);
++      data.put("name", display.getName());
++      data.put("isMainScreen", isMainScreen);
++      data.put("type", displayType);
++      data.put("flags", display.getFlags());
++
++      info.put(String.valueOf(displayId), data);
+     }
++
+     return info;
+   }
+ 
++  private static int resolveDisplayType(Display display) {
++    try {
++      Method getTypeMethod = Display.class.getMethod("getType");
++      Object typeValue = getTypeMethod.invoke(display);
++      if (typeValue instanceof Integer) {
++        return (Integer) typeValue;
++      }
++    } catch (Exception ignored) {
++      // Reflection may fail on older runtimes; fall back to unknown type.
++    }
++    return DISPLAY_TYPE_UNKNOWN;
++  }
++
+   public interface Listener {
+     void onDisplayAdded(Display[] displays, int displayId);
+     void onDisplayChanged(Display[] displays, int displayId);
+@@ -78,7 +108,7 @@ class ExternalDisplayHelper implements DisplayManager.DisplayListener {
+   }
+ 
+   public Display[] getDisplays() {
+-    return dm.getDisplays(DisplayManager.DISPLAY_CATEGORY_PRESENTATION);
++    return dm.getDisplays(null);
+   }
+ 
+   @Override
