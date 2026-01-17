@@ -19,6 +19,7 @@ interface CreatePointOfSaleDialogProps {
     open: boolean;
     onClose: () => void;
     branches: BranchType[];
+    priceLists: { id: string; name: string }[];
     'data-test-id'?: string;
 }
 
@@ -26,6 +27,7 @@ const CreatePointOfSaleDialog: React.FC<CreatePointOfSaleDialogProps> = ({
     open, 
     onClose,
     branches,
+    priceLists,
     'data-test-id': dataTestId 
 }) => {
     const router = useRouter();
@@ -38,6 +40,7 @@ const CreatePointOfSaleDialog: React.FC<CreatePointOfSaleDialogProps> = ({
         name: '',
         branchId: branches[0]?.id || '',
         deviceId: '',
+        defaultPriceListId: priceLists[0]?.id || '',
     });
 
     const handleChange = (field: string, value: any) => {
@@ -53,6 +56,7 @@ const CreatePointOfSaleDialog: React.FC<CreatePointOfSaleDialogProps> = ({
         const validationErrors: string[] = [];
         if (!formData.name.trim()) validationErrors.push('El nombre es requerido');
         if (!formData.branchId) validationErrors.push('La sucursal es requerida');
+        if (!formData.defaultPriceListId) validationErrors.push('La lista de precios predeterminada es requerida');
         
         if (validationErrors.length > 0) {
             setErrors(validationErrors);
@@ -67,6 +71,7 @@ const CreatePointOfSaleDialog: React.FC<CreatePointOfSaleDialogProps> = ({
                 name: formData.name,
                 branchId: formData.branchId,
                 deviceId: formData.deviceId || undefined,
+                defaultPriceListId: formData.defaultPriceListId,
             });
 
             if (result.success) {
@@ -75,6 +80,7 @@ const CreatePointOfSaleDialog: React.FC<CreatePointOfSaleDialogProps> = ({
                     name: '',
                     branchId: branches[0]?.id || '',
                     deviceId: '',
+                    defaultPriceListId: priceLists[0]?.id || '',
                 });
 
                 setTimeout(() => {
@@ -97,6 +103,7 @@ const CreatePointOfSaleDialog: React.FC<CreatePointOfSaleDialogProps> = ({
             name: '',
             branchId: branches[0]?.id || '',
             deviceId: '',
+            defaultPriceListId: priceLists[0]?.id || '',
         });
         setErrors([]);
         onClose();
@@ -105,6 +112,11 @@ const CreatePointOfSaleDialog: React.FC<CreatePointOfSaleDialogProps> = ({
     const branchOptions = branches.map(b => ({
         id: b.id,
         label: b.name
+    }));
+
+    const priceListOptions = priceLists.map(list => ({
+        id: list.id,
+        label: list.name,
     }));
 
     return (
@@ -132,6 +144,15 @@ const CreatePointOfSaleDialog: React.FC<CreatePointOfSaleDialogProps> = ({
                         value={formData.branchId}
                         onChange={(val) => handleChange('branchId', val)}
                         data-test-id="create-pos-branch"
+                    />
+
+                    <Select
+                        label="Lista de Precios Predeterminada"
+                        options={priceListOptions}
+                        value={formData.defaultPriceListId}
+                        onChange={(val) => handleChange('defaultPriceListId', val)}
+                        disabled={priceListOptions.length === 0}
+                        data-test-id="create-pos-default-price-list"
                     />
 
                     <TextField

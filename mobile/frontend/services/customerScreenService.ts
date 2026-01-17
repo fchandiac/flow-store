@@ -1,5 +1,6 @@
 import { NativeModules } from 'react-native';
 
+import { formatCurrency } from '../utils/formatCurrency';
 import type { CartItem, SecondaryDisplayMode } from '../store/usePosStore';
 
 type NativeDisplayDescriptor = {
@@ -73,13 +74,13 @@ function buildCartLines(items: CartItem[], total: number): string[] {
     }
     const qty = item.qty.toString().padStart(2, '0');
     const name = item.name.length > 14 ? `${item.name.slice(0, 13)}…` : item.name;
-    const price = `$${item.total.toFixed(2)}`;
+    const price = formatCurrency(item.total);
     lines.push(`${qty} ${name}`);
     lines.push(`   ${price}`);
   });
 
   lines.push('----------------');
-  lines.push(`Total: $${total.toFixed(2)}`);
+  lines.push(`Total: ${formatCurrency(total)}`);
 
   return lines.slice(0, maxLines);
 }

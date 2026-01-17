@@ -28,6 +28,8 @@ export type CashSessionSummary = {
   openedAt: string;
   openingAmount: number;
   expectedAmount: number | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type ProductSearchResult = {

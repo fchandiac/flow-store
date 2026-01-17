@@ -18,6 +18,7 @@ import {
   usePosStore,
   type CartItem,
 } from '../store/usePosStore';
+import { formatCurrency } from '../utils/formatCurrency';
 
 export type PosScreenProps = NativeStackScreenProps<RootStackParamList, 'Pos'>;
 
@@ -95,7 +96,7 @@ function PosScreen({ navigation }: PosScreenProps) {
       clearCart();
       Alert.alert(
         'Venta registrada',
-        `Documento ${response.transaction.documentNumber} por ${response.transaction.total.toFixed(2)}.`,
+        `Documento ${response.transaction.documentNumber} por ${formatCurrency(response.transaction.total)}.`,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudo finalizar la venta.';
@@ -112,7 +113,7 @@ function PosScreen({ navigation }: PosScreenProps) {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.root}>
+    <View style={styles.root}>
       <View style={styles.header}>
         <View>
           <Text style={styles.headerTitle}>{pointOfSale?.name ?? 'Punto de venta'}</Text>
@@ -126,141 +127,154 @@ function PosScreen({ navigation }: PosScreenProps) {
         </TouchableOpacity>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Buscar productos</Text>
-        <View style={styles.searchRow}>
-          <TextInput
-            autoCapitalize="characters"
-            autoCorrect={false}
-            onChangeText={setQuery}
-            placeholder="Nombre, SKU o código escaneado"
-            placeholderTextColor="#6b7280"
-            style={styles.searchInput}
-            value={query}
-          />
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={handleSearch}
-            style={[styles.primaryButton, styles.searchButton]}
-            disabled={isSearching}
-          >
-            {isSearching ? (
-              <ActivityIndicator color="#f8fafc" />
-            ) : (
-              <Text style={styles.primaryButtonLabel}>Buscar</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-        {results ? (
-          <View style={styles.results}>
-            {results.products.map((product) => (
-              <TouchableOpacity
-                key={product.variantId}
-                activeOpacity={0.85}
-                onPress={() => handleAddProduct(product)}
-                style={styles.resultItem}
-              >
-                <View style={styles.resultInfo}>
-                  <Text style={styles.resultName}>{product.productName}</Text>
-                  <Text style={styles.resultMeta}>
-                    SKU {product.sku}
-                    {product.barcode ? ` • Código ${product.barcode}` : ''}
-                  </Text>
-                </View>
-                <View style={styles.resultPriceBlock}>
-                  <Text style={styles.resultPrice}>${product.unitPriceWithTax.toFixed(2)}</Text>
-                  <Text style={styles.resultHint}>
-                    +IVA {product.unitTaxRate.toFixed(2)}%
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </View>
-        ) : null}
-      </View>
-
-      <View style={styles.card}>
-        <Text style={styles.sectionTitle}>Carrito</Text>
-        {cartItems.length ? (
-          cartItems.map((item: CartItem) => (
-            <View key={item.variantId} style={styles.cartItem}>
-              <View style={styles.cartItemInfo}>
-                <Text style={styles.cartItemName}>{item.name}</Text>
-                <Text style={styles.cartItemMeta}>
-                  SKU {item.sku}
-                  {item.unitSymbol ? ` • ${item.unitSymbol}` : ''}
-                </Text>
-              </View>
-              <View style={styles.cartActions}>
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => decrementItem(item.variantId)}
-                  style={[styles.counterButton, styles.counterButtonLeft]}
-                >
-                  <Text style={styles.counterLabel}>-</Text>
-                </TouchableOpacity>
-                <Text style={styles.counterValue}>{item.qty}</Text>
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => incrementItem(item.variantId)}
-                  style={[styles.counterButton, styles.counterButtonRight]}
-                >
-                  <Text style={styles.counterLabel}>+</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  activeOpacity={0.85}
-                  onPress={() => removeItem(item.variantId)}
-                  style={styles.removeButton}
-                >
-                  <Text style={styles.removeLabel}>Eliminar</Text>
-                </TouchableOpacity>
-              </View>
-              <View style={styles.cartItemTotals}>
-                <Text style={styles.cartItemPrice}>${item.total.toFixed(2)}</Text>
-                <Text style={styles.cartItemHint}>
-                  Subtotal ${item.subtotal.toFixed(2)} • IVA ${item.taxAmount.toFixed(2)}
-                </Text>
-              </View>
-            </View>
-          ))
-        ) : (
-          <Text style={styles.emptyCart}>No hay productos en el carrito.</Text>
-        )}
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Subtotal</Text>
-          <Text style={styles.totalValue}>${cartTotals.subtotal.toFixed(2)}</Text>
-        </View>
-        <View style={styles.totalRow}>
-          <Text style={styles.totalLabel}>Impuestos</Text>
-          <Text style={styles.totalValue}>${cartTotals.taxAmount.toFixed(2)}</Text>
-        </View>
-        <View style={styles.totalRowFinal}>
-          <Text style={styles.totalFinalLabel}>Total</Text>
-          <Text style={styles.totalFinalValue}>${cartTotals.total.toFixed(2)}</Text>
-        </View>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          disabled={isCheckingOut || !cartItems.length}
-          onPress={handleCheckout}
-          style={[
-            styles.primaryButton,
-            styles.checkoutButton,
-            (isCheckingOut || !cartItems.length) && styles.checkoutButtonDisabled,
-          ]}
+      <View style={styles.columns}>
+        <ScrollView
+          style={[styles.column, styles.leftColumn]}
+          contentContainerStyle={styles.columnContent}
+          showsVerticalScrollIndicator={false}
         >
-          {isCheckingOut ? (
-            <ActivityIndicator color="#042f2e" />
-          ) : (
-            <Text style={styles.checkoutLabel}>Finalizar venta</Text>
-          )}
-        </TouchableOpacity>
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Buscar productos</Text>
+            <View style={styles.searchRow}>
+              <TextInput
+                autoCapitalize="characters"
+                autoCorrect={false}
+                onChangeText={setQuery}
+                placeholder="Nombre, SKU o código escaneado"
+                placeholderTextColor="#6b7280"
+                style={styles.searchInput}
+                value={query}
+              />
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handleSearch}
+                style={[styles.primaryButton, styles.searchButton]}
+                disabled={isSearching}
+              >
+                {isSearching ? (
+                  <ActivityIndicator color="#f8fafc" />
+                ) : (
+                  <Text style={styles.primaryButtonLabel}>Buscar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+            {results ? (
+              <View style={styles.results}>
+                {results.products.map((product) => (
+                  <TouchableOpacity
+                    key={product.variantId}
+                    activeOpacity={0.85}
+                    onPress={() => handleAddProduct(product)}
+                    style={styles.resultItem}
+                  >
+                    <View style={styles.resultInfo}>
+                      <Text style={styles.resultName}>{product.productName}</Text>
+                      <Text style={styles.resultMeta}>
+                        SKU {product.sku}
+                        {product.barcode ? ` • Código ${product.barcode}` : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.resultPriceBlock}>
+                      <Text style={styles.resultPrice}>{formatCurrency(product.unitPriceWithTax)}</Text>
+                      <Text style={styles.resultHint}>{`+IVA ${product.unitTaxRate.toFixed(2)}%`}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
+          </View>
+        </ScrollView>
+
+        <ScrollView
+          style={[styles.column, styles.rightColumn]}
+          contentContainerStyle={styles.columnContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Carrito</Text>
+            {cartItems.length ? (
+              cartItems.map((item: CartItem) => (
+                <View key={item.variantId} style={styles.cartItem}>
+                  <View style={styles.cartItemInfo}>
+                    <Text style={styles.cartItemName}>{item.name}</Text>
+                    <Text style={styles.cartItemMeta}>
+                      SKU {item.sku}
+                      {item.unitSymbol ? ` • ${item.unitSymbol}` : ''}
+                    </Text>
+                  </View>
+                  <View style={styles.cartActions}>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => decrementItem(item.variantId)}
+                      style={[styles.counterButton, styles.counterButtonLeft]}
+                    >
+                      <Text style={styles.counterLabel}>-</Text>
+                    </TouchableOpacity>
+                    <Text style={styles.counterValue}>{item.qty}</Text>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => incrementItem(item.variantId)}
+                      style={[styles.counterButton, styles.counterButtonRight]}
+                    >
+                      <Text style={styles.counterLabel}>+</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => removeItem(item.variantId)}
+                      style={styles.removeButton}
+                    >
+                      <Text style={styles.removeLabel}>Eliminar</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={styles.cartItemTotals}>
+                    <Text style={styles.cartItemPrice}>{formatCurrency(item.total)}</Text>
+                    <Text style={styles.cartItemHint}>
+                      {`Subtotal ${formatCurrency(item.subtotal)} • IVA ${formatCurrency(item.taxAmount)}`}
+                    </Text>
+                  </View>
+                </View>
+              ))
+            ) : (
+              <Text style={styles.emptyCart}>No hay productos en el carrito.</Text>
+            )}
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Subtotal</Text>
+              <Text style={styles.totalValue}>{formatCurrency(cartTotals.subtotal)}</Text>
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Impuestos</Text>
+              <Text style={styles.totalValue}>{formatCurrency(cartTotals.taxAmount)}</Text>
+            </View>
+            <View style={styles.totalRowFinal}>
+              <Text style={styles.totalFinalLabel}>Total</Text>
+              <Text style={styles.totalFinalValue}>{formatCurrency(cartTotals.total)}</Text>
+            </View>
+            <TouchableOpacity
+              activeOpacity={0.85}
+              disabled={isCheckingOut || !cartItems.length}
+              onPress={handleCheckout}
+              style={[
+                styles.primaryButton,
+                styles.checkoutButton,
+                (isCheckingOut || !cartItems.length) && styles.checkoutButtonDisabled,
+              ]}
+            >
+              {isCheckingOut ? (
+                <ActivityIndicator color="#042f2e" />
+              ) : (
+                <Text style={styles.checkoutLabel}>Finalizar venta</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: {
+    flex: 1,
     paddingHorizontal: 16,
     paddingVertical: 20,
     backgroundColor: '#0b1120',
@@ -270,6 +284,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 16,
+  },
+  columns: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  column: {
+    flex: 1,
+    minWidth: 0,
+  },
+  leftColumn: {
+    marginRight: 12,
+  },
+  rightColumn: {
+    marginLeft: 12,
+  },
+  columnContent: {
+    flexGrow: 1,
+    paddingBottom: 24,
   },
   headerTitle: {
     fontSize: 22,

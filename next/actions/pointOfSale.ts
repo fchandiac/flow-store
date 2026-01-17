@@ -59,11 +59,12 @@ export interface POSContextDTO {
         id: string;
         name: string;
         branchId?: string | null;
+        defaultPriceListId: string;
     } | null;
     branch?: POSBranchSummary | null;
     storage?: POSStorageSummary | null;
     priceLists: POSPriceListSummary[];
-    defaultPriceListId?: string;
+    defaultPriceListId: string | null;
 }
 
 export interface POSProductListItem {
@@ -196,8 +197,10 @@ async function resolvePointOfSaleContext(): Promise<POSContextDTO> {
         .getMany();
 
     const mappedLists = mapPriceLists(priceLists);
-    const defaultPriceListId = mappedLists.find((list) => list.isDefault)?.id
-        ?? mappedLists[0]?.id;
+    const fallbackPriceListId = mappedLists.find((list) => list.isDefault)?.id
+        ?? mappedLists[0]?.id
+        ?? null;
+    const resolvedDefaultPriceListId = pointOfSale?.defaultPriceListId ?? fallbackPriceListId;
 
     return {
         user: session
@@ -212,6 +215,7 @@ async function resolvePointOfSaleContext(): Promise<POSContextDTO> {
                 id: pointOfSale.id,
                 name: pointOfSale.name,
                 branchId: pointOfSale.branchId ?? null,
+                defaultPriceListId: pointOfSale.defaultPriceListId,
             }
             : null,
         branch: branch
@@ -230,7 +234,7 @@ async function resolvePointOfSaleContext(): Promise<POSContextDTO> {
             }
             : null,
         priceLists: mappedLists,
-        defaultPriceListId,
+        defaultPriceListId: resolvedDefaultPriceListId,
     };
 }
 

@@ -11,9 +11,21 @@ interface ToolbarProps {
   columns?: DataGridColumn[];
   title?: string;
   onExportExcel?: () => Promise<void>; // Callback para exportar a Excel
+  showSortButton?: boolean;
+  showFilterButton?: boolean;
+  showExportButton?: boolean;
 }
 
-const Toolbar: React.FC<ToolbarProps> = ({ filterMode = false, onToggleFilterMode, columns = [], title = '', onExportExcel }) => {
+const Toolbar: React.FC<ToolbarProps> = ({
+  filterMode = false,
+  onToggleFilterMode,
+  columns = [],
+  title = '',
+  onExportExcel,
+  showSortButton = true,
+  showFilterButton = true,
+  showExportButton = true,
+}) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { showAlert } = useAlert();
@@ -58,6 +70,7 @@ const Toolbar: React.FC<ToolbarProps> = ({ filterMode = false, onToggleFilterMod
   return (
     <div className="flex justify-end items-center gap-4 py-2" data-test-id="data-grid-toolbar">
       {/* Quick sort button: sets sort=asc and sortField=first visible column */}
+      {showSortButton && firstVisible ? (
         <IconButton
           variant="text"
           title="Ordenar por primer campo (asc)"
@@ -66,40 +79,43 @@ const Toolbar: React.FC<ToolbarProps> = ({ filterMode = false, onToggleFilterMod
           className={isSortActive ? 'text-primary' : 'text-secondary'}
           style={{ fontSize: 20, width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
         />
+      ) : null}
 
-     
-      
       {/* Material Symbols filter icon - cambia según filterMode */}
-      <IconButton
-        variant="text"
-        title={filterMode ? 'Desactivar filtros' : 'Filtrar'}
-        onClick={() => {
-          const params = new URLSearchParams(searchParams.toString());
-          if (filterMode) {
-            // Clear filters when deactivating
-            params.delete('filters');
-            params.delete('filtration');
-            router.replace(`?${params.toString()}`);
-          } else {
-            // Activate filtration when enabling filter mode
-            params.set('filtration', 'true');
-            router.replace(`?${params.toString()}`);
-          }
-          onToggleFilterMode?.();
-        }}
-        icon={filterMode ? 'filter_alt_off' : 'filter_alt'}
-        className="text-secondary"
-        style={{ fontSize: 20, width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-      />
+      {showFilterButton ? (
+        <IconButton
+          variant="text"
+          title={filterMode ? 'Desactivar filtros' : 'Filtrar'}
+          onClick={() => {
+            const params = new URLSearchParams(searchParams.toString());
+            if (filterMode) {
+              // Clear filters when deactivating
+              params.delete('filters');
+              params.delete('filtration');
+              router.replace(`?${params.toString()}`);
+            } else {
+              // Activate filtration when enabling filter mode
+              params.set('filtration', 'true');
+              router.replace(`?${params.toString()}`);
+            }
+            onToggleFilterMode?.();
+          }}
+          icon={filterMode ? 'filter_alt_off' : 'filter_alt'}
+          className="text-secondary"
+          style={{ fontSize: 20, width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+        />
+      ) : null}
       {/* Excel export icon - using Material Symbol for perfect alignment */}
-      <IconButton
-        variant="text"
-        title="Exportar a Excel"
-        onClick={handleExportExcel}
-        icon="file_download"
-        className="text-secondary"
-        style={{ fontSize: 20, width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
-      />
+      {showExportButton ? (
+        <IconButton
+          variant="text"
+          title="Exportar a Excel"
+          onClick={handleExportExcel}
+          icon="file_download"
+          className="text-secondary"
+          style={{ fontSize: 20, width: 20, height: 20, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+        />
+      ) : null}
     </div>
   );
 };

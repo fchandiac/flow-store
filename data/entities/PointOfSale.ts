@@ -10,6 +10,7 @@ import {
     JoinColumn,
 } from "typeorm";
 import { Branch } from "./Branch";
+import { PriceList } from "./PriceList";
 
 @Entity("points_of_sale")
 export class PointOfSale {
@@ -18,6 +19,9 @@ export class PointOfSale {
 
     @Column({ type: 'uuid', nullable: true })
     branchId?: string;
+
+    @Column({ type: 'uuid' })
+    defaultPriceListId!: string;
 
     @Column({ type: 'varchar', length: 255 })
     name!: string;
@@ -41,6 +45,10 @@ export class PointOfSale {
     @ManyToOne(() => Branch, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'branchId' })
     branch?: Branch;
+
+    @ManyToOne(() => PriceList, { onDelete: 'RESTRICT', onUpdate: 'NO ACTION' })
+    @JoinColumn({ name: 'defaultPriceListId' })
+    defaultPriceList?: PriceList;
 
     // Note: CashSession has ManyToOne to PointOfSale
     // We don't define inverse OneToMany here to avoid circular metadata issues

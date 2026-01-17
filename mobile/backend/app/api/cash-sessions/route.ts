@@ -10,6 +10,85 @@ interface CreateCashSessionRequest {
   openingAmount?: number;
 }
 
+export async function GET(request: Request) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const pointOfSaleId = searchParams.get('pointOfSaleId')?.trim();
+
+    if (!pointOfSaleId) {
+      return NextResponse.json(
+        { success: false, message: 'pointOfSaleId es obligatorio.' },
+        { status: 400 },
+      );
+    }
+
+    const dataSource = await getDataSource();
+    const cashSessionRepo = dataSource.getRepository(CashSession);
+
+    const activeSession = await cashSessionRepo.findOne({
+      where: {
+        pointOfSaleId,
+        status: CashSessionStatus.OPEN,
+      },
+      order: {
+        openedAt: 'DESC',
+      },
+    });
+
+    if (!activeSession) {
+      return NextResponse.json(
+        { success: true, cashSession: null, openedByUser: null },
+        { status: 200 },
+      );
+    }
+
+    let openedByUser: { id: string; userName: string; personName: string | null } | null = null;
+
+    if (activeSession.openedById) {
+      const userRepo = dataSource.getRepository(User);
+      const user = await userRepo.findOne({
+        where: { id: activeSession.openedById },
+        relations: ['person'],
+      });
+
+      if (user) {
+        openedByUser = {
+          id: user.id,
+          userName: user.userName,
+          personName: user.person?.name ?? null,
+        };
+      }
+    }
+
+    const cashSessionPayload = {
+      id: activeSession.id,
+      pointOfSaleId: activeSession.pointOfSaleId,
+      openedById: activeSession.openedById,
+      status: activeSession.status,
+      openingAmount: Number(activeSession.openingAmount),
+      openedAt: activeSession.openedAt,
+      createdAt: activeSession.createdAt,
+      updatedAt: activeSession.updatedAt,
+      expectedAmount: activeSession.expectedAmount ?? null,
+    };
+
+    return NextResponse.json(
+      {
+        success: true,
+        cashSession: cashSessionPayload,
+        openedByUser,
+      },
+      { status: 200 },
+    );
+  } catch (error) {
+    console.error('[cash-sessions] Error fetching active session', error);
+    return NextResponse.json(
+      { success: false, message: 'Error interno del servidor.' },
+      { status: 500 },
+    );
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body: CreateCashSessionRequest = await request.json();

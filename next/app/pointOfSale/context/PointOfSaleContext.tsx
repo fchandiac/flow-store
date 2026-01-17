@@ -206,7 +206,7 @@ export function PointOfSaleProvider({ children }: { children: React.ReactNode })
                 setProviderState({
                     isLoading: false,
                     context: ctx,
-                    selectedPriceListId: ctx.defaultPriceListId,
+                    selectedPriceListId: ctx.defaultPriceListId ?? undefined,
                 });
             } catch (error) {
                 console.error('Error cargando contexto POS', error);
@@ -224,7 +224,7 @@ export function PointOfSaleProvider({ children }: { children: React.ReactNode })
             if (!prev.context) {
                 return prev;
             }
-            const effectiveId = id ?? prev.context.defaultPriceListId;
+            const effectiveId = id ?? prev.context.defaultPriceListId ?? undefined;
             if (prev.selectedPriceListId === effectiveId) {
                 return prev;
             }

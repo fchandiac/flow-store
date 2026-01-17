@@ -1,15 +1,19 @@
 import type { PropsWithChildren, ReactNode } from 'react';
 
+const DEFAULT_INFO_NOTICE = 'Vista de solo lectura. Los saldos se calculan en línea según la operación.';
+
 interface AccountingShellProps {
     title: string;
     description?: ReactNode;
     actions?: ReactNode;
+    infoNotice?: ReactNode;
 }
 
 export default function AccountingShell({
     title,
     description,
     actions,
+    infoNotice = DEFAULT_INFO_NOTICE,
     children,
 }: PropsWithChildren<AccountingShellProps>) {
     return (
@@ -24,9 +28,9 @@ export default function AccountingShell({
                     </div>
                     {actions ? <div className="flex items-center gap-2">{actions}</div> : null}
                 </div>
-                <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                    Vista de solo lectura. Los saldos se calculan en línea según la operación.
-                </p>
+                {infoNotice ? (
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">{infoNotice}</p>
+                ) : null}
             </header>
             <section className="flex-1 overflow-auto">
                 {children}

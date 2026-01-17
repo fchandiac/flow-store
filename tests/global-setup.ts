@@ -480,6 +480,7 @@ async function setupTestDatabase() {
       `CREATE TABLE points_of_sale (
         id varchar(36) NOT NULL PRIMARY KEY,
         branchId varchar(36) NULL,
+        defaultPriceListId varchar(36) NOT NULL,
         name varchar(255) NOT NULL,
         deviceId varchar(100) NULL,
         isActive boolean NOT NULL DEFAULT true,
@@ -570,6 +571,7 @@ async function setupTestDatabase() {
       `ALTER TABLE suppliers ADD CONSTRAINT fk_suppliers_person FOREIGN KEY (personId) REFERENCES persons(id) ON DELETE SET NULL`,
       `ALTER TABLE customers ADD CONSTRAINT fk_customers_person FOREIGN KEY (personId) REFERENCES persons(id) ON DELETE SET NULL`,
       `ALTER TABLE points_of_sale ADD CONSTRAINT fk_points_of_sale_branch FOREIGN KEY (branchId) REFERENCES branches(id) ON DELETE SET NULL`,
+      `ALTER TABLE points_of_sale ADD CONSTRAINT fk_points_of_sale_default_price_list FOREIGN KEY (defaultPriceListId) REFERENCES price_lists(id) ON DELETE RESTRICT ON UPDATE NO ACTION`,
       `ALTER TABLE cash_sessions ADD CONSTRAINT fk_cash_sessions_point_of_sale FOREIGN KEY (pointOfSaleId) REFERENCES points_of_sale(id) ON DELETE SET NULL`,
       `ALTER TABLE cash_sessions ADD CONSTRAINT fk_cash_sessions_user FOREIGN KEY (userId) REFERENCES users(id) ON DELETE SET NULL`,
       `ALTER TABLE transactions ADD CONSTRAINT fk_transactions_point_of_sale FOREIGN KEY (pointOfSaleId) REFERENCES points_of_sale(id) ON DELETE SET NULL`,

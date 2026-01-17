@@ -11,21 +11,34 @@ export interface PointOfSaleType {
     name: string;
     deviceId?: string;
     isActive: boolean;
-    branchId: string;
+    branchId?: string;
+    defaultPriceListId: string;
     branch?: {
+        id: string;
+        name: string;
+    };
+    defaultPriceList?: {
         id: string;
         name: string;
     };
 }
 
+interface PriceListOption {
+    id: string;
+    name: string;
+}
+
 interface PointOfSaleCardProps {
     pointOfSale: PointOfSaleType;
+    priceLists: PriceListOption[];
     'data-test-id'?: string;
 }
 
-const PointOfSaleCard: React.FC<PointOfSaleCardProps> = ({ pointOfSale, 'data-test-id': dataTestId }) => {
+const PointOfSaleCard: React.FC<PointOfSaleCardProps> = ({ pointOfSale, priceLists, 'data-test-id': dataTestId }) => {
     const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
     const [openUpdateDialog, setOpenUpdateDialog] = useState(false);
+    const fallbackPriceList = priceLists.find((list) => list.id === pointOfSale.defaultPriceListId);
+    const defaultPriceList = pointOfSale.defaultPriceList ?? fallbackPriceList;
 
     return (
         <article 
@@ -67,6 +80,14 @@ const PointOfSaleCard: React.FC<PointOfSaleCardProps> = ({ pointOfSale, 'data-te
                             <span>{pointOfSale.branch.name}</span>
                         </div>
                     )}
+                    {defaultPriceList && (
+                        <div className="flex items-center gap-2">
+                            <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>
+                                sell
+                            </span>
+                            <span>{defaultPriceList.name}</span>
+                        </div>
+                    )}
                     {pointOfSale.deviceId && (
                         <div className="flex items-center gap-2">
                             <span className="material-symbols-outlined" style={{ fontSize: '1rem' }}>
@@ -101,6 +122,7 @@ const PointOfSaleCard: React.FC<PointOfSaleCardProps> = ({ pointOfSale, 'data-te
                 open={openUpdateDialog}
                 onClose={() => setOpenUpdateDialog(false)}
                 pointOfSale={pointOfSale}
+                priceLists={priceLists}
                 data-test-id={`${dataTestId}-update-dialog`}
             />
             

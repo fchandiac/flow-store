@@ -1278,7 +1278,9 @@ async function seedFlowStore() {
       },
     ] as const;
 
-    const priceListsByKey: Record<string, PriceList> = {};
+    type PriceListKey = (typeof priceListsConfig)[number]['key'];
+
+    const priceListsByKey: Record<PriceListKey, PriceList> = {} as Record<PriceListKey, PriceList>;
 
     for (const config of priceListsConfig) {
       let list = await priceListRepo.findOne({ where: { name: config.name }, withDeleted: true });
@@ -1331,21 +1333,63 @@ async function seedFlowStore() {
     // ============================================
     // 8. PUNTO DE VENTA
     // ============================================
-    console.log('\n🖥️  Creando punto de venta...');
-    
-    let pointOfSale = await db.getRepository(PointOfSale).findOne({ 
-      where: { branchId: primaryBranch.id } 
-    });
-    if (!pointOfSale) {
-      pointOfSale = new PointOfSale();
-      pointOfSale.id = uuidv4();
-      pointOfSale.branchId = primaryBranch.id;
-      pointOfSale.name = 'Caja Principal';
-      pointOfSale.isActive = true;
-      await db.getRepository(PointOfSale).save(pointOfSale);
-      console.log(`   ✓ Punto de venta creado: ${pointOfSale.name}`);
-    } else {
-      console.log(`   ⚠ Punto de venta ya existe: ${pointOfSale.name}`);
+    console.log('\n🖥️  Configurando puntos de venta...');
+
+    const pointOfSaleRepo = db.getRepository(PointOfSale);
+    const pointOfSaleSeeds: Array<{
+      name: string;
+      branchRef: keyof typeof branchesByRef;
+      defaultPriceListKey: PriceListKey;
+      deviceId?: string;
+    }> = [
+      {
+        name: 'Caja Principal',
+        branchRef: 'PARRAL',
+        defaultPriceListKey: 'retail',
+        deviceId: 'POS-PARRAL-MAIN-01',
+      },
+      {
+        name: 'Caja Mayorista',
+        branchRef: 'PARRAL',
+        defaultPriceListKey: 'wholesale',
+        deviceId: 'POS-PARRAL-WHS-01',
+      },
+    ];
+
+    const pointsOfSale: PointOfSale[] = [];
+
+    for (const seed of pointOfSaleSeeds) {
+      const targetBranch = branchesByRef[seed.branchRef];
+      if (!targetBranch) {
+        throw new Error(`No se encontró la sucursal con referencia ${seed.branchRef} para el punto de venta ${seed.name}`);
+      }
+
+      const defaultPriceList = priceListsByKey[seed.defaultPriceListKey];
+      if (!defaultPriceList) {
+        throw new Error(`No se encontró la lista de precios "${seed.defaultPriceListKey}" para el punto de venta ${seed.name}`);
+      }
+
+      let existingPOS = await pointOfSaleRepo.findOne({ where: { name: seed.name }, withDeleted: true });
+
+      const isNewPOS = !existingPOS;
+      if (!existingPOS) {
+        existingPOS = new PointOfSale();
+        existingPOS.id = uuidv4();
+      }
+
+      existingPOS.branchId = targetBranch.id;
+      existingPOS.defaultPriceListId = defaultPriceList.id;
+      existingPOS.name = seed.name;
+      existingPOS.deviceId = seed.deviceId ?? existingPOS.deviceId ?? undefined;
+      existingPOS.isActive = true;
+      existingPOS.deletedAt = undefined;
+
+      const savedPOS = await pointOfSaleRepo.save(existingPOS);
+      pointsOfSale.push(savedPOS);
+
+      const prefix = isNewPOS ? '   ✓' : '   •';
+      const action = isNewPOS ? 'Punto de venta creado' : 'Punto de venta actualizado';
+      console.log(`${prefix} ${action}: ${savedPOS.name} → Lista por defecto ${defaultPriceList.name}`);
     }
 
     // ============================================
@@ -1408,7 +1452,7 @@ async function seedFlowStore() {
           transactionType: TransactionType.PAYMENT_IN,
           status: TransactionStatus.CONFIRMED,
           branchId: primaryBranch.id,
-          pointOfSaleId: pointOfSale?.id ?? null,
+          pointOfSaleId: pointsOfSale[0]?.id ?? null,
           userId: adminUser.id,
           subtotal: INITIAL_CAPITAL_AMOUNT,
           taxAmount: 0,
@@ -1573,8 +1617,6 @@ async function seedFlowStore() {
     // 12. PRODUCTOS DE EJEMPLO (JOYERÍA)
     // ============================================
     console.log('\n💎 Creando productos de ejemplo...');
-
-    type PriceListKey = (typeof priceListsConfig)[number]['key'];
 
     type VariantSeed = {
       sku: string;
@@ -1955,7 +1997,11 @@ async function seedFlowStore() {
     console.log(`   • Productos: ${productsData.length} productos de ejemplo (${totalVariantsSeeded} variantes)`);
     console.log(`   • Listas de precios: ${Object.values(priceListsByKey).length} (${priceListsSummary})`);
     console.log(`   • Bodega: ${storage.name}`);
-    console.log(`   • Punto de venta: ${pointOfSale.name}`);
+    const pointOfSaleSummary = pointsOfSale.map((pos) => {
+      const listName = Object.values(priceListsByKey).find((list) => list.id === pos.defaultPriceListId)?.name ?? 'Sin lista';
+      return `${pos.name} → ${listName}`;
+    });
+    console.log(`   • Puntos de venta: ${pointsOfSale.length} (${pointOfSaleSummary.join(', ')})`);
     console.log(`   • Capital inicial: ${INITIAL_CAPITAL_DOCUMENT} por ${formatCLP(INITIAL_CAPITAL_AMOUNT)}`);
     console.log('\n🔑 Credenciales de acceso:');
     console.log('   Usuario: admin');

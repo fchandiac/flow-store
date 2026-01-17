@@ -172,6 +172,8 @@ export async function POST(request: Request) {
           openingAmount: Number(session.openingAmount),
           openedAt: session.openedAt,
           expectedAmount: session.expectedAmount ?? null,
+          createdAt: session.createdAt,
+          updatedAt: session.updatedAt,
         },
       },
       { status: 201 },

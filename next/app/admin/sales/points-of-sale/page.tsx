@@ -3,6 +3,7 @@
 import { getPointsOfSale } from '@/app/actions/pointsOfSale';
 import { getBranches } from '@/app/actions/branches';
 import { PointOfSaleList } from './ui';
+import { getPriceLists } from '@/app/actions/priceLists';
 
 /**
  * Página de Administración de Puntos de Venta
@@ -10,9 +11,10 @@ import { PointOfSaleList } from './ui';
  * CRUD de puntos de venta (cajas) para cada sucursal
  */
 export default async function PointsOfSalePage() {
-    const [pointsOfSale, branches] = await Promise.all([
+    const [pointsOfSale, branches, priceLists] = await Promise.all([
         getPointsOfSale({ includeInactive: true }),
-        getBranches({ includeInactive: false })
+        getBranches({ includeInactive: false }),
+        getPriceLists(true),
     ]);
 
     return (
@@ -27,6 +29,7 @@ export default async function PointsOfSalePage() {
             <PointOfSaleList 
                 pointsOfSale={JSON.parse(JSON.stringify(pointsOfSale))} 
                 branches={JSON.parse(JSON.stringify(branches))}
+                priceLists={JSON.parse(JSON.stringify(priceLists))}
             />
         </div>
     );

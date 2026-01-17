@@ -1,6 +1,6 @@
 import { useFocusEffect } from '@react-navigation/native';
 import { type NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -11,11 +11,31 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { createCashSession, fetchPointsOfSale } from '../services/apiService';
+import {
+  createCashSession,
+  fetchActiveCashSession,
+  fetchPointsOfSale,
+  type CashSessionOwnerSummary,
+} from '../services/apiService';
 import { RootStackParamList } from '../navigation/types';
-import { usePosStore, type PointOfSaleSummary } from '../store/usePosStore';
+import { usePosStore, type CashSessionSummary, type PointOfSaleSummary } from '../store/usePosStore';
 
 export type SessionSetupScreenProps = NativeStackScreenProps<RootStackParamList, 'SessionSetup'>;
+
+function formatDateTimeLabel(value: string): string {
+  try {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return date.toLocaleString('es-CL', {
+      dateStyle: 'short',
+      timeStyle: 'short',
+    });
+  } catch (error) {
+    return value;
+  }
+}
 
 function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
   const user = usePosStore((state) => state.user);
@@ -27,7 +47,18 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
   const [pointsOfSale, setPointsOfSale] = useState<PointOfSaleSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [isCreating, setIsCreating] = useState<string | null>(null);
+  const [selectedPointOfSaleId, setSelectedPointOfSaleId] = useState<string | null>(null);
+  const [activeSession, setActiveSession] = useState<CashSessionSummary | null>(null);
+  const [openedByUser, setOpenedByUser] = useState<CashSessionOwnerSummary | null>(null);
+  const [isSessionLoading, setIsSessionLoading] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const [isCreatingSession, setIsCreatingSession] = useState(false);
+
+  const selectedPointOfSale = useMemo(
+    () => pointsOfSale.find((pos) => pos.id === selectedPointOfSaleId) ?? null,
+    [pointsOfSale, selectedPointOfSaleId],
+  );
+  const sessionRequestRef = useRef(0);
 
   useEffect(() => {
     if (!user) {
@@ -49,13 +80,19 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
     try {
       const payload = await fetchPointsOfSale();
       setPointsOfSale(payload);
+      if (!payload.some((pos) => pos.id === selectedPointOfSaleId)) {
+        setSelectedPointOfSaleId(null);
+        setActiveSession(null);
+        setOpenedByUser(null);
+        setSessionError(null);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudieron cargar las cajas.';
       Alert.alert('Error al cargar cajas', message);
     } finally {
       setIsLoading(false);
     }
-  }, [user]);
+  }, [selectedPointOfSaleId, user]);
 
   const refreshPointsOfSale = useCallback(async () => {
     if (!user) {
@@ -65,13 +102,19 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
     try {
       const payload = await fetchPointsOfSale();
       setPointsOfSale(payload);
+      if (!payload.some((pos) => pos.id === selectedPointOfSaleId)) {
+        setSelectedPointOfSaleId(null);
+        setActiveSession(null);
+        setOpenedByUser(null);
+        setSessionError(null);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudieron cargar las cajas.';
       Alert.alert('Error al cargar cajas', message);
     } finally {
       setIsRefreshing(false);
     }
-  }, [user]);
+  }, [selectedPointOfSaleId, user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -79,25 +122,70 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
     }, [loadPointsOfSale]),
   );
 
-  const handleSelectPointOfSale = async (selected: PointOfSaleSummary) => {
+  const handleSelectPointOfSale = useCallback(
+    async (selected: PointOfSaleSummary) => {
+      if (!user) {
+        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+        return;
+      }
+
+      setSelectedPointOfSaleId(selected.id);
+      setActiveSession(null);
+      setOpenedByUser(null);
+      setSessionError(null);
+
+      const requestId = sessionRequestRef.current + 1;
+      sessionRequestRef.current = requestId;
+      setIsSessionLoading(true);
+
+      try {
+        const result = await fetchActiveCashSession(selected.id);
+        if (sessionRequestRef.current !== requestId) {
+          return;
+        }
+        setActiveSession(result.session);
+        setOpenedByUser(result.openedByUser);
+      } catch (error) {
+        if (sessionRequestRef.current !== requestId) {
+          return;
+        }
+        const message = error instanceof Error ? error.message : 'No se pudo revisar la sesión de caja.';
+        setSessionError(message);
+      } finally {
+        if (sessionRequestRef.current === requestId) {
+          setIsSessionLoading(false);
+        }
+      }
+    },
+    [navigation, user],
+  );
+
+  const handleOpenNewSession = useCallback(async () => {
     if (!user) {
       navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
       return;
     }
-    setIsCreating(selected.id);
+
+    if (!selectedPointOfSale) {
+      Alert.alert('Selecciona un punto de venta', 'Elige un punto de venta antes de abrir la sesión.');
+      return;
+    }
+
+    setIsCreatingSession(true);
+    setSessionError(null);
     try {
       const result = await createCashSession({
         userName: user.userName,
-        pointOfSaleId: selected.id,
+        pointOfSaleId: selectedPointOfSale.id,
       });
 
       setPointOfSale(
         result.pointOfSale ?? {
-          id: selected.id,
-          name: selected.name,
-          deviceId: selected.deviceId,
-          branchId: selected.branchId,
-          branchName: selected.branchName,
+          id: selectedPointOfSale.id,
+          name: selectedPointOfSale.name,
+          deviceId: selectedPointOfSale.deviceId,
+          branchId: selectedPointOfSale.branchId,
+          branchName: selectedPointOfSale.branchName,
         },
       );
       setCashSession(result.session);
@@ -108,10 +196,39 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
     } catch (error) {
       const message = error instanceof Error ? error.message : 'No se pudo abrir la sesión de caja.';
       Alert.alert('Error al abrir sesión', message);
+      if (selectedPointOfSale) {
+        await handleSelectPointOfSale(selectedPointOfSale);
+      }
     } finally {
-      setIsCreating(null);
+      setIsCreatingSession(false);
     }
-  };
+  }, [handleSelectPointOfSale, navigation, selectedPointOfSale, setCashSession, setPointOfSale, user]);
+
+  const handleResumeSession = useCallback(() => {
+    if (!user) {
+      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+      return;
+    }
+
+    if (!selectedPointOfSale || !activeSession) {
+      return;
+    }
+
+    setPointOfSale({
+      id: selectedPointOfSale.id,
+      name: selectedPointOfSale.name,
+      deviceId: selectedPointOfSale.deviceId,
+      branchId: selectedPointOfSale.branchId,
+      branchName: selectedPointOfSale.branchName,
+    });
+    setCashSession(activeSession);
+  }, [activeSession, navigation, selectedPointOfSale, setCashSession, setPointOfSale, user]);
+
+  const isSessionOwner = Boolean(activeSession && user?.id && activeSession.openedById === user.id);
+  const openedAtLabel = activeSession ? formatDateTimeLabel(activeSession.openedAt) : null;
+  const sessionOwnerName = openedByUser
+    ? (openedByUser.personName?.trim() ? openedByUser.personName : openedByUser.userName)
+    : null;
 
   if (isLoading && !pointsOfSale.length) {
     return (
@@ -131,29 +248,107 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
     >
       <Text style={styles.title}>Selecciona un punto de venta</Text>
       <Text style={styles.subtitle}>
-        Abre una nueva sesión de caja para continuar con las ventas del día.
+        Elige un punto de venta para continuar con una sesión existente o abrir una nueva.
       </Text>
       {pointsOfSale.length ? (
-        pointsOfSale.map((pos) => {
-          const isBusy = isCreating === pos.id;
-          return (
-            <TouchableOpacity
-              key={pos.id}
-              activeOpacity={0.85}
-              disabled={Boolean(isCreating)}
-              onPress={() => handleSelectPointOfSale(pos)}
-              style={[styles.posCard, isBusy && styles.posCardSelected]}
-            >
-              <View style={styles.posHeader}>
-                <Text style={styles.posName}>{pos.name}</Text>
-                {isBusy ? <ActivityIndicator color="#f8fafc" size="small" /> : null}
-              </View>
-              <Text style={styles.posMeta}>ID: {pos.id}</Text>
-              {pos.branchName ? <Text style={styles.posMeta}>Sucursal: {pos.branchName}</Text> : null}
-              {pos.deviceId ? <Text style={styles.posMeta}>Dispositivo: {pos.deviceId}</Text> : null}
-            </TouchableOpacity>
-          );
-        })
+        <>
+          {pointsOfSale.map((pos) => {
+            const isSelected = selectedPointOfSaleId === pos.id;
+            return (
+              <TouchableOpacity
+                key={pos.id}
+                activeOpacity={0.85}
+                disabled={isCreatingSession}
+                onPress={() => handleSelectPointOfSale(pos)}
+                style={[styles.posCard, isSelected && styles.posCardSelected]}
+              >
+                <View style={styles.posHeader}>
+                  <Text style={styles.posName}>{pos.name}</Text>
+                  {isSelected && isSessionLoading ? <ActivityIndicator color="#f8fafc" size="small" /> : null}
+                </View>
+                <Text style={styles.posMeta}>ID: {pos.id}</Text>
+                {pos.branchName ? <Text style={styles.posMeta}>Sucursal: {pos.branchName}</Text> : null}
+                {pos.deviceId ? <Text style={styles.posMeta}>Dispositivo: {pos.deviceId}</Text> : null}
+              </TouchableOpacity>
+            );
+          })}
+          {selectedPointOfSale ? (
+            <View style={styles.sessionCard}>
+              <Text style={styles.sessionTitle}>Resumen de sesión</Text>
+              <Text style={styles.sessionMeta}>{selectedPointOfSale.name}</Text>
+              {selectedPointOfSale.branchName ? (
+                <Text style={styles.sessionMeta}>Sucursal: {selectedPointOfSale.branchName}</Text>
+              ) : null}
+              {isSessionLoading ? (
+                <View style={styles.sessionLoadingRow}>
+                  <ActivityIndicator color="#cbd5f5" size="small" />
+                  <Text style={styles.sessionLoadingText}>Revisando sesión abierta...</Text>
+                </View>
+              ) : sessionError ? (
+                <>
+                  <Text style={styles.sessionWarning}>{sessionError}</Text>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    onPress={() => handleSelectPointOfSale(selectedPointOfSale)}
+                    style={styles.sessionButtonSecondary}
+                  >
+                    <Text style={styles.sessionButtonSecondaryLabel}>Intentar nuevamente</Text>
+                  </TouchableOpacity>
+                </>
+              ) : activeSession ? (
+                <>
+                  {openedAtLabel ? <Text style={styles.sessionStatus}>Sesión activa desde {openedAtLabel}</Text> : null}
+                  {sessionOwnerName ? (
+                    <Text style={styles.sessionInfo}>Abierta por {sessionOwnerName}</Text>
+                  ) : null}
+                  {isSessionOwner ? (
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={handleResumeSession}
+                      style={[styles.sessionButton, styles.sessionButtonPrimary]}
+                    >
+                      <Text style={styles.sessionButtonLabel}>Continuar con la sesión</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={styles.sessionWarning}>
+                      {sessionOwnerName
+                        ? `La sesión abierta pertenece a ${sessionOwnerName}. Solicita el cierre antes de continuar.`
+                        : 'La sesión abierta pertenece a otro usuario.'}
+                    </Text>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Text style={styles.sessionInfo}>
+                    No hay una sesión activa en este punto de venta. Abre una nueva para comenzar.
+                  </Text>
+                  <TouchableOpacity
+                    activeOpacity={0.85}
+                    disabled={isCreatingSession}
+                    onPress={handleOpenNewSession}
+                    style={[
+                      styles.sessionButton,
+                      styles.sessionButtonPrimary,
+                      isCreatingSession && styles.sessionButtonDisabled,
+                    ]}
+                  >
+                    {isCreatingSession ? (
+                      <ActivityIndicator color="#f8fafc" />
+                    ) : (
+                      <Text style={styles.sessionButtonLabel}>Abrir nueva sesión</Text>
+                    )}
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          ) : (
+            <View style={styles.sessionPlaceholder}>
+              <Text style={styles.sessionPlaceholderText}>
+                Selecciona un punto de venta para revisar o abrir su sesión de caja.
+              </Text>
+            </View>
+          )}
+        </>
       ) : (
         <View style={styles.emptyState}>
           <Text style={styles.emptyTitle}>No hay puntos de venta disponibles.</Text>
@@ -213,7 +408,7 @@ const styles = StyleSheet.create({
   },
   posCardSelected: {
     borderColor: '#2563eb',
-    backgroundColor: '#1d4ed8',
+    backgroundColor: '#1e293b',
   },
   posHeader: {
     flexDirection: 'row',
@@ -232,6 +427,96 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#94a3b8',
     marginBottom: 2,
+  },
+  sessionCard: {
+    marginTop: 4,
+    marginBottom: 24,
+    padding: 18,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#1f2937',
+    backgroundColor: '#111827',
+  },
+  sessionTitle: {
+    fontSize: 16,
+    color: '#f8fafc',
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  sessionMeta: {
+    fontSize: 13,
+    color: '#cbd5f5',
+    marginBottom: 2,
+  },
+  sessionLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+  },
+  sessionLoadingText: {
+    marginLeft: 8,
+    color: '#cbd5f5',
+    fontSize: 13,
+  },
+  sessionInfo: {
+    marginTop: 12,
+    fontSize: 13,
+    color: '#94a3b8',
+  },
+  sessionStatus: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#cbd5f5',
+    fontWeight: '600',
+  },
+  sessionWarning: {
+    marginTop: 12,
+    fontSize: 13,
+    color: '#f87171',
+  },
+  sessionButton: {
+    marginTop: 16,
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  sessionButtonPrimary: {
+    backgroundColor: '#2563eb',
+  },
+  sessionButtonDisabled: {
+    backgroundColor: '#1d4ed8',
+  },
+  sessionButtonLabel: {
+    color: '#f8fafc',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  sessionButtonSecondary: {
+    marginTop: 16,
+    borderRadius: 12,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#38bdf8',
+    backgroundColor: 'transparent',
+  },
+  sessionButtonSecondaryLabel: {
+    color: '#38bdf8',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  sessionPlaceholder: {
+    marginTop: 4,
+    marginBottom: 24,
+    padding: 18,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#1f2937',
+    backgroundColor: '#0f172a',
+  },
+  sessionPlaceholderText: {
+    fontSize: 13,
+    color: '#94a3b8',
   },
   emptyState: {
     marginTop: 64,

@@ -21,9 +21,26 @@ interface HeaderProps {
   screenWidth?: number;
   onExportExcel?: () => Promise<void>;
   headerActions?: React.ReactNode; // Slot para componentes adicionales (ej: filtros externos)
+  showSortButton?: boolean;
+  showFilterButton?: boolean;
+  showExportButton?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ title, filterMode = false, onToggleFilterMode, columns = [], createForm, createFormTitle, onAddClick, screenWidth = 1024, onExportExcel, headerActions }) => {
+const Header: React.FC<HeaderProps> = ({
+  title,
+  filterMode = false,
+  onToggleFilterMode,
+  columns = [],
+  createForm,
+  createFormTitle,
+  onAddClick,
+  screenWidth = 1024,
+  onExportExcel,
+  headerActions,
+  showSortButton = true,
+  showFilterButton = true,
+  showExportButton = true,
+}) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -98,7 +115,16 @@ const Header: React.FC<HeaderProps> = ({ title, filterMode = false, onToggleFilt
         <div className="hidden sm:flex items-center gap-4">
           {/* Toolbar */}
           <div>
-            <Toolbar filterMode={filterMode} onToggleFilterMode={onToggleFilterMode} columns={columns} title={title} onExportExcel={onExportExcel} />
+            <Toolbar
+              filterMode={filterMode}
+              onToggleFilterMode={onToggleFilterMode}
+              columns={columns}
+              title={title}
+              onExportExcel={onExportExcel}
+              showSortButton={showSortButton}
+              showFilterButton={showFilterButton}
+              showExportButton={showExportButton}
+            />
           </div>
           {/* Search field */}
           <div className="flex items-center">
@@ -129,7 +155,16 @@ const Header: React.FC<HeaderProps> = ({ title, filterMode = false, onToggleFilt
       <div className="flex sm:hidden items-center justify-end gap-4 mt-3">
         {/* Toolbar */}
         <div>
-          <Toolbar columns={columns} title={title} onExportExcel={onExportExcel} />
+          <Toolbar
+            columns={columns}
+            title={title}
+            onExportExcel={onExportExcel}
+            filterMode={filterMode}
+            onToggleFilterMode={onToggleFilterMode}
+            showSortButton={showSortButton}
+            showFilterButton={showFilterButton}
+            showExportButton={showExportButton}
+          />
         </div>
         {/* Search field */}
         <div className="flex items-center flex-1 max-w-xs">

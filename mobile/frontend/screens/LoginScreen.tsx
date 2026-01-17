@@ -22,8 +22,8 @@ export type LoginScreenProps = NativeStackScreenProps<RootStackParamList, 'Login
 function LoginScreen({ navigation }: LoginScreenProps) {
   const setUser = usePosStore((state) => state.setUser);
   const resetSession = usePosStore((state) => state.resetSession);
-  const [userName, setUserName] = useState('');
-  const [password, setPassword] = useState('');
+  const [userName, setUserName] = useState('admin');
+  const [password, setPassword] = useState('890890');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {
@@ -63,7 +63,7 @@ function LoginScreen({ navigation }: LoginScreenProps) {
         <TextInput
           autoCapitalize="none"
           autoCorrect={false}
-          editable={!isSubmitting}
+          editable={false}
           keyboardType="email-address"
           onChangeText={setUserName}
           placeholder="Usuario"
@@ -74,7 +74,7 @@ function LoginScreen({ navigation }: LoginScreenProps) {
         <TextInput
           autoCapitalize="none"
           autoCorrect={false}
-          editable={!isSubmitting}
+          editable={false}
           maxLength={MAX_PASSWORD_LENGTH}
           onChangeText={setPassword}
           placeholder="Contraseña"

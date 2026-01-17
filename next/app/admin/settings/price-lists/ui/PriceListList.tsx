@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
@@ -15,7 +15,7 @@ const PriceListList: React.FC<PriceListListProps> = ({ priceLists }) => {
     const router = useRouter();
     const searchParams = useSearchParams();
     const [search, setSearch] = useState(searchParams.get('search') || '');
-    const [openCreateDialog, setOpenCreateDialog] = useState(false);
+    const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
 
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const value = e.target.value;
@@ -36,6 +36,20 @@ const PriceListList: React.FC<PriceListListProps> = ({ priceLists }) => {
         router.refresh();
     };
 
+    const displayedPriceLists = useMemo(() => {
+        const normalized = search.trim().toLowerCase();
+        if (!normalized) {
+            return priceLists;
+        }
+
+        return priceLists.filter((priceList) => {
+            const nameMatch = priceList.name.toLowerCase().includes(normalized);
+            const typeMatch = priceList.priceListType.toLowerCase().includes(normalized);
+            const descriptionMatch = priceList.description?.toLowerCase().includes(normalized);
+            return nameMatch || typeMatch || Boolean(descriptionMatch);
+        });
+    }, [priceLists, search]);
+
     return (
         <div className="w-full" data-test-id="price-lists-list-container">
             {/* Header con búsqueda y botón agregar */}
@@ -44,7 +58,7 @@ const PriceListList: React.FC<PriceListListProps> = ({ priceLists }) => {
                     icon="add" 
                     variant="outlined"
                     aria-label="Agregar lista de precios"
-                    onClick={() => setOpenCreateDialog(true)}
+                    onClick={() => setIsCreateDialogOpen(true)}
                     data-test-id="price-lists-add-button"
                 />
                 <div className="w-full max-w-sm" data-test-id="price-lists-search-container">
@@ -64,8 +78,8 @@ const PriceListList: React.FC<PriceListListProps> = ({ priceLists }) => {
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full" 
                 data-test-id="price-lists-grid"
             >
-                {priceLists && priceLists.length > 0 ? (
-                    priceLists.map(priceList => (
+                {displayedPriceLists.length > 0 ? (
+                    displayedPriceLists.map(priceList => (
                         <PriceListCard 
                             key={priceList.id} 
                             priceList={priceList}
@@ -84,8 +98,8 @@ const PriceListList: React.FC<PriceListListProps> = ({ priceLists }) => {
 
             {/* Dialog de creación */}
             <CreatePriceListDialog
-                open={openCreateDialog}
-                onClose={() => setOpenCreateDialog(false)}
+                open={isCreateDialogOpen}
+                onClose={() => setIsCreateDialogOpen(false)}
                 data-test-id="create-price-list-dialog"
             />
         </div>

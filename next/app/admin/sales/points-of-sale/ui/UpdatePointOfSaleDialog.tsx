@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
+import Select from '@/app/baseComponents/Select/Select';
 import Switch from '@/app/baseComponents/Switch/Switch';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
@@ -15,6 +16,7 @@ interface UpdatePointOfSaleDialogProps {
     open: boolean;
     onClose: () => void;
     pointOfSale: PointOfSaleType;
+    priceLists: { id: string; name: string }[];
     'data-test-id'?: string;
 }
 
@@ -22,6 +24,7 @@ const UpdatePointOfSaleDialog: React.FC<UpdatePointOfSaleDialogProps> = ({
     open, 
     onClose,
     pointOfSale,
+    priceLists,
     'data-test-id': dataTestId 
 }) => {
     const router = useRouter();
@@ -34,6 +37,7 @@ const UpdatePointOfSaleDialog: React.FC<UpdatePointOfSaleDialogProps> = ({
         name: pointOfSale.name,
         deviceId: pointOfSale.deviceId || '',
         isActive: pointOfSale.isActive,
+        defaultPriceListId: pointOfSale.defaultPriceListId,
     });
 
     useEffect(() => {
@@ -41,6 +45,7 @@ const UpdatePointOfSaleDialog: React.FC<UpdatePointOfSaleDialogProps> = ({
             name: pointOfSale.name,
             deviceId: pointOfSale.deviceId || '',
             isActive: pointOfSale.isActive,
+            defaultPriceListId: pointOfSale.defaultPriceListId,
         });
     }, [pointOfSale]);
 
@@ -56,6 +61,7 @@ const UpdatePointOfSaleDialog: React.FC<UpdatePointOfSaleDialogProps> = ({
         
         const validationErrors: string[] = [];
         if (!formData.name.trim()) validationErrors.push('El nombre es requerido');
+        if (!formData.defaultPriceListId) validationErrors.push('La lista de precios predeterminada es requerida');
         
         if (validationErrors.length > 0) {
             setErrors(validationErrors);
@@ -70,6 +76,7 @@ const UpdatePointOfSaleDialog: React.FC<UpdatePointOfSaleDialogProps> = ({
                 name: formData.name,
                 deviceId: formData.deviceId || undefined,
                 isActive: formData.isActive,
+                defaultPriceListId: formData.defaultPriceListId,
             });
 
             if (result.success) {
@@ -94,10 +101,28 @@ const UpdatePointOfSaleDialog: React.FC<UpdatePointOfSaleDialogProps> = ({
             name: pointOfSale.name,
             deviceId: pointOfSale.deviceId || '',
             isActive: pointOfSale.isActive,
+            defaultPriceListId: pointOfSale.defaultPriceListId,
         });
         setErrors([]);
         onClose();
     };
+
+    const priceListOptions = priceLists.reduce<{ id: string; label: string }[]>((acc, list) => {
+        if (!acc.some((option) => option.id === list.id)) {
+            acc.push({ id: list.id, label: list.name });
+        }
+        return acc;
+    }, []);
+
+    if (
+        pointOfSale.defaultPriceList &&
+        !priceListOptions.some((option) => option.id === pointOfSale.defaultPriceList.id)
+    ) {
+        priceListOptions.push({
+            id: pointOfSale.defaultPriceList.id,
+            label: pointOfSale.defaultPriceList.name,
+        });
+    }
 
     return (
         <Dialog 
@@ -133,6 +158,15 @@ const UpdatePointOfSaleDialog: React.FC<UpdatePointOfSaleDialogProps> = ({
                         data-test-id="update-pos-name"
                     />
                     
+                    <Select
+                        label="Lista de Precios Predeterminada"
+                        options={priceListOptions}
+                        value={formData.defaultPriceListId}
+                        onChange={(val) => handleChange('defaultPriceListId', val)}
+                        disabled={priceListOptions.length === 0}
+                        data-test-id="update-pos-default-price-list"
+                    />
+
                     <TextField
                         label="ID de Dispositivo"
                         value={formData.deviceId}

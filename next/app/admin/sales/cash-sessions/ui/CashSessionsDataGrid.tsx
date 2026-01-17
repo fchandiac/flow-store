@@ -279,7 +279,7 @@ const CashSessionsDataGrid = () => {
           <Button
             type="button"
             size="sm"
-            variant="outline"
+            variant="outlined"
             onClick={() => void handleCloseSession(row.id)}
             disabled={isClosing}
           >

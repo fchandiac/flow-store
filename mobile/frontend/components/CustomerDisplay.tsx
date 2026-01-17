@@ -10,6 +10,7 @@ import {
   selectSecondaryMode,
   usePosStore
 } from '../store/usePosStore';
+import { formatCurrency } from '../utils/formatCurrency';
 
 type CustomerDisplayProps = {
   externalScreenId?: string;
@@ -19,7 +20,7 @@ const renderItem = ({ item }: { item: CartItem }) => (
   <View style={styles.row}>
     <Text style={styles.itemName}>{item.name}</Text>
     <Text style={styles.itemQty}>x{item.qty}</Text>
-    <Text style={styles.itemTotal}>${item.total.toFixed(2)}</Text>
+    <Text style={styles.itemTotal}>{formatCurrency(item.total)}</Text>
   </View>
 );
 
@@ -40,7 +41,7 @@ const CustomerDisplay: React.FC<CustomerDisplayProps> = ({ externalScreenId }) =
       />
       <View style={styles.totalRow}>
         <Text style={styles.totalLabel}>Total</Text>
-        <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
+        <Text style={styles.totalValue}>{formatCurrency(total)}</Text>
       </View>
     </View>
   );
@@ -69,7 +70,7 @@ const CustomerDisplay: React.FC<CustomerDisplayProps> = ({ externalScreenId }) =
               </View>
               <View>
                 <Text style={styles.previewMetricLabel}>Monto</Text>
-                <Text style={styles.previewMetricValue}>${total.toFixed(2)}</Text>
+                <Text style={styles.previewMetricValue}>{formatCurrency(total)}</Text>
               </View>
             </View>
             <Text style={styles.previewHint}>

@@ -182,6 +182,14 @@ export async function getLedgerPreview(): Promise<LedgerEntry[]> {
         };
     });
 
+    entries.sort((a, b) => {
+        const dateDiff = new Date(b.date).getTime() - new Date(a.date).getTime();
+        if (dateDiff !== 0) {
+            return dateDiff;
+        }
+        return (b.reference ?? '').localeCompare(a.reference ?? '');
+    });
+
     return entries;
 }
 

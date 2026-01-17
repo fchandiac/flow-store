@@ -133,6 +133,56 @@ type CreateCashSessionPayload = {
   };
 };
 
+export type CashSessionOwnerSummary = {
+  id: string;
+  userName: string;
+  personName: string | null;
+};
+
+type ActiveCashSessionPayload = {
+  cashSession: {
+    id: string;
+    pointOfSaleId: string | null;
+    openedById: string | null;
+    status: CashSessionSummary['status'];
+    openingAmount: number;
+    openedAt: string;
+    createdAt: string;
+    updatedAt: string;
+    expectedAmount: number | null;
+  } | null;
+  openedByUser: CashSessionOwnerSummary | null;
+};
+
+export async function fetchActiveCashSession(pointOfSaleId: string): Promise<{
+  session: CashSessionSummary | null;
+  openedByUser: CashSessionOwnerSummary | null;
+}> {
+  const params = new URLSearchParams({ pointOfSaleId });
+  const payload = await request<ActiveCashSessionPayload>(`/api/cash-sessions?${params.toString()}`, {
+    method: 'GET',
+  });
+
+  const session: CashSessionSummary | null = payload.cashSession
+    ? {
+        id: payload.cashSession.id,
+        status: payload.cashSession.status,
+        pointOfSaleId: payload.cashSession.pointOfSaleId ?? pointOfSaleId,
+        openedById: payload.cashSession.openedById ?? null,
+        openedAt: payload.cashSession.openedAt,
+        openingAmount: payload.cashSession.openingAmount,
+        expectedAmount: payload.cashSession.expectedAmount ?? null,
+        createdAt: payload.cashSession.createdAt,
+        updatedAt: payload.cashSession.updatedAt,
+      }
+    : null;
+
+  return {
+    session,
+    openedByUser: payload.openedByUser ?? null,
+  };
+}
+
 export async function createCashSession(input: CreateCashSessionInput): Promise<{
   session: CashSessionSummary;
   pointOfSale: PointOfSaleSummary | null;
@@ -151,6 +201,8 @@ export async function createCashSession(input: CreateCashSessionInput): Promise<
     openedAt: payload.cashSession.openedAt,
     openingAmount: payload.cashSession.openingAmount,
     expectedAmount: payload.cashSession.expectedAmount ?? null,
+    createdAt: payload.cashSession.createdAt,
+    updatedAt: payload.cashSession.updatedAt,
   };
 
   const pointOfSale = payload.pointOfSale
@@ -191,6 +243,8 @@ type OpeningTransactionPayload = {
     openingAmount: number;
     openedAt: string;
     expectedAmount: number | null;
+    createdAt: string;
+    updatedAt: string;
   };
 };
 
@@ -219,6 +273,8 @@ export async function registerOpeningTransaction(input: OpeningTransactionInput)
     openedAt: payload.cashSession.openedAt,
     openingAmount: payload.cashSession.openingAmount,
     expectedAmount: payload.cashSession.expectedAmount ?? null,
+    createdAt: payload.cashSession.createdAt,
+    updatedAt: payload.cashSession.updatedAt,
   };
 
   return {

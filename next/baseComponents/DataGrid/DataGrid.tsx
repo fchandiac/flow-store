@@ -58,6 +58,9 @@ export interface DataGridProps {
   limit?: number;
   onExportExcel?: () => Promise<void>; // Callback para exportar a Excel
   showBorder?: boolean;
+  showSortButton?: boolean;
+  showFilterButton?: boolean;
+  showExportButton?: boolean;
   // Expandable rows
   expandable?: boolean; // Habilita filas expandibles
   expandableRowContent?: (row: any) => React.ReactNode; // Contenido del panel expandido
@@ -86,6 +89,9 @@ const DataGrid: React.FC<DataGridProps> = ({
   limit = 25,
   onExportExcel,
   showBorder = false,
+  showSortButton = true,
+  showFilterButton = true,
+  showExportButton = true,
   expandable = false,
   expandableRowContent,
   defaultExpandedRowIds = [],
@@ -159,6 +165,9 @@ const DataGrid: React.FC<DataGridProps> = ({
         screenWidth={screenWidth}
         onExportExcel={onExportExcel}
         headerActions={headerActions}
+        showSortButton={showSortButton}
+        showFilterButton={showFilterButton}
+        showExportButton={showExportButton}
       />
       {/* Scrollable container for columns header and body */}
       <div className={`${DataGridStyles.scrollContainer} relative`}>

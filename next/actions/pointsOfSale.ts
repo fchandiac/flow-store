@@ -16,12 +16,14 @@ interface CreatePointOfSaleDTO {
     branchId: string;
     name: string;
     deviceId?: string;
+    defaultPriceListId: string;
 }
 
 interface UpdatePointOfSaleDTO {
     name?: string;
     deviceId?: string;
     isActive?: boolean;
+    defaultPriceListId?: string;
 }
 
 interface PointOfSaleResult {
@@ -39,6 +41,7 @@ export async function getPointsOfSale(params?: GetPointsOfSaleParams): Promise<P
     
     const queryBuilder = repo.createQueryBuilder('pos')
         .leftJoinAndSelect('pos.branch', 'branch')
+        .leftJoinAndSelect('pos.defaultPriceList', 'defaultPriceList')
         .where('pos.deletedAt IS NULL');
     
     if (params?.branchId) {
@@ -63,7 +66,7 @@ export async function getPointOfSaleById(id: string): Promise<PointOfSale | null
     
     return repo.findOne({
         where: { id, deletedAt: IsNull() },
-        relations: ['branch']
+        relations: ['branch', 'defaultPriceList']
     });
 }
 
@@ -80,7 +83,7 @@ export async function getPointOfSaleWithActiveSession(id: string): Promise<{
     
     const pointOfSale = await posRepo.findOne({
         where: { id, deletedAt: IsNull() },
-        relations: ['branch']
+        relations: ['branch', 'defaultPriceList']
     });
     
     if (!pointOfSale) {
@@ -110,6 +113,7 @@ export async function createPointOfSale(data: CreatePointOfSaleDTO): Promise<Poi
             branchId: data.branchId,
             name: data.name,
             deviceId: data.deviceId,
+            defaultPriceListId: data.defaultPriceListId,
             isActive: true
         });
         
@@ -145,6 +149,7 @@ export async function updatePointOfSale(id: string, data: UpdatePointOfSaleDTO):
         if (data.name !== undefined) pointOfSale.name = data.name;
         if (data.deviceId !== undefined) pointOfSale.deviceId = data.deviceId;
         if (data.isActive !== undefined) pointOfSale.isActive = data.isActive;
+        if (data.defaultPriceListId !== undefined) pointOfSale.defaultPriceListId = data.defaultPriceListId;
         
         await repo.save(pointOfSale);
         revalidatePath('/admin/settings/points-of-sale');

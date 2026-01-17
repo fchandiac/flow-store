@@ -1,6 +1,8 @@
 import PrinterImin from 'react-native-printer-imin';
 import * as UsbPrinterModule from 'react-native-usb-printer';
 
+import { formatCurrency } from '../utils/formatCurrency';
+
 const LINE_WIDTH = 32;
 
 function formatLine(label = '', value = '') {
@@ -27,11 +29,11 @@ function serializeTicket(data) {
 
   items.forEach(item => {
     lines.push(formatLine(item.name, `x${item.qty}`));
-    lines.push(formatLine('  $', (item.total ?? 0).toFixed(2)));
+    lines.push(formatLine('  ', formatCurrency(item.total ?? 0)));
   });
 
   lines.push(''.padEnd(LINE_WIDTH, '-'));
-  lines.push(formatLine('TOTAL', `$${total.toFixed(2)}`));
+  lines.push(formatLine('TOTAL', formatCurrency(total)));
   lines.push(''.padEnd(LINE_WIDTH, '-'));
   lines.push(formatLine('Gracias por su compra'));
   return `${lines.join('\n')}\n\n`;
