@@ -1,6 +1,7 @@
 import { ResizeMode, Video } from 'expo-av';
+import type { AVPlaybackStatus } from 'expo-av';
 import { type NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -66,6 +67,9 @@ const SecondaryDisplaySettingsScreen: React.FC<SecondaryDisplaySettingsScreenPro
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [isProcessingMedia, setIsProcessingMedia] = useState(false);
   const [videoPreviewError, setVideoPreviewError] = useState<string | null>(null);
+  const [isPreviewPlaying, setIsPreviewPlaying] = useState(false);
+  const [isPreviewBuffering, setIsPreviewBuffering] = useState(false);
+  const videoPreviewRef = useRef<Video | null>(null);
 
   useEffect(() => {
     setSelectedDisplayId(preferredCustomerDisplayId ?? null);
@@ -356,7 +360,92 @@ const SecondaryDisplaySettingsScreen: React.FC<SecondaryDisplaySettingsScreenPro
 
   useEffect(() => {
     setVideoPreviewError(null);
-  }, [promoMedia?.uri]);
+    setIsPreviewPlaying(false);
+    setIsPreviewBuffering(false);
+
+    void (async () => {
+      const player = videoPreviewRef.current;
+      if (!player) {
+        return;
+      }
+
+      try {
+        const status = await player.getStatusAsync();
+        if (status && 'isLoaded' in status && status.isLoaded) {
+          await player.pauseAsync();
+          await player.setPositionAsync(0);
+        }
+      } catch (error) {
+        console.warn('[SecondaryDisplaySettings] No se pudo reiniciar la previsualización de video', error);
+      }
+    })();
+  }, [promoMedia?.uri, promoMedia?.type]);
+
+  const handlePreviewStatusUpdate = useCallback(
+    (status: AVPlaybackStatus) => {
+      if (!promoMedia || promoMedia.type !== 'video') {
+        return;
+      }
+
+      if ('error' in status) {
+        setVideoPreviewError('No se pudo reproducir el video seleccionado.');
+        setIsPreviewPlaying(false);
+        setIsPreviewBuffering(false);
+        console.warn('[SecondaryDisplaySettings] Error al previsualizar video', status.error);
+        return;
+      }
+
+      setVideoPreviewError(null);
+      setIsPreviewBuffering(Boolean(status.isBuffering));
+      setIsPreviewPlaying(Boolean(status.isPlaying));
+
+      if (status.didJustFinish) {
+        videoPreviewRef.current?.replayAsync().catch(() => undefined);
+      }
+    },
+    [promoMedia?.type],
+  );
+
+  const handlePreviewTogglePlayback = useCallback(async () => {
+    const player = videoPreviewRef.current;
+
+    if (!promoMedia || promoMedia.type !== 'video' || !player) {
+      return;
+    }
+
+    try {
+      const status = await player.getStatusAsync();
+      if (!status || !('isLoaded' in status) || !status.isLoaded) {
+        return;
+      }
+
+      if (status.isPlaying) {
+        await player.pauseAsync();
+        setIsPreviewPlaying(false);
+      } else {
+        await player.playAsync();
+        setIsPreviewPlaying(true);
+      }
+    } catch (error) {
+      console.warn('[SecondaryDisplaySettings] No se pudo alternar la reproducción de video', error);
+    }
+  }, [promoMedia?.type]);
+
+  const handlePreviewRestart = useCallback(async () => {
+    const player = videoPreviewRef.current;
+
+    if (!promoMedia || promoMedia.type !== 'video' || !player) {
+      return;
+    }
+
+    try {
+      await player.setPositionAsync(0);
+      await player.playAsync();
+      setIsPreviewPlaying(true);
+    } catch (error) {
+      console.warn('[SecondaryDisplaySettings] No se pudo reiniciar el video promocional', error);
+    }
+  }, [promoMedia?.type]);
 
   const displaysListEmpty =
     overlayGranted && !isRefreshingDisplays && externalDisplays.length === 0 && supportsCustomerScreen;
@@ -532,19 +621,63 @@ const SecondaryDisplaySettingsScreen: React.FC<SecondaryDisplaySettingsScreenPro
                     <Text style={styles.mediaVideoText}>{videoPreviewError}</Text>
                   </View>
                 ) : (
-                  <Video
-                    key={promoMedia.uri}
-                    source={{ uri: promoMedia.uri }}
-                    style={styles.mediaVideo}
-                    resizeMode={ResizeMode.CONTAIN}
-                    useNativeControls
-                    shouldPlay={false}
-                    isLooping
-                    onError={(error) => {
-                      setVideoPreviewError('No se pudo reproducir el video seleccionado.');
-                      console.warn('[SecondaryDisplaySettings] Error al previsualizar video', error);
-                    }}
-                  />
+                  <>
+                    <View style={styles.mediaVideoContainer}>
+                      <Video
+                        ref={videoPreviewRef}
+                        key={promoMedia.uri}
+                        source={{ uri: promoMedia.uri }}
+                        style={styles.mediaVideo}
+                        resizeMode={ResizeMode.CONTAIN}
+                        shouldPlay={isPreviewPlaying}
+                        isLooping
+                        useNativeControls={false}
+                        onPlaybackStatusUpdate={handlePreviewStatusUpdate}
+                        onLoadStart={() => setIsPreviewBuffering(true)}
+                        onLoad={() => setIsPreviewBuffering(false)}
+                        onError={(error) => {
+                          setVideoPreviewError('No se pudo reproducir el video seleccionado.');
+                          setIsPreviewPlaying(false);
+                          setIsPreviewBuffering(false);
+                          console.warn('[SecondaryDisplaySettings] Error al previsualizar video', error);
+                        }}
+                      />
+                      {isPreviewBuffering ? (
+                        <View style={styles.mediaVideoOverlay}>
+                          <ActivityIndicator color={palette.primaryText} />
+                        </View>
+                      ) : null}
+                    </View>
+                    <View style={styles.mediaControls}>
+                      <TouchableOpacity
+                        style={[
+                          styles.mediaControlButton,
+                          styles.mediaControlButtonPrimary,
+                          isPreviewBuffering && styles.mediaControlButtonDisabled,
+                        ]}
+                        activeOpacity={0.85}
+                        onPress={handlePreviewTogglePlayback}
+                        disabled={isPreviewBuffering}
+                      >
+                        <Text style={styles.mediaControlButtonTextPrimary}>
+                          {isPreviewPlaying ? 'Pausar' : 'Reproducir'}
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[
+                          styles.mediaControlButton,
+                          styles.mediaControlButtonSecondary,
+                          styles.mediaControlButtonLast,
+                          isPreviewBuffering && styles.mediaControlButtonDisabled,
+                        ]}
+                        activeOpacity={0.85}
+                        onPress={handlePreviewRestart}
+                        disabled={isPreviewBuffering}
+                      >
+                        <Text style={styles.mediaControlButtonText}>Reiniciar</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </>
                 )}
               </View>
               <View style={styles.buttonRow}>
@@ -816,7 +949,7 @@ const styles = StyleSheet.create({
   mediaPreview: {
     marginTop: 12,
     borderRadius: 12,
-    overflow: 'hidden',
+    overflow: 'visible',
     backgroundColor: palette.surfaceMuted,
     alignItems: 'center',
     justifyContent: 'center',
@@ -826,10 +959,24 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 180,
   },
+  mediaVideoContainer: {
+    width: '100%',
+    height: 200,
+    borderRadius: 12,
+    overflow: 'hidden',
+    backgroundColor: palette.surfaceMuted,
+    position: 'relative',
+  },
   mediaVideo: {
     width: '100%',
-    height: 180,
+    height: '100%',
     backgroundColor: palette.surfaceMuted,
+  },
+  mediaVideoOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10, 18, 27, 0.4)',
   },
   mediaVideoPlaceholder: {
     paddingVertical: 32,
@@ -837,6 +984,44 @@ const styles = StyleSheet.create({
   },
   mediaVideoText: {
     color: palette.primaryStrong,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  mediaControls: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    marginTop: 12,
+  },
+  mediaControlButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    marginRight: 12,
+  },
+  mediaControlButtonPrimary: {
+    backgroundColor: palette.primary,
+  },
+  mediaControlButtonSecondary: {
+    backgroundColor: palette.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+  },
+  mediaControlButtonDisabled: {
+    opacity: 0.6,
+  },
+  mediaControlButtonLast: {
+    marginRight: 0,
+  },
+  mediaControlButtonTextPrimary: {
+    color: palette.primaryText,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  mediaControlButtonText: {
+    color: palette.textSecondary,
     fontWeight: '600',
     fontSize: 14,
   },

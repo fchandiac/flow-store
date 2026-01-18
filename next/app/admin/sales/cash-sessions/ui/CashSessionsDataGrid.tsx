@@ -18,17 +18,13 @@ import {
 } from '@/actions/cashSessions';
 import { CashSessionStatus } from '@/data/entities/CashSession';
 import { PaymentMethod, TransactionType } from '@/data/entities/Transaction';
+import { formatDateTime } from '@/lib/dateTimeUtils';
 
 const currencyFormatter = new Intl.NumberFormat('es-CL', {
   style: 'currency',
   currency: 'CLP',
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
-});
-
-const dateTimeFormatter = new Intl.DateTimeFormat('es-CL', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
 });
 
 type StatusFilter = 'ALL' | CashSessionStatus;
@@ -216,8 +212,7 @@ const CashSessionsDataGrid = () => {
         }
         return (
           <div className="flex flex-col text-sm">
-            <span className="font-medium text-neutral-900">{dateTimeFormatter.format(date)}</span>
-            <span className="text-xs text-neutral-500">{date.toISOString().slice(0, 10)}</span>
+            <span className="font-medium text-neutral-900">{formatDateTime(date)}</span>
           </div>
         );
       },
@@ -236,8 +231,7 @@ const CashSessionsDataGrid = () => {
         }
         return (
           <div className="flex flex-col text-sm">
-            <span className="font-medium text-neutral-900">{dateTimeFormatter.format(date)}</span>
-            <span className="text-xs text-neutral-500">{date.toISOString().slice(0, 10)}</span>
+            <span className="font-medium text-neutral-900">{formatDateTime(date)}</span>
           </div>
         );
       },
@@ -385,13 +379,15 @@ const CashSessionsDataGrid = () => {
     if (!movementsSession) {
       return null;
     }
+
     const openedAtDate = movementsSession.openedAt ? new Date(movementsSession.openedAt) : null;
-    const openedLabel = openedAtDate && !Number.isNaN(openedAtDate.getTime())
-      ? dateTimeFormatter.format(openedAtDate)
-      : 'Fecha desconocida';
     const closedAtDate = movementsSession.closedAt ? new Date(movementsSession.closedAt) : null;
+
+    const openedLabel = openedAtDate && !Number.isNaN(openedAtDate.getTime())
+      ? formatDateTime(openedAtDate)
+      : '—';
     const closedLabel = closedAtDate && !Number.isNaN(closedAtDate.getTime())
-      ? dateTimeFormatter.format(closedAtDate)
+      ? formatDateTime(closedAtDate)
       : null;
 
     return {
@@ -458,7 +454,7 @@ const CashSessionsDataGrid = () => {
                 {movements.map((movement) => {
                   const movementDate = movement.createdAt ? new Date(movement.createdAt) : null;
                   const movementDateLabel = movementDate && !Number.isNaN(movementDate.getTime())
-                    ? dateTimeFormatter.format(movementDate)
+                    ? formatDateTime(movementDate)
                     : 'Fecha desconocida';
                   const directionMeta = MOVEMENT_DIRECTION_META[movement.direction];
                   const paymentLabel = movement.paymentMethodLabel

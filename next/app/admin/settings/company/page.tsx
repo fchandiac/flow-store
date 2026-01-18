@@ -1,6 +1,7 @@
 import { getCompany } from '@/app/actions/companies';
 import { CompanyForm } from './ui';
 import Alert from '@/app/baseComponents/Alert/Alert';
+import { listShareholders } from '@/actions/shareholders';
 
 // Forzar renderizado dinámico para evitar problemas de TypeORM en build
 export const dynamic = 'force-dynamic';
@@ -16,7 +17,10 @@ export const dynamic = 'force-dynamic';
  */
 
 export default async function CompanyPage() {
-    const company = await getCompany();
+    const [company, shareholders] = await Promise.all([
+        getCompany(),
+        listShareholders(),
+    ]);
 
     if (!company) {
         return (
@@ -36,8 +40,9 @@ export default async function CompanyPage() {
         <div className="p-6">
             <h1 className="text-2xl font-bold mb-6">Configuración de Empresa</h1>
             
-            <CompanyForm 
-                company={serializedCompany} 
+            <CompanyForm
+                company={serializedCompany}
+                shareholders={shareholders}
                 data-test-id="company-form"
             />
         </div>

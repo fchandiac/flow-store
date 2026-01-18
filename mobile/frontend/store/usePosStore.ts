@@ -28,6 +28,28 @@ export type PointOfSaleSummary = {
 
 export type CashSessionStatus = 'OPEN' | 'CLOSED' | 'RECONCILED';
 
+export type CashSessionTenderBreakdown = {
+  cash: number;
+  debitCard: number;
+  creditCard: number;
+  transfer: number;
+  check: number;
+  other: number;
+};
+
+export type CashSessionClosingDetails = {
+  countedByUserId: string;
+  countedByUserName?: string | null;
+  countedAt: string;
+  notes?: string | null;
+  actual: CashSessionTenderBreakdown;
+  expected: CashSessionTenderBreakdown;
+  difference: {
+    cash: number;
+    total: number;
+  };
+};
+
 export type CashSessionSummary = {
   id: string;
   status: CashSessionStatus;
@@ -38,6 +60,11 @@ export type CashSessionSummary = {
   expectedAmount: number | null;
   createdAt: string;
   updatedAt: string;
+  closingAmount: number | null;
+  closedAt: string | null;
+  difference: number | null;
+  notes?: string | null;
+  closingDetails?: CashSessionClosingDetails | null;
 };
 
 export type ProductSearchResult = {

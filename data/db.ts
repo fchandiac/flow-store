@@ -17,6 +17,7 @@ import { Product } from "./entities/Product";
 import { ProductVariant } from "./entities/ProductVariant";
 import { Unit } from "./entities/Unit";
 import { Attribute } from "./entities/Attribute";
+import { Shareholder } from "./entities/Shareholder";
 import { PriceList } from "./entities/PriceList";
 import { PriceListItem } from "./entities/PriceListItem";
 import { Tax } from "./entities/Tax";
@@ -153,7 +154,8 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
           CostCenter, Budget,
           Employee,
           OrganizationalUnit,
-          AccountingAccount, AccountingRule, ExpenseCategory, AccountingPeriod
+          AccountingAccount, AccountingRule, ExpenseCategory, AccountingPeriod,
+          Shareholder
         ],
         subscribers: [AuditSubscriber],
         migrations: [],

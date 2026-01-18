@@ -171,9 +171,23 @@ export async function POST(request: Request) {
           status: session.status,
           openingAmount: Number(session.openingAmount),
           openedAt: session.openedAt,
-          expectedAmount: session.expectedAmount ?? null,
+          expectedAmount:
+            session.expectedAmount !== undefined && session.expectedAmount !== null
+              ? Number(session.expectedAmount)
+              : null,
           createdAt: session.createdAt,
           updatedAt: session.updatedAt,
+          closingAmount:
+            session.closingAmount !== undefined && session.closingAmount !== null
+              ? Number(session.closingAmount)
+              : null,
+          closedAt: session.closedAt ?? null,
+          difference:
+            session.difference !== undefined && session.difference !== null
+              ? Number(session.difference)
+              : null,
+          notes: session.notes ?? null,
+          closingDetails: session.closingDetails ?? null,
         },
       },
       { status: 201 },

@@ -46,6 +46,7 @@ const menuItems: SideBarMenuItem[] = [
         children: [
             { id: 'acc-explorer', label: 'Explorador de Cuentas', url: '/admin/accounting/chart' },
             { id: 'acc-ledger', label: 'Libro Mayor', url: '/admin/accounting/ledger' },
+            { id: 'acc-banking', label: 'Tesoreria', url: '/admin/accounting/banking' },
             { id: 'acc-reports', label: 'Estados Financieros', url: '/admin/accounting/reports' },
             { id: 'acc-periods', label: 'Cierres Mensuales', url: '/admin/accounting/periods' },
         ],

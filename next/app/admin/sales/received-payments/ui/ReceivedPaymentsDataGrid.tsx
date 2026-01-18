@@ -14,17 +14,13 @@ import {
 } from '@/actions/receivedPayments';
 import { getPointsOfSale } from '@/actions/pointsOfSale';
 import { PaymentMethod } from '@/data/entities/Transaction';
+import { formatDateTime } from '@/lib/dateTimeUtils';
 
 const currencyFormatter = new Intl.NumberFormat('es-CL', {
   style: 'currency',
   currency: 'CLP',
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
-});
-
-const dateTimeFormatter = new Intl.DateTimeFormat('es-CL', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
 });
 
 const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
@@ -195,10 +191,10 @@ const ReceivedPaymentsDataGrid = () => {
         if (Number.isNaN(date.getTime())) {
           return '-';
         }
+        const formatted = formatDateTime(date);
         return (
           <div className="flex flex-col text-sm">
-            <span className="font-medium text-neutral-900">{dateTimeFormatter.format(date)}</span>
-            <span className="text-xs text-neutral-500">{date.toISOString().slice(0, 10)}</span>
+            <span className="font-medium text-neutral-900">{formatted}</span>
           </div>
         );
       },
@@ -267,7 +263,7 @@ const ReceivedPaymentsDataGrid = () => {
             <span className="font-medium text-neutral-900">{label}</span>
             {row.cashSessionOpenedAt && (
               <span className="text-xs text-neutral-500">
-                Apertura {dateTimeFormatter.format(new Date(row.cashSessionOpenedAt))}
+                Apertura {formatDateTime(row.cashSessionOpenedAt)}
               </span>
             )}
           </div>

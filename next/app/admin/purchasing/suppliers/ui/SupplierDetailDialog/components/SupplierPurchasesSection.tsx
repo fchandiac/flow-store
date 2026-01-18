@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Badge, { type BadgeVariant } from '@/app/baseComponents/Badge/Badge';
 import { getSupplierPurchases, type SupplierPurchaseListItem } from '@/app/actions/supplierPurchases';
 import { TransactionStatus } from '@/data/entities/Transaction';
+import { formatDateTime } from '@/lib/dateTimeUtils';
 
 interface SupplierPurchasesSectionProps {
     supplierId: string;
@@ -14,14 +15,6 @@ const currencyFormatter = new Intl.NumberFormat('es-CL', {
     currency: 'CLP',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-});
-
-const dateTimeFormatter = new Intl.DateTimeFormat('es-CL', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
 });
 
 const statusLabels: Record<TransactionStatus, string> = {
@@ -124,7 +117,7 @@ export function SupplierPurchasesSection({ supplierId }: SupplierPurchasesSectio
                     </thead>
                     <tbody className="divide-y divide-neutral-100 bg-white">
                         {purchases.map((purchase) => {
-                            const formattedDate = dateTimeFormatter.format(new Date(purchase.createdAt));
+                            const formattedDate = formatDateTime(purchase.createdAt);
                             return (
                                 <tr key={purchase.id} className="hover:bg-neutral-50">
                                     <td className="px-4 py-3 font-mono text-xs font-semibold text-neutral-800">

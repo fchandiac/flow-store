@@ -1,6 +1,13 @@
 import Constants from 'expo-constants';
 import { NativeModules, Platform } from 'react-native';
-import type { CartItem, CashSessionSummary, PointOfSaleSummary, ProductSearchResult } from '../store/usePosStore';
+import type {
+  CartItem,
+  CashSessionClosingDetails,
+  CashSessionSummary,
+  CashSessionTenderBreakdown,
+  PointOfSaleSummary,
+  ProductSearchResult,
+} from '../store/usePosStore';
 import { usePosStore } from '../store/usePosStore';
 
 type HttpMethod = 'GET' | 'POST';
@@ -331,6 +338,11 @@ type CreateCashSessionPayload = {
     createdAt: string;
     updatedAt: string;
     expectedAmount: number | null;
+    closingAmount?: number | null;
+    closedAt?: string | null;
+    difference?: number | null;
+    notes?: string | null;
+    closingDetails?: CashSessionClosingDetails | null;
   };
   suggestedOpeningAmount?: number;
   pointOfSale?: {
@@ -347,6 +359,18 @@ export type CashSessionOwnerSummary = {
   personName: string | null;
 };
 
+export type CashSessionClosingSummary = {
+  session: CashSessionSummary;
+  closing: {
+    actual: CashSessionTenderBreakdown;
+    expected: CashSessionTenderBreakdown;
+    difference: {
+      cash: number;
+      total: number;
+    };
+  };
+};
+
 type ActiveCashSessionPayload = {
   cashSession: {
     id: string;
@@ -358,6 +382,11 @@ type ActiveCashSessionPayload = {
     createdAt: string;
     updatedAt: string;
     expectedAmount: number | null;
+    closingAmount?: number | null;
+    closedAt?: string | null;
+    difference?: number | null;
+    notes?: string | null;
+    closingDetails?: CashSessionClosingDetails | null;
   } | null;
   openedByUser: CashSessionOwnerSummary | null;
 };
@@ -382,6 +411,11 @@ export async function fetchActiveCashSession(pointOfSaleId: string): Promise<{
         expectedAmount: payload.cashSession.expectedAmount ?? null,
         createdAt: payload.cashSession.createdAt,
         updatedAt: payload.cashSession.updatedAt,
+        closingAmount: payload.cashSession.closingAmount ?? null,
+        closedAt: payload.cashSession.closedAt ?? null,
+        difference: payload.cashSession.difference ?? null,
+        notes: payload.cashSession.notes ?? null,
+        closingDetails: payload.cashSession.closingDetails ?? null,
       }
     : null;
 
@@ -411,6 +445,11 @@ export async function createCashSession(input: CreateCashSessionInput): Promise<
     expectedAmount: payload.cashSession.expectedAmount ?? null,
     createdAt: payload.cashSession.createdAt,
     updatedAt: payload.cashSession.updatedAt,
+    closingAmount: payload.cashSession.closingAmount ?? null,
+    closedAt: payload.cashSession.closedAt ?? null,
+    difference: payload.cashSession.difference ?? null,
+    notes: payload.cashSession.notes ?? null,
+    closingDetails: payload.cashSession.closingDetails ?? null,
   };
 
   const pointOfSale = payload.pointOfSale
@@ -453,6 +492,11 @@ type OpeningTransactionPayload = {
     expectedAmount: number | null;
     createdAt: string;
     updatedAt: string;
+    closingAmount?: number | null;
+    closedAt?: string | null;
+    difference?: number | null;
+    notes?: string | null;
+    closingDetails?: CashSessionClosingDetails | null;
   };
 };
 
@@ -483,6 +527,11 @@ export async function registerOpeningTransaction(input: OpeningTransactionInput)
     expectedAmount: payload.cashSession.expectedAmount ?? null,
     createdAt: payload.cashSession.createdAt,
     updatedAt: payload.cashSession.updatedAt,
+    closingAmount: payload.cashSession.closingAmount ?? null,
+    closedAt: payload.cashSession.closedAt ?? null,
+    difference: payload.cashSession.difference ?? null,
+    notes: payload.cashSession.notes ?? null,
+    closingDetails: payload.cashSession.closingDetails ?? null,
   };
 
   return {
@@ -531,6 +580,107 @@ export async function registerCashWithdrawal(input: CashMovementInput): Promise<
     transaction: payload.transaction,
     expectedAmount: payload.expectedAmount,
   };
+}
+
+export type CloseCashSessionInput = {
+  userName: string;
+  pointOfSaleId: string;
+  cashSessionId: string;
+  actualCash: number;
+  voucherDebitAmount: number;
+  voucherCreditAmount: number;
+  transferAmount?: number;
+  checkAmount?: number;
+  otherAmount?: number;
+  notes?: string;
+};
+
+type CloseCashSessionPayload = {
+  session: {
+    id: string;
+    status: CashSessionSummary['status'];
+    pointOfSaleId: string | null;
+    openedById: string | null;
+    openedAt: string | null;
+    openingAmount: number;
+    expectedAmount: number | null;
+    closingAmount: number | null;
+    difference: number | null;
+    closedAt: string | null;
+    createdAt: string | null;
+    updatedAt: string | null;
+    notes: string | null;
+    closingDetails: CashSessionClosingDetails | null;
+  };
+  closing: {
+    actual: CashSessionTenderBreakdown;
+    expected: CashSessionTenderBreakdown;
+    difference: {
+      cash: number;
+      total: number;
+    };
+  };
+};
+
+export async function closeCashSession(
+  input: CloseCashSessionInput,
+): Promise<CashSessionClosingSummary> {
+  const payload = await request<CloseCashSessionPayload>('/api/cash-sessions/close', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+  const sessionPayload = payload.session;
+
+  const session: CashSessionSummary = {
+    id: sessionPayload.id,
+    status: sessionPayload.status,
+    pointOfSaleId: sessionPayload.pointOfSaleId ?? input.pointOfSaleId,
+    openedById: sessionPayload.openedById ?? null,
+    openedAt: sessionPayload.openedAt ?? new Date().toISOString(),
+    openingAmount: Number(sessionPayload.openingAmount ?? 0),
+    expectedAmount: sessionPayload.expectedAmount ?? null,
+    createdAt: sessionPayload.createdAt ?? new Date().toISOString(),
+    updatedAt: sessionPayload.updatedAt ?? new Date().toISOString(),
+    closingAmount: sessionPayload.closingAmount ?? null,
+    closedAt: sessionPayload.closedAt ?? null,
+    difference: sessionPayload.difference ?? null,
+    notes: sessionPayload.notes ?? null,
+    closingDetails: sessionPayload.closingDetails ?? null,
+  };
+
+  return {
+    session,
+    closing: {
+      actual: normalizeTenderBreakdown(payload.closing.actual),
+      expected: normalizeTenderBreakdown(payload.closing.expected),
+      difference: {
+        cash: Number((payload.closing.difference.cash ?? 0).toFixed(2)),
+        total: Number((payload.closing.difference.total ?? 0).toFixed(2)),
+      },
+    },
+  };
+}
+
+function normalizeTenderBreakdown(
+  breakdown: CashSessionTenderBreakdown,
+): CashSessionTenderBreakdown {
+  return {
+    cash: roundAmount(breakdown.cash),
+    debitCard: roundAmount(breakdown.debitCard),
+    creditCard: roundAmount(breakdown.creditCard),
+    transfer: roundAmount(breakdown.transfer),
+    check: roundAmount(breakdown.check),
+    other: roundAmount(breakdown.other),
+  };
+}
+
+function roundAmount(value: number | null | undefined): number {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return 0;
+  }
+
+  return Number(value.toFixed(2));
 }
 
 type ProductSearchPayload = {
@@ -694,6 +844,7 @@ export default {
   registerOpeningTransaction,
   registerCashDeposit,
   registerCashWithdrawal,
+  closeCashSession,
   searchProducts,
   createSale,
   checkoutSale,

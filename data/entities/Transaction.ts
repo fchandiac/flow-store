@@ -16,6 +16,7 @@ import { Supplier } from "./Supplier";
 import { User } from "./User";
 import { ExpenseCategory } from "./ExpenseCategory";
 import { CostCenter } from "./CostCenter";
+import { Shareholder } from "./Shareholder";
 
 /**
  * Transaction Types:
@@ -122,6 +123,9 @@ export class Transaction {
     supplierId?: string;
 
     @Column({ type: 'uuid', nullable: true })
+    shareholderId?: string | null;
+
+    @Column({ type: 'uuid', nullable: true })
     expenseCategoryId?: string | null;
 
     @Column({ type: 'uuid', nullable: true })
@@ -194,6 +198,10 @@ export class Transaction {
     @ManyToOne(() => Supplier, { onDelete: 'SET NULL' })
     @JoinColumn({ name: 'supplierId' })
     supplier?: Supplier;
+
+    @ManyToOne(() => Shareholder, { onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'shareholderId' })
+    shareholder?: Shareholder | null;
 
     @ManyToOne(() => User, { onDelete: 'RESTRICT' })
     @JoinColumn({ name: 'userId' })

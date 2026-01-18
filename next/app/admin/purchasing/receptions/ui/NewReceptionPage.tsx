@@ -25,6 +25,7 @@ import {
     type ReceptionLineInput,
     type ReceptionProductSearchItem,
 } from '@/app/actions/receptions';
+import { formatDateTime } from '@/lib/dateTimeUtils';
 
 interface SupplierOption extends SelectOption {
     value: string;
@@ -1116,7 +1117,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                                 {order.supplierName}
                                             </div>
                                             <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-                                                <span>{new Date(order.createdAt).toLocaleDateString('es-CL')}</span>
+                                                <span>{formatDateTime(order.createdAt)}</span>
                                                 <span className="font-semibold text-foreground">
                                                     {currencyFormatter.format(order.total)}
                                                 </span>

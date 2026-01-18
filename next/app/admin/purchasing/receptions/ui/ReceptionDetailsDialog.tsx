@@ -6,6 +6,7 @@ import { Button } from '@/app/baseComponents/Button/Button';
 import Badge, { type BadgeVariant } from '@/app/baseComponents/Badge/Badge';
 import type { ReceptionListItem } from '@/app/actions/receptions';
 import { TransactionStatus, TransactionType } from '@/data/entities/Transaction';
+import { formatDateTime } from '@/lib/dateTimeUtils';
 
 interface ReceptionDetailsDialogProps {
     open: boolean;
@@ -18,14 +19,6 @@ const currencyFormatter = new Intl.NumberFormat('es-CL', {
     currency: 'CLP',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-});
-
-const dateTimeFormatter = new Intl.DateTimeFormat('es-CL', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
 });
 
 const statusLabels: Record<TransactionStatus, string> = {
@@ -60,7 +53,7 @@ export function ReceptionDetailsDialog({ open, reception, onClose }: ReceptionDe
             return '';
         }
         try {
-            return dateTimeFormatter.format(new Date(reception.createdAt));
+            return formatDateTime(reception.createdAt);
         } catch (error) {
             return reception.createdAt;
         }

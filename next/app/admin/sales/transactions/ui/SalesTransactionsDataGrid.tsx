@@ -18,17 +18,13 @@ import {
   type SaleTransactionDetail,
 } from '@/actions/transactions';
 import { TransactionStatus, PaymentMethod } from '@/data/entities/Transaction';
+import { formatDateTime } from '@/lib/dateTimeUtils';
 
 const currencyFormatter = new Intl.NumberFormat('es-CL', {
   style: 'currency',
   currency: 'CLP',
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
-});
-
-const dateTimeFormatter = new Intl.DateTimeFormat('es-CL', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
 });
 
 const quantityFormatter = new Intl.NumberFormat('es-CL', {
@@ -201,10 +197,10 @@ const SalesTransactionsDataGrid = () => {
         if (Number.isNaN(date.getTime())) {
           return <span className="text-xs text-neutral-500">—</span>;
         }
+        const formatted = formatDateTime(date);
         return (
           <div className="flex flex-col text-sm">
-            <span className="font-medium text-neutral-900">{dateTimeFormatter.format(date)}</span>
-            <span className="text-xs text-neutral-500">{date.toISOString().slice(0, 10)}</span>
+            <span className="font-medium text-neutral-900">{formatted}</span>
           </div>
         );
       },
@@ -418,7 +414,7 @@ const SalesTransactionsDataGrid = () => {
                   <span className="font-medium text-neutral-900">
                     {(() => {
                       const date = new Date(detailData.createdAt);
-                      return Number.isNaN(date.getTime()) ? '—' : dateTimeFormatter.format(date);
+                      return Number.isNaN(date.getTime()) ? '—' : formatDateTime(date);
                     })()}
                   </span>
                 </div>

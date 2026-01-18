@@ -1,6 +1,11 @@
 import { randomUUID } from 'crypto';
 import { EntityManager } from 'typeorm';
-import { CashSession, CashSessionStatus } from '../../../../data/entities/CashSession';
+import {
+  CashSession,
+  CashSessionClosingDetails,
+  CashSessionStatus,
+  CashSessionTenderBreakdown,
+} from '../../../../data/entities/CashSession';
 import { PointOfSale } from '../../../../data/entities/PointOfSale';
 import {
   Transaction,
@@ -207,6 +212,138 @@ export async function persistCashSessionDepositTransaction(
   };
 }
 
+export class CashSessionClosingError extends Error {}
+
+export interface CashSessionClosingParams {
+  cashSession: CashSession;
+  pointOfSale: PointOfSale;
+  user: User;
+  actualCash: number;
+  voucherDebitAmount: number;
+  voucherCreditAmount: number;
+  transferAmount?: number;
+  checkAmount?: number;
+  otherAmount?: number;
+  notes?: string | null;
+}
+
+export interface CashSessionClosingResult {
+  cashSession: CashSession;
+  expected: CashSessionTenderBreakdown;
+  actual: CashSessionTenderBreakdown;
+  difference: {
+    cash: number;
+    total: number;
+  };
+}
+
+export async function persistCashSessionClosing(
+  manager: EntityManager,
+  params: CashSessionClosingParams,
+): Promise<CashSessionClosingResult> {
+  if (params.cashSession.status !== CashSessionStatus.OPEN) {
+    throw new CashSessionClosingError('La sesión de caja ya se encuentra cerrada.');
+  }
+
+  if (
+    params.cashSession.pointOfSaleId &&
+    params.cashSession.pointOfSaleId !== params.pointOfSale.id
+  ) {
+    throw new CashSessionClosingError('La sesión de caja no corresponde al punto de venta indicado.');
+  }
+
+  const actualCash = sanitizeAmount(params.actualCash);
+  if (!Number.isFinite(actualCash) || actualCash < 0) {
+    throw new CashSessionClosingError('El monto de efectivo contado debe ser mayor o igual a 0.');
+  }
+
+  const actualBreakdown: CashSessionTenderBreakdown = {
+    cash: actualCash,
+    debitCard: sanitizeAmount(params.voucherDebitAmount ?? 0),
+    creditCard: sanitizeAmount(params.voucherCreditAmount ?? 0),
+    transfer: sanitizeAmount(params.transferAmount ?? 0),
+    check: sanitizeAmount(params.checkAmount ?? 0),
+    other: sanitizeAmount(params.otherAmount ?? 0),
+  };
+
+  const expectedCash = await recomputeCashSessionExpectedAmount(manager, params.cashSession);
+  params.cashSession.expectedAmount = expectedCash;
+
+  const expectedBreakdown = await computeCashSessionTenderBreakdown(
+    manager,
+    params.cashSession,
+    expectedCash,
+  );
+
+  const cashDifference = Number((actualBreakdown.cash - expectedBreakdown.cash).toFixed(2));
+  const totalActual =
+    actualBreakdown.cash +
+    actualBreakdown.debitCard +
+    actualBreakdown.creditCard +
+    actualBreakdown.transfer +
+    actualBreakdown.check +
+    actualBreakdown.other;
+  const totalExpected =
+    expectedBreakdown.cash +
+    expectedBreakdown.debitCard +
+    expectedBreakdown.creditCard +
+    expectedBreakdown.transfer +
+    expectedBreakdown.check +
+    expectedBreakdown.other;
+  const totalDifference = Number((totalActual - totalExpected).toFixed(2));
+
+  const requiresExplanation = Math.abs(cashDifference) >= 0.01;
+  const normalizedNotes = params.notes?.trim() ?? null;
+
+  if (requiresExplanation && (!normalizedNotes || normalizedNotes.length < 3)) {
+    throw new CashSessionClosingError(
+      'Debes ingresar una nota explicando la diferencia detectada en efectivo.',
+    );
+  }
+
+  const now = new Date();
+
+  params.cashSession.status = CashSessionStatus.CLOSED;
+  params.cashSession.closedById = params.user.id;
+  params.cashSession.closedAt = now;
+  params.cashSession.closingAmount = actualBreakdown.cash;
+  params.cashSession.difference = cashDifference;
+  if (normalizedNotes) {
+    params.cashSession.notes = [params.cashSession.notes, normalizedNotes]
+      .filter((value) => typeof value === 'string' && value.trim().length > 0)
+      .map((value) => value!.trim())
+      .join('\n');
+  }
+
+  const closingDetails: CashSessionClosingDetails = {
+    countedByUserId: params.user.id,
+    countedByUserName: params.user.userName ?? null,
+    countedAt: now.toISOString(),
+    notes: normalizedNotes,
+    actual: actualBreakdown,
+    expected: expectedBreakdown,
+    difference: {
+      cash: cashDifference,
+      total: totalDifference,
+    },
+  };
+
+  params.cashSession.closingDetails = closingDetails;
+
+  const cashSessionRepo = manager.getRepository(CashSession);
+  await cashSessionRepo.save(params.cashSession);
+
+  return {
+    cashSession: params.cashSession,
+    actual: actualBreakdown,
+    expected: expectedBreakdown,
+    difference: {
+      cash: cashDifference,
+      total: totalDifference,
+    },
+  };
+}
+
 async function recomputeCashSessionExpectedAmount(
   manager: EntityManager,
   cashSession: CashSession,
@@ -247,6 +384,60 @@ async function recomputeCashSessionExpectedAmount(
   const opening = Number(cashSession.openingAmount) || 0;
   const expected = opening + cashIn - cashOut;
   return Number(expected.toFixed(2));
+}
+
+async function computeCashSessionTenderBreakdown(
+  manager: EntityManager,
+  cashSession: CashSession,
+  expectedCash: number,
+): Promise<CashSessionTenderBreakdown> {
+  const transactionRepo = manager.getRepository(Transaction);
+  const transactions = await transactionRepo.find({
+    where: {
+      cashSessionId: cashSession.id,
+      status: TransactionStatus.CONFIRMED,
+    },
+  });
+
+  const breakdown: CashSessionTenderBreakdown = {
+    cash: expectedCash,
+    debitCard: 0,
+    creditCard: 0,
+    transfer: 0,
+    check: 0,
+    other: 0,
+  };
+
+  for (const tx of transactions) {
+    if (!tx.paymentMethod) {
+      continue;
+    }
+
+    const total = Number(tx.total) || 0;
+
+    switch (tx.paymentMethod) {
+      case PaymentMethod.DEBIT_CARD:
+        breakdown.debitCard = Number((breakdown.debitCard + total).toFixed(2));
+        break;
+      case PaymentMethod.CREDIT_CARD:
+        breakdown.creditCard = Number((breakdown.creditCard + total).toFixed(2));
+        break;
+      case PaymentMethod.TRANSFER:
+        breakdown.transfer = Number((breakdown.transfer + total).toFixed(2));
+        break;
+      case PaymentMethod.CHECK:
+        breakdown.check = Number((breakdown.check + total).toFixed(2));
+        break;
+      case PaymentMethod.CASH:
+        // Already represented in expected cash calculation.
+        break;
+      default:
+        breakdown.other = Number((breakdown.other + total).toFixed(2));
+        break;
+    }
+  }
+
+  return breakdown;
 }
 
 function buildOpeningMetadata(params: {

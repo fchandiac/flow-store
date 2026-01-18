@@ -8,6 +8,7 @@ import Alert from '@/baseComponents/Alert/Alert';
 import IconButton from '@/baseComponents/IconButton/IconButton';
 import Dialog from '@/baseComponents/Dialog/Dialog';
 import type { AccountingPeriodSummary } from '@/actions/accounting';
+import { formatDateTime } from '@/lib/dateTimeUtils';
 import CreateAccountingPeriodDialog from './CreateAccountingPeriodDialog';
 
 interface PeriodsTableProps {
@@ -26,15 +27,7 @@ interface AccountingPeriodRow {
 }
 
 const formatRange = (start: string, end: string) => {
-    const locale = 'es-CL';
-    return `${new Date(start).toLocaleDateString(locale)} — ${new Date(end).toLocaleDateString(locale)}`;
-};
-
-const formatDateTime = (value?: string | null) => {
-    if (!value) {
-        return '—';
-    }
-    return new Date(value).toLocaleString('es-CL');
+    return `${formatDateTime(start)} — ${formatDateTime(end)}`;
 };
 
 const getStatusInfo = (status: string, locked: boolean): { label: string; variant: BadgeVariant; note: string } => {
@@ -78,7 +71,7 @@ export default function PeriodsTable({ periods }: PeriodsTableProps) {
                 statusLabel: statusInfo.label,
                 statusBadge: statusInfo.variant,
                 statusNote: statusInfo.note,
-                closedAtLabel: formatDateTime(period.closedAt ?? null),
+                closedAtLabel: period.closedAt ? formatDateTime(period.closedAt) : '—',
             };
         });
     }, [periods]);

@@ -1,5 +1,6 @@
+import { useIsFocused } from '@react-navigation/native';
 import { type NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,6 +21,9 @@ import { palette } from '../theme/palette';
 export type OpeningScreenProps = NativeStackScreenProps<RootStackParamList, 'Opening'>;
 
 function OpeningScreen({ navigation, route }: OpeningScreenProps) {
+  const isFocused = useIsFocused();
+  const loginRedirectRef = useRef(false);
+  const setupRedirectRef = useRef(false);
   const user = usePosStore((state) => state.user);
   const session = usePosStore((state) => state.cashSession);
   const setCashSession = usePosStore((state) => state.setCashSession);
@@ -47,14 +51,30 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+    if (!isFocused) {
       return;
     }
-    if (!session || !pointOfSale) {
-      navigation.reset({ index: 0, routes: [{ name: 'SessionSetup' }] });
+
+    if (!user) {
+      if (!loginRedirectRef.current) {
+        loginRedirectRef.current = true;
+        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+      }
+      return;
     }
-  }, [navigation, pointOfSale, session, user]);
+
+    loginRedirectRef.current = false;
+
+    if (!session || !pointOfSale) {
+      if (!setupRedirectRef.current) {
+        setupRedirectRef.current = true;
+        navigation.reset({ index: 0, routes: [{ name: 'SessionSetup' }] });
+      }
+      return;
+    }
+
+    setupRedirectRef.current = false;
+  }, [isFocused, navigation, pointOfSale, session, user]);
 
   useEffect(() => {
     if (initialAmount !== null) {

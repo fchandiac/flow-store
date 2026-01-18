@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, View, Text, FlatList, Image } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
+import type { AVPlaybackStatus } from 'expo-av';
 import ExternalDisplay from 'react-native-external-display';
 import { palette } from '../theme/palette';
 
@@ -33,9 +34,80 @@ const CustomerDisplay: React.FC<CustomerDisplayProps> = ({ externalScreenId }) =
   const itemCount = usePosStore(selectItemCount);
   const promoMediaEnabled = usePosStore(selectPromoMediaEnabled);
   const promoMedia = usePosStore(selectPromoMedia);
+  const promoVideoRef = useRef<Video | null>(null);
 
   const cartHasItems = itemCount > 0;
   const shouldShowPromo = Boolean(promoMediaEnabled && promoMedia && !cartHasItems);
+
+  useEffect(() => {
+    const syncPlayback = async () => {
+      const player = promoVideoRef.current;
+      if (!player) {
+        return;
+      }
+
+      try {
+        const status = await player.getStatusAsync();
+        if (!status || !('isLoaded' in status) || !status.isLoaded) {
+          return;
+        }
+
+        if (!promoMedia || promoMedia.type !== 'video') {
+          if (status.isPlaying) {
+            await player.pauseAsync();
+            await player.setPositionAsync(0);
+          }
+          return;
+        }
+
+        if (shouldShowPromo) {
+          if (!status.isPlaying) {
+            await player.playAsync();
+          }
+        } else if (status.isPlaying) {
+          await player.pauseAsync();
+          await player.setPositionAsync(0);
+        }
+      } catch (error) {
+        console.warn('[CustomerDisplay] No se pudo sincronizar la reproducción promocional', error);
+      }
+    };
+
+    void syncPlayback();
+  }, [shouldShowPromo, promoMedia?.uri, promoMedia?.type]);
+
+  const handlePromoStatusUpdate = useCallback(
+    (status: AVPlaybackStatus) => {
+      if (!promoMedia || promoMedia.type !== 'video') {
+        return;
+      }
+
+      const player = promoVideoRef.current;
+      if (!player) {
+        return;
+      }
+
+      if ('error' in status) {
+        console.warn('[CustomerDisplay] Error al reproducir video promocional', status.error);
+        return;
+      }
+
+      if (!shouldShowPromo && status.isPlaying) {
+        player.pauseAsync().catch(() => undefined);
+        player.setPositionAsync(0).catch(() => undefined);
+        return;
+      }
+
+      if (shouldShowPromo && !status.isPlaying) {
+        player.playAsync().catch(() => undefined);
+      }
+
+      if (status.didJustFinish) {
+        player.replayAsync().catch(() => undefined);
+      }
+    },
+    [promoMedia?.type, shouldShowPromo],
+  );
 
   const renderCartExternal = () => (
     <View style={styles.displaySurface}>
@@ -74,12 +146,16 @@ const CustomerDisplay: React.FC<CustomerDisplayProps> = ({ externalScreenId }) =
     return (
       <View style={styles.promoSurface}>
         <Video
+          ref={promoVideoRef}
+          key={promoMedia.uri}
           source={{ uri: promoMedia.uri }}
           style={styles.promoMedia}
           resizeMode={ResizeMode.CONTAIN}
-          shouldPlay
+          shouldPlay={shouldShowPromo}
           isLooping
           isMuted={false}
+          useNativeControls={false}
+          onPlaybackStatusUpdate={handlePromoStatusUpdate}
         />
       </View>
     );

@@ -12,6 +12,28 @@ import {
 import { PointOfSale } from "./PointOfSale";
 import { User } from "./User";
 
+export type CashSessionTenderBreakdown = {
+    cash: number;
+    debitCard: number;
+    creditCard: number;
+    transfer: number;
+    check: number;
+    other: number;
+};
+
+export type CashSessionClosingDetails = {
+    countedByUserId: string;
+    countedByUserName?: string | null;
+    countedAt: string;
+    notes?: string | null;
+    actual: CashSessionTenderBreakdown;
+    expected: CashSessionTenderBreakdown;
+    difference: {
+        cash: number;
+        total: number;
+    };
+};
+
 export enum CashSessionStatus {
     OPEN = 'OPEN',
     CLOSED = 'CLOSED',
@@ -55,6 +77,9 @@ export class CashSession {
 
     @Column({ type: 'text', nullable: true })
     notes?: string;
+
+    @Column({ type: 'json', nullable: true })
+    closingDetails?: CashSessionClosingDetails | null;
 
     @CreateDateColumn()
     createdAt!: Date;

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useIsFocused } from '@react-navigation/native';
 import { type NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -36,6 +37,9 @@ import { palette } from '../theme/palette';
 export type PosScreenProps = NativeStackScreenProps<RootStackParamList, 'Pos'>;
 
 function PosScreen({ navigation }: PosScreenProps) {
+  const isFocused = useIsFocused();
+  const loginRedirectRef = useRef(false);
+  const setupRedirectRef = useRef(false);
   const user = usePosStore((state) => state.user);
   const pointOfSale = usePosStore((state) => state.pointOfSale);
   const session = usePosStore((state) => state.cashSession);
@@ -63,14 +67,38 @@ function PosScreen({ navigation }: PosScreenProps) {
   const [isSubmittingCashMovement, setIsSubmittingCashMovement] = useState(false);
 
   useEffect(() => {
-    if (!user) {
-      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+    if (!isFocused) {
       return;
     }
-    if (!session || !pointOfSale) {
-      navigation.reset({ index: 0, routes: [{ name: 'SessionSetup' }] });
+
+    if (!user) {
+      if (!loginRedirectRef.current) {
+        loginRedirectRef.current = true;
+        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+      }
+      return;
     }
-  }, [navigation, pointOfSale, session, user]);
+
+    loginRedirectRef.current = false;
+
+    if (!session || !pointOfSale) {
+      if (!setupRedirectRef.current) {
+        setupRedirectRef.current = true;
+        navigation.reset({ index: 0, routes: [{ name: 'SessionSetup' }] });
+      }
+      return;
+    }
+
+    if (session.status !== 'OPEN') {
+      if (!setupRedirectRef.current) {
+        setupRedirectRef.current = true;
+        navigation.reset({ index: 0, routes: [{ name: 'SessionSetup' }] });
+      }
+      return;
+    }
+
+    setupRedirectRef.current = false;
+  }, [isFocused, navigation, pointOfSale, session, user]);
 
   const handleSearch = async () => {
     const trimmed = query.trim();
@@ -174,7 +202,12 @@ function PosScreen({ navigation }: PosScreenProps) {
       return;
     }
 
-    Alert.alert('Cierre de caja', 'Esta acción aún no está disponible.');
+    if (!user || !pointOfSale || !session) {
+      Alert.alert('Sesión requerida', 'Debes iniciar sesión y abrir caja antes de cerrar.');
+      return;
+    }
+
+    navigation.navigate('CashClosing');
   };
 
   const handleSubmitCashMovement = async () => {

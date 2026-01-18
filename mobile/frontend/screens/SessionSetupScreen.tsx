@@ -1,4 +1,4 @@
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { type NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -40,6 +40,9 @@ function formatDateTimeLabel(value: string): string {
 }
 
 function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
+  const isFocused = useIsFocused();
+  const loginRedirectRef = useRef(false);
+  const posRedirectRef = useRef(false);
   const user = usePosStore((state) => state.user);
   const setPointOfSale = usePosStore((state) => state.setPointOfSale);
   const setCashSession = usePosStore((state) => state.setCashSession);
@@ -63,20 +66,45 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
   const sessionRequestRef = useRef(0);
 
   useEffect(() => {
-    if (!user) {
-      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+    if (!isFocused) {
+      return;
     }
-  }, [navigation, user]);
+
+    if (!user) {
+      if (!loginRedirectRef.current) {
+        loginRedirectRef.current = true;
+        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+      }
+      return;
+    }
+
+    loginRedirectRef.current = false;
+  }, [isFocused, navigation, user]);
 
   useEffect(() => {
+    if (!isFocused) {
+      return;
+    }
+
     if (!user || !pointOfSale || !cashSession) {
+      posRedirectRef.current = false;
+      return;
+    }
+
+    if (cashSession.status !== 'OPEN') {
+      posRedirectRef.current = false;
       return;
     }
 
     if (cashSession.openingAmount > 0) {
-      navigation.reset({ index: 0, routes: [{ name: 'Pos' }] });
+      if (!posRedirectRef.current) {
+        posRedirectRef.current = true;
+        navigation.reset({ index: 0, routes: [{ name: 'Pos' }] });
+      }
+    } else {
+      posRedirectRef.current = false;
     }
-  }, [cashSession, navigation, pointOfSale, user]);
+  }, [cashSession?.id, cashSession?.openingAmount, cashSession?.status, isFocused, navigation, pointOfSale, user]);
 
   const loadPointsOfSale = useCallback(async () => {
     if (!user) {
@@ -217,6 +245,14 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
     }
 
     if (!selectedPointOfSale || !activeSession) {
+      return;
+    }
+
+    if (activeSession.status !== 'OPEN') {
+      Alert.alert(
+        'Sesión inactiva',
+        'La sesión seleccionada ya fue cerrada. Actualiza la lista para continuar.',
+      );
       return;
     }
 

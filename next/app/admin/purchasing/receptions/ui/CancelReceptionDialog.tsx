@@ -10,6 +10,7 @@ import { cancelReception } from '@/app/actions/receptions';
 import { useAlert } from '@/app/globalstate/alert/useAlert';
 import type { ReceptionListItem } from '@/app/actions/receptions';
 import { TransactionStatus } from '@/data/entities/Transaction';
+import { formatDateTime } from '@/lib/dateTimeUtils';
 
 interface CancelReceptionDialogProps {
     open: boolean;
@@ -23,14 +24,6 @@ const currencyFormatter = new Intl.NumberFormat('es-CL', {
     currency: 'CLP',
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
-});
-
-const dateTimeFormatter = new Intl.DateTimeFormat('es-CL', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
 });
 
 export function CancelReceptionDialog({ open, reception, onClose, onCancelled }: CancelReceptionDialogProps) {
@@ -50,7 +43,7 @@ export function CancelReceptionDialog({ open, reception, onClose, onCancelled }:
             return '';
         }
         try {
-            return dateTimeFormatter.format(new Date(reception.createdAt));
+            return formatDateTime(reception.createdAt);
         } catch (e) {
             return reception.createdAt;
         }

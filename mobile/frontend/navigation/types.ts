@@ -7,4 +7,5 @@ export type RootStackParamList = {
   SecondaryDisplaySettings: undefined;
   PrinterSettings: undefined;
   ServerSettings: undefined;
+  CashClosing: undefined;
 };

@@ -46,6 +46,14 @@ export function formatAuditDate(date: Date | string | Moment): string {
 }
 
 /**
+ * General purpose date-time formatter for UI surfaces
+ * Mirrors the audit format to enforce DD-MM-YYYY HH:mm everywhere
+ */
+export function formatDateTime(date: Date | string | Moment): string {
+  return formatAuditDate(date);
+}
+
+/**
  * Formats a date with full time details for detailed audit views
  * Format: DD-MM-YYYY HH:mm:ss
  * 

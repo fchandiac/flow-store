@@ -77,7 +77,21 @@ export async function GET(request: Request) {
       openedAt: activeSession.openedAt,
       createdAt: activeSession.createdAt,
       updatedAt: activeSession.updatedAt,
-      expectedAmount: activeSession.expectedAmount ?? null,
+      expectedAmount:
+        activeSession.expectedAmount !== undefined && activeSession.expectedAmount !== null
+          ? Number(activeSession.expectedAmount)
+          : null,
+      closingAmount:
+        activeSession.closingAmount !== undefined && activeSession.closingAmount !== null
+          ? Number(activeSession.closingAmount)
+          : null,
+      closedAt: activeSession.closedAt ?? null,
+      difference:
+        activeSession.difference !== undefined && activeSession.difference !== null
+          ? Number(activeSession.difference)
+          : null,
+      notes: activeSession.notes ?? null,
+      closingDetails: activeSession.closingDetails ?? null,
     };
 
     return NextResponse.json(
@@ -187,7 +201,21 @@ export async function POST(request: Request) {
       openedAt: savedSession.openedAt,
       createdAt: savedSession.createdAt,
       updatedAt: savedSession.updatedAt,
-      expectedAmount: savedSession.expectedAmount ?? null,
+      expectedAmount:
+        savedSession.expectedAmount !== undefined && savedSession.expectedAmount !== null
+          ? Number(savedSession.expectedAmount)
+          : null,
+      closingAmount:
+        savedSession.closingAmount !== undefined && savedSession.closingAmount !== null
+          ? Number(savedSession.closingAmount)
+          : null,
+      closedAt: savedSession.closedAt ?? null,
+      difference:
+        savedSession.difference !== undefined && savedSession.difference !== null
+          ? Number(savedSession.difference)
+          : null,
+      notes: savedSession.notes ?? null,
+      closingDetails: savedSession.closingDetails ?? null,
     };
 
     return NextResponse.json(

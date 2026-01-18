@@ -12,6 +12,7 @@ import SettingsScreen from './screens/SettingsScreen';
 import PrinterSettingsScreen from './screens/PrinterSettingsScreen';
 import SecondaryDisplaySettingsScreen from './screens/SecondaryDisplaySettingsScreen';
 import ServerSettingsScreen from './screens/ServerSettingsScreen';
+import CashClosingScreen from './screens/CashClosingScreen';
 import { type RootStackParamList } from './navigation/types';
 import { normalizeBaseUrl } from './services/apiService';
 import { loadDeviceSettings, updateDeviceSettings } from './services/settingsStorage';
@@ -113,6 +114,11 @@ export default function App() {
             name="ServerSettings"
             component={ServerSettingsScreen}
             options={{ title: 'Servidor POS' }}
+          />
+          <Stack.Screen
+            name="CashClosing"
+            component={CashClosingScreen}
+            options={{ title: 'Cierre de caja' }}
           />
         </Stack.Navigator>
       </NavigationContainer>

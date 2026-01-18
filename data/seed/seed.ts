@@ -11,6 +11,7 @@ import * as dotenv from "dotenv";
 dotenv.config();
 
 const recordedStatements: string[] = [];
+const SQL_SNAPSHOT_PATH = path.join(__dirname, "generated", "seed-data.sql");
 
 const normalizeStatement = (sql: string): string => sql.trim().replace(/;$/, "") + ";";
 
@@ -304,7 +305,8 @@ const seedTrays = async (connection: mysql.Connection) => {
     const active = tray.active !== undefined ? Boolean(tray.active) : true;
     const id = randomUUID();
 
-    await connection.execute(
+    await executeStatement(
+      connection,
       `INSERT INTO trays (id, name, weight, stock, active, createdAt, updatedAt)
        VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
       [id, name, weight, stock, active]
@@ -340,7 +342,8 @@ const seedVarieties = async (connection: mysql.Connection) => {
     const priceUSD = 0;
     const currency = "CLP";
 
-    await connection.execute(
+    await executeStatement(
+      connection,
       `INSERT INTO varieties (name, priceCLP, priceUSD, currency, createdAt, updatedAt)
        VALUES (?, ?, ?, ?, NOW(), NOW())`,
       [name, priceCLP, priceUSD, currency]
@@ -374,7 +377,8 @@ const seedFormats = async (connection: mysql.Connection) => {
     const description = typeof format.description === "string" ? format.description.trim() : null;
     const active = format.active !== undefined ? Boolean(format.active) : true;
 
-    await connection.execute(
+    await executeStatement(
+      connection,
       `INSERT INTO formats (name, description, active, createdAt, updatedAt)
        VALUES (?, ?, ?, NOW(), NOW())`,
       [name, description || null, active]
@@ -413,7 +417,8 @@ const seedProducers = async (connection: mysql.Connection) => {
 
     // Create person first
     const personId = randomUUID();
-    await connection.execute(
+    await executeStatement(
+      connection,
       `INSERT INTO persons (id, name, dni, phone, mail, createdAt, updatedAt)
        VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
       [personId, name, dni, phone, mail]
@@ -421,7 +426,8 @@ const seedProducers = async (connection: mysql.Connection) => {
 
     // Create producer linked to person
     const producerId = randomUUID();
-    await connection.execute(
+    await executeStatement(
+      connection,
       `INSERT INTO producers (id, name, dni, phone, mail, personId, createdAt, updatedAt)
        VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [producerId, name, dni, phone, mail, personId]
@@ -471,7 +477,8 @@ const seedCustomers = async (connection: mysql.Connection) => {
     } else {
       // Create person first
       personId = randomUUID();
-      await connection.execute(
+      await executeStatement(
+        connection,
         `INSERT INTO persons (id, name, dni, phone, mail, createdAt, updatedAt)
          VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
         [personId, name, dni, phone, mail]
@@ -480,7 +487,8 @@ const seedCustomers = async (connection: mysql.Connection) => {
 
     // Create customer linked to person
     const customerId = randomUUID();
-    await connection.execute(
+    await executeStatement(
+      connection,
       `INSERT INTO customers (id, personId, createdAt, updatedAt)
        VALUES (?, ?, NOW(), NOW())`,
       [customerId, personId]
@@ -599,7 +607,8 @@ const seedSuppliers = async (connection: mysql.Connection) => {
 
     if (existingPersonRows.length > 0) {
       personId = existingPersonRows[0].id;
-      await connection.execute(
+      await executeStatement(
+        connection,
         `UPDATE persons
          SET name = ?, phone = ?, mail = ?, address = ?, bankAccounts = ?, updatedAt = NOW()
          WHERE id = ?`,
@@ -607,7 +616,8 @@ const seedSuppliers = async (connection: mysql.Connection) => {
       );
     } else {
       personId = randomUUID();
-      await connection.execute(
+      await executeStatement(
+        connection,
         `INSERT INTO persons (id, name, dni, phone, mail, address, bankAccounts, createdAt, updatedAt)
          VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [personId, name, dni, phone, mail, address, bankAccountsJson]
@@ -620,7 +630,8 @@ const seedSuppliers = async (connection: mysql.Connection) => {
     )) as [RowDataPacket[], any];
 
     if (existingSupplierRows.length > 0) {
-      await connection.execute(
+      await executeStatement(
+        connection,
         `UPDATE suppliers
          SET supplierType = ?, alias = ?, defaultPaymentTermDays = ?, isActive = 1, notes = ?, updatedAt = NOW()
          WHERE id = ?`,
@@ -630,7 +641,8 @@ const seedSuppliers = async (connection: mysql.Connection) => {
     }
 
     const supplierId = randomUUID();
-    await connection.execute(
+    await executeStatement(
+      connection,
       `INSERT INTO suppliers (id, personId, supplierType, alias, defaultPaymentTermDays, isActive, notes, createdAt, updatedAt)
        VALUES (?, ?, ?, ?, ?, 1, ?, NOW(), NOW())`,
       [supplierId, personId, supplierType, alias, defaultPaymentTermDays, notes]
@@ -675,7 +687,7 @@ const executeSqlFile = async (
     let executedCount = 0;
     for (const statement of statements) {
       try {
-        await connection.execute(statement);
+        await executeStatement(connection, statement);
         executedCount++;
       } catch (error: any) {
         if (!statement.includes("SHOW TABLES") && !statement.includes("SELECT")) {
@@ -725,7 +737,7 @@ const runSeed = async (environment: "test" | "production" | "local" = "test") =>
 
     // Disable foreign key checks for seeding
     console.log("\n🔒 Disabling foreign key checks...");
-    await connection.execute("SET FOREIGN_KEY_CHECKS = 0");
+    await executeStatement(connection, "SET FOREIGN_KEY_CHECKS = 0");
 
     // Execute SQL files to create all tables
     const sqlDir = path.join(__dirname, "sql");
@@ -771,7 +783,7 @@ const runSeed = async (environment: "test" | "production" | "local" = "test") =>
 
     // Re-enable foreign key checks
     console.log("\n🔓 Re-enabling foreign key checks...");
-    await connection.execute("SET FOREIGN_KEY_CHECKS = 1");
+    await executeStatement(connection, "SET FOREIGN_KEY_CHECKS = 1");
 
     console.log("\n───────────────────────────────────────────────────────────");
     console.log("✅ Seed process completed successfully!");
@@ -789,6 +801,10 @@ const runSeed = async (environment: "test" | "production" | "local" = "test") =>
     console.log("   - transactions, reception_packs, transaction_relations");
     console.log("   - audits, permissions, admin_bank_accounts");
     console.log("   - storages, pallets, producer_bank_accounts");
+
+    ensureSqlSnapshot(SQL_SNAPSHOT_PATH);
+    const relativeSnapshotPath = path.relative(process.cwd(), SQL_SNAPSHOT_PATH);
+    console.log(`\n📝 Seed SQL snapshot saved to ${relativeSnapshotPath}`);
 
     await connection.end();
     process.exit(0);

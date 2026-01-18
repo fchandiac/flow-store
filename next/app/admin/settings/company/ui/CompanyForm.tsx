@@ -8,7 +8,9 @@ import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
 import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { updateCompany } from '@/app/actions/companies';
+import type { ShareholderRecord } from '@/actions/shareholders';
 import CompanyBankAccountDialog from './CompanyBankAccountDialog';
+import CompanyShareholdersSection from './CompanyShareholdersSection';
 
 export interface CompanyType {
     id: string;
@@ -31,6 +33,7 @@ export interface CompanyBankAccount {
 
 interface CompanyFormProps {
     company: CompanyType;
+    shareholders: ShareholderRecord[];
     'data-test-id'?: string;
 }
 
@@ -40,7 +43,7 @@ const currencyOptions = [
     { id: 'EUR', label: 'Euro (EUR)' },
 ];
 
-const CompanyForm: React.FC<CompanyFormProps> = ({ company, 'data-test-id': dataTestId }) => {
+const CompanyForm: React.FC<CompanyFormProps> = ({ company, shareholders: initialShareholders, 'data-test-id': dataTestId }) => {
     const router = useRouter();
     const { success, error: showError } = useAlert();
 
@@ -49,6 +52,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, 'data-test-id': data
     const [errors, setErrors] = useState<string[]>([]);
     const [bankAccounts, setBankAccounts] = useState<CompanyBankAccount[]>(company.bankAccounts ?? []);
     const [isBankDialogOpen, setIsBankDialogOpen] = useState(false);
+    const [shareholders, setShareholders] = useState<ShareholderRecord[]>(initialShareholders);
 
     const [formData, setFormData] = useState({
         name: company.name || '',
@@ -59,6 +63,10 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, 'data-test-id': data
     useEffect(() => {
         setBankAccounts(company.bankAccounts ?? []);
     }, [company.bankAccounts]);
+
+    useEffect(() => {
+        setShareholders(initialShareholders);
+    }, [initialShareholders]);
 
     useEffect(() => {
         setFormData({
@@ -276,6 +284,12 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, 'data-test-id': data
                     </div>
                 )}
             </section>
+
+            <CompanyShareholdersSection
+                companyName={company.name}
+                shareholders={shareholders}
+                onShareholdersChange={setShareholders}
+            />
 
             <CompanyBankAccountDialog
                 open={isBankDialogOpen}

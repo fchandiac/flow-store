@@ -1,0 +1,5 @@
+-- FlowStore seed snapshot
+-- Generated at <pending-run>
+--
+-- Este archivo se sobrescribe automáticamente cada vez que se ejecuta
+-- `data/seed/seed.ts`. No edites manualmente salvo que sepas lo que haces.

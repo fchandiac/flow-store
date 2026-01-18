@@ -13,6 +13,7 @@ export * from './Customer';
 export * from './Supplier';
 export * from './User';
 export * from './Employee';
+export * from './Shareholder';
 export * from './ExpenseCategory';
 export * from './OperationalExpense';
 export * from './TreasuryAccount';
