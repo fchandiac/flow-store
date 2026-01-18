@@ -9,6 +9,8 @@ import OpeningScreen from './screens/OpeningScreen';
 import PosScreen from './screens/PosScreen';
 import SessionSetupScreen from './screens/SessionSetupScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import PrinterSettingsScreen from './screens/PrinterSettingsScreen';
+import SecondaryDisplaySettingsScreen from './screens/SecondaryDisplaySettingsScreen';
 import { type RootStackParamList } from './navigation/types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -48,6 +50,16 @@ export default function App() {
             name="Settings"
             component={SettingsScreen}
             options={{ title: 'Configuración del punto de venta' }}
+          />
+          <Stack.Screen
+            name="SecondaryDisplaySettings"
+            component={SecondaryDisplaySettingsScreen}
+            options={{ title: 'Pantalla secundaria' }}
+          />
+          <Stack.Screen
+            name="PrinterSettings"
+            component={PrinterSettingsScreen}
+            options={{ title: 'Impresora POS' }}
           />
         </Stack.Navigator>
       </NavigationContainer>

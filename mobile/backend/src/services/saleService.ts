@@ -277,28 +277,27 @@ export async function createSaleTransaction(
     saleSource: 'mobile-backend',
   };
 
-  const transaction = transactionRepo.create({
-    transactionType: TransactionType.SALE,
-    status: TransactionStatus.CONFIRMED,
-    branchId: params.pointOfSale.branchId ?? null,
-    pointOfSaleId: params.pointOfSale.id,
-    cashSessionId: params.cashSession.id,
-    customerId: params.customerId ?? null,
-    userId: params.user.id,
-    documentNumber,
-    externalReference: params.externalReference ?? null,
-    paymentMethod: params.paymentMethod,
-    bankAccountKey: params.bankAccountKey ?? null,
-    subtotal,
-    discountAmount,
-    taxAmount,
-    total,
-    notes: params.notes?.trim() ?? null,
-    metadata: JSON.parse(JSON.stringify(metadataPayload)),
-    amountPaid: amountPaid ?? undefined,
-    changeAmount: changeAmount ?? undefined,
-    storageId: params.storageId ?? null,
-  });
+  const transaction = transactionRepo.create();
+  transaction.transactionType = TransactionType.SALE;
+  transaction.status = TransactionStatus.CONFIRMED;
+  transaction.branchId = params.pointOfSale.branchId ?? null;
+  transaction.pointOfSaleId = params.pointOfSale.id;
+  transaction.cashSessionId = params.cashSession.id;
+  transaction.customerId = params.customerId ?? null;
+  transaction.userId = params.user.id;
+  transaction.documentNumber = documentNumber;
+  transaction.externalReference = params.externalReference ?? null;
+  transaction.paymentMethod = params.paymentMethod;
+  transaction.bankAccountKey = params.bankAccountKey ?? null;
+  transaction.subtotal = subtotal;
+  transaction.discountAmount = discountAmount;
+  transaction.taxAmount = taxAmount;
+  transaction.total = total;
+  transaction.notes = params.notes?.trim() ?? null;
+  transaction.metadata = JSON.parse(JSON.stringify(metadataPayload));
+  transaction.amountPaid = amountPaid ?? undefined;
+  transaction.changeAmount = changeAmount ?? undefined;
+  transaction.storageId = params.storageId ?? null;
 
   const savedTransaction = await transactionRepo.save(transaction);
 

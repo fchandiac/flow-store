@@ -14,6 +14,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  type ViewStyle,
 } from 'react-native';
 import {
   checkoutSale,
@@ -247,7 +248,7 @@ function PosScreen({ navigation }: PosScreenProps) {
         ? 'Registrar ingreso de dinero'
         : 'Movimiento de caja';
 
-  const submitButtonStyles = [styles.primaryButton, styles.cashMovementSubmitButton];
+  const submitButtonStyles: ViewStyle[] = [styles.primaryButton, styles.cashMovementSubmitButton];
   if (cashMovementType === 'OUTCOME') {
     submitButtonStyles.push(styles.cashMovementWithdrawButton);
   } else {
@@ -257,7 +258,7 @@ function PosScreen({ navigation }: PosScreenProps) {
     submitButtonStyles.push(styles.cashMovementSubmitButtonDisabled);
   }
 
-  const cancelButtonStyles = [styles.secondaryButton];
+  const cancelButtonStyles: ViewStyle[] = [styles.secondaryButton];
   if (isSubmittingCashMovement) {
     cancelButtonStyles.push(styles.secondaryButtonDisabled);
   }

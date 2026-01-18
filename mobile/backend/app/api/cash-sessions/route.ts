@@ -52,10 +52,18 @@ export async function GET(request: Request) {
       });
 
       if (user) {
+        const fallbackName = user.person
+          ? [user.person.firstName, user.person.lastName].filter(Boolean).join(' ').trim()
+          : '';
+
+        const personName = user.person
+          ? user.person.businessName ?? (fallbackName !== '' ? fallbackName : null)
+          : null;
+
         openedByUser = {
           id: user.id,
           userName: user.userName,
-          personName: user.person?.name ?? null,
+          personName,
         };
       }
     }
@@ -142,14 +150,12 @@ export async function POST(request: Request) {
 
       const openedAt = new Date();
 
-      const newSession = cashSessionRepo.create({
-        pointOfSaleId: pointOfSale.id,
-        openedById: user.id,
-        openingAmount: 0,
-        expectedAmount: null,
-        openedAt,
-        status: CashSessionStatus.OPEN,
-      });
+      const newSession = cashSessionRepo.create();
+      newSession.pointOfSaleId = pointOfSale.id;
+      newSession.openedById = user.id;
+      newSession.openingAmount = openingAmount;
+      newSession.openedAt = openedAt;
+      newSession.status = CashSessionStatus.OPEN;
 
       const savedSession = await cashSessionRepo.save(newSession);
 

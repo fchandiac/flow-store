@@ -37,6 +37,7 @@ export const NumberStepper: React.FC<NumberStepperProps> = ({
   ...props
 }) => {
   const inputRef = useRef<HTMLInputElement>(null);
+  const displayValue = Number.isFinite(value) ? value : 0;
 
   // Función para validar y formatear el valor
   const validateAndFormatValue = (newValue: number): number => {
@@ -88,30 +89,42 @@ export const NumberStepper: React.FC<NumberStepperProps> = ({
     let numericSegment = isNegative ? rawValue.slice(1) : rawValue;
 
     if (allowFloat) {
-      const hasDecimalSeparator = numericSegment.includes('.');
-      let integerPart = numericSegment;
-      let decimalPart = '';
+      numericSegment = numericSegment.replace(/\s+/g, '');
+      numericSegment = numericSegment.replace(/,/g, '.');
+      numericSegment = numericSegment.replace(/[^0-9.]/g, '');
 
-      if (hasDecimalSeparator) {
-        const splitParts = numericSegment.split('.');
-        integerPart = splitParts[0] ?? '';
-        decimalPart = splitParts[1] ?? '';
-      }
+      const parts = numericSegment.split('.');
+      let integerPart = parts[0] ?? '';
+      let decimalPart = parts.slice(1).join('');
 
       integerPart = integerPart.replace(/^0+(?=\d)/, '');
-      if (integerPart === '') {
-        integerPart = hasDecimalSeparator ? '0' : '';
+      if (integerPart === '' && decimalPart.length > 0) {
+        integerPart = '0';
       }
 
-      numericSegment = hasDecimalSeparator ? `${integerPart}.${decimalPart}` : integerPart;
-    } else {
-      numericSegment = numericSegment.replace(/^0+(?=\d)/, '');
-      if (numericSegment === '') {
-        numericSegment = '0';
+      if (decimalPart.length > 0) {
+        decimalPart = decimalPart.replace(/[^0-9]/g, '').slice(0, 3);
       }
+
+      let result = integerPart;
+      if (decimalPart.length > 0) {
+        result = `${integerPart || '0'}.${decimalPart}`;
+      }
+
+      if (!result) {
+        return '';
+      }
+
+      return isNegative ? `-${result}` : result;
     }
 
-    const sanitized = isNegative ? `-${numericSegment}` : numericSegment;
+    numericSegment = numericSegment.replace(/\D/g, '');
+    if (numericSegment === '') {
+      return isNegative && allowNegative ? '-' : '0';
+    }
+
+    const sanitizedInteger = numericSegment.replace(/^0+(?=\d)/, '') || '0';
+    const sanitized = isNegative && allowNegative ? `-${sanitizedInteger}` : sanitizedInteger;
     return sanitized;
   };
 
@@ -131,7 +144,8 @@ export const NumberStepper: React.FC<NumberStepperProps> = ({
       return;
     }
 
-    const numericValue = allowFloat ? parseFloat(sanitizedValue) : parseInt(sanitizedValue, 10);
+    const normalizedSanitized = sanitizedValue.replace(/,/g, '.');
+    const numericValue = allowFloat ? parseFloat(normalizedSanitized) : parseInt(normalizedSanitized, 10);
 
     if (!isNaN(numericValue)) {
       const validatedValue = validateAndFormatValue(numericValue);
@@ -154,7 +168,7 @@ export const NumberStepper: React.FC<NumberStepperProps> = ({
   `;
 
   const buttonClasses = `
-    flex items-center justify-center px-3 py-1 bg-transparent
+    flex items-center justify-center px-2.5 py-1 bg-transparent
     focus:outline-none
     transition-colors duration-200
     ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
@@ -237,7 +251,7 @@ export const NumberStepper: React.FC<NumberStepperProps> = ({
           className={`${buttonClasses} rounded-l-md border-r-[1px] border-border`}
           data-test-id={`${props['data-test-id']}-decrement`}
         >
-          <span className="material-symbols-outlined text-gray-600">remove</span>
+          <span className="material-symbols-outlined text-gray-600 text-sm">remove</span>
         </button>
 
         {/* Input y Label/Icono - Contenedor centrado */}
@@ -246,7 +260,7 @@ export const NumberStepper: React.FC<NumberStepperProps> = ({
           <input
             ref={inputRef}
             type="number"
-            value={value}
+            value={displayValue}
             onChange={handleInputChange}
             min={min}
             max={max}
@@ -270,7 +284,7 @@ export const NumberStepper: React.FC<NumberStepperProps> = ({
           className={`${buttonClasses} rounded-r-md border-l-[1px] border-border`}
           data-test-id={`${props['data-test-id']}-increment`}
         >
-          <span className="material-symbols-outlined text-gray-600">add</span>
+          <span className="material-symbols-outlined text-gray-600 text-sm">add</span>
         </button>
       </div>
     </>

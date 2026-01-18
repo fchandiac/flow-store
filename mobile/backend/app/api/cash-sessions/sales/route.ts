@@ -77,7 +77,8 @@ export async function POST(request: Request) {
     }
 
     const sanitizedLines: SaleLineInput[] = [];
-    for (const [index, rawLine] of body.lines.entries()) {
+    for (let index = 0; index < body.lines.length; index += 1) {
+      const rawLine = body.lines[index];
       const trimmedVariantId = rawLine?.productVariantId?.trim();
       const quantity = typeof rawLine?.quantity === 'number' ? rawLine.quantity : Number(rawLine?.quantity);
       const unitPrice =

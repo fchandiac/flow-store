@@ -1,5 +1,6 @@
 import React from 'react';
-import { StyleSheet, View, Text, FlatList } from 'react-native';
+import { StyleSheet, View, Text, FlatList, Image } from 'react-native';
+import { Video, ResizeMode } from 'expo-av';
 import ExternalDisplay from 'react-native-external-display';
 
 import {
@@ -7,7 +8,8 @@ import {
   selectCartItems,
   selectCartTotal,
   selectItemCount,
-  selectSecondaryMode,
+  selectPromoMedia,
+  selectPromoMediaEnabled,
   usePosStore
 } from '../store/usePosStore';
 import { formatCurrency } from '../utils/formatCurrency';
@@ -28,7 +30,11 @@ const CustomerDisplay: React.FC<CustomerDisplayProps> = ({ externalScreenId }) =
   const items = usePosStore(selectCartItems);
   const total = usePosStore(selectCartTotal);
   const itemCount = usePosStore(selectItemCount);
-  const mode = usePosStore(selectSecondaryMode);
+  const promoMediaEnabled = usePosStore(selectPromoMediaEnabled);
+  const promoMedia = usePosStore(selectPromoMedia);
+
+  const cartHasItems = itemCount > 0;
+  const shouldShowPromo = Boolean(promoMediaEnabled && promoMedia && !cartHasItems);
 
   const renderCartExternal = () => (
     <View style={styles.displaySurface}>
@@ -36,7 +42,7 @@ const CustomerDisplay: React.FC<CustomerDisplayProps> = ({ externalScreenId }) =
       <FlatList<CartItem>
         data={items}
         renderItem={renderItem}
-        keyExtractor={(item: CartItem) => item.id}
+        keyExtractor={(item: CartItem) => item.variantId}
         style={styles.list}
       />
       <View style={styles.totalRow}>
@@ -46,21 +52,42 @@ const CustomerDisplay: React.FC<CustomerDisplayProps> = ({ externalScreenId }) =
     </View>
   );
 
-  const renderPromoExternal = () => (
-    <View style={styles.promoSurface}>
-      <Text style={styles.promoTitle}>Promoción del Día</Text>
-      <Text style={styles.promoSubtitle}>Lleva 2 cafés y obtén un 20% de descuento.</Text>
-      <View style={styles.promoBadgeWrapper}>
-        <Text style={styles.promoBadge}>Oferta especial</Text>
+  const renderPromoExternal = () => {
+    if (!promoMedia) {
+      return (
+        <View style={[styles.promoSurface, styles.promoFallback]}>
+          <Text style={styles.promoTitle}>Promoción configurada</Text>
+          <Text style={styles.promoSubtitle}>Carga una imagen o video para mostrarlo aquí.</Text>
+        </View>
+      );
+    }
+
+    if (promoMedia.type === 'image') {
+      return (
+        <View style={styles.promoSurface}>
+          <Image source={{ uri: promoMedia.uri }} style={styles.promoMedia} resizeMode="contain" />
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.promoSurface}>
+        <Video
+          source={{ uri: promoMedia.uri }}
+          style={styles.promoMedia}
+          resizeMode={ResizeMode.CONTAIN}
+          shouldPlay
+          isLooping
+          isMuted={false}
+        />
       </View>
-      <Text style={styles.promoFooter}>Consulta términos en caja.</Text>
-    </View>
-  );
+    );
+  };
 
   return (
     <>
       <View style={styles.previewWrapper}>
-        {mode === 'cart' ? (
+        {!shouldShowPromo ? (
           <View style={styles.previewCard}>
             <Text style={styles.previewTitle}>Resumen del carrito</Text>
             <View style={styles.previewMetrics}>
@@ -76,20 +103,27 @@ const CustomerDisplay: React.FC<CustomerDisplayProps> = ({ externalScreenId }) =
             <Text style={styles.previewHint}>
               El cliente verá el detalle completo en la pantalla secundaria.
             </Text>
+            {promoMediaEnabled && cartHasItems ? (
+              <Text style={styles.previewHintMuted}>
+                La multimedia promocional se mostrará cuando el carrito quede vacío.
+              </Text>
+            ) : null}
           </View>
         ) : (
           <View style={[styles.previewCard, styles.previewPromoCard]}>
             <Text style={styles.previewTitle}>Vista de promoción</Text>
             <Text style={styles.previewSubtitle}>
-              Actualmente se mostrará un anuncio en la pantalla secundaria.
+              El contenido promocional permanece activo mientras el carrito está vacío.
             </Text>
-            <Text style={styles.previewHint}>Cambia a "Carrito" para volver a la venta.</Text>
+            <Text style={styles.previewHint}>
+              {promoMedia?.name ? `Archivo seleccionado: ${promoMedia.name}` : 'Carga una imagen o video desde configuración.'}
+            </Text>
           </View>
         )}
       </View>
       {externalScreenId ? (
         <ExternalDisplay style={styles.externalRoot} screen={externalScreenId}>
-          {mode === 'cart' ? renderCartExternal() : renderPromoExternal()}
+          {shouldShowPromo ? renderPromoExternal() : renderCartExternal()}
         </ExternalDisplay>
       ) : null}
     </>
@@ -142,6 +176,11 @@ const styles = StyleSheet.create({
   previewHint: {
     fontSize: 13,
     color: '#9ca3af'
+  },
+  previewHintMuted: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 8
   },
   externalRoot: {
     flex: 1
@@ -201,9 +240,15 @@ const styles = StyleSheet.create({
   promoSurface: {
     flex: 1,
     backgroundColor: '#0b1120',
-    padding: 32,
     justifyContent: 'center',
     alignItems: 'center'
+  },
+  promoFallback: {
+    padding: 32
+  },
+  promoMedia: {
+    width: '100%',
+    height: '100%'
   },
   promoTitle: {
     fontSize: 32,

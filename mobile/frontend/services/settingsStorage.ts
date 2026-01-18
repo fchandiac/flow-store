@@ -1,21 +1,21 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import type { SecondaryDisplayMode, UsbPrinterSelection } from '../store/usePosStore';
+import type { PromoMediaAsset, UsbPrinterSelection } from '../store/usePosStore';
 
 const STORAGE_KEY = 'flowstore.pos.deviceSettings';
 
 export type DeviceSettings = {
   preferredUsbPrinter?: UsbPrinterSelection | null;
   preferredCustomerDisplayId?: string | null;
-  preferredCustomerDisplayWidth?: number | null;
-  secondaryDisplayMode?: SecondaryDisplayMode;
+  promoMediaEnabled?: boolean;
+  promoMedia?: PromoMediaAsset | null;
 };
 
 const DEFAULT_SETTINGS: DeviceSettings = {
   preferredUsbPrinter: null,
   preferredCustomerDisplayId: null,
-  preferredCustomerDisplayWidth: null,
-  secondaryDisplayMode: 'cart',
+  promoMediaEnabled: false,
+  promoMedia: null,
 };
 
 async function readRawSettings(): Promise<Partial<DeviceSettings> | null> {

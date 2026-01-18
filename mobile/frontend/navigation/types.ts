@@ -4,4 +4,6 @@ export type RootStackParamList = {
   Opening: { suggestedOpeningAmount?: number } | undefined;
   Pos: undefined;
   Settings: undefined;
+  SecondaryDisplaySettings: undefined;
+  PrinterSettings: undefined;
 };

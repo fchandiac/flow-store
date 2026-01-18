@@ -303,8 +303,9 @@ export const TextField: React.FC<TextFieldProps> = ({
   };
 
   const displayValue = getDisplayValue();
-  const shrink = focused || (displayValue && displayValue.length > 0);
-  const [showPlaceholder, setShowPlaceholder] = useState(!shrink);
+  const labelAlwaysVisible = type === 'date';
+  const shrink = labelAlwaysVisible || focused || (displayValue && displayValue.length > 0);
+  const [showPlaceholder, setShowPlaceholder] = useState(labelAlwaysVisible ? false : !shrink);
 
   // Unique class for placeholder styling when placeholderColor is provided
   const placeholderClassRef = React.useRef<string | null>(null);
@@ -313,13 +314,18 @@ export const TextField: React.FC<TextFieldProps> = ({
   }
 
   useEffect(() => {
-    if (!shrink) {
-  const timeout = setTimeout(() => setShowPlaceholder(true), 250);
-      return () => clearTimeout(timeout);
-    } else {
+    if (labelAlwaysVisible) {
       setShowPlaceholder(false);
+      return;
     }
-  }, [shrink]);
+
+    if (!shrink) {
+      const timeout = setTimeout(() => setShowPlaceholder(true), 250);
+      return () => clearTimeout(timeout);
+    }
+
+    setShowPlaceholder(false);
+  }, [shrink, labelAlwaysVisible]);
 
   useEffect(() => {
     if (type === 'currency') {

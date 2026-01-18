@@ -29,21 +29,20 @@ export async function persistCashSessionOpeningTransaction(
 
   const documentNumber = buildCashSessionDocumentNumber(cashSession.openedAt ?? new Date(), pointOfSale);
 
-  const transaction = transactionRepo.create({
-    documentNumber,
-    transactionType: TransactionType.CASH_SESSION_OPENING,
-    status: TransactionStatus.CONFIRMED,
-    branchId: pointOfSale.branchId ?? null,
-    pointOfSaleId: pointOfSale.id,
-    cashSessionId: cashSession.id,
-    userId: cashSession.openedById ?? user.id,
-    subtotal: openingAmount,
-    taxAmount: 0,
-    discountAmount: 0,
-    total: openingAmount,
-    paymentMethod: PaymentMethod.CASH,
-    metadata: buildOpeningMetadata({ cashSession, pointOfSale, user, openingAmount }),
-  });
+  const transaction = transactionRepo.create();
+  transaction.documentNumber = documentNumber;
+  transaction.transactionType = TransactionType.CASH_SESSION_OPENING;
+  transaction.status = TransactionStatus.CONFIRMED;
+  transaction.branchId = pointOfSale.branchId ?? null;
+  transaction.pointOfSaleId = pointOfSale.id;
+  transaction.cashSessionId = cashSession.id;
+  transaction.userId = cashSession.openedById ?? user.id;
+  transaction.subtotal = openingAmount;
+  transaction.taxAmount = 0;
+  transaction.discountAmount = 0;
+  transaction.total = openingAmount;
+  transaction.paymentMethod = PaymentMethod.CASH;
+  transaction.metadata = buildOpeningMetadata({ cashSession, pointOfSale, user, openingAmount });
 
   const saved = await transactionRepo.save(transaction);
 
@@ -109,22 +108,21 @@ export async function persistCashSessionWithdrawalTransaction(
     movementSource: 'mobile-backend',
   };
 
-  const transaction = transactionRepo.create({
-    transactionType: TransactionType.CASH_SESSION_WITHDRAWAL,
-    status: TransactionStatus.CONFIRMED,
-    branchId: params.pointOfSale.branchId ?? null,
-    pointOfSaleId: params.pointOfSale.id,
-    cashSessionId: params.cashSession.id,
-    userId: params.user.id,
-    documentNumber,
-    paymentMethod: PaymentMethod.CASH,
-    subtotal: amount,
-    discountAmount: 0,
-    taxAmount: 0,
-    total: amount,
-    notes: params.reason?.trim() || null,
-    metadata: JSON.parse(JSON.stringify(metadataPayload)),
-  });
+  const transaction = transactionRepo.create();
+  transaction.transactionType = TransactionType.CASH_SESSION_WITHDRAWAL;
+  transaction.status = TransactionStatus.CONFIRMED;
+  transaction.branchId = params.pointOfSale.branchId ?? null;
+  transaction.pointOfSaleId = params.pointOfSale.id;
+  transaction.cashSessionId = params.cashSession.id;
+  transaction.userId = params.user.id;
+  transaction.documentNumber = documentNumber;
+  transaction.paymentMethod = PaymentMethod.CASH;
+  transaction.subtotal = amount;
+  transaction.discountAmount = 0;
+  transaction.taxAmount = 0;
+  transaction.total = amount;
+  transaction.notes = params.reason?.trim() || null;
+  transaction.metadata = JSON.parse(JSON.stringify(metadataPayload));
 
   const savedTransaction = await transactionRepo.save(transaction);
 
@@ -181,22 +179,21 @@ export async function persistCashSessionDepositTransaction(
     movementSource: 'mobile-backend',
   };
 
-  const transaction = transactionRepo.create({
-    transactionType: TransactionType.CASH_SESSION_DEPOSIT,
-    status: TransactionStatus.CONFIRMED,
-    branchId: params.pointOfSale.branchId ?? null,
-    pointOfSaleId: params.pointOfSale.id,
-    cashSessionId: params.cashSession.id,
-    userId: params.user.id,
-    documentNumber,
-    paymentMethod: PaymentMethod.CASH,
-    subtotal: amount,
-    discountAmount: 0,
-    taxAmount: 0,
-    total: amount,
-    notes: params.reason?.trim() || null,
-    metadata: JSON.parse(JSON.stringify(metadataPayload)),
-  });
+  const transaction = transactionRepo.create();
+  transaction.transactionType = TransactionType.CASH_SESSION_DEPOSIT;
+  transaction.status = TransactionStatus.CONFIRMED;
+  transaction.branchId = params.pointOfSale.branchId ?? null;
+  transaction.pointOfSaleId = params.pointOfSale.id;
+  transaction.cashSessionId = params.cashSession.id;
+  transaction.userId = params.user.id;
+  transaction.documentNumber = documentNumber;
+  transaction.paymentMethod = PaymentMethod.CASH;
+  transaction.subtotal = amount;
+  transaction.discountAmount = 0;
+  transaction.taxAmount = 0;
+  transaction.total = amount;
+  transaction.notes = params.reason?.trim() || null;
+  transaction.metadata = JSON.parse(JSON.stringify(metadataPayload));
 
   const savedTransaction = await transactionRepo.save(transaction);
 

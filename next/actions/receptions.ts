@@ -99,6 +99,7 @@ export interface ReceptionProductSearchItem {
     pmp: number;
     attributeValues?: Record<string, string> | null;
     unitOfMeasure?: string | null;
+    allowDecimals?: boolean;
 }
 
 export interface ReceptionVariantDetail {
@@ -112,6 +113,7 @@ export interface ReceptionVariantDetail {
     unitOfMeasure?: string | null;
     attributeValues?: Record<string, string> | null;
     taxIds: string[];
+    allowDecimals?: boolean;
 }
 
 export interface SearchReceptionProductsParams {
@@ -158,6 +160,8 @@ export async function searchProductsForReception(
     return variants.map((variant) => {
         const product = variant.product;
         const unitSymbol = variant.unit?.symbol ?? product?.baseUnit?.symbol ?? null;
+        const allowsDecimals =
+            variant.unit?.allowDecimals ?? product?.baseUnit?.allowDecimals ?? true;
         return {
             variantId: variant.id,
             productId: variant.productId ?? null,
@@ -166,6 +170,7 @@ export async function searchProductsForReception(
             pmp: Number(variant.pmp ?? 0),
             attributeValues: variant.attributeValues ?? null,
             unitOfMeasure: unitSymbol,
+            allowDecimals: allowsDecimals,
         };
     });
 }
@@ -199,6 +204,7 @@ export async function getReceptionVariantDetail(variantId: string): Promise<Rece
         : [];
 
     const unitSymbol = variant.unit?.symbol ?? product?.baseUnit?.symbol ?? null;
+    const allowsDecimals = variant.unit?.allowDecimals ?? product?.baseUnit?.allowDecimals ?? true;
 
     return {
         variantId: variant.id,
@@ -211,6 +217,7 @@ export async function getReceptionVariantDetail(variantId: string): Promise<Rece
         unitOfMeasure: unitSymbol,
         attributeValues: variant.attributeValues ?? null,
         taxIds,
+        allowDecimals: allowsDecimals,
     };
 }
 
@@ -286,6 +293,7 @@ export interface PurchaseOrderForReception {
         taxRate?: number | null;
         unitOfMeasure?: string | null;
         variantName?: string | null;
+        allowDecimals?: boolean;
     }>;
 }
 
@@ -484,6 +492,34 @@ export async function searchPurchaseOrdersForReception(
         .orderBy('line.lineNumber', 'ASC')
         .getMany();
 
+    const variantIds = Array.from(
+        new Set(
+            lines
+                .map((line) => line.productVariantId)
+                .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+        )
+    );
+
+    let allowDecimalsByVariant = new Map<string, boolean>();
+
+    if (variantIds.length > 0) {
+        const variantRepo = ds.getRepository(ProductVariant);
+        const variants = await variantRepo
+            .createQueryBuilder('variant')
+            .leftJoinAndSelect('variant.unit', 'variantUnit')
+            .leftJoinAndSelect('variant.product', 'variantProduct')
+            .leftJoinAndSelect('variantProduct.baseUnit', 'productBaseUnit')
+            .where('variant.id IN (:...variantIds)', { variantIds })
+            .getMany();
+
+        allowDecimalsByVariant = new Map(
+            variants.map((variant) => [
+                variant.id,
+                variant.unit?.allowDecimals ?? variant.product?.baseUnit?.allowDecimals ?? true,
+            ])
+        );
+    }
+
     const linesByOrder = new Map<string, TransactionLine[]>();
     lines.forEach((line) => {
         if (line.transactionId) {
@@ -531,6 +567,10 @@ export async function searchPurchaseOrdersForReception(
                 taxRate: line.taxRate !== undefined && line.taxRate !== null ? Number(line.taxRate) : null,
                 unitOfMeasure: line.unitOfMeasure ?? null,
                 variantName: line.variantName ?? null,
+                allowDecimals:
+                    line.productVariantId
+                        ? allowDecimalsByVariant.get(line.productVariantId) ?? true
+                        : true,
             })),
         };
     });
@@ -628,9 +668,37 @@ export async function createReceptionFromPurchaseOrder(
         const variantRepo = ds.getRepository(ProductVariant);
         const variantIds = Array.from(new Set(data.lines.map((line) => line.productVariantId).filter(Boolean)));
         const variants = variantIds.length
-            ? await variantRepo.find({ where: { id: In(variantIds) } })
+            ? await variantRepo.find({
+                  where: { id: In(variantIds) },
+                  relations: {
+                      product: { baseUnit: true },
+                      unit: true,
+                  },
+              })
             : [];
         const variantMap = new Map(variants.map((variant) => [variant.id, variant]));
+
+        for (const line of data.lines) {
+            const variant = variantMap.get(line.productVariantId);
+            if (!variant) {
+                continue;
+            }
+            const quantity = Number(line.receivedQuantity);
+            const productLabel = variant.product?.name ?? variant.sku;
+            if (!Number.isFinite(quantity)) {
+                return {
+                    success: false,
+                    error: `Cantidad inválida para el producto "${productLabel}"`,
+                };
+            }
+            const allowsDecimals = variant.unit?.allowDecimals ?? variant.product?.baseUnit?.allowDecimals ?? true;
+            if (!allowsDecimals && !Number.isInteger(quantity)) {
+                return {
+                    success: false,
+                    error: `La unidad del producto "${productLabel}" no permite decimales.`,
+                };
+            }
+        }
 
         const transactionLines: TransactionLineDTO[] = data.lines.map((line) => {
             const originalLine = originalLines.find(
@@ -851,10 +919,13 @@ export async function createDirectReception(
         });
 
         // Validar productos
-        const variantIds = data.lines.map((l) => l.productVariantId);
+        const variantIds = Array.from(new Set(data.lines.map((l) => l.productVariantId)));
         const variants = await variantRepo.find({
-            where: variantIds.map((id) => ({ id })),
-            relations: ['product'],
+            where: { id: In(variantIds) },
+            relations: {
+                product: { baseUnit: true },
+                unit: true,
+            },
         });
 
         if (variants.length !== variantIds.length) {
@@ -864,6 +935,28 @@ export async function createDirectReception(
         const variantMap = new Map(variants.map((v) => [v.id, v]));
 
         // Preparar líneas
+        for (const line of data.lines) {
+            const variant = variantMap.get(line.productVariantId);
+            if (!variant) {
+                continue;
+            }
+            const quantity = Number(line.receivedQuantity);
+            const productLabel = variant.product?.name ?? variant.sku;
+            if (!Number.isFinite(quantity)) {
+                return {
+                    success: false,
+                    error: `Cantidad inválida para el producto "${productLabel}"`,
+                };
+            }
+            const allowsDecimals = variant.unit?.allowDecimals ?? variant.product?.baseUnit?.allowDecimals ?? true;
+            if (!allowsDecimals && !Number.isInteger(quantity)) {
+                return {
+                    success: false,
+                    error: `La unidad del producto "${productLabel}" no permite decimales.`,
+                };
+            }
+        }
+
         const transactionLines: TransactionLineDTO[] = data.lines.map((line) => {
             const variant = variantMap.get(line.productVariantId)!;
             const product = variant.product;

@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 
-export type SecondaryDisplayMode = 'cart' | 'promo';
+export type PromoMediaType = 'image' | 'video';
+
+export type PromoMediaAsset = {
+  uri: string;
+  type: PromoMediaType;
+  name: string;
+  size?: number;
+  updatedAt?: string;
+};
 
 export type AuthenticatedUser = {
   id: string;
@@ -72,10 +80,10 @@ type PosState = {
   pointOfSale: PointOfSaleSummary | null;
   cashSession: CashSessionSummary | null;
   cartItems: CartItem[];
-  secondaryMode: SecondaryDisplayMode;
   preferredUsbPrinter: UsbPrinterSelection | null;
   preferredCustomerDisplayId: string | null;
-  preferredCustomerDisplayWidth: number | null;
+  promoMediaEnabled: boolean;
+  promoMedia: PromoMediaAsset | null;
   setUser: (user: AuthenticatedUser | null) => void;
   setPointOfSale: (pos: PointOfSaleSummary | null) => void;
   setCashSession: (session: CashSessionSummary | null) => void;
@@ -87,9 +95,10 @@ type PosState = {
   updateItemQuantity: (variantId: string, qty: number) => void;
   removeItem: (variantId: string) => void;
   clearCart: () => void;
-  setSecondaryMode: (mode: SecondaryDisplayMode) => void;
   setPreferredUsbPrinter: (printer: UsbPrinterSelection | null) => void;
-  setPreferredCustomerDisplay: (payload: { id: string | null; width?: number | null }) => void;
+  setPreferredCustomerDisplay: (id: string | null) => void;
+  setPromoMediaEnabled: (enabled: boolean) => void;
+  setPromoMedia: (asset: PromoMediaAsset | null) => void;
 };
 
 function recalcTotals(item: CartItem): CartItem {
@@ -112,10 +121,10 @@ export const usePosStore = create<PosState>((set, get) => ({
   pointOfSale: null,
   cashSession: null,
   cartItems: [],
-  secondaryMode: 'cart',
   preferredUsbPrinter: null,
   preferredCustomerDisplayId: null,
-  preferredCustomerDisplayWidth: null,
+  promoMediaEnabled: false,
+  promoMedia: null,
   setUser: (user) => {
     set({ user });
     if (!user) {
@@ -192,21 +201,16 @@ export const usePosStore = create<PosState>((set, get) => ({
     set({ cartItems: get().cartItems.filter((item) => item.variantId !== variantId) });
   },
   clearCart: () => set({ cartItems: [] }),
-  setSecondaryMode: (mode) => set({ secondaryMode: mode }),
   setPreferredUsbPrinter: (printer) => set({ preferredUsbPrinter: printer }),
-  setPreferredCustomerDisplay: ({ id, width }) =>
-    set((state) => ({
-      preferredCustomerDisplayId: id,
-      preferredCustomerDisplayWidth:
-        width !== undefined ? (width ?? null) : id ? state.preferredCustomerDisplayWidth : null,
-    })),
+  setPreferredCustomerDisplay: (id) => set({ preferredCustomerDisplayId: id }),
+  setPromoMediaEnabled: (enabled) => set({ promoMediaEnabled: enabled }),
+  setPromoMedia: (asset) => set({ promoMedia: asset }),
 }));
 
 export const selectUser = (state: PosState) => state.user;
 export const selectPointOfSale = (state: PosState) => state.pointOfSale;
 export const selectCashSession = (state: PosState) => state.cashSession;
 export const selectCartItems = (state: PosState) => state.cartItems;
-export const selectSecondaryMode = (state: PosState) => state.secondaryMode;
 export const selectItemCount = (state: PosState) =>
   state.cartItems.reduce((accumulator, item) => accumulator + item.qty, 0);
 const computeTotals = (items: CartItem[]) => {
@@ -236,4 +240,5 @@ export const selectCartTotals = (state: PosState) => {
 export const selectCartTotal = (state: PosState) => selectCartTotals(state).total;
 export const selectPreferredUsbPrinter = (state: PosState) => state.preferredUsbPrinter;
 export const selectPreferredCustomerDisplayId = (state: PosState) => state.preferredCustomerDisplayId;
-export const selectPreferredCustomerDisplayWidth = (state: PosState) => state.preferredCustomerDisplayWidth;
+export const selectPromoMediaEnabled = (state: PosState) => state.promoMediaEnabled;
+export const selectPromoMedia = (state: PosState) => state.promoMedia;

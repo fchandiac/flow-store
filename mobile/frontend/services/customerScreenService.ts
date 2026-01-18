@@ -1,7 +1,9 @@
 import { NativeModules } from 'react-native';
 
 import { formatCurrency } from '../utils/formatCurrency';
-import type { CartItem, SecondaryDisplayMode } from '../store/usePosStore';
+import type { CartItem } from '../store/usePosStore';
+
+type CustomerDisplayMode = 'cart' | 'promo';
 
 type NativeDisplayDescriptor = {
   id?: string;
@@ -98,7 +100,7 @@ function buildPromoLines(): string[] {
 export async function syncCustomerDisplay(
   items: CartItem[],
   total: number,
-  mode: SecondaryDisplayMode
+  mode: CustomerDisplayMode
 ): Promise<void> {
   if (!isAvailable) {
     return;

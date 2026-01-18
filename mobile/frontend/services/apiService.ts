@@ -40,12 +40,18 @@ function inferDevServerHost(): string | null {
     return null;
   }
 
+  const constantsInspectable = Constants as unknown as {
+    expoGoConfig?: { hostUri?: string | null };
+    expoConfig?: { hostUri?: string | null };
+    manifest?: { debuggerHost?: string | null };
+  };
+
   const expoHostCandidates: Array<string | null | undefined> = [
-    Constants?.expoGoConfig?.hostUri,
-    Constants?.expoConfig?.hostUri,
+    constantsInspectable.expoGoConfig?.hostUri ?? undefined,
+    constantsInspectable.expoConfig?.hostUri ?? undefined,
     // `manifest` remains for backwards compatibility with older Expo/Metro flows.
     // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    (Constants as any)?.manifest?.debuggerHost,
+    constantsInspectable.manifest?.debuggerHost ?? undefined,
     NativeModules?.SourceCode?.scriptURL,
   ];
 

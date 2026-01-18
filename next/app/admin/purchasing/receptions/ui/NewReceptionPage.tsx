@@ -14,6 +14,7 @@ import { getSuppliers } from '@/app/actions/suppliers';
 import { getInventoryFilters } from '@/app/actions/inventory';
 import { getAttributes } from '@/app/actions/attributes';
 import { getActiveTaxes } from '@/app/actions/taxes';
+import NumberStepper from '@/baseComponents/NumberStepper/NumberStepper';
 import {
     searchPurchaseOrdersForReception,
     searchProductsForReception,
@@ -50,6 +51,7 @@ interface ReceptionLine {
     unitOfMeasure?: string | null;
     attributeValues?: Record<string, string> | null;
     variantName?: string | null;
+    allowDecimals: boolean;
 }
 
 interface TaxOption {
@@ -562,6 +564,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                 undefined,
                 fallbackTaxRate
             );
+            const allowDecimals = line.allowDecimals ?? true;
 
             return {
                 productVariantId: line.productVariantId,
@@ -577,6 +580,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                 unitOfMeasure: line.unitOfMeasure ?? null,
                 attributeValues: null,
                 variantName: line.variantName ?? null,
+                allowDecimals,
             };
         });
 
@@ -607,6 +611,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
 
                 const defaultPrice = detail.pmp || detail.baseCost || detail.basePrice || 0;
                 const variantLabel = formatVariantAttributes(detail.attributeValues, attributeNames);
+                const allowDecimals = detail.allowDecimals ?? true;
 
                 const newLine: ReceptionLine = {
                     productVariantId: detail.variantId,
@@ -621,6 +626,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                     unitOfMeasure: detail.unitOfMeasure ?? null,
                     attributeValues: detail.attributeValues ?? null,
                     variantName: variantLabel || null,
+                    allowDecimals,
                 };
 
                 setLines((prev) => {
@@ -1193,19 +1199,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                     <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:gap-6">
                         <div className="flex flex-col gap-3 flex-1 xl:max-w-lg">
                             <div className="flex items-start justify-between gap-3">
-                                <div>
-                                    <h2 className="text-lg font-semibold text-foreground">Detalle de recepción</h2>
-                                    <p className="text-sm text-muted-foreground">
-                                        Revisa y ajusta las cantidades antes de confirmar la recepción.
-                                    </p>
-                                    {selectedPurchaseOrder && (
-                                        <p className="text-xs text-muted-foreground">
-                                            Orden origen: {selectedPurchaseOrder.documentNumber}
-                                        </p>
-                                    )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {hasDiscrepancies && <Badge variant="warning">Con discrepancias</Badge>}
+                                <div className="flex items-start gap-3">
                                     <IconButton
                                         icon="restart_alt"
                                         variant="ghost"
@@ -1214,7 +1208,23 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                         ariaLabel="Reiniciar formulario"
                                         title="Reiniciar formulario"
                                     />
+                                    <div>
+                                        <h2 className="text-lg font-semibold text-foreground">Detalle de recepción</h2>
+                                        <p className="text-sm text-muted-foreground">
+                                            Revisa y ajusta las cantidades antes de confirmar la recepción.
+                                        </p>
+                                        {selectedPurchaseOrder && (
+                                            <p className="text-xs text-muted-foreground">
+                                                Orden origen: {selectedPurchaseOrder.documentNumber}
+                                            </p>
+                                        )}
+                                    </div>
                                 </div>
+                                {hasDiscrepancies && (
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="warning">Con discrepancias</Badge>
+                                    </div>
+                                )}
                             </div>
                         </div>
                         <div className="grid flex-1 grid-cols-1 gap-3">
@@ -1254,9 +1264,9 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b border-border text-left text-xs uppercase text-muted-foreground">
-                                    <th className="py-2 pr-3">Producto</th>
-                                    <th className="py-2 pr-3">Cant. esperada</th>
-                                    <th className="py-2 pr-3">Cant. recibida</th>
+                                    <th className="py-2 pr-3 w-[220px]">Producto</th>
+                                    <th className="py-2 pr-3 w-[110px]">Cant. esperada</th>
+                                    <th className="py-2 pr-3 w-[120px]">Cant. recibida</th>
                                     <th className="py-2 pr-3">Precio neto</th>
                                     <th className="py-2 pr-3">Impuestos</th>
                                     <th className="py-2 pr-3">Subtotal</th>
@@ -1285,13 +1295,13 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                         return (
                                             <Fragment key={`${line.productVariantId ?? line.sku}-${index}`}>
                                                 <tr className="border-b border-border/70 align-top">
-                                                    <td className="py-3 pr-3">
-                                                        <div className="font-medium text-foreground">
+                                                    <td className="py-3 pr-3 w-[220px] max-w-[220px] align-top">
+                                                        <div className="font-medium text-foreground break-words">
                                                             {line.productName}
                                                         </div>
                                                         <div className="text-xs text-muted-foreground">SKU {line.sku}</div>
                                                         {variantLabel && (
-                                                            <div className="mt-1 text-xs text-muted-foreground">
+                                                            <div className="mt-1 text-xs text-muted-foreground break-words">
                                                                 {variantLabel}
                                                             </div>
                                                         )}
@@ -1306,26 +1316,39 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                                             </div>
                                                         )}
                                                     </td>
-                                                    <td className="py-3 pr-3 text-sm text-muted-foreground">
+                                                    <td className="py-3 pr-3 w-[110px] text-sm text-muted-foreground">
                                                         {line.expectedQuantity !== undefined
                                                             ? quantityFormatter.format(line.expectedQuantity)
                                                             : '—'}
                                                     </td>
-                                                    <td className="py-3 pr-3">
-                                                        <TextField
-                                                            label="Cantidad recibida"
-                                                            type="number"
-                                                            value={String(line.receivedQuantity)}
-                                                            onChange={(event) => {
-                                                                const parsed = Number(event.target.value);
-                                                                const sanitized = Number.isFinite(parsed) ? Math.max(0, parsed) : 0;
-                                                                updateLine(index, { receivedQuantity: sanitized });
-                                                            }}
-                                                            min="0"
-                                                            step="0.01"
-                                                            inputMode="decimal"
-                                                            className="w-20 [&>div>input]:min-w-0 [&>div>input]:w-full [&>div>input]:text-left [&_[data-test-id='text-field-label']]:hidden"
-                                                        />
+                                                    <td className="py-3 pr-3 w-[120px]">
+                                                        <div className="w-32">
+                                                            <NumberStepper
+                                                                value={line.receivedQuantity}
+                                                                onChange={(value) => {
+                                                                    if (!Number.isFinite(value)) {
+                                                                        updateLine(index, { receivedQuantity: 0 });
+                                                                        return;
+                                                                    }
+                                                                    let sanitized = value;
+                                                                    if (!line.allowDecimals) {
+                                                                        sanitized = Math.round(sanitized);
+                                                                    } else {
+                                                                        sanitized = Number(sanitized.toFixed(3));
+                                                                    }
+                                                                    if (sanitized < 0) {
+                                                                        sanitized = 0;
+                                                                    }
+                                                                    updateLine(index, { receivedQuantity: sanitized });
+                                                                }}
+                                                                step={line.allowDecimals ? 0.001 : 1}
+                                                                min={0}
+                                                                allowNegative={false}
+                                                                allowFloat={line.allowDecimals}
+                                                                className="text-center"
+                                                                data-test-id={`line-${index}-quantity`}
+                                                            />
+                                                        </div>
                                                     </td>
                                                     <td className="py-3 pr-3">
                                                         <TextField

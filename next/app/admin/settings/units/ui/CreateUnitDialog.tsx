@@ -193,11 +193,6 @@ const CreateUnitDialog: React.FC<CreateUnitDialogProps> = ({ open, onClose, dime
                     onChange={(e) => handleChange('conversionFactor', e.target.value)}
                     data-test-id="create-unit-conversion"
                 />
-                <p className="text-xs text-muted-foreground -mt-2">
-                    {formData.isBase
-                        ? 'Las unidades base suelen tener factor 1.'
-                        : `Define cuántas ${formData.symbol || 'unidades'} equivalen a la unidad base (${dimensionLabels[formData.dimension].toLowerCase()}).`}
-                </p>
 
                 <Switch
                     label="Definir como unidad base"
@@ -212,9 +207,6 @@ const CreateUnitDialog: React.FC<CreateUnitDialogProps> = ({ open, onClose, dime
                     onChange={(checked) => handleChange('allowDecimals', checked)}
                     data-test-id="create-unit-allow-decimals"
                 />
-                <p className="text-xs text-muted-foreground -mt-2">
-                    Desactiva esta opción si la unidad debe registrarse solo con valores enteros.
-                </p>
 
                 {!formData.isBase && (
                     <Select

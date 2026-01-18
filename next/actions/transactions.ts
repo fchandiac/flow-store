@@ -276,6 +276,43 @@ export interface SalesTransactionListResult {
     pageSize: number;
 }
 
+export interface SaleTransactionLineDetail {
+    id: string;
+    productName: string;
+    productSku: string;
+    variantName: string | null;
+    quantity: number;
+    unitOfMeasure: string | null;
+    unitPrice: number;
+    subtotal: number;
+    taxAmount: number;
+    taxRate: number;
+    total: number;
+    notes: string | null;
+}
+
+export interface SaleTransactionDetail {
+    id: string;
+    documentNumber: string;
+    createdAt: string;
+    status: TransactionStatus;
+    paymentMethod: PaymentMethod | null;
+    customerName: string | null;
+    customerDocument: string | null;
+    customerEmail: string | null;
+    branchName: string | null;
+    pointOfSaleName: string | null;
+    userName: string | null;
+    userFullName: string | null;
+    subtotal: number;
+    taxAmount: number;
+    discountAmount: number;
+    total: number;
+    notes: string | null;
+    externalReference: string | null;
+    lines: SaleTransactionLineDetail[];
+}
+
 export async function listSaleTransactions(params?: {
     filters?: SalesTransactionFilters;
     page?: number;
@@ -343,6 +380,80 @@ export async function listSaleTransactions(params?: {
             pageSize,
         }),
     );
+}
+
+export async function getSaleTransactionDetail(transactionId: string): Promise<SaleTransactionDetail | null> {
+    if (!transactionId) {
+        return null;
+    }
+
+    const ds = await getDb();
+    const transactionRepo = ds.getRepository(Transaction);
+    const lineRepo = ds.getRepository(TransactionLine);
+
+    const transaction = await transactionRepo.findOne({
+        where: { id: transactionId },
+        relations: [
+            'branch',
+            'pointOfSale',
+            'customer',
+            'customer.person',
+            'user',
+            'user.person',
+        ],
+    });
+
+    if (!transaction || transaction.transactionType !== TransactionType.SALE) {
+        return null;
+    }
+
+    const lines = await lineRepo.find({
+        where: { transactionId },
+        order: { lineNumber: 'ASC' },
+    });
+
+    const customerPerson = transaction.customer?.person ?? null;
+    const userPerson = transaction.user?.person ?? null;
+
+    const detail: SaleTransactionDetail = {
+        id: transaction.id,
+        documentNumber: transaction.documentNumber,
+        createdAt:
+            transaction.createdAt instanceof Date
+                ? transaction.createdAt.toISOString()
+                : new Date(transaction.createdAt as any).toISOString(),
+        status: transaction.status,
+        paymentMethod: transaction.paymentMethod ?? null,
+        customerName: buildPersonFullName(customerPerson ?? null),
+        customerDocument: customerPerson?.documentNumber ?? null,
+        customerEmail: customerPerson?.email ?? null,
+        branchName: transaction.branch?.name ?? null,
+        pointOfSaleName: transaction.pointOfSale?.name ?? null,
+        userName: transaction.user?.userName ?? null,
+        userFullName: buildPersonFullName(userPerson ?? null),
+        subtotal: Number(transaction.subtotal ?? 0),
+        taxAmount: Number(transaction.taxAmount ?? 0),
+        discountAmount: Number(transaction.discountAmount ?? 0),
+        total: Number(transaction.total ?? 0),
+        notes: transaction.notes ?? null,
+        externalReference: transaction.externalReference ?? null,
+        lines: lines.map<SaleTransactionLineDetail>((line) => ({
+            id: line.id,
+            productName: line.productName,
+            productSku: line.productSku,
+            variantName: line.variantName ?? null,
+            quantity: Number(line.quantity ?? 0),
+            unitOfMeasure: line.unitOfMeasure ?? null,
+            unitPrice: Number(line.unitPrice ?? 0),
+            subtotal: Number(line.subtotal ?? 0),
+            taxAmount: Number(line.taxAmount ?? 0),
+            taxRate: Number(line.taxRate ?? 0),
+            total: Number(line.total ?? 0),
+            notes: line.notes ?? null,
+        })),
+    };
+
+    return JSON.parse(JSON.stringify(detail));
 }
 
 /**

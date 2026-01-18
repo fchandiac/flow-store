@@ -7,11 +7,15 @@ import { TextField } from '@/baseComponents/TextField/TextField';
 import IconButton from '@/baseComponents/IconButton/IconButton';
 import Badge from '@/baseComponents/Badge/Badge';
 import { Button } from '@/baseComponents/Button/Button';
+import Dialog from '@/baseComponents/Dialog/Dialog';
+import DotProgress from '@/baseComponents/DotProgress/DotProgress';
 import { useAlert } from '@/globalstate/alert/useAlert';
 import {
   listSaleTransactions,
   type SalesTransactionListItem,
   type SalesTransactionFilters,
+  getSaleTransactionDetail,
+  type SaleTransactionDetail,
 } from '@/actions/transactions';
 import { TransactionStatus, PaymentMethod } from '@/data/entities/Transaction';
 
@@ -25,6 +29,11 @@ const currencyFormatter = new Intl.NumberFormat('es-CL', {
 const dateTimeFormatter = new Intl.DateTimeFormat('es-CL', {
   dateStyle: 'medium',
   timeStyle: 'short',
+});
+
+const quantityFormatter = new Intl.NumberFormat('es-CL', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 3,
 });
 
 type StatusFilterOption = 'ALL' | TransactionStatus;
@@ -97,6 +106,10 @@ const SalesTransactionsDataGrid = () => {
     dateTo: '',
     search: '',
   });
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailData, setDetailData] = useState<SaleTransactionDetail | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
 
   const loadTransactions = useCallback(async () => {
     setLoading(true);
@@ -134,6 +147,39 @@ const SalesTransactionsDataGrid = () => {
       dateTo: '',
       search: '',
     });
+  }, []);
+
+  const handleCloseDetail = useCallback(() => {
+    setDetailDialogOpen(false);
+    setDetailData(null);
+    setDetailError(null);
+  }, []);
+
+  const handleOpenDetail = useCallback((transactionId: string) => {
+    if (!transactionId) {
+      return;
+    }
+
+    setDetailDialogOpen(true);
+    setDetailLoading(true);
+    setDetailError(null);
+    setDetailData(null);
+
+    void getSaleTransactionDetail(transactionId)
+      .then((detail) => {
+        if (!detail) {
+          setDetailError('No se encontró el detalle de la venta.');
+          return;
+        }
+        setDetailData(detail);
+      })
+      .catch((err) => {
+        console.error('Error loading sale transaction detail:', err);
+        setDetailError('No se pudo cargar el detalle de la venta.');
+      })
+      .finally(() => {
+        setDetailLoading(false);
+      });
   }, []);
 
   const columns: DataGridColumn[] = useMemo(() => [
@@ -254,7 +300,23 @@ const SalesTransactionsDataGrid = () => {
         );
       },
     },
-  ], []);
+    {
+      field: 'actions',
+      headerName: '',
+      width: 72,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: ({ row }) => (
+        <IconButton
+          icon="more_horiz"
+          variant="ghost"
+          size="sm"
+          ariaLabel="Ver detalle de venta"
+          onClick={() => handleOpenDetail(row.id)}
+        />
+      ),
+    },
+  ], [handleOpenDetail]);
 
   const headerActions = (
     <div className="flex flex-wrap items-end gap-3">
@@ -274,20 +336,22 @@ const SalesTransactionsDataGrid = () => {
         allowClear
         className="min-w-[200px]"
       />
-      <TextField
-        label="Desde"
-        type="date"
-        value={filters.dateFrom}
-        onChange={(event) => handleFilterChange('dateFrom', event.target.value)}
-        className="w-40"
-      />
-      <TextField
-        label="Hasta"
-        type="date"
-        value={filters.dateTo}
-        onChange={(event) => handleFilterChange('dateTo', event.target.value)}
-        className="w-40"
-      />
+      <div className="flex w-full gap-3">
+        <TextField
+          label="Desde"
+          type="date"
+          value={filters.dateFrom}
+          onChange={(event) => handleFilterChange('dateFrom', event.target.value)}
+          className="flex-1"
+        />
+        <TextField
+          label="Hasta"
+          type="date"
+          value={filters.dateTo}
+          onChange={(event) => handleFilterChange('dateTo', event.target.value)}
+          className="flex-1"
+        />
+      </div>
       <TextField
         label="Buscar"
         value={filters.search}
@@ -310,15 +374,192 @@ const SalesTransactionsDataGrid = () => {
   );
 
   return (
-    <DataGrid
-      title="Transacciones de venta"
-      columns={columns}
-      rows={rows}
-      totalRows={rows.length}
-      height="70vh"
-      headerActions={headerActions}
-      showBorder
-    />
+    <>
+      <DataGrid
+        title=""
+        columns={columns}
+        rows={rows}
+        totalRows={rows.length}
+        height="70vh"
+        headerActions={headerActions}
+      />
+
+      <Dialog
+        open={detailDialogOpen}
+        onClose={handleCloseDetail}
+        title="Detalle de venta"
+        size="xl"
+        scroll="paper"
+        fullWidth
+        showCloseButton
+      >
+        {detailLoading && (
+          <div className="flex justify-center py-10">
+            <DotProgress />
+          </div>
+        )}
+
+        {!detailLoading && detailError && (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+            {detailError}
+          </div>
+        )}
+
+        {!detailLoading && !detailError && detailData && (
+          <div className="space-y-6 text-sm">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-neutral-500">Documento</span>
+                  <span className="font-semibold text-neutral-900">{detailData.documentNumber}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-neutral-500">Fecha</span>
+                  <span className="font-medium text-neutral-900">
+                    {(() => {
+                      const date = new Date(detailData.createdAt);
+                      return Number.isNaN(date.getTime()) ? '—' : dateTimeFormatter.format(date);
+                    })()}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-neutral-500">Estado</span>
+                  <Badge variant={STATUS_BADGE_VARIANT[detailData.status] ?? 'secondary'}>
+                    {STATUS_LABEL[detailData.status] ?? detailData.status}
+                  </Badge>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-neutral-500">Cliente</span>
+                  <div className="font-medium text-neutral-900">
+                    {detailData.customerName ?? 'Venta de mostrador'}
+                  </div>
+                  {(detailData.customerDocument || detailData.customerEmail) && (
+                    <div className="text-xs text-neutral-500 space-y-0.5">
+                      {detailData.customerDocument && <div>Documento: {detailData.customerDocument}</div>}
+                      {detailData.customerEmail && <div>Correo: {detailData.customerEmail}</div>}
+                    </div>
+                  )}
+                </div>
+                {detailData.externalReference && (
+                  <div className="space-y-1">
+                    <span className="text-neutral-500">Referencia externa</span>
+                    <div className="font-medium text-neutral-900">{detailData.externalReference}</div>
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-neutral-500">Pago</span>
+                  <span className="font-medium text-neutral-900">
+                    {detailData.paymentMethod ? paymentMethodLabels[detailData.paymentMethod] ?? detailData.paymentMethod : 'Sin método registrado'}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-neutral-500">Sucursal</span>
+                  <span className="font-medium text-neutral-900">{detailData.branchName ?? '—'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-neutral-500">Caja / Punto de venta</span>
+                  <span className="font-medium text-neutral-900">{detailData.pointOfSaleName ?? '—'}</span>
+                </div>
+                <div className="space-y-1">
+                  <span className="text-neutral-500">Registrado por</span>
+                  <div className="font-medium text-neutral-900">{detailData.userFullName ?? detailData.userName ?? 'Usuario sin alias'}</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-xs uppercase text-neutral-500">
+                    <th className="py-2 pr-3">Producto</th>
+                    <th className="py-2 pr-3 text-right">Cantidad</th>
+                    <th className="py-2 pr-3 text-right">Precio neto</th>
+                    <th className="py-2 pr-3 text-right">Subtotal</th>
+                    <th className="py-2 pr-3 text-right">IVA</th>
+                    <th className="py-2 pr-3 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {detailData.lines.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-6 text-center text-sm text-neutral-500">
+                        Sin líneas de detalle.
+                      </td>
+                    </tr>
+                  ) : (
+                    detailData.lines.map((line) => (
+                      <tr key={line.id} className="border-b border-border/70 align-top">
+                        <td className="py-3 pr-3">
+                          <div className="font-medium text-neutral-900">{line.productName}</div>
+                          <div className="text-xs text-neutral-500">SKU {line.productSku}</div>
+                          {line.variantName && (
+                            <div className="text-xs text-neutral-500">{line.variantName}</div>
+                          )}
+                          {line.unitOfMeasure && (
+                            <div className="text-xs text-neutral-500">Unidad: {line.unitOfMeasure}</div>
+                          )}
+                        </td>
+                        <td className="py-3 pr-3 text-right text-neutral-900">
+                          {quantityFormatter.format(line.quantity)}
+                        </td>
+                        <td className="py-3 pr-3 text-right text-neutral-900">
+                          {currencyFormatter.format(line.unitPrice)}
+                        </td>
+                        <td className="py-3 pr-3 text-right text-neutral-900">
+                          {currencyFormatter.format(line.subtotal)}
+                        </td>
+                        <td className="py-3 pr-3 text-right text-neutral-900">
+                          {currencyFormatter.format(line.taxAmount)}
+                          {line.taxRate > 0 && (
+                            <span className="ml-1 text-xs text-neutral-500">({line.taxRate}%)</span>
+                          )}
+                        </td>
+                        <td className="py-3 pr-3 text-right font-semibold text-neutral-900">
+                          {currencyFormatter.format(line.total)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="space-y-2 rounded-md border border-border/60 bg-muted/30 p-4 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-600">Subtotal</span>
+                <span className="font-medium text-neutral-900">{currencyFormatter.format(detailData.subtotal)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-neutral-600">IVA</span>
+                <span className="font-medium text-neutral-900">{currencyFormatter.format(detailData.taxAmount)}</span>
+              </div>
+              {detailData.discountAmount > 0 && (
+                <div className="flex items-center justify-between text-neutral-600">
+                  <span>Descuento</span>
+                  <span>-{currencyFormatter.format(detailData.discountAmount)}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between border-t border-border/60 pt-2 text-base font-semibold text-neutral-900">
+                <span>Total</span>
+                <span>{currencyFormatter.format(detailData.total)}</span>
+              </div>
+            </div>
+
+            {detailData.notes && detailData.notes.trim().length > 0 && (
+              <div className="space-y-1 text-sm">
+                <span className="text-neutral-500">Notas</span>
+                <p className="whitespace-pre-line rounded-md border border-border/50 bg-background p-3 text-neutral-800">
+                  {detailData.notes.trim()}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+      </Dialog>
+    </>
   );
 };
 
