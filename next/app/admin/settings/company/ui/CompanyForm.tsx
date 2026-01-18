@@ -6,6 +6,7 @@ import { TextField } from '@/app/baseComponents/TextField/TextField';
 import Select from '@/app/baseComponents/Select/Select';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
+import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { updateCompany } from '@/app/actions/companies';
 import type { ShareholderRecord } from '@/actions/shareholders';
@@ -237,9 +238,14 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, shareholders: initia
                             Registra las cuentas utilizadas para operaciones administrativas de la empresa.
                         </p>
                     </div>
-                    <Button onClick={() => setIsBankDialogOpen(true)} data-test-id="company-add-bank-account-button">
-                        Agregar cuenta bancaria
-                    </Button>
+                    <IconButton
+                        icon="add"
+                        variant="ghost"
+                        size="md"
+                        ariaLabel="Agregar cuenta bancaria"
+                        onClick={() => setIsBankDialogOpen(true)}
+                        data-test-id="company-add-bank-account-button"
+                    />
                 </div>
 
                 {sortedAccounts.length === 0 ? (
@@ -285,11 +291,7 @@ const CompanyForm: React.FC<CompanyFormProps> = ({ company, shareholders: initia
                 )}
             </section>
 
-            <CompanyShareholdersSection
-                companyName={company.name}
-                shareholders={shareholders}
-                onShareholdersChange={setShareholders}
-            />
+            <CompanyShareholdersSection shareholders={shareholders} onShareholdersChange={setShareholders} />
 
             <CompanyBankAccountDialog
                 open={isBankDialogOpen}

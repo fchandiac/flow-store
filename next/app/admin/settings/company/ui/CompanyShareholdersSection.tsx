@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { Button } from '@/baseComponents/Button/Button';
 import Badge from '@/baseComponents/Badge/Badge';
+import IconButton from '@/baseComponents/IconButton/IconButton';
 import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { formatDateTime } from '@/lib/dateTimeUtils';
 import {
@@ -15,7 +16,6 @@ import {
 import ShareholderDialog, { type ShareholderFormValues } from './ShareholderDialog';
 
 interface CompanyShareholdersSectionProps {
-    companyName: string;
     shareholders: ShareholderRecord[];
     onShareholdersChange: (shareholders: ShareholderRecord[]) => void;
 }
@@ -61,7 +61,7 @@ const buildOwnershipLabel = (shareholder: ShareholderRecord): string | null => {
     return `${shareholder.ownershipPercentage}%`;
 };
 
-export default function CompanyShareholdersSection({ companyName, shareholders, onShareholdersChange }: CompanyShareholdersSectionProps) {
+export default function CompanyShareholdersSection({ shareholders, onShareholdersChange }: CompanyShareholdersSectionProps) {
     const { success, error: showError } = useAlert();
 
     const [dialogOpen, setDialogOpen] = useState(false);
@@ -180,13 +180,18 @@ export default function CompanyShareholdersSection({ companyName, shareholders, 
                 <div>
                     <h3 className="text-lg font-semibold text-neutral-800">Socios de la empresa</h3>
                     <p className="text-sm text-neutral-500">
-                        Registra las personas propietarias de {companyName}. Esta información se utilizará en
-                        movimientos de capital como aportes o retiros.
+                        Registra las personas propietarias de la empresa. Esta información se utilizará en movimientos
+                        de capital como aportes o retiros.
                     </p>
                 </div>
-                <Button onClick={openCreateDialog} disabled={isSyncing}>
-                    Registrar socio
-                </Button>
+                <IconButton
+                    icon="add"
+                    variant="ghost"
+                    size="md"
+                    ariaLabel="Registrar socio"
+                    onClick={openCreateDialog}
+                    disabled={isSyncing}
+                />
             </div>
 
             {!hasShareholders ? (
