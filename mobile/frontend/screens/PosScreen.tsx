@@ -442,15 +442,6 @@ function PosScreen({ navigation }: PosScreenProps) {
             <Ionicons name="cash-outline" size={22} color={palette.primaryText} />
           </TouchableOpacity>
           <TouchableOpacity
-            style={styles.headerIconButton}
-            activeOpacity={0.85}
-            accessibilityRole="button"
-            accessibilityLabel="Abrir configuración"
-            onPress={() => navigation.navigate('Settings')}
-          >
-            <Ionicons name="settings-outline" size={22} color={palette.textSecondary} />
-          </TouchableOpacity>
-          <TouchableOpacity
             style={[styles.headerIconButton, styles.headerIconButtonDanger]}
             activeOpacity={0.85}
             accessibilityRole="button"

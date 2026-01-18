@@ -9,6 +9,7 @@ export type DeviceSettings = {
   preferredCustomerDisplayId?: string | null;
   promoMediaEnabled?: boolean;
   promoMedia?: PromoMediaAsset | null;
+  backendBaseUrl?: string | null;
 };
 
 const DEFAULT_SETTINGS: DeviceSettings = {
@@ -16,6 +17,7 @@ const DEFAULT_SETTINGS: DeviceSettings = {
   preferredCustomerDisplayId: null,
   promoMediaEnabled: false,
   promoMedia: null,
+  backendBaseUrl: null,
 };
 
 async function readRawSettings(): Promise<Partial<DeviceSettings> | null> {

@@ -1,3 +1,4 @@
+import { ResizeMode, Video } from 'expo-av';
 import { type NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -64,6 +65,7 @@ const SecondaryDisplaySettingsScreen: React.FC<SecondaryDisplaySettingsScreenPro
   const [selectedDisplayId, setSelectedDisplayId] = useState<string | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(true);
   const [isProcessingMedia, setIsProcessingMedia] = useState(false);
+  const [videoPreviewError, setVideoPreviewError] = useState<string | null>(null);
 
   useEffect(() => {
     setSelectedDisplayId(preferredCustomerDisplayId ?? null);
@@ -281,6 +283,7 @@ const SecondaryDisplaySettingsScreen: React.FC<SecondaryDisplaySettingsScreenPro
     }
 
     setIsProcessingMedia(true);
+    setVideoPreviewError(null);
 
     try {
       const result = await DocumentPicker.getDocumentAsync({
@@ -350,6 +353,10 @@ const SecondaryDisplaySettingsScreen: React.FC<SecondaryDisplaySettingsScreenPro
       setIsProcessingMedia(false);
     }
   }, [isProcessingMedia, promoMedia, setPromoMedia, setPromoMediaEnabled]);
+
+  useEffect(() => {
+    setVideoPreviewError(null);
+  }, [promoMedia?.uri]);
 
   const displaysListEmpty =
     overlayGranted && !isRefreshingDisplays && externalDisplays.length === 0 && supportsCustomerScreen;
@@ -520,10 +527,24 @@ const SecondaryDisplaySettingsScreen: React.FC<SecondaryDisplaySettingsScreenPro
               <View style={styles.mediaPreview}>
                 {promoMedia.type === 'image' ? (
                   <Image source={{ uri: promoMedia.uri }} style={styles.mediaImage} resizeMode="contain" />
-                ) : (
+                ) : videoPreviewError ? (
                   <View style={styles.mediaVideoPlaceholder}>
-                    <Text style={styles.mediaVideoText}>Video cargado</Text>
+                    <Text style={styles.mediaVideoText}>{videoPreviewError}</Text>
                   </View>
+                ) : (
+                  <Video
+                    key={promoMedia.uri}
+                    source={{ uri: promoMedia.uri }}
+                    style={styles.mediaVideo}
+                    resizeMode={ResizeMode.CONTAIN}
+                    useNativeControls
+                    shouldPlay={false}
+                    isLooping
+                    onError={(error) => {
+                      setVideoPreviewError('No se pudo reproducir el video seleccionado.');
+                      console.warn('[SecondaryDisplaySettings] Error al previsualizar video', error);
+                    }}
+                  />
                 )}
               </View>
               <View style={styles.buttonRow}>
@@ -804,6 +825,11 @@ const styles = StyleSheet.create({
   mediaImage: {
     width: '100%',
     height: 180,
+  },
+  mediaVideo: {
+    width: '100%',
+    height: 180,
+    backgroundColor: palette.surfaceMuted,
   },
   mediaVideoPlaceholder: {
     paddingVertical: 32,

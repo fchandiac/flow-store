@@ -2,6 +2,7 @@ import React from 'react';
 import { StyleSheet, View, Text, FlatList, Image } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
 import ExternalDisplay from 'react-native-external-display';
+import { palette } from '../theme/palette';
 
 import {
   CartItem,
@@ -265,7 +266,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16
   },
   promoBadgeWrapper: {
-    backgroundColor: '#2563eb',
+    backgroundColor: palette.primary,
     borderRadius: 999,
     paddingVertical: 10,
     paddingHorizontal: 24,

@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useState } from 'react';
 import {
@@ -59,6 +60,18 @@ function LoginScreen({ navigation }: LoginScreenProps) {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
       style={styles.root}
     >
+      <View style={styles.topActions}>
+        <TouchableOpacity
+          activeOpacity={0.85}
+          style={styles.settingsButton}
+          onPress={() => navigation.navigate('Settings')}
+          accessibilityRole="button"
+          accessibilityLabel="Abrir configuración de dispositivos"
+        >
+          <Ionicons name="settings-outline" size={18} color={palette.textMuted} />
+          <Text style={styles.settingsLabel}>Configurar dispositivos</Text>
+        </TouchableOpacity>
+      </View>
       <View style={styles.card}>
         <Text style={styles.title}>Sesión de Caja</Text>
         <Text style={styles.subtitle}>Inicia sesión para seleccionar un punto de venta.</Text>
@@ -109,6 +122,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
+  },
+  topActions: {
+    position: 'absolute',
+    top: 48,
+    right: 24,
+  },
+  settingsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+  },
+  settingsLabel: {
+    color: palette.textMuted,
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 6,
   },
   card: {
     width: '100%',

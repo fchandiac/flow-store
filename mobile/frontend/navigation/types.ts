@@ -6,4 +6,5 @@ export type RootStackParamList = {
   Settings: undefined;
   SecondaryDisplaySettings: undefined;
   PrinterSettings: undefined;
+  ServerSettings: undefined;
 };

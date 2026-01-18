@@ -25,3 +25,24 @@ index e55dbb2..42d7eff 100644
 +        ${REACT_ANDROID_JNI_TARGET}
          android
  )
+
+diff --git a/node_modules/expo-av/android/src/main/java/expo/modules/av/player/SimpleExoPlayerData.java b/node_modules/expo-av/android/src/main/java/expo/modules/av/player/SimpleExoPlayerData.java
+index 8cfea02..2f527b6 100644
+--- a/node_modules/expo-av/android/src/main/java/expo/modules/av/player/SimpleExoPlayerData.java
++++ b/node_modules/expo-av/android/src/main/java/expo/modules/av/player/SimpleExoPlayerData.java
+@@
+-import com.google.android.exoplayer2.MediaItem;
++import com.google.android.exoplayer2.DefaultRenderersFactory;
++import com.google.android.exoplayer2.MediaItem;
+@@
+-    mSimpleExoPlayer = new SimpleExoPlayer.Builder(context)
+-        .setTrackSelector(trackSelector)
+-        .setBandwidthMeter(bandwidthMeter)
+-        .build();
++    DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(context);
++    renderersFactory.setEnableDecoderFallback(true);
++
++    mSimpleExoPlayer = new SimpleExoPlayer.Builder(context, renderersFactory)
++        .setTrackSelector(trackSelector)
++        .setBandwidthMeter(bandwidthMeter)
++        .build();

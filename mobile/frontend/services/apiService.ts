@@ -1,6 +1,7 @@
 import Constants from 'expo-constants';
 import { NativeModules, Platform } from 'react-native';
 import type { CartItem, CashSessionSummary, PointOfSaleSummary, ProductSearchResult } from '../store/usePosStore';
+import { usePosStore } from '../store/usePosStore';
 
 type HttpMethod = 'GET' | 'POST';
 
@@ -15,8 +16,41 @@ type ApiErrorResponse = {
 
 type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
 
+export function normalizeBaseUrl(input?: string | null): string | null {
+  if (!input) {
+    return null;
+  }
+
+  const trimmed = input.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+
+  try {
+    const url = new URL(withProtocol);
+    if (!url.hostname) {
+      return null;
+    }
+
+    const protocol = url.protocol.toLowerCase();
+    if (protocol !== 'http:' && protocol !== 'https:') {
+      return null;
+    }
+
+    const pathname = url.pathname.replace(/\/+$/, '');
+    const normalizedPath = pathname === '' ? '' : pathname;
+    const base = `${protocol}//${url.host}${normalizedPath}`;
+    return base;
+  } catch {
+    return null;
+  }
+}
+
 const API_PORT = process.env.EXPO_PUBLIC_API_PORT ?? '3010';
 const REQUEST_TIMEOUT_MS = 15000;
+const HEALTHCHECK_TIMEOUT_MS = 7000;
 const isDevEnvironment = Boolean((globalThis as { __DEV__?: boolean }).__DEV__);
 
 function extractHostname(candidate?: string | null): string | null {
@@ -77,15 +111,34 @@ function resolveDefaultBaseUrl(): string {
   return `http://${host}:${API_PORT}`;
 }
 
-const DEFAULT_BASE_URL = resolveDefaultBaseUrl();
+const DEFAULT_BASE_URL = normalizeBaseUrl(resolveDefaultBaseUrl()) ?? resolveDefaultBaseUrl();
+const ENV_BASE_URL = normalizeBaseUrl(process.env.EXPO_PUBLIC_API_BASE_URL);
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? DEFAULT_BASE_URL;
+function resolveApiBaseUrl(): string {
+  const configured = normalizeBaseUrl(usePosStore.getState().backendBaseUrl);
+  if (configured) {
+    return configured;
+  }
+
+  if (ENV_BASE_URL) {
+    return ENV_BASE_URL;
+  }
+
+  return DEFAULT_BASE_URL;
+}
+
+function buildUrl(baseUrl: string, path: string): string {
+  const trimmedBase = baseUrl.replace(/\/+$/, '');
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return `${trimmedBase}${normalizedPath}`;
+}
 
 async function request<T>(
   path: string,
   init: RequestInit & { method?: HttpMethod } = {},
 ): Promise<ApiSuccessResponse<T>> {
-  const url = `${API_BASE_URL.replace(/\/$/, '')}${path}`;
+  const baseUrl = resolveApiBaseUrl();
+  const url = buildUrl(baseUrl, path);
 
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
@@ -135,6 +188,77 @@ async function request<T>(
   }
 
   return payload as ApiSuccessResponse<T>;
+}
+
+export type BackendHealthResult = {
+  resolvedUrl: string;
+  latencyMs: number;
+  payload: unknown;
+};
+
+export async function testBackendHealth(baseUrlInput?: string | null): Promise<BackendHealthResult> {
+  const candidate = typeof baseUrlInput === 'string' ? baseUrlInput.trim() : '';
+  let overrideUrl: string | null = null;
+
+  if (candidate.length > 0) {
+    overrideUrl = normalizeBaseUrl(candidate);
+    if (!overrideUrl) {
+      throw new Error('Ingresa una URL válida (http:// o https://) para el servidor POS.');
+    }
+  }
+
+  const baseUrl = overrideUrl ?? resolveApiBaseUrl();
+  const healthUrl = buildUrl(baseUrl, '/api/health');
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, HEALTHCHECK_TIMEOUT_MS);
+
+  const startedAt = Date.now();
+
+  try {
+    const response = await fetch(healthUrl, {
+      method: 'GET',
+      headers: {
+        Accept: 'application/json',
+      },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Respuesta inesperada del servidor (${response.status}).`);
+    }
+
+    let payload: unknown = null;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+
+    return {
+      resolvedUrl: healthUrl,
+      latencyMs: Date.now() - startedAt,
+      payload,
+    };
+  } catch (error) {
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        throw new Error('La verificación excedió el tiempo de espera.');
+      }
+
+      if (error.message.toLowerCase().includes('network request failed')) {
+        throw new Error('No se pudo contactar al servidor POS. Revisa la red o la URL configurada.');
+      }
+
+      throw error;
+    }
+
+    throw new Error('No se pudo verificar el estado del servidor POS.');
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export type LoginResult = {

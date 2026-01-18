@@ -84,6 +84,7 @@ type PosState = {
   preferredCustomerDisplayId: string | null;
   promoMediaEnabled: boolean;
   promoMedia: PromoMediaAsset | null;
+  backendBaseUrl: string | null;
   setUser: (user: AuthenticatedUser | null) => void;
   setPointOfSale: (pos: PointOfSaleSummary | null) => void;
   setCashSession: (session: CashSessionSummary | null) => void;
@@ -99,6 +100,7 @@ type PosState = {
   setPreferredCustomerDisplay: (id: string | null) => void;
   setPromoMediaEnabled: (enabled: boolean) => void;
   setPromoMedia: (asset: PromoMediaAsset | null) => void;
+  setBackendBaseUrl: (url: string | null) => void;
 };
 
 function recalcTotals(item: CartItem): CartItem {
@@ -125,6 +127,7 @@ export const usePosStore = create<PosState>((set, get) => ({
   preferredCustomerDisplayId: null,
   promoMediaEnabled: false,
   promoMedia: null,
+  backendBaseUrl: null,
   setUser: (user) => {
     set({ user });
     if (!user) {
@@ -205,6 +208,7 @@ export const usePosStore = create<PosState>((set, get) => ({
   setPreferredCustomerDisplay: (id) => set({ preferredCustomerDisplayId: id }),
   setPromoMediaEnabled: (enabled) => set({ promoMediaEnabled: enabled }),
   setPromoMedia: (asset) => set({ promoMedia: asset }),
+  setBackendBaseUrl: (url) => set({ backendBaseUrl: url ?? null }),
 }));
 
 export const selectUser = (state: PosState) => state.user;
@@ -242,3 +246,4 @@ export const selectPreferredUsbPrinter = (state: PosState) => state.preferredUsb
 export const selectPreferredCustomerDisplayId = (state: PosState) => state.preferredCustomerDisplayId;
 export const selectPromoMediaEnabled = (state: PosState) => state.promoMediaEnabled;
 export const selectPromoMedia = (state: PosState) => state.promoMedia;
+export const selectBackendBaseUrl = (state: PosState) => state.backendBaseUrl;

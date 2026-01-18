@@ -1,6 +1,7 @@
 import * as fs from "fs";
 import * as path from "path";
 import * as mysql from "mysql2/promise";
+import { format as formatSql } from "mysql2";
 import type { RowDataPacket } from "mysql2";
 import { randomUUID } from "crypto";
 import * as bcrypt from "bcrypt";
@@ -8,6 +9,46 @@ import * as dotenv from "dotenv";
 
 // Load environment variables
 dotenv.config();
+
+const recordedStatements: string[] = [];
+
+const normalizeStatement = (sql: string): string => sql.trim().replace(/;$/, "") + ";";
+
+const formatStatement = (sql: string, params?: any[]): string => {
+  if (params && Array.isArray(params) && params.length > 0) {
+    return normalizeStatement(formatSql(sql, params));
+  }
+  return normalizeStatement(sql);
+};
+
+const recordStatement = (sql: string, params?: any[]): void => {
+  recordedStatements.push(formatStatement(sql, params));
+};
+
+const executeStatement = async (
+  connection: mysql.Connection,
+  sql: string,
+  params?: any[],
+) => {
+  const result = await connection.execute(sql, params);
+  recordStatement(sql, params);
+  return result;
+};
+
+const ensureSqlSnapshot = (filePath: string): void => {
+  const header = [
+    "-- FlowStore seed snapshot",
+    `-- Generated at ${new Date().toISOString()}`,
+    "",
+  ];
+
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+
+  fs.writeFileSync(filePath, [...header, ...recordedStatements].join("\n"));
+};
 
 // Helper to read app.config.json
 const getAppConfig = () => {
@@ -181,14 +222,16 @@ const seedAdminUser = async (connection: mysql.Connection) => {
 
   // Create person for admin
   const personId = randomUUID();
-  await connection.execute(
+  await executeStatement(
+    connection,
     `INSERT INTO persons (id, name, dni, phone, mail, createdAt, updatedAt)
      VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
     [personId, "Administrador", "99.999.999-9", null, mail]
   );
 
   // Create admin user
-  await connection.execute(
+  await executeStatement(
+    connection,
     `INSERT INTO users (id, userName, pass, mail, rol, personId, createdAt, updatedAt)
      VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
     [userId, userName, hashedPassword, mail, rol, personId]
@@ -220,7 +263,8 @@ const seedSeasons = async (connection: mysql.Connection) => {
     const description = (season.description || "").trim() || null;
     const active = season.active !== undefined ? Boolean(season.active) : false;
 
-    await connection.execute(
+    await executeStatement(
+      connection,
       `INSERT INTO seasons (id, name, startDate, endDate, description, active, createdAt, updatedAt)
        VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [id, name, startDate, endDate, description, active]

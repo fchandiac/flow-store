@@ -9,6 +9,7 @@ import {
   selectPreferredUsbPrinter,
   selectPromoMedia,
   selectPromoMediaEnabled,
+  selectBackendBaseUrl,
   usePosStore,
 } from '../store/usePosStore';
 import { palette } from '../theme/palette';
@@ -20,6 +21,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
   const promoMediaEnabled = usePosStore(selectPromoMediaEnabled);
   const promoMedia = usePosStore(selectPromoMedia);
   const preferredUsbPrinter = usePosStore(selectPreferredUsbPrinter);
+  const backendBaseUrl = usePosStore(selectBackendBaseUrl);
   const { isConnected: isSecondaryConnected } = useSecondaryDisplay();
 
   const isDisplayConfigured = Boolean(preferredDisplayId);
@@ -55,15 +57,19 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
     return `Conectada a ${preferredUsbPrinter.deviceName ?? 'impresora USB'}`;
   }, [preferredUsbPrinter]);
 
+  const serverStatus = useMemo(() => {
+    return backendBaseUrl ? 'URL personalizada' : 'URL predeterminada';
+  }, [backendBaseUrl]);
+
+  const serverDetails = useMemo(() => {
+    if (backendBaseUrl) {
+      return backendBaseUrl;
+    }
+    return 'Se utilizará la dirección detectada automáticamente para el backend.';
+  }, [backendBaseUrl]);
+
   return (
     <ScrollView style={styles.root} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Configuración del punto de venta</Text>
-        <Text style={styles.subtitle}>
-          Administra los dispositivos secundarios del POS desde cada sección dedicada.
-        </Text>
-      </View>
-
       <TouchableOpacity
         activeOpacity={0.85}
         onPress={() => navigation.navigate('SecondaryDisplaySettings')}
@@ -95,6 +101,26 @@ const SettingsScreen: React.FC<SettingsScreenProps> = ({ navigation }) => {
         </Text>
         <Text style={styles.linkLabel}>Configurar impresora</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => navigation.navigate('ServerSettings')}
+        style={styles.card}
+      >
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>Servidor POS</Text>
+          <View
+            style={[
+              styles.statusPill,
+              backendBaseUrl ? styles.statusAccent : styles.statusNeutral,
+            ]}
+          >
+            <Text style={styles.statusPillText}>{serverStatus}</Text>
+          </View>
+        </View>
+        <Text style={styles.cardDescription}>{serverDetails}</Text>
+        <Text style={styles.linkLabel}>Configurar servidor</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 };
@@ -106,20 +132,6 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
-  },
-  header: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: palette.textSecondary,
-    marginBottom: 6,
-  },
-  subtitle: {
-    color: palette.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
   },
   card: {
     backgroundColor: palette.surface,
