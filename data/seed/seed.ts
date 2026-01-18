@@ -112,6 +112,26 @@ type CustomerSeedRow = {
   mail?: string;
 };
 
+type SupplierSeedRow = {
+  name: string;
+  dni: string;
+  phone?: string;
+  mail?: string;
+  address?: string;
+  alias?: string;
+  supplierType?: "MANUFACTURER" | "DISTRIBUTOR" | "WHOLESALER" | "LOCAL";
+  defaultPaymentTermDays?: number;
+  notes?: string;
+  bankAccounts: Array<{
+    bankName: string;
+    accountType: string;
+    accountNumber: string;
+    accountHolderName?: string;
+    isPrimary?: boolean;
+    notes?: string;
+  }>;
+};
+
 // ============ Helpers ============
 
 const loadSeedJson = <T>(fileName: string): T => {
@@ -429,6 +449,155 @@ const seedCustomers = async (connection: mysql.Connection) => {
   console.log(`   ✓ Inserted ${inserted} customers (with persons)`);
 };
 
+const seedSuppliers = async (connection: mysql.Connection) => {
+  console.log("\n🏭 Seeding suppliers...");
+
+  const suppliers: SupplierSeedRow[] = [
+    {
+      name: "Distribuidora Andes SpA",
+      dni: "76.123.456-7",
+      phone: "+56 2 2345 6789",
+      mail: "contacto@andesdistrib.cl",
+      address: "Av. Apoquindo 4501, Las Condes, Santiago",
+      alias: "Andes Distrib",
+      supplierType: "DISTRIBUTOR",
+      defaultPaymentTermDays: 30,
+      notes: "Proveedor principal de insumos de embalaje.",
+      bankAccounts: [
+        {
+          bankName: "Banco Santander Chile",
+          accountType: "Cuenta Corriente",
+          accountNumber: "12345678-9",
+          accountHolderName: "Distribuidora Andes SpA",
+          isPrimary: true,
+          notes: "Cuenta operaciones nacionales",
+        },
+      ],
+    },
+    {
+      name: "Agroinsumos del Sur Ltda.",
+      dni: "77.987.654-3",
+      phone: "+56 9 8765 4321",
+      mail: "ventas@agroinsumos-sur.cl",
+      address: "Camino Viejo a Talca KM 4, Chillán",
+      alias: "Agro Sur",
+      supplierType: "MANUFACTURER",
+      defaultPaymentTermDays: 45,
+      notes: "Especialistas en fertilizantes orgánicos.",
+      bankAccounts: [
+        {
+          bankName: "Banco de Crédito e Inversiones",
+          accountType: "Cuenta Corriente",
+          accountNumber: "87654321-0",
+          accountHolderName: "Agroinsumos del Sur Ltda.",
+          isPrimary: true,
+        },
+        {
+          bankName: "Banco del Estado de Chile",
+          accountType: "Cuenta Vista",
+          accountNumber: "90012345",
+          accountHolderName: "Agroinsumos del Sur Ltda.",
+          notes: "Cuenta para pagos rápidos",
+        },
+      ],
+    },
+    {
+      name: "Servicios Logísticos Cordillera EIRL",
+      dni: "78.654.321-5",
+      phone: "+56 72 234 5566",
+      mail: "facturas@logisticacordillera.cl",
+      address: "Ruta 5 Sur KM 284, Linares",
+      alias: "Logística Cordillera",
+      supplierType: "LOCAL",
+      defaultPaymentTermDays: 15,
+      notes: "Transporte regional para entregas urgentes.",
+      bankAccounts: [
+        {
+          bankName: "Scotiabank Chile",
+          accountType: "Cuenta Corriente",
+          accountNumber: "44556677-1",
+          accountHolderName: "Servicios Logísticos Cordillera EIRL",
+          isPrimary: true,
+        },
+      ],
+    },
+  ];
+
+  let inserted = 0;
+
+  for (const supplier of suppliers) {
+    const name = (supplier.name || "").trim();
+    const dni = (supplier.dni || "").trim();
+
+    if (!name || !dni) {
+      continue;
+    }
+
+    const phone = (supplier.phone || "").trim() || null;
+    const mail = (supplier.mail || "").trim() || null;
+    const address = (supplier.address || "").trim() || null;
+    const alias = (supplier.alias || "").trim() || null;
+    const supplierType = supplier.supplierType || "LOCAL";
+    const defaultPaymentTermDays = Number.isFinite(supplier.defaultPaymentTermDays)
+      ? Number(supplier.defaultPaymentTermDays)
+      : 0;
+    const notes = (supplier.notes || "").trim() || null;
+    const bankAccountsJson = supplier.bankAccounts && supplier.bankAccounts.length
+      ? JSON.stringify(supplier.bankAccounts)
+      : null;
+
+    const [existingPersonRows] = (await connection.execute(
+      "SELECT id FROM persons WHERE dni = ? LIMIT 1",
+      [dni]
+    )) as [RowDataPacket[], any];
+
+    let personId: string;
+
+    if (existingPersonRows.length > 0) {
+      personId = existingPersonRows[0].id;
+      await connection.execute(
+        `UPDATE persons
+         SET name = ?, phone = ?, mail = ?, address = ?, bankAccounts = ?, updatedAt = NOW()
+         WHERE id = ?`,
+        [name, phone, mail, address, bankAccountsJson, personId]
+      );
+    } else {
+      personId = randomUUID();
+      await connection.execute(
+        `INSERT INTO persons (id, name, dni, phone, mail, address, bankAccounts, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+        [personId, name, dni, phone, mail, address, bankAccountsJson]
+      );
+    }
+
+    const [existingSupplierRows] = (await connection.execute(
+      "SELECT id FROM suppliers WHERE personId = ? LIMIT 1",
+      [personId]
+    )) as [RowDataPacket[], any];
+
+    if (existingSupplierRows.length > 0) {
+      await connection.execute(
+        `UPDATE suppliers
+         SET supplierType = ?, alias = ?, defaultPaymentTermDays = ?, isActive = 1, notes = ?, updatedAt = NOW()
+         WHERE id = ?`,
+        [supplierType, alias, defaultPaymentTermDays, notes, existingSupplierRows[0].id]
+      );
+      continue;
+    }
+
+    const supplierId = randomUUID();
+    await connection.execute(
+      `INSERT INTO suppliers (id, personId, supplierType, alias, defaultPaymentTermDays, isActive, notes, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, 1, ?, NOW(), NOW())`,
+      [supplierId, personId, supplierType, alias, defaultPaymentTermDays, notes]
+    );
+
+    inserted++;
+  }
+
+  console.log(`   ✓ Inserted or updated ${inserted} suppliers`);
+};
+
 // ============ SQL File Execution ============
 
 const executeSqlFile = async (
@@ -553,6 +722,9 @@ const runSeed = async (environment: "test" | "production" | "local" = "test") =>
     // 7. Customers (with persons)
     await seedCustomers(connection);
 
+    // 8. Suppliers (with persons + bank accounts)
+    await seedSuppliers(connection);
+
     // Re-enable foreign key checks
     console.log("\n🔓 Re-enabling foreign key checks...");
     await connection.execute("SET FOREIGN_KEY_CHECKS = 1");
@@ -568,6 +740,7 @@ const runSeed = async (environment: "test" | "production" | "local" = "test") =>
     console.log("   - Formats from formats.json");
     console.log("   - Producers from producers.json (with persons)");
     console.log("   - Customers from customers.json (with persons)");
+    console.log("   - Suppliers (3 predefined, with bank accounts)");
     console.log("\n📭 Empty tables:");
     console.log("   - transactions, reception_packs, transaction_relations");
     console.log("   - audits, permissions, admin_bank_accounts");

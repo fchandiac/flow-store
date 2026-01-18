@@ -10,6 +10,7 @@ interface BaseUnitSeed {
   name: string;
   dimension: UnitDimension;
   conversionFactor: number;
+  allowDecimals?: boolean;
 }
 
 interface DerivedUnitSeed extends BaseUnitSeed {
@@ -22,24 +23,28 @@ const BASE_UNITS: BaseUnitSeed[] = [
     name: 'Unidad',
     dimension: UnitDimension.COUNT,
     conversionFactor: 1,
+    allowDecimals: true,
   },
   {
     symbol: 'kg',
     name: 'Kilogramo',
     dimension: UnitDimension.MASS,
     conversionFactor: 1,
+    allowDecimals: true,
   },
   {
     symbol: 'l',
     name: 'Litro',
     dimension: UnitDimension.VOLUME,
     conversionFactor: 1,
+    allowDecimals: true,
   },
   {
     symbol: 'm',
     name: 'Metro',
     dimension: UnitDimension.LENGTH,
     conversionFactor: 1,
+    allowDecimals: true,
   },
 ];
 
@@ -50,6 +55,7 @@ const DERIVED_UNITS: DerivedUnitSeed[] = [
     dimension: UnitDimension.COUNT,
     conversionFactor: 12,
     baseSymbol: 'un',
+    allowDecimals: true,
   },
   {
     symbol: 'paq',
@@ -57,6 +63,7 @@ const DERIVED_UNITS: DerivedUnitSeed[] = [
     dimension: UnitDimension.COUNT,
     conversionFactor: 6,
     baseSymbol: 'un',
+    allowDecimals: true,
   },
   {
     symbol: 'g',
@@ -64,6 +71,7 @@ const DERIVED_UNITS: DerivedUnitSeed[] = [
     dimension: UnitDimension.MASS,
     conversionFactor: 0.001,
     baseSymbol: 'kg',
+    allowDecimals: true,
   },
   {
     symbol: 'mL',
@@ -71,6 +79,7 @@ const DERIVED_UNITS: DerivedUnitSeed[] = [
     dimension: UnitDimension.VOLUME,
     conversionFactor: 0.001,
     baseSymbol: 'l',
+    allowDecimals: true,
   },
   {
     symbol: 'cm',
@@ -78,6 +87,7 @@ const DERIVED_UNITS: DerivedUnitSeed[] = [
     dimension: UnitDimension.LENGTH,
     conversionFactor: 0.01,
     baseSymbol: 'm',
+    allowDecimals: true,
   },
 ];
 
@@ -138,6 +148,7 @@ async function ensureBaseUnit(ds: DataSource, seed: BaseUnitSeed): Promise<Unit>
       symbol: seed.symbol,
       dimension: seed.dimension,
       conversionFactor: seed.conversionFactor,
+      allowDecimals: seed.allowDecimals ?? true,
       isBase: true,
       baseUnitId: null,
       active: true,
@@ -147,6 +158,7 @@ async function ensureBaseUnit(ds: DataSource, seed: BaseUnitSeed): Promise<Unit>
     unit.symbol = seed.symbol;
     unit.dimension = seed.dimension;
     unit.conversionFactor = seed.conversionFactor;
+    unit.allowDecimals = seed.allowDecimals ?? true;
     unit.isBase = true;
     unit.active = true;
     unit.baseUnit = null;
@@ -169,6 +181,7 @@ async function ensureDerivedUnit(ds: DataSource, seed: DerivedUnitSeed, baseUnit
       symbol: seed.symbol,
       dimension: seed.dimension,
       conversionFactor: seed.conversionFactor,
+      allowDecimals: seed.allowDecimals ?? true,
       isBase: false,
       baseUnit,
       active: true,
@@ -178,6 +191,7 @@ async function ensureDerivedUnit(ds: DataSource, seed: DerivedUnitSeed, baseUnit
     unit.symbol = seed.symbol;
     unit.dimension = seed.dimension;
     unit.conversionFactor = seed.conversionFactor;
+    unit.allowDecimals = seed.allowDecimals ?? true;
     unit.isBase = false;
     unit.baseUnit = baseUnit;
     unit.baseUnitId = baseUnit.id;

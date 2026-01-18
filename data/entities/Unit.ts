@@ -43,6 +43,9 @@ export class Unit {
     })
     conversionFactor!: number;
 
+    @Column({ type: 'boolean', default: true })
+    allowDecimals!: boolean;
+
     @Column({ type: 'boolean', default: false })
     isBase!: boolean;
 

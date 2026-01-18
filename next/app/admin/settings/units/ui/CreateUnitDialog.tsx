@@ -33,6 +33,7 @@ const initialFormState = {
     conversionFactor: '1',
     isBase: true,
     baseUnitId: '',
+    allowDecimals: true,
 };
 
 const CreateUnitDialog: React.FC<CreateUnitDialogProps> = ({ open, onClose, dimensionLabels, baseUnits }) => {
@@ -115,6 +116,7 @@ const CreateUnitDialog: React.FC<CreateUnitDialogProps> = ({ open, onClose, dime
                 conversionFactor: conversionValue,
                 isBase: formData.isBase,
                 baseUnitId: formData.isBase ? undefined : formData.baseUnitId,
+                allowDecimals: formData.allowDecimals,
             });
 
             if (result.success) {
@@ -203,6 +205,16 @@ const CreateUnitDialog: React.FC<CreateUnitDialogProps> = ({ open, onClose, dime
                     onChange={(checked) => handleChange('isBase', checked)}
                     data-test-id="create-unit-is-base"
                 />
+
+                <Switch
+                    label="Permitir cantidades decimales"
+                    checked={formData.allowDecimals}
+                    onChange={(checked) => handleChange('allowDecimals', checked)}
+                    data-test-id="create-unit-allow-decimals"
+                />
+                <p className="text-xs text-muted-foreground -mt-2">
+                    Desactiva esta opción si la unidad debe registrarse solo con valores enteros.
+                </p>
 
                 {!formData.isBase && (
                     <Select

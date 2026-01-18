@@ -20,6 +20,7 @@ import {
 import { RootStackParamList } from '../navigation/types';
 import { usePosStore, type CashSessionSummary, type PointOfSaleSummary } from '../store/usePosStore';
 import { formatCurrency } from '../utils/formatCurrency';
+import { palette } from '../theme/palette';
 
 export type SessionSetupScreenProps = NativeStackScreenProps<RootStackParamList, 'SessionSetup'>;
 
@@ -245,7 +246,7 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
   if (isLoading && !pointsOfSale.length) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator color="#2563eb" size="large" />
+        <ActivityIndicator color={palette.primary} size="large" />
         <Text style={styles.loadingText}>Cargando puntos de venta...</Text>
       </View>
     );
@@ -255,7 +256,7 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
     <ScrollView
       contentContainerStyle={styles.root}
       refreshControl={
-        <RefreshControl refreshing={isRefreshing} onRefresh={refreshPointsOfSale} tintColor="#2563eb" />
+        <RefreshControl refreshing={isRefreshing} onRefresh={refreshPointsOfSale} tintColor={palette.primary} />
       }
     >
       <Text style={styles.title}>Selecciona un punto de venta</Text>
@@ -276,7 +277,7 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
               >
                 <View style={styles.posHeader}>
                   <Text style={styles.posName}>{pos.name}</Text>
-                  {isSelected && isSessionLoading ? <ActivityIndicator color="#f8fafc" size="small" /> : null}
+                  {isSelected && isSessionLoading ? <ActivityIndicator color={palette.primary} size="small" /> : null}
                 </View>
                 <Text style={styles.posMeta}>ID: {pos.id}</Text>
                 {pos.branchName ? <Text style={styles.posMeta}>Sucursal: {pos.branchName}</Text> : null}
@@ -293,7 +294,7 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
               ) : null}
               {isSessionLoading ? (
                 <View style={styles.sessionLoadingRow}>
-                  <ActivityIndicator color="#cbd5f5" size="small" />
+                  <ActivityIndicator color={palette.primary} size="small" />
                   <Text style={styles.sessionLoadingText}>Revisando sesión abierta...</Text>
                 </View>
               ) : sessionError ? (
@@ -348,7 +349,7 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
                     ]}
                   >
                     {isCreatingSession ? (
-                      <ActivityIndicator color="#f8fafc" />
+                      <ActivityIndicator color={palette.primaryText} />
                     ) : (
                       <Text style={styles.sessionButtonLabel}>Abrir nueva sesión</Text>
                     )}
@@ -388,29 +389,29 @@ const styles = StyleSheet.create({
   root: {
     paddingHorizontal: 20,
     paddingVertical: 24,
-    backgroundColor: '#0b1120',
+    backgroundColor: palette.background,
     minHeight: '100%',
   },
   title: {
     fontSize: 24,
-    color: '#f8fafc',
-    fontWeight: '600',
+    color: palette.primary,
+    fontWeight: '700',
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: palette.textMuted,
     marginBottom: 24,
   },
   loadingContainer: {
     flex: 1,
-    backgroundColor: '#0b1120',
+    backgroundColor: palette.background,
     alignItems: 'center',
     justifyContent: 'center',
   },
   loadingText: {
     marginTop: 12,
-    color: '#cbd5f5',
+    color: palette.textMuted,
     fontSize: 16,
   },
   posCard: {
@@ -418,12 +419,12 @@ const styles = StyleSheet.create({
     padding: 18,
     marginBottom: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#1f2937',
-    backgroundColor: '#111827',
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
   },
   posCardSelected: {
-    borderColor: '#2563eb',
-    backgroundColor: '#1e293b',
+    borderColor: palette.primary,
+    backgroundColor: palette.surfaceMuted,
   },
   posHeader: {
     flexDirection: 'row',
@@ -433,14 +434,14 @@ const styles = StyleSheet.create({
   },
   posName: {
     fontSize: 18,
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontWeight: '600',
     flex: 1,
     marginRight: 12,
   },
   posMeta: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: palette.textMuted,
     marginBottom: 2,
   },
   sessionCard: {
@@ -449,18 +450,18 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#1f2937',
-    backgroundColor: '#111827',
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
   },
   sessionTitle: {
     fontSize: 16,
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontWeight: '600',
     marginBottom: 6,
   },
   sessionMeta: {
     fontSize: 13,
-    color: '#cbd5f5',
+    color: palette.textMuted,
     marginBottom: 2,
   },
   sessionLoadingRow: {
@@ -470,24 +471,24 @@ const styles = StyleSheet.create({
   },
   sessionLoadingText: {
     marginLeft: 8,
-    color: '#cbd5f5',
+    color: palette.textMuted,
     fontSize: 13,
   },
   sessionInfo: {
     marginTop: 12,
     fontSize: 13,
-    color: '#94a3b8',
+    color: palette.textMuted,
   },
   sessionStatus: {
     marginTop: 12,
     fontSize: 14,
-    color: '#cbd5f5',
+    color: palette.primary,
     fontWeight: '600',
   },
   sessionWarning: {
     marginTop: 12,
     fontSize: 13,
-    color: '#f87171',
+    color: palette.error,
   },
   sessionButton: {
     marginTop: 16,
@@ -496,13 +497,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sessionButtonPrimary: {
-    backgroundColor: '#2563eb',
+    backgroundColor: palette.primary,
   },
   sessionButtonDisabled: {
-    backgroundColor: '#1d4ed8',
+    backgroundColor: palette.primaryStrong,
   },
   sessionButtonLabel: {
-    color: '#f8fafc',
+    color: palette.primaryText,
     fontSize: 15,
     fontWeight: '600',
   },
@@ -512,11 +513,11 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#38bdf8',
+    borderColor: palette.primary,
     backgroundColor: 'transparent',
   },
   sessionButtonSecondaryLabel: {
-    color: '#38bdf8',
+    color: palette.primary,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -526,44 +527,44 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#1f2937',
-    backgroundColor: '#0f172a',
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
   },
   sessionPlaceholderText: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: palette.textMuted,
   },
   emptyState: {
     marginTop: 64,
     padding: 24,
     borderRadius: 14,
-    backgroundColor: '#111827',
+    backgroundColor: palette.surface,
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#1f2937',
+    borderColor: palette.border,
   },
   emptyTitle: {
     fontSize: 18,
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontWeight: '600',
     marginBottom: 8,
   },
   emptySubtitle: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: palette.textMuted,
     marginBottom: 16,
   },
   retryButton: {
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#2563eb',
+    backgroundColor: palette.primary,
   },
   retryButtonDisabled: {
-    backgroundColor: '#1d4ed8',
+    backgroundColor: palette.primaryStrong,
   },
   retryButtonLabel: {
-    color: '#f8fafc',
+    color: palette.primaryText,
     fontSize: 15,
     fontWeight: '600',
   },

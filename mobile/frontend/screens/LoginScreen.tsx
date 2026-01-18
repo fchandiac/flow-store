@@ -14,6 +14,7 @@ import {
 import { login } from '../services/apiService';
 import { RootStackParamList } from '../navigation/types';
 import { usePosStore } from '../store/usePosStore';
+import { palette } from '../theme/palette';
 
 const MAX_PASSWORD_LENGTH = 64;
 
@@ -54,7 +55,8 @@ function LoginScreen({ navigation }: LoginScreenProps) {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.select({ ios: 'padding', android: undefined })}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
       style={styles.root}
     >
       <View style={styles.card}>
@@ -67,7 +69,7 @@ function LoginScreen({ navigation }: LoginScreenProps) {
           keyboardType="email-address"
           onChangeText={setUserName}
           placeholder="Usuario"
-          placeholderTextColor="#6b7280"
+          placeholderTextColor={palette.textMuted}
           style={styles.input}
           value={userName}
         />
@@ -78,7 +80,7 @@ function LoginScreen({ navigation }: LoginScreenProps) {
           maxLength={MAX_PASSWORD_LENGTH}
           onChangeText={setPassword}
           placeholder="Contraseña"
-          placeholderTextColor="#6b7280"
+          placeholderTextColor={palette.textMuted}
           secureTextEntry
           style={styles.input}
           value={password}
@@ -90,7 +92,7 @@ function LoginScreen({ navigation }: LoginScreenProps) {
           style={[styles.button, isSubmitting && styles.buttonDisabled]}
         >
           {isSubmitting ? (
-            <ActivityIndicator color="#f8fafc" />
+            <ActivityIndicator color={palette.primaryText} />
           ) : (
             <Text style={styles.buttonLabel}>Continuar</Text>
           )}
@@ -103,7 +105,7 @@ function LoginScreen({ navigation }: LoginScreenProps) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: palette.background,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
@@ -111,30 +113,30 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 420,
-    backgroundColor: '#111827',
+    backgroundColor: palette.surface,
     padding: 24,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#1f2937',
+    borderColor: palette.border,
   },
   title: {
     fontSize: 24,
-    color: '#f8fafc',
-    fontWeight: '600',
+    color: palette.primary,
+    fontWeight: '700',
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: palette.textMuted,
     marginBottom: 24,
   },
   input: {
     width: '100%',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1f2937',
-    backgroundColor: '#0b1120',
-    color: '#f8fafc',
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    color: palette.textPrimary,
     paddingHorizontal: 14,
     paddingVertical: Platform.select({ ios: 14, default: 12 }),
     fontSize: 16,
@@ -145,13 +147,13 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: '#2563eb',
+    backgroundColor: palette.primary,
   },
   buttonDisabled: {
-    backgroundColor: '#1d4ed8',
+    backgroundColor: palette.primaryStrong,
   },
   buttonLabel: {
-    color: '#f8fafc',
+    color: palette.primaryText,
     fontSize: 16,
     fontWeight: '600',
   },

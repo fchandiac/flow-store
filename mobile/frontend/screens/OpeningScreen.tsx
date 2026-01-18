@@ -15,6 +15,7 @@ import { registerOpeningTransaction } from '../services/apiService';
 import { RootStackParamList } from '../navigation/types';
 import { usePosStore } from '../store/usePosStore';
 import { formatCurrency } from '../utils/formatCurrency';
+import { palette } from '../theme/palette';
 
 export type OpeningScreenProps = NativeStackScreenProps<RootStackParamList, 'Opening'>;
 
@@ -112,7 +113,8 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
 
   return (
     <KeyboardAvoidingView
-      behavior={Platform.select({ ios: 'padding', android: undefined })}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 12 : 0}
       style={styles.root}
     >
       <View style={styles.card}>
@@ -126,7 +128,7 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
           keyboardType="number-pad"
           onChangeText={handleAmountChange}
           placeholder="Monto de apertura"
-          placeholderTextColor="#6b7280"
+          placeholderTextColor={palette.textMuted}
           style={styles.input}
           value={amountDigits}
           editable={!isSubmitting}
@@ -142,7 +144,7 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
           style={[styles.button, isSubmitting && styles.buttonDisabled]}
         >
           {isSubmitting ? (
-            <ActivityIndicator color="#f8fafc" />
+            <ActivityIndicator color={palette.primaryText} />
           ) : (
             <Text style={styles.buttonLabel}>Confirmar apertura</Text>
           )}
@@ -155,7 +157,7 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#0f172a',
+    backgroundColor: palette.background,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
@@ -163,35 +165,35 @@ const styles = StyleSheet.create({
   card: {
     width: '100%',
     maxWidth: 420,
-    backgroundColor: '#111827',
+    backgroundColor: palette.surface,
     padding: 24,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#1f2937',
+    borderColor: palette.border,
   },
   title: {
     fontSize: 24,
-    color: '#f8fafc',
-    fontWeight: '600',
+    color: palette.primary,
+    fontWeight: '700',
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: palette.textMuted,
     marginBottom: 16,
   },
   meta: {
     fontSize: 13,
-    color: '#cbd5f5',
+    color: palette.textMuted,
     marginBottom: 8,
   },
   input: {
     width: '100%',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1f2937',
-    backgroundColor: '#0b1120',
-    color: '#f8fafc',
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    color: palette.textPrimary,
     paddingHorizontal: 14,
     paddingVertical: Platform.select({ ios: 14, default: 12 }),
     fontSize: 16,
@@ -206,26 +208,26 @@ const styles = StyleSheet.create({
   },
   formattedLabel: {
     fontSize: 14,
-    color: '#94a3b8',
+    color: palette.textMuted,
   },
   formattedValue: {
     fontSize: 18,
-    color: '#f8fafc',
-    fontWeight: '600',
+    color: palette.primary,
+    fontWeight: '700',
   },
   button: {
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
-    backgroundColor: '#22c55e',
+    backgroundColor: palette.primary,
   },
   buttonDisabled: {
-    backgroundColor: '#15803d',
+    backgroundColor: palette.primaryStrong,
   },
   buttonLabel: {
-    color: '#042f2e',
+    color: palette.primaryText,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
   },
 });
 

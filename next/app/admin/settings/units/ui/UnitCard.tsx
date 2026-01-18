@@ -36,6 +36,9 @@ const UnitCard: React.FC<UnitCardProps> = ({ unit, onEdit, onToggleActive, pendi
                             {unit.isBase ? 'Base' : 'Derivada'}
                         </Badge>
                         <Badge variant="secondary-outlined">{dimensionLabel}</Badge>
+                        <Badge variant={unit.allowDecimals ? 'success-outlined' : 'warning-outlined'}>
+                            {unit.allowDecimals ? 'Decimales permitidos' : 'Solo enteros'}
+                        </Badge>
                     </div>
                     <p className="mt-2 text-sm text-neutral-600">{conversionInfo}</p>
                     {!unit.isBase && (

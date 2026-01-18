@@ -36,6 +36,7 @@ import {
   type SecondaryDisplayMode,
   type UsbPrinterSelection,
 } from '../store/usePosStore';
+import { palette } from '../theme/palette';
 
 export type SettingsScreenProps = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 
@@ -468,7 +469,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
       >
         {isInitialLoading ? (
           <View style={styles.loadingState}>
-            <ActivityIndicator size="large" color="#3b82f6" />
+            <ActivityIndicator size="large" color={palette.primary} />
             <Text style={styles.loadingText}>Cargando preferencias…</Text>
           </View>
         ) : null}
@@ -526,9 +527,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
                 disabled={isCheckingOverlay || !supportsCustomerScreen}
               >
                 {isCheckingOverlay ? (
-                  <ActivityIndicator color="#f8fafc" />
+                  <ActivityIndicator color={palette.primaryStrong} />
                 ) : (
-                  <Text style={styles.actionButtonLabel}>Verificar permiso</Text>
+                  <Text style={[styles.actionButtonLabel, styles.secondaryButtonLabel]}>Verificar permiso</Text>
                 )}
               </TouchableOpacity>
               <TouchableOpacity
@@ -542,9 +543,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
                 disabled={isOpeningOverlaySettings || !supportsCustomerScreen}
               >
                 {isOpeningOverlaySettings ? (
-                  <ActivityIndicator color="#f8fafc" />
+                  <ActivityIndicator color={palette.primaryStrong} />
                 ) : (
-                  <Text style={styles.actionButtonLabel}>Abrir ajustes del sistema</Text>
+                  <Text style={[styles.actionButtonLabel, styles.secondaryButtonLabel]}>Abrir ajustes del sistema</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -557,9 +558,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
                 disabled={isRefreshingDisplays || !supportsCustomerScreen}
               >
                 {isRefreshingDisplays ? (
-                  <ActivityIndicator color="#f8fafc" />
+                  <ActivityIndicator color={palette.primaryStrong} />
                 ) : (
-                  <Text style={styles.actionButtonLabel}>Actualizar lista</Text>
+                  <Text style={[styles.actionButtonLabel, styles.secondaryButtonLabel]}>Actualizar lista</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -607,7 +608,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
                 onChangeText={setDisplayWidthInput}
                 onBlur={handleDisplayWidthBlur}
                 placeholder="Automático"
-                placeholderTextColor="#64748b"
+                placeholderTextColor={palette.textMuted}
                 keyboardType="numeric"
                 style={styles.textInput}
               />
@@ -674,9 +675,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
                 disabled={isListingPrinters}
               >
                 {isListingPrinters ? (
-                  <ActivityIndicator color="#f8fafc" />
+                  <ActivityIndicator color={palette.primaryStrong} />
                 ) : (
-                  <Text style={styles.actionButtonLabel}>Buscar impresoras</Text>
+                  <Text style={[styles.actionButtonLabel, styles.secondaryButtonLabel]}>Buscar impresoras</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -724,7 +725,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
                 disabled={isConnectingPrinter || !selectedPrinterKey}
               >
                 {isConnectingPrinter ? (
-                  <ActivityIndicator color="#0b1120" />
+                  <ActivityIndicator color={palette.primaryText} />
                 ) : (
                   <Text style={styles.actionButtonLabel}>Conectar impresora</Text>
                 )}
@@ -740,9 +741,9 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
                 disabled={isTestingPrinter || !selectedPrinterKey}
               >
                 {isTestingPrinter ? (
-                  <ActivityIndicator color="#f8fafc" />
+                  <ActivityIndicator color={palette.primaryStrong} />
                 ) : (
-                  <Text style={styles.actionButtonLabel}>Imprimir prueba</Text>
+                  <Text style={[styles.actionButtonLabel, styles.secondaryButtonLabel]}>Imprimir prueba</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -768,7 +769,7 @@ const SettingsScreen: React.FC<SettingsScreenProps> = () => {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#0b1120',
+    backgroundColor: palette.background,
   },
   scroll: {
     flex: 1,
@@ -784,7 +785,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: '#cbd5f5',
+    color: palette.textMuted,
   },
   cardsRow: {
     flexDirection: 'row',
@@ -792,10 +793,10 @@ const styles = StyleSheet.create({
     marginHorizontal: -8,
   },
   card: {
-    backgroundColor: '#111827',
+    backgroundColor: palette.surface,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#1f2937',
+    borderColor: palette.border,
     padding: 20,
     marginHorizontal: 8,
     marginBottom: 16,
@@ -805,13 +806,13 @@ const styles = StyleSheet.create({
     minWidth: 320,
   },
   cardTitle: {
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontSize: 20,
     fontWeight: '600',
     marginBottom: 4,
   },
   cardSubtitle: {
-    color: '#94a3b8',
+    color: palette.textMuted,
     marginBottom: 16,
     lineHeight: 20,
   },
@@ -823,29 +824,29 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   statusPillSuccess: {
-    backgroundColor: 'rgba(34,197,94,0.18)',
+    backgroundColor: palette.positiveTint,
   },
   statusPillWarning: {
-    backgroundColor: 'rgba(245,158,11,0.18)',
+    backgroundColor: palette.warningTint,
   },
   statusPillDanger: {
-    backgroundColor: 'rgba(248,113,113,0.18)',
+    backgroundColor: palette.dangerTint,
   },
   statusPillText: {
-    color: '#bbf7d0',
+    color: palette.success,
     fontWeight: '600',
     fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   statusPillTextWarning: {
-    color: '#fcd34d',
+    color: palette.warning,
   },
   statusPillTextDanger: {
-    color: '#fecaca',
+    color: palette.error,
   },
   infoText: {
-    color: '#cbd5f5',
+    color: palette.textMuted,
     fontSize: 14,
   },
   buttonRow: {
@@ -854,7 +855,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   actionButton: {
-    backgroundColor: '#2563eb',
+    backgroundColor: palette.primary,
     borderRadius: 12,
     paddingHorizontal: 18,
     paddingVertical: 12,
@@ -864,20 +865,25 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   actionButtonLabel: {
-    color: '#f8fafc',
+    color: palette.primaryText,
     fontWeight: '600',
   },
   actionButtonDisabled: {
     opacity: 0.6,
   },
   secondaryButton: {
-    backgroundColor: '#1f2937',
+    backgroundColor: palette.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+  },
+  secondaryButtonLabel: {
+    color: palette.primaryStrong,
   },
   dangerButton: {
-    backgroundColor: '#dc2626',
+    backgroundColor: palette.danger,
   },
   listSectionTitle: {
-    color: '#cbd5f5',
+    color: palette.textMuted,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 20,
@@ -888,14 +894,14 @@ const styles = StyleSheet.create({
   listItem: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#1f2937',
+    borderColor: palette.border,
     padding: 14,
     marginBottom: 12,
-    backgroundColor: '#0f172a',
+    backgroundColor: palette.surface,
   },
   listItemSelected: {
-    borderColor: '#3b82f6',
-    backgroundColor: 'rgba(59,130,246,0.12)',
+    borderColor: palette.primary,
+    backgroundColor: palette.primaryTint,
   },
   listItemDisabled: {
     opacity: 0.5,
@@ -906,17 +912,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   listItemTitle: {
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontSize: 16,
     fontWeight: '600',
   },
   listItemMeta: {
-    color: '#cbd5f5',
+    color: palette.textMuted,
     fontSize: 13,
     marginTop: 6,
   },
   listItemHint: {
-    color: '#94a3b8',
+    color: palette.textMuted,
     fontSize: 12,
     marginTop: 6,
   },
@@ -924,38 +930,38 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
-    backgroundColor: 'rgba(34,197,94,0.25)',
-    color: '#bbf7d0',
+    backgroundColor: palette.positiveTint,
+    color: palette.success,
     fontSize: 11,
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   emptyState: {
-    color: '#64748b',
+    color: palette.textMuted,
     fontStyle: 'italic',
   },
   inputGroup: {
     marginTop: 20,
   },
   inputLabel: {
-    color: '#e2e8f0',
+    color: palette.textSecondary,
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 6,
   },
   textInput: {
-    backgroundColor: '#0b1120',
+    backgroundColor: palette.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1f2937',
+    borderColor: palette.border,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: '#f8fafc',
+    color: palette.textPrimary,
     fontSize: 16,
   },
   inputHint: {
-    color: '#94a3b8',
+    color: palette.textMuted,
     fontSize: 12,
     marginTop: 6,
     lineHeight: 16,
@@ -966,7 +972,9 @@ const styles = StyleSheet.create({
   },
   toggleButton: {
     flex: 1,
-    backgroundColor: '#1f2937',
+    backgroundColor: palette.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 10,
@@ -982,22 +990,23 @@ const styles = StyleSheet.create({
     marginLeft: 1,
   },
   toggleButtonActive: {
-    backgroundColor: '#2563eb',
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
   },
   toggleButtonText: {
-    color: '#cbd5f5',
+    color: palette.textSecondary,
     fontWeight: '600',
   },
   toggleButtonTextActive: {
-    color: '#f8fafc',
+    color: palette.primaryText,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
-    backgroundColor: '#1f2937',
+    backgroundColor: palette.divider,
     marginVertical: 24,
   },
   statusMessage: {
-    color: '#cbd5f5',
+    color: palette.textMuted,
     fontSize: 13,
     marginTop: 12,
   },

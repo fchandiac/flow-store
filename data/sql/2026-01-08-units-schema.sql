@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS `units` (
   `symbol` VARCHAR(10) NOT NULL,
   `dimension` ENUM('mass','length','volume','count') NOT NULL,
   `conversionFactor` DECIMAL(18,9) NOT NULL,
+  `allowDecimals` TINYINT(1) NOT NULL DEFAULT 1,
   `isBase` TINYINT(1) NOT NULL DEFAULT 0,
   `base_unit_id` VARCHAR(36) NULL,
   `active` TINYINT(1) NOT NULL DEFAULT 1,
@@ -29,11 +30,15 @@ ALTER TABLE `units`
   ADD COLUMN IF NOT EXISTS `base_unit_id` VARCHAR(36) NULL;
 
 ALTER TABLE `units`
+  ADD COLUMN IF NOT EXISTS `allowDecimals` TINYINT(1) NOT NULL DEFAULT 1 AFTER `conversionFactor`;
+
+ALTER TABLE `units`
   MODIFY COLUMN `id` VARCHAR(36) NOT NULL,
   MODIFY COLUMN `name` VARCHAR(100) NOT NULL,
   MODIFY COLUMN `symbol` VARCHAR(10) NOT NULL,
   MODIFY COLUMN `dimension` ENUM('mass','length','volume','count') NOT NULL,
   MODIFY COLUMN `conversionFactor` DECIMAL(18,9) NOT NULL,
+  MODIFY COLUMN `allowDecimals` TINYINT(1) NOT NULL DEFAULT 1,
   MODIFY COLUMN `isBase` TINYINT(1) NOT NULL DEFAULT 0,
   MODIFY COLUMN `base_unit_id` VARCHAR(36) NULL,
   MODIFY COLUMN `active` TINYINT(1) NOT NULL DEFAULT 1;
@@ -50,8 +55,8 @@ ALTER TABLE `units`
     ON DELETE RESTRICT ON UPDATE NO ACTION;
 
 -- 4. Crear unidad base por defecto (UN) si no existe
-INSERT INTO `units` (`id`, `name`, `symbol`, `dimension`, `conversionFactor`, `isBase`, `base_unit_id`, `active`, `createdAt`, `updatedAt`)
-SELECT UUID(), 'Unidad', 'UN', 'count', 1, 1, NULL, 1, NOW(6), NOW(6)
+INSERT INTO `units` (`id`, `name`, `symbol`, `dimension`, `conversionFactor`, `allowDecimals`, `isBase`, `base_unit_id`, `active`, `createdAt`, `updatedAt`)
+SELECT UUID(), 'Unidad', 'UN', 'count', 1, 1, 1, NULL, 1, NOW(6), NOW(6)
 WHERE NOT EXISTS (SELECT 1 FROM `units` WHERE `symbol` = 'UN');
 
 -- 5. Normalizar base_unit_id para unidades base existentes

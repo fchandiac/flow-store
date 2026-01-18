@@ -2,6 +2,7 @@ import { getDb } from '../db';
 import { User, UserRole } from '../entities/User';
 import { Person, PersonType, DocumentType, BankName, AccountTypeName, PersonBankAccount } from '../entities/Person';
 import { Customer } from '../entities/Customer';
+import { Supplier, SupplierType } from '../entities/Supplier';
 import { Company } from '../entities/Company';
 import { Branch } from '../entities/Branch';
 import { Tax, TaxType } from '../entities/Tax';
@@ -122,6 +123,7 @@ async function seedFlowStore() {
   const transactionRepo = db.getRepository(Transaction);
   const transactionLineRepo = db.getRepository(TransactionLine);
   const customerSummaries: string[] = [];
+  const supplierSummaries: string[] = [];
 
   console.log('\n🧾 Eliminando aportes de capital legacy...');
   try {
@@ -1530,7 +1532,216 @@ async function seedFlowStore() {
     }
 
     // ============================================
-    // 9.2 CAPITAL INICIAL
+    // 9.2 PROVEEDORES BASE
+    // ============================================
+    console.log('\n🏭 Creando proveedores base...');
+
+    const supplierRepo = db.getRepository(Supplier);
+
+    type SupplierSeed = {
+      businessName: string;
+      contactFirstName: string;
+      contactLastName?: string;
+      documentNumber: string;
+      email?: string;
+      phone?: string;
+      address?: string;
+      supplierType: SupplierType;
+      defaultPaymentTermDays: number;
+      alias?: string;
+      notes?: string;
+      bankAccounts: PersonBankAccount[];
+    };
+
+    const supplierSeeds: SupplierSeed[] = [
+      {
+        businessName: 'Metalúrgica Andina SpA',
+        contactFirstName: 'Claudia',
+        contactLastName: 'Reyes',
+        documentNumber: '76.345.210-9',
+        email: 'compras@metalurgicaandina.cl',
+        phone: '+56 2 2789 1122',
+        address: 'Av. Libertador 1450, Santiago',
+        supplierType: SupplierType.MANUFACTURER,
+        defaultPaymentTermDays: 30,
+        alias: 'Metalúrgica Andina',
+        notes: 'Proveedor principal de cadenas y cierres de oro 14K.',
+        bankAccounts: [
+          {
+            accountKey: 'SUP-METAL-BCI-CC',
+            bankName: BankName.BANCO_BCI,
+            accountType: AccountTypeName.CUENTA_CORRIENTE,
+            accountNumber: '34567890-1',
+            accountHolderName: 'Metalúrgica Andina SpA',
+            isPrimary: true,
+            notes: 'Cuenta principal para transferencias nacionales.',
+          },
+        ],
+      },
+      {
+        businessName: 'Gemas del Sur Ltda.',
+        contactFirstName: 'Ignacio',
+        contactLastName: 'Silva',
+        documentNumber: '77.210.543-2',
+        email: 'ventas@gemasdelsur.cl',
+        phone: '+56 9 7654 3210',
+        address: 'Camino Las Piedras 870, Temuco',
+        supplierType: SupplierType.DISTRIBUTOR,
+        defaultPaymentTermDays: 45,
+        alias: 'Gemas del Sur',
+        notes: 'Distribuidor de piedras certificadas y cortes personalizados.',
+        bankAccounts: [
+          {
+            accountKey: 'SUP-GEMAS-SANTANDER-CC',
+            bankName: BankName.BANCO_SANTANDER,
+            accountType: AccountTypeName.CUENTA_CORRIENTE,
+            accountNumber: '21345678-5',
+            accountHolderName: 'Gemas del Sur Ltda.',
+            isPrimary: true,
+          },
+          {
+            accountKey: 'SUP-GEMAS-BCI-VISTA',
+            bankName: BankName.BANCO_BCI,
+            accountType: AccountTypeName.CUENTA_VISTA,
+            accountNumber: '88442211',
+            accountHolderName: 'Gemas del Sur Ltda.',
+            notes: 'Pagos express y anticipos.',
+          },
+        ],
+      },
+      {
+        businessName: 'Taller Silva Joyeros EIRL',
+        contactFirstName: 'María',
+        contactLastName: 'Silva',
+        documentNumber: '78.654.321-5',
+        email: 'contacto@tallersilva.cl',
+        phone: '+56 2 2456 7789',
+        address: 'Pasaje Lautaro 215, Linares',
+        supplierType: SupplierType.LOCAL,
+        defaultPaymentTermDays: 20,
+        alias: 'Taller Silva',
+        notes: 'Taller artesanal para pedidos personalizados y reparaciones.',
+        bankAccounts: [
+          {
+            accountKey: 'SUP-SILVA-ESTADO-CC',
+            bankName: BankName.BANCO_ESTADO,
+            accountType: AccountTypeName.CUENTA_CORRIENTE,
+            accountNumber: '55667788-9',
+            accountHolderName: 'Taller Silva Joyeros EIRL',
+            isPrimary: true,
+          },
+        ],
+      },
+      {
+        businessName: 'Joyas Patagonia Comercial Ltda.',
+        contactFirstName: 'Diego',
+        contactLastName: 'Montiel',
+        documentNumber: '79.876.543-1',
+        email: 'compras@joyaspatagonia.cl',
+        phone: '+56 61 221 9988',
+        address: 'Av. Costanera 1220, Puerto Varas',
+        supplierType: SupplierType.WHOLESALER,
+        defaultPaymentTermDays: 35,
+        alias: 'Joyas Patagonia',
+        notes: 'Especialistas en plata 950 y turquesas patagónicas.',
+        bankAccounts: [
+          {
+            accountKey: 'SUP-PATA-SCOTIA-CC',
+            bankName: BankName.BANCO_SCOTIABANK,
+            accountType: AccountTypeName.CUENTA_CORRIENTE,
+            accountNumber: '66778899-0',
+            accountHolderName: 'Joyas Patagonia Comercial Ltda.',
+            isPrimary: true,
+          },
+        ],
+      },
+      {
+        businessName: 'Luminosa Imports SpA',
+        contactFirstName: 'Paula',
+        contactLastName: 'Contreras',
+        documentNumber: '76.998.112-4',
+        email: 'pagos@luminosaimports.com',
+        phone: '+56 2 2987 4455',
+        address: 'Calle Londres 78, Santiago',
+        supplierType: SupplierType.DISTRIBUTOR,
+        defaultPaymentTermDays: 40,
+        alias: 'Luminosa Imports',
+        notes: 'Importador de relojería premium y empaques iluminados.',
+        bankAccounts: [
+          {
+            accountKey: 'SUP-LUMI-ITAU-CC',
+            bankName: BankName.BANCO_ITAU,
+            accountType: AccountTypeName.CUENTA_CORRIENTE,
+            accountNumber: '10223344-6',
+            accountHolderName: 'Luminosa Imports SpA',
+            isPrimary: true,
+          },
+          {
+            accountKey: 'SUP-LUMI-PAGO-VISTA',
+            bankName: BankName.BANCO_MERCADO_PAGO,
+            accountType: AccountTypeName.CUENTA_VISTA,
+            accountNumber: 'MP-44556677',
+            accountHolderName: 'Luminosa Imports SpA',
+            notes: 'Cuenta dedicada a marketplaces.',
+          },
+        ],
+      },
+    ];
+
+    for (const seed of supplierSeeds) {
+      let person = await personRepo.findOne({ where: { documentNumber: seed.documentNumber }, withDeleted: true });
+      const isNewPerson = !person;
+
+      if (!person) {
+        person = new Person();
+        person.id = uuidv4();
+      }
+
+      person.type = PersonType.COMPANY;
+      person.firstName = seed.contactFirstName;
+      person.lastName = seed.contactLastName ?? undefined;
+      person.businessName = seed.businessName;
+      person.documentType = DocumentType.RUT;
+      person.documentNumber = seed.documentNumber;
+      person.email = seed.email ?? undefined;
+      person.phone = seed.phone ?? undefined;
+      person.address = seed.address ?? undefined;
+      person.bankAccounts = seed.bankAccounts;
+      person.deletedAt = undefined;
+
+      await personRepo.save(person);
+
+      let supplier = await supplierRepo.findOne({ where: { personId: person.id }, withDeleted: true });
+      const isNewSupplier = !supplier;
+
+      if (!supplier) {
+        supplier = supplierRepo.create({ personId: person.id });
+      } else {
+        supplier.personId = person.id;
+      }
+
+      supplier.supplierType = seed.supplierType;
+      supplier.alias = seed.alias ?? seed.businessName;
+      supplier.defaultPaymentTermDays = seed.defaultPaymentTermDays;
+      supplier.notes = seed.notes ?? undefined;
+      supplier.isActive = true;
+      supplier.deletedAt = undefined;
+
+      await supplierRepo.save(supplier);
+
+      const displayName = seed.businessName;
+      const personPrefix = isNewPerson ? '   ✓ Persona registrada' : '   • Persona actualizada';
+      const supplierPrefix = isNewSupplier ? '   ✓ Proveedor creado' : '   • Proveedor actualizado';
+
+      if (isNewPerson) {
+        console.log(`${personPrefix}: ${displayName}`);
+      }
+      console.log(`${supplierPrefix}: ${displayName}`);
+      supplierSummaries.push(displayName);
+    }
+
+    // ============================================
+    // 9.3 CAPITAL INICIAL
     // ============================================
     console.log('\n🏦 Registrando capital inicial...');
     try {
@@ -1627,6 +1838,7 @@ async function seedFlowStore() {
       conversionFactor: number;
       isBase: boolean;
       baseSymbol: string;
+      allowDecimals?: boolean;
     };
 
     const unitSeeds: UnitSeed[] = [
@@ -1637,6 +1849,7 @@ async function seedFlowStore() {
         conversionFactor: 1,
         isBase: true,
         baseSymbol: 'un',
+        allowDecimals: true,
       },
       {
         name: 'Caja',
@@ -1645,6 +1858,7 @@ async function seedFlowStore() {
         conversionFactor: 12,
         isBase: false,
         baseSymbol: 'un',
+        allowDecimals: true,
       },
       {
         name: 'Kilogramo',
@@ -1653,6 +1867,7 @@ async function seedFlowStore() {
         conversionFactor: 1,
         isBase: true,
         baseSymbol: 'kg',
+        allowDecimals: true,
       },
       {
         name: 'Gramo',
@@ -1661,6 +1876,7 @@ async function seedFlowStore() {
         conversionFactor: 0.001,
         isBase: false,
         baseSymbol: 'kg',
+        allowDecimals: true,
       },
     ];
 
@@ -1676,6 +1892,7 @@ async function seedFlowStore() {
       unit.symbol = seed.symbol;
       unit.dimension = seed.dimension;
       unit.conversionFactor = seed.conversionFactor;
+      unit.allowDecimals = seed.allowDecimals ?? true;
       unit.isBase = true;
       unit.active = true;
       unit.baseUnit = null;
@@ -1703,6 +1920,7 @@ async function seedFlowStore() {
       unit.symbol = seed.symbol;
       unit.dimension = seed.dimension;
       unit.conversionFactor = seed.conversionFactor;
+      unit.allowDecimals = seed.allowDecimals ?? true;
       unit.isBase = false;
       unit.active = true;
       unit.baseUnit = baseUnit;
@@ -2060,9 +2278,17 @@ async function seedFlowStore() {
       .map((list) => list.name)
       .join(', ');
 
-    const [personCount, customerCount, userCount, permissionCount, priceListItemCount] = await Promise.all([
+    const [
+      personCount,
+      customerCount,
+      supplierCount,
+      userCount,
+      permissionCount,
+      priceListItemCount,
+    ] = await Promise.all([
       db.getRepository(Person).count({ where: { deletedAt: IsNull() } }),
       db.getRepository(Customer).count({ where: { deletedAt: IsNull() } }),
+      db.getRepository(Supplier).count({ where: { deletedAt: IsNull() } }),
       db.getRepository(User).count({ where: { deletedAt: IsNull() } }),
       db.getRepository(Permission).count({ where: { deletedAt: IsNull() } }),
       db.getRepository(PriceListItem).count({ where: { deletedAt: IsNull() } }),
@@ -2077,6 +2303,8 @@ async function seedFlowStore() {
     const storageSummaryText = storageDisplayNames.length > 0 ? storageDisplayNames.join(', ') : '—';
     const uniqueCustomerSummaries = Array.from(new Set(customerSummaries));
     const customerSummaryText = uniqueCustomerSummaries.length > 0 ? uniqueCustomerSummaries.join(', ') : '—';
+    const uniqueSupplierSummaries = Array.from(new Set(supplierSummaries));
+    const supplierSummaryText = uniqueSupplierSummaries.length > 0 ? uniqueSupplierSummaries.join(', ') : '—';
 
     console.log('\n═══════════════════════════════════════════════════════════');
     console.log('✅ Seed completado exitosamente!');
@@ -2111,6 +2339,7 @@ async function seedFlowStore() {
     console.log(`   • Usuarios activos: ${userCount}`);
     console.log(`   • Personas registradas: ${personCount}`);
     console.log(`   • Clientes activos: ${customerCount}${customerSummaryText !== '—' ? ` (${customerSummaryText})` : ''}`);
+    console.log(`   • Proveedores activos: ${supplierCount}${supplierSummaryText !== '—' ? ` (${supplierSummaryText})` : ''}`);
     console.log(`   • Centros de costo: ${costCentersData.length} activos`);
     console.log(`   • Unidades organizativas: ${organizationalUnitsData.length} activas`);
     console.log(`   • Categorías: ${categoriesData.length} categorías de joyería`);

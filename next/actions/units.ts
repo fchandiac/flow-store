@@ -17,6 +17,7 @@ export interface UnitSummary {
     conversionFactor: number;
     isBase: boolean;
     baseUnitId: string;
+    allowDecimals: boolean;
 }
 
 export interface UnitAdminSummary {
@@ -33,6 +34,7 @@ export interface UnitAdminSummary {
     derivedCount: number;
     createdAt: string;
     updatedAt: string;
+    allowDecimals: boolean;
 }
 
 export interface GetUnitsParams {
@@ -48,6 +50,7 @@ export interface CreateUnitInput {
     conversionFactor: number;
     isBase: boolean;
     baseUnitId?: string;
+    allowDecimals?: boolean;
 }
 
 export interface UpdateUnitInput {
@@ -57,6 +60,7 @@ export interface UpdateUnitInput {
     conversionFactor?: number;
     isBase?: boolean;
     baseUnitId?: string;
+    allowDecimals?: boolean;
 }
 
 interface UnitMutationResult {
@@ -114,6 +118,7 @@ function mapUnitToAdminSummary(unit: Unit): UnitAdminSummary {
         derivedCount,
         createdAt: unit.createdAt?.toISOString?.() ?? new Date(0).toISOString(),
         updatedAt: unit.updatedAt?.toISOString?.() ?? new Date(0).toISOString(),
+        allowDecimals: unit.allowDecimals ?? true,
     };
 }
 
@@ -159,6 +164,7 @@ export async function getActiveUnits(): Promise<UnitSummary[]> {
         conversionFactor: Number(unit.conversionFactor ?? 0),
         isBase: unit.isBase,
         baseUnitId: unit.baseUnit?.id ?? unit.id,
+        allowDecimals: unit.allowDecimals ?? true,
     }));
 }
 
@@ -225,6 +231,8 @@ export async function createUnit(input: CreateUnitInput): Promise<UnitMutationRe
         return { success: false, error: 'El factor de conversión debe ser un número positivo' };
     }
 
+    const allowDecimals = input.allowDecimals === undefined ? true : Boolean(input.allowDecimals);
+
     const hasUniqueSymbol = await ensureUniqueSymbol(repo, symbol);
     if (!hasUniqueSymbol) {
         return { success: false, error: 'El símbolo ya está en uso' };
@@ -253,6 +261,7 @@ export async function createUnit(input: CreateUnitInput): Promise<UnitMutationRe
             isBase: true,
             active: true,
             baseUnit: null,
+            allowDecimals,
         });
 
         await repo.save(unit);
@@ -292,6 +301,7 @@ export async function createUnit(input: CreateUnitInput): Promise<UnitMutationRe
         isBase: false,
         baseUnit,
         active: true,
+        allowDecimals,
     });
 
     await repo.save(unit);
@@ -342,6 +352,9 @@ export async function updateUnit(id: string, input: UpdateUnitInput): Promise<Un
     }
 
     const wantsBase = input.isBase !== undefined ? input.isBase : unit.isBase;
+    const nextAllowDecimals = input.allowDecimals !== undefined
+        ? Boolean(input.allowDecimals)
+        : unit.allowDecimals ?? true;
 
     const hasUniqueSymbol = await ensureUniqueSymbol(repo, nextSymbol, unit.id);
     if (!hasUniqueSymbol) {
@@ -403,6 +416,7 @@ export async function updateUnit(id: string, input: UpdateUnitInput): Promise<Un
     unit.conversionFactor = nextConversion;
     unit.isBase = wantsBase;
     unit.baseUnit = nextBaseUnit ?? null;
+    unit.allowDecimals = nextAllowDecimals;
 
     await repo.save(unit);
 

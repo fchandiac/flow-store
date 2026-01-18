@@ -1,4 +1,5 @@
-import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+import { NativeModules, Platform } from 'react-native';
 import type { CartItem, CashSessionSummary, PointOfSaleSummary, ProductSearchResult } from '../store/usePosStore';
 
 type HttpMethod = 'GET' | 'POST';
@@ -14,14 +15,65 @@ type ApiErrorResponse = {
 
 type ApiResponse<T> = ApiSuccessResponse<T> | ApiErrorResponse;
 
-const HOST_IP_FALLBACK = '192.168.0.132';
+const API_PORT = process.env.EXPO_PUBLIC_API_PORT ?? '3010';
+const REQUEST_TIMEOUT_MS = 15000;
+const isDevEnvironment = Boolean((globalThis as { __DEV__?: boolean }).__DEV__);
 
-const DEFAULT_BASE_URL = Platform.select({
-  android: `http://${HOST_IP_FALLBACK}:3010`,
-  default: 'http://localhost:3010',
-});
+function extractHostname(candidate?: string | null): string | null {
+  if (!candidate) {
+    return null;
+  }
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? DEFAULT_BASE_URL ?? 'http://localhost:3010';
+  try {
+    const normalized = candidate.match(/^https?:\/\//)
+      ? candidate
+      : `http://${candidate}`;
+    const url = new URL(normalized);
+    return url.hostname;
+  } catch {
+    return null;
+  }
+}
+
+function inferDevServerHost(): string | null {
+  if (!isDevEnvironment) {
+    return null;
+  }
+
+  const expoHostCandidates: Array<string | null | undefined> = [
+    Constants?.expoGoConfig?.hostUri,
+    Constants?.expoConfig?.hostUri,
+    // `manifest` remains for backwards compatibility with older Expo/Metro flows.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    (Constants as any)?.manifest?.debuggerHost,
+    NativeModules?.SourceCode?.scriptURL,
+  ];
+
+  for (const candidate of expoHostCandidates) {
+    const host = extractHostname(typeof candidate === 'string' ? candidate : null);
+    if (host) {
+      return host;
+    }
+  }
+
+  return null;
+}
+
+function resolveDefaultBaseUrl(): string {
+  const hostFromExpo = inferDevServerHost();
+  const defaultHost = Platform.OS === 'android' ? '10.0.2.2' : 'localhost';
+  const host = hostFromExpo ?? defaultHost;
+
+  if (Platform.OS === 'android' && (host === 'localhost' || host === '127.0.0.1')) {
+    return `http://10.0.2.2:${API_PORT}`;
+  }
+
+  return `http://${host}:${API_PORT}`;
+}
+
+const DEFAULT_BASE_URL = resolveDefaultBaseUrl();
+
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? DEFAULT_BASE_URL;
 
 async function request<T>(
   path: string,
@@ -29,14 +81,40 @@ async function request<T>(
 ): Promise<ApiSuccessResponse<T>> {
   const url = `${API_BASE_URL.replace(/\/$/, '')}${path}`;
 
-  const response = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      ...(init.headers ?? {}),
-    },
-    ...init,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        ...(init.headers ?? {}),
+      },
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') {
+      throw new Error('No se pudo contactar al servidor POS. Intenta nuevamente.');
+    }
+
+    if (
+      error instanceof Error &&
+      typeof error.message === 'string' &&
+      error.message.toLowerCase().includes('network request failed')
+    ) {
+      throw new Error('No se pudo conectar con el servidor POS. Revisa tu red.');
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   let payload: ApiResponse<T> | null = null;
   try {

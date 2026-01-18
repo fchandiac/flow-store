@@ -30,6 +30,7 @@ import {
   type CartItem,
 } from '../store/usePosStore';
 import { formatCurrency } from '../utils/formatCurrency';
+import { palette } from '../theme/palette';
 
 export type PosScreenProps = NativeStackScreenProps<RootStackParamList, 'Pos'>;
 
@@ -262,7 +263,11 @@ function PosScreen({ navigation }: PosScreenProps) {
   }
 
   return (
-    <View style={styles.root}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
+      style={styles.root}
+    >
       <Modal
         transparent
         visible={isCashMenuVisible}
@@ -311,7 +316,8 @@ function PosScreen({ navigation }: PosScreenProps) {
       >
         <Pressable style={styles.modalBackdrop} onPress={() => closeCashMovementModal()}>
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
             style={styles.cashMovementContainer}
           >
             <Pressable
@@ -351,7 +357,7 @@ function PosScreen({ navigation }: PosScreenProps) {
                   }}
                   style={styles.cashMovementInput}
                   placeholder="0"
-                  placeholderTextColor="#64748b"
+                  placeholderTextColor={palette.textMuted}
                   keyboardType="decimal-pad"
                   returnKeyType="done"
                   onSubmitEditing={handleSubmitCashMovement}
@@ -372,7 +378,7 @@ function PosScreen({ navigation }: PosScreenProps) {
                   }}
                   style={[styles.cashMovementInput, styles.cashMovementTextArea]}
                   placeholder="Ej: retiro para pagos menores"
-                  placeholderTextColor="#64748b"
+                  placeholderTextColor={palette.textMuted}
                   multiline
                   numberOfLines={3}
                   editable={!isSubmittingCashMovement}
@@ -399,9 +405,7 @@ function PosScreen({ navigation }: PosScreenProps) {
                   disabled={isSubmittingCashMovement}
                 >
                   {isSubmittingCashMovement ? (
-                    <ActivityIndicator
-                      color={cashMovementType === 'OUTCOME' ? '#f8fafc' : '#0b1120'}
-                    />
+                    <ActivityIndicator color={palette.primaryText} />
                   ) : (
                     <Text
                       style={[
@@ -434,7 +438,7 @@ function PosScreen({ navigation }: PosScreenProps) {
             accessibilityLabel="Abrir movimientos de caja"
             onPress={() => setIsCashMenuVisible(true)}
           >
-            <Ionicons name="cash-outline" size={22} color="#ecfeff" />
+            <Ionicons name="cash-outline" size={22} color={palette.primaryText} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.headerIconButton}
@@ -443,7 +447,7 @@ function PosScreen({ navigation }: PosScreenProps) {
             accessibilityLabel="Abrir configuración"
             onPress={() => navigation.navigate('Settings')}
           >
-            <Ionicons name="settings-outline" size={22} color="#f8fafc" />
+            <Ionicons name="settings-outline" size={22} color={palette.textSecondary} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.headerIconButton, styles.headerIconButtonDanger]}
@@ -452,7 +456,7 @@ function PosScreen({ navigation }: PosScreenProps) {
             accessibilityLabel="Cerrar sesión"
             onPress={handleLogout}
           >
-            <Ionicons name="log-out-outline" size={22} color="#fee2e2" />
+            <Ionicons name="log-out-outline" size={22} color={palette.primaryText} />
           </TouchableOpacity>
         </View>
       </View>
@@ -471,7 +475,7 @@ function PosScreen({ navigation }: PosScreenProps) {
                 autoCorrect={false}
                 onChangeText={setQuery}
                 placeholder="Nombre, SKU o código escaneado"
-                placeholderTextColor="#6b7280"
+                placeholderTextColor={palette.textMuted}
                 style={styles.searchInput}
                 value={query}
               />
@@ -482,7 +486,7 @@ function PosScreen({ navigation }: PosScreenProps) {
                 disabled={isSearching}
               >
                 {isSearching ? (
-                  <ActivityIndicator color="#f8fafc" />
+                  <ActivityIndicator color={palette.primaryText} />
                 ) : (
                   <Text style={styles.primaryButtonLabel}>Buscar</Text>
                 )}
@@ -590,7 +594,7 @@ function PosScreen({ navigation }: PosScreenProps) {
               ]}
             >
               {isCheckingOut ? (
-                <ActivityIndicator color="#042f2e" />
+                <ActivityIndicator color={palette.primaryText} />
               ) : (
                 <Text style={styles.checkoutLabel}>Finalizar venta</Text>
               )}
@@ -598,7 +602,7 @@ function PosScreen({ navigation }: PosScreenProps) {
           </View>
         </ScrollView>
       </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -607,7 +611,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
     paddingVertical: 20,
-    backgroundColor: '#0b1120',
+    backgroundColor: palette.background,
   },
   header: {
     flexDirection: 'row',
@@ -639,19 +643,21 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 22,
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontWeight: '600',
   },
   headerSubtitle: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: palette.textMuted,
     marginTop: 4,
   },
   headerIconButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#1f2937',
+    backgroundColor: palette.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
@@ -660,22 +666,24 @@ const styles = StyleSheet.create({
     marginLeft: 0,
   },
   headerIconButtonPrimary: {
-    backgroundColor: '#0ea5e9',
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
   },
   headerIconButtonDanger: {
-    backgroundColor: '#ef4444',
+    backgroundColor: palette.danger,
+    borderColor: palette.danger,
   },
   card: {
     borderRadius: 16,
-    backgroundColor: '#111827',
+    backgroundColor: palette.surface,
     padding: 18,
     marginBottom: 20,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#1f2937',
+    borderColor: palette.border,
   },
   sectionTitle: {
     fontSize: 18,
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontWeight: '600',
     marginBottom: 12,
   },
@@ -685,11 +693,11 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    backgroundColor: '#0b1120',
+    backgroundColor: palette.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1f2937',
-    color: '#f8fafc',
+    borderColor: palette.border,
+    color: palette.textPrimary,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
@@ -701,13 +709,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2563eb',
+    backgroundColor: palette.primary,
   },
   searchButton: {
     minWidth: 120,
   },
   primaryButtonLabel: {
-    color: '#f8fafc',
+    color: palette.primaryText,
     fontWeight: '600',
   },
   results: {
@@ -716,10 +724,10 @@ const styles = StyleSheet.create({
   resultItem: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#1f2937',
+    borderColor: palette.border,
     padding: 14,
     marginBottom: 12,
-    backgroundColor: '#0f172a',
+    backgroundColor: palette.surface,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -730,12 +738,12 @@ const styles = StyleSheet.create({
   },
   resultName: {
     fontSize: 16,
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontWeight: '600',
   },
   resultMeta: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: palette.textMuted,
     marginTop: 4,
   },
   resultPriceBlock: {
@@ -743,32 +751,32 @@ const styles = StyleSheet.create({
   },
   resultPrice: {
     fontSize: 16,
-    color: '#22c55e',
+    color: palette.primary,
     fontWeight: '700',
   },
   resultHint: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: palette.textMuted,
   },
   cartItem: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#1f2937',
+    borderColor: palette.border,
     padding: 14,
     marginBottom: 12,
-    backgroundColor: '#0f172a',
+    backgroundColor: palette.surface,
   },
   cartItemInfo: {
     marginBottom: 10,
   },
   cartItemName: {
     fontSize: 16,
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontWeight: '600',
   },
   cartItemMeta: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: palette.textMuted,
     marginTop: 4,
   },
   cartActions: {
@@ -780,7 +788,9 @@ const styles = StyleSheet.create({
     width: 40,
     height: 36,
     borderRadius: 10,
-    backgroundColor: '#1e293b',
+    backgroundColor: palette.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -791,13 +801,13 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   counterLabel: {
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontSize: 20,
     fontWeight: '600',
   },
   counterValue: {
     fontSize: 16,
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontWeight: '600',
   },
   removeButton: {
@@ -805,10 +815,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: '#ef4444',
+    backgroundColor: palette.danger,
   },
   removeLabel: {
-    color: '#fff1f2',
+    color: palette.primaryText,
     fontWeight: '600',
   },
   cartItemTotals: {
@@ -816,16 +826,16 @@ const styles = StyleSheet.create({
   },
   cartItemPrice: {
     fontSize: 16,
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontWeight: '600',
   },
   cartItemHint: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: palette.textMuted,
     marginTop: 4,
   },
   emptyCart: {
-    color: '#94a3b8',
+    color: palette.textMuted,
     marginBottom: 16,
   },
   totalRow: {
@@ -838,44 +848,45 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#1f2937',
+    borderTopColor: palette.border,
     paddingTop: 12,
   },
   totalLabel: {
-    color: '#94a3b8',
+    color: palette.textMuted,
     fontSize: 14,
   },
   totalValue: {
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontSize: 14,
     fontWeight: '600',
   },
   totalFinalLabel: {
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontSize: 16,
     fontWeight: '700',
   },
   totalFinalValue: {
-    color: '#22c55e',
+    color: palette.primary,
     fontSize: 18,
     fontWeight: '700',
   },
   checkoutButton: {
     marginTop: 20,
     paddingVertical: 16,
-    backgroundColor: '#22c55e',
+    backgroundColor: palette.primary,
+    borderRadius: 12,
   },
   checkoutButtonDisabled: {
-    backgroundColor: '#14532d',
+    backgroundColor: palette.primaryStrong,
   },
   checkoutLabel: {
-    color: '#042f2e',
+    color: palette.primaryText,
     fontSize: 16,
     fontWeight: '700',
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    backgroundColor: palette.backdrop,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
@@ -885,13 +896,13 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     borderRadius: 16,
     padding: 24,
-    backgroundColor: '#0f172a',
+    backgroundColor: palette.surface,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#1f2937',
+    borderColor: palette.border,
   },
   modalTitle: {
     fontSize: 18,
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontWeight: '600',
     marginBottom: 20,
   },
@@ -899,21 +910,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: '#1e293b',
+    backgroundColor: palette.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
     marginBottom: 12,
   },
   modalOptionLabel: {
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontSize: 16,
     fontWeight: '500',
   },
   modalCancel: {
-    backgroundColor: '#dc2626',
+    backgroundColor: palette.danger,
     marginTop: 4,
   },
   modalCancelLabel: {
     textAlign: 'center',
-    color: '#fff1f2',
+    color: palette.primaryText,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -926,19 +939,19 @@ const styles = StyleSheet.create({
     maxWidth: 420,
     borderRadius: 18,
     padding: 24,
-    backgroundColor: '#0f172a',
+    backgroundColor: palette.surface,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: '#1f2937',
+    borderColor: palette.border,
   },
   cashMovementTitle: {
     fontSize: 20,
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontWeight: '700',
     marginBottom: 8,
   },
   cashMovementSubtitle: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: palette.textMuted,
     marginBottom: 16,
     lineHeight: 18,
   },
@@ -946,24 +959,24 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   cashMovementInfoLabel: {
-    color: '#94a3b8',
+    color: palette.textMuted,
     fontSize: 12,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 4,
   },
   cashMovementInfoValue: {
-    color: '#38bdf8',
+    color: palette.primary,
     fontSize: 20,
     fontWeight: '700',
   },
   cashMovementInfoHint: {
-    color: '#94a3b8',
+    color: palette.textMuted,
     fontSize: 12,
     marginTop: 6,
   },
   cashMovementWarning: {
-    color: '#facc15',
+    color: palette.warningText,
     fontSize: 13,
     marginBottom: 20,
   },
@@ -971,17 +984,17 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   cashMovementLabel: {
-    color: '#f8fafc',
+    color: palette.textSecondary,
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 6,
   },
   cashMovementInput: {
-    backgroundColor: '#0b1120',
+    backgroundColor: palette.surface,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#1f2937',
-    color: '#f8fafc',
+    borderColor: palette.border,
+    color: palette.textPrimary,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 16,
@@ -991,7 +1004,7 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   cashMovementError: {
-    color: '#f87171',
+    color: palette.error,
     fontSize: 13,
     marginBottom: 12,
   },
@@ -1006,37 +1019,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
-    backgroundColor: '#1f2937',
+    backgroundColor: palette.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
     alignItems: 'center',
   },
   secondaryButtonDisabled: {
     opacity: 0.6,
   },
   secondaryButtonLabel: {
-    color: '#e2e8f0',
+    color: palette.textSecondary,
     fontWeight: '600',
     fontSize: 15,
   },
   cashMovementSubmitButton: {
     flex: 1,
     paddingVertical: 12,
+    borderRadius: 12,
   },
   cashMovementDepositButton: {
-    backgroundColor: '#22c55e',
+    backgroundColor: palette.primary,
   },
   cashMovementWithdrawButton: {
-    backgroundColor: '#f97316',
+    backgroundColor: palette.danger,
   },
   cashMovementSubmitButtonDisabled: {
     opacity: 0.7,
   },
   cashMovementSubmitLabel: {
-    color: '#082f49',
+    color: palette.primaryText,
     fontSize: 15,
     fontWeight: '700',
   },
   cashMovementSubmitLabelLight: {
-    color: '#f8fafc',
+    color: palette.primaryText,
   },
 });
 
