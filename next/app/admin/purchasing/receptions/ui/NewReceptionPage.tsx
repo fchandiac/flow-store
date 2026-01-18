@@ -566,13 +566,16 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                 fallbackTaxRate
             );
             const allowDecimals = line.allowDecimals ?? true;
+            // Align default received quantity with the unit's decimal policy
+            const baseQuantity = Number.isFinite(Number(line.quantity)) ? Number(line.quantity) : 0;
+            const initialReceivedQuantity = allowDecimals ? baseQuantity : Math.round(baseQuantity);
 
             return {
                 productVariantId: line.productVariantId,
                 productName: line.productName,
                 sku: line.sku,
-                expectedQuantity: line.quantity,
-                receivedQuantity: line.quantity, // Por defecto, recibir la cantidad esperada
+                expectedQuantity: baseQuantity,
+                receivedQuantity: initialReceivedQuantity,
                 unitPrice: line.unitPrice,
                 unitCost: line.unitCost,
                 notes: '',

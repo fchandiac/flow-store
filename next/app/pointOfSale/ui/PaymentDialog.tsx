@@ -27,6 +27,7 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
     [PaymentMethod.TRANSFER]: 'Transferencia',
     [PaymentMethod.CHECK]: 'Cheque',
     [PaymentMethod.CREDIT]: 'Crédito',
+    [PaymentMethod.INTERNAL_CREDIT]: 'Crédito interno',
     [PaymentMethod.MIXED]: 'Mixto',
 };
 
@@ -320,7 +321,7 @@ export default function PaymentDialog() {
                                             data-test-id={`pos-payment-amount-${index}`}
                                         />
                                         <p className="text-xs text-muted-foreground">
-                                            {entry.method === PaymentMethod.CREDIT
+                                            {entry.method === PaymentMethod.CREDIT || entry.method === PaymentMethod.INTERNAL_CREDIT
                                                 ? 'El monto cargará a la cuenta del cliente.'
                                                 : 'Monto recibido para este método.'}
                                         </p>

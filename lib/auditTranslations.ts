@@ -282,6 +282,9 @@ export const VALUE_TRANSLATIONS: Record<string, string> = {
   CHECK: 'Cheque',
   CREDIT_CARD: 'Tarjeta de crédito',
   DEBIT_CARD: 'Tarjeta de débito',
+  CREDIT: 'Crédito',
+  INTERNAL_CREDIT: 'Crédito interno',
+  MIXED: 'Pago mixto',
 
   // Direction values
   IN: 'Entrada',

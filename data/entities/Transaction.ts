@@ -69,6 +69,7 @@ export enum PaymentMethod {
     TRANSFER = 'TRANSFER',
     CHECK = 'CHECK',
     CREDIT = 'CREDIT',
+    INTERNAL_CREDIT = 'INTERNAL_CREDIT',
     MIXED = 'MIXED',
 }
 

@@ -47,6 +47,7 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
     [PaymentMethod.TRANSFER]: 'Transferencia',
     [PaymentMethod.CHECK]: 'Cheque',
     [PaymentMethod.CREDIT]: 'Crédito',
+    [PaymentMethod.INTERNAL_CREDIT]: 'Crédito interno',
     [PaymentMethod.MIXED]: 'Mixto',
 };
 

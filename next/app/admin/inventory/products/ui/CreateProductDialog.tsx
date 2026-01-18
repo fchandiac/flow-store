@@ -162,6 +162,10 @@ export default function CreateProductDialog({
             .map((unit) => ({ id: unit.id, label: `${unit.symbol} · ${unit.name}` }));
     }, [units]);
 
+    const selectedBaseUnit = useMemo(() => {
+        return units.find((unit) => unit.id === formData.baseUnitId) ?? null;
+    }, [units, formData.baseUnitId]);
+
     useEffect(() => {
         if (!open || units.length === 0) {
             return;
@@ -231,7 +235,7 @@ export default function CreateProductDialog({
     };
     const isValid = Boolean(formData.name.trim())
         && Boolean(formData.baseUnitId)
-        && (!loadingUnits && baseUnitSelectOptions.length > 0);
+        && !loadingUnits;
 
     return (
         <Dialog
@@ -284,22 +288,19 @@ export default function CreateProductDialog({
                             onChange={(val) => setFormData({ ...formData, productType: val as ProductType })}
                             data-test-id="select-type"
                         />
-                        <Select
-                            label="Unidad base"
-                            required
-                            options={baseUnitSelectOptions}
-                            value={formData.baseUnitId}
-                            onChange={(val) => setFormData({ ...formData, baseUnitId: val ? String(val) : '' })}
-                            placeholder={loadingUnits ? 'Cargando unidades...' : 'Selecciona unidad base'}
-                            disabled={loadingUnits || baseUnitSelectOptions.length === 0}
-                            data-test-id="select-base-unit"
-                        />
-                        {!loadingUnits && baseUnitSelectOptions.length === 0 && (
-                            <div className="md:col-span-2 text-xs text-amber-600">
-                                No hay unidades base activas disponibles. Configura al menos una unidad base en
-                                Configuración → Unidades antes de crear productos.
-                            </div>
-                        )}
+                        <div className="md:col-span-2">
+                            {loadingUnits ? (
+                                <div className="text-sm text-muted-foreground">Cargando unidades base…</div>
+                            ) : selectedBaseUnit ? (
+                                <div className="rounded-md border border-border/70 bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+                                    Se usará la unidad base predeterminada <span className="font-medium text-foreground">{selectedBaseUnit.symbol} · {selectedBaseUnit.name}</span>. Las variantes definirán la unidad operativa final.
+                                </div>
+                            ) : (
+                                <div className="text-xs text-amber-600">
+                                    No hay unidades base activas disponibles. Configura al menos una unidad base en Configuración → Unidades antes de crear productos.
+                                </div>
+                            )}
+                        </div>
                         <div className="md:col-span-2">
                             <TextField
                                 label="Descripción"

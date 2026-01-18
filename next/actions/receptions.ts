@@ -5,6 +5,8 @@ import { getDb } from '@/data/db';
 import { Transaction, TransactionStatus, TransactionType, PaymentMethod } from '@/data/entities/Transaction';
 import { TransactionLine } from '@/data/entities/TransactionLine';
 import { ProductVariant } from '@/data/entities/ProductVariant';
+import { Product } from '@/data/entities/Product';
+import { Unit } from '@/data/entities/Unit';
 import { Supplier } from '@/data/entities/Supplier';
 import { Storage } from '@/data/entities/Storage';
 import { In } from 'typeorm';
@@ -500,7 +502,25 @@ export async function searchPurchaseOrdersForReception(
         )
     );
 
+    const productIds = Array.from(
+        new Set(
+            lines
+                .map((line) => line.productId)
+                .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+        )
+    );
+
+    const unitIds = Array.from(
+        new Set(
+            lines
+                .map((line) => line.unitId)
+                .filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+        )
+    );
+
     let allowDecimalsByVariant = new Map<string, boolean>();
+    let allowDecimalsByProduct = new Map<string, boolean>();
+    let allowDecimalsByUnit = new Map<string, boolean>();
 
     if (variantIds.length > 0) {
         const variantRepo = ds.getRepository(ProductVariant);
@@ -518,6 +538,28 @@ export async function searchPurchaseOrdersForReception(
                 variant.unit?.allowDecimals ?? variant.product?.baseUnit?.allowDecimals ?? true,
             ])
         );
+    }
+
+    if (productIds.length > 0) {
+        const productRepo = ds.getRepository(Product);
+        const products = await productRepo
+            .createQueryBuilder('product')
+            .leftJoinAndSelect('product.baseUnit', 'productBaseUnit')
+            .where('product.id IN (:...productIds)', { productIds })
+            .getMany();
+
+        allowDecimalsByProduct = new Map(
+            products.map((product) => [product.id, product.baseUnit?.allowDecimals ?? true])
+        );
+    }
+
+    if (unitIds.length > 0) {
+        const unitRepo = ds.getRepository(Unit);
+        const units = await unitRepo.find({
+            where: { id: In(unitIds) },
+        });
+
+        allowDecimalsByUnit = new Map(units.map((unit) => [unit.id, unit.allowDecimals ?? true]));
     }
 
     const linesByOrder = new Map<string, TransactionLine[]>();
@@ -555,23 +597,33 @@ export async function searchPurchaseOrdersForReception(
             status: order.status,
             paymentDueDate,
             paymentTermDays,
-            lines: orderLines.map((line) => ({
-                productVariantId: line.productVariantId ?? '',
-                productName: line.productName,
-                sku: line.productSku,
-                quantity: Number(line.quantity),
-                unitPrice: Number(line.unitPrice),
-                unitCost: Number(line.unitCost ?? line.unitPrice),
-                taxId: line.taxId ?? null,
-                taxIds: line.taxId ? [line.taxId] : [],
-                taxRate: line.taxRate !== undefined && line.taxRate !== null ? Number(line.taxRate) : null,
-                unitOfMeasure: line.unitOfMeasure ?? null,
-                variantName: line.variantName ?? null,
-                allowDecimals:
-                    line.productVariantId
-                        ? allowDecimalsByVariant.get(line.productVariantId) ?? true
-                        : true,
-            })),
+            lines: orderLines.map((line) => {
+                const allowDecimals =
+                    (line.productVariantId
+                        ? allowDecimalsByVariant.get(line.productVariantId)
+                        : undefined) ??
+                    (line.unitId ? allowDecimalsByUnit.get(line.unitId) : undefined) ??
+                    (line.productId ? allowDecimalsByProduct.get(line.productId) : undefined) ??
+                    true;
+                // Preserve unit restrictions so the UI steppers align with Unit.allowDecimals
+                const rawQuantity = Number(line.quantity);
+                const normalizedQuantity = allowDecimals ? rawQuantity : Math.round(rawQuantity);
+
+                return {
+                    productVariantId: line.productVariantId ?? '',
+                    productName: line.productName,
+                    sku: line.productSku,
+                    quantity: normalizedQuantity,
+                    unitPrice: Number(line.unitPrice),
+                    unitCost: Number(line.unitCost ?? line.unitPrice),
+                    taxId: line.taxId ?? null,
+                    taxIds: line.taxId ? [line.taxId] : [],
+                    taxRate: line.taxRate !== undefined && line.taxRate !== null ? Number(line.taxRate) : null,
+                    unitOfMeasure: line.unitOfMeasure ?? null,
+                    variantName: line.variantName ?? null,
+                    allowDecimals,
+                };
+            }),
         };
     });
 

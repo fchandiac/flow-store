@@ -55,6 +55,7 @@ const PAYMENT_METHOD_LABELS: Partial<Record<PaymentMethod, string>> = {
   [PaymentMethod.TRANSFER]: 'Transferencia',
   [PaymentMethod.CHECK]: 'Cheque',
   [PaymentMethod.CREDIT]: 'Crédito',
+  [PaymentMethod.INTERNAL_CREDIT]: 'Crédito interno',
   [PaymentMethod.MIXED]: 'Pago mixto',
 };
 

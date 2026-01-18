@@ -769,7 +769,7 @@ export type CreateSaleInput = {
   userName: string;
   pointOfSaleId: string;
   cashSessionId: string;
-  paymentMethod: 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'TRANSFER' | 'CHECK' | 'CREDIT' | 'MIXED';
+  paymentMethod: 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'TRANSFER' | 'CHECK' | 'CREDIT' | 'INTERNAL_CREDIT' | 'MIXED';
   amountPaid: number;
   lines: SaleLineInput[];
 };

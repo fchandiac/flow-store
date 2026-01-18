@@ -57,6 +57,7 @@ const paymentMethodLabels: Record<PaymentMethod, string> = {
   [PaymentMethod.CHECK]: 'Cheque',
   [PaymentMethod.CREDIT]: 'Crédito',
   [PaymentMethod.MIXED]: 'Pago mixto',
+  [PaymentMethod.INTERNAL_CREDIT]: 'Crédito interno',
 };
 
 const paymentMethodOptions: Option[] = [
