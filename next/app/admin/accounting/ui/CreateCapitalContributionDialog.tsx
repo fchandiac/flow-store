@@ -143,13 +143,8 @@ export default function CreateCapitalContributionDialog({
     const isReady = hasShareholders && hasBankAccounts;
 
     return (
-        <Dialog open={open} onClose={handleClose} title="Registrar aporte de capital" size="lg" showCloseButton>
+        <Dialog open={open} onClose={handleClose} title="Registrar aporte de capital" size="lg">
             <form className="space-y-6" onSubmit={handleSubmit}>
-                <Alert variant="info">
-                    Registra el aporte de capital indicando el socio, la cuenta bancaria de destino y el monto transferido.
-                    La operación creará el movimiento bancario y dejará trazabilidad contable para su conciliación.
-                </Alert>
-
                 {!hasShareholders && (
                     <Alert variant="warning">
                         No existen socios activos registrados en la compañía. Agrega socios en Configuración &gt; Empresa antes de registrar aportes.

@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "android13-expo-app",
-    "slug": "android13-expo-app",
+    "name": "Flow-store POS",
+    "slug": "flow-store-mobile-pos",
     "version": "1.0.0",
     "orientation": "landscape",
     "icon": "./assets/icon.png",

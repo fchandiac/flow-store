@@ -187,7 +187,7 @@ export const CustomersDataGrid = () => {
   return (
     <>
       <DataGrid
-        title="Clientes"
+        title=""
         columns={columns}
         rows={rows}
         totalRows={totalRows}

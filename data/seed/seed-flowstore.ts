@@ -6,6 +6,7 @@ import { Person, PersonType, DocumentType, BankName, AccountTypeName, PersonBank
 import { Customer } from '../entities/Customer';
 import { Supplier, SupplierType } from '../entities/Supplier';
 import { Company } from '../entities/Company';
+import { Shareholder } from '../entities/Shareholder';
 import { Branch } from '../entities/Branch';
 import { Tax, TaxType } from '../entities/Tax';
 import { Category } from '../entities/Category';
@@ -35,17 +36,6 @@ import { computePriceWithTaxes } from '../../lib/pricing/priceCalculations';
 function hashPassword(password: string): string {
   return bcrypt.hashSync(password, 12);
 }
-
-const clpFormatter = new Intl.NumberFormat('es-CL', {
-  style: 'currency',
-  currency: 'CLP',
-  maximumFractionDigits: 0,
-});
-
-const formatCLP = (value: number): string => clpFormatter.format(value);
-
-const INITIAL_CAPITAL_DOCUMENT = 'CAP-INITIAL-0001';
-const INITIAL_CAPITAL_AMOUNT = 10_000_000;
 
 const DATA_DIR = path.join(__dirname, 'dataToSeed');
 
@@ -104,6 +94,26 @@ function ensureArray<T>(data: T[] | null | undefined, fileName: string): T[] {
   return data;
 }
 
+function buildPersonDisplayName(person: Pick<Person, 'type' | 'firstName' | 'lastName' | 'businessName' | 'documentNumber'>): string {
+  if (person.type === PersonType.COMPANY) {
+    return person.businessName?.trim() || person.firstName || 'Empresa sin nombre';
+  }
+
+  const parts = [person.firstName, person.lastName]
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .filter((value): value is string => value.length > 0);
+
+  if (parts.length > 0) {
+    return parts.join(' ');
+  }
+
+  if (person.businessName && person.businessName.trim().length > 0) {
+    return person.businessName.trim();
+  }
+
+  return person.documentNumber?.trim() || 'Persona sin identificación';
+}
+
 type CompanySeed = {
   name: string;
   defaultCurrency?: string;
@@ -120,6 +130,46 @@ type BranchSeed = {
   location?: { lat: number; lng: number } | null;
   isHeadquarters: boolean;
   legacyNames?: string[];
+};
+
+type ShareholderSeedRaw = {
+  role?: string | null;
+  ownershipPercentage?: number | null;
+  notes?: string | null;
+  isActive?: boolean;
+  metadata?: Record<string, unknown> | null;
+  person: {
+    type?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    businessName?: string | null;
+    documentType: string;
+    documentNumber: string;
+    email?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    bankAccounts?: RawBankAccount[] | null;
+  };
+};
+
+type ShareholderSeed = {
+  role?: string | null;
+  ownershipPercentage?: number | null;
+  notes?: string | null;
+  isActive: boolean;
+  metadata?: Record<string, unknown> | null;
+  person: {
+    type: PersonType;
+    firstName?: string | null;
+    lastName?: string | null;
+    businessName?: string | null;
+    documentType: DocumentType;
+    documentNumber: string;
+    email?: string | null;
+    phone?: string | null;
+    address?: string | null;
+    bankAccounts?: PersonBankAccount[] | null;
+  };
 };
 
 type CostCenterSeed = {
@@ -148,6 +198,7 @@ type TaxSeed = {
   rate: number;
   description: string;
   isDefault?: boolean;
+  isActive?: boolean;
 };
 
 type AccountingAccountSeed = {
@@ -366,6 +417,7 @@ async function seedFlowStore() {
 
   const transactionRepo = db.getRepository(Transaction);
   const transactionLineRepo = db.getRepository(TransactionLine);
+  const shareholderSummaries: string[] = [];
   const customerSummaries: string[] = [];
   const supplierSummaries: string[] = [];
 
@@ -419,6 +471,7 @@ async function seedFlowStore() {
     const supplierSeedsRaw = ensureArray(await readSeedJson<SupplierSeed[]>('suppliers.json'), 'suppliers.json');
     const userSeeds = ensureArray(await readSeedJson<UserSeed[]>('users.json'), 'users.json');
     const productSeeds = ensureArray(await readSeedJson<ProductSeed[]>('products.json'), 'products.json');
+    const shareholderSeedsRaw = ensureArray(await readSeedJson<ShareholderSeedRaw[]>('shareholders.json'), 'shareholders.json');
 
     const costCenterSeeds = costCenterSeedsRaw.map((entry) => ({
       ...entry,
@@ -433,6 +486,7 @@ async function seedFlowStore() {
     const taxSeeds = taxSeedsRaw.map((entry) => ({
       ...entry,
       taxType: parseEnum(TaxType, entry.taxType, `impuesto ${entry.code}`),
+      isActive: entry.isActive ?? true,
     }));
 
     const accountingAccountSeeds = accountingAccountSeedsRaw.map((entry) => ({
@@ -475,6 +529,53 @@ async function seedFlowStore() {
       supplierType: parseEnum(SupplierType, entry.supplierType, `proveedor ${entry.businessName} (type)`),
       bankAccounts: mapBankAccounts(entry.bankAccounts ?? []) ?? undefined,
     }));
+
+    const shareholderSeeds = shareholderSeedsRaw.map((entry, index) => {
+      if (!entry.person) {
+        throw new Error(`shareholders.json → registro ${index + 1}: falta el bloque "person".`);
+      }
+
+      const documentNumber = entry.person.documentNumber?.trim();
+      if (!documentNumber) {
+        throw new Error(`shareholders.json → registro ${index + 1}: documentNumber es obligatorio.`);
+      }
+
+      const personType = parseEnum(PersonType, entry.person.type ?? PersonType.NATURAL, `shareholders.json → ${documentNumber} (person.type)`);
+      const documentType = parseEnum(DocumentType, entry.person.documentType, `shareholders.json → ${documentNumber} (person.documentType)`);
+      const bankAccounts = entry.person.bankAccounts ? mapBankAccounts(entry.person.bankAccounts) : null;
+
+      let ownership: number | null = null;
+      if (entry.ownershipPercentage !== null && entry.ownershipPercentage !== undefined) {
+        const numericOwnership = Number(entry.ownershipPercentage);
+        if (!Number.isFinite(numericOwnership)) {
+          throw new Error(`shareholders.json → ${documentNumber}: ownershipPercentage debe ser numérico.`);
+        }
+        if (numericOwnership < 0 || numericOwnership > 100) {
+          throw new Error(`shareholders.json → ${documentNumber}: ownershipPercentage debe estar entre 0 y 100.`);
+        }
+        ownership = Number(numericOwnership.toFixed(2));
+      }
+
+      return {
+        role: entry.role ?? null,
+        ownershipPercentage: ownership,
+        notes: entry.notes ?? null,
+        isActive: entry.isActive ?? true,
+        metadata: entry.metadata ?? null,
+        person: {
+          type: personType,
+          firstName: entry.person.firstName ?? null,
+          lastName: entry.person.lastName ?? null,
+          businessName: entry.person.businessName ?? null,
+          documentType,
+          documentNumber,
+          email: entry.person.email ?? null,
+          phone: entry.person.phone ?? null,
+          address: entry.person.address ?? null,
+          bankAccounts: bankAccounts ?? undefined,
+        },
+      } satisfies ShareholderSeed;
+    });
 
     const companyBankAccounts = mapBankAccounts(companySeed.bankAccounts ?? []) ?? undefined;
     const fallbackBankAccounts: PersonBankAccount[] = [
@@ -534,9 +635,94 @@ async function seedFlowStore() {
       }
     }
 
-    const primaryBankAccount = Array.isArray(company.bankAccounts)
-      ? company.bankAccounts.find((account) => account.isPrimary) ?? company.bankAccounts[0] ?? null
-      : null;
+    // ============================================
+    // 1.1 SOCIOS DE LA EMPRESA
+    // ============================================
+    console.log('\n🤝 Registrando socios...');
+
+    const shareholderRepo = db.getRepository(Shareholder);
+    const shareholderPersonRepo = db.getRepository(Person);
+
+    for (const seed of shareholderSeeds) {
+      const documentNumber = seed.person.documentNumber.trim();
+
+      let person = await shareholderPersonRepo.findOne({
+        where: { documentNumber },
+        withDeleted: true,
+      });
+
+      const isNewPerson = !person;
+
+      if (!person) {
+        person = new Person();
+        person.id = uuidv4();
+        person.documentNumber = documentNumber;
+      }
+
+      person.type = seed.person.type;
+
+      const rawFirstName = seed.person.firstName?.trim();
+      const rawLastName = seed.person.lastName?.trim();
+      const rawBusinessName = seed.person.businessName?.trim();
+
+      if (seed.person.type === PersonType.NATURAL) {
+        person.firstName = rawFirstName || rawBusinessName || 'Socio';
+        person.lastName = rawLastName ?? undefined;
+        person.businessName = undefined;
+      } else {
+        const resolvedBusinessName = rawBusinessName || rawFirstName || `Socio ${documentNumber}`;
+        person.businessName = resolvedBusinessName;
+        person.firstName = rawFirstName || resolvedBusinessName;
+        person.lastName = rawLastName ?? undefined;
+      }
+
+      person.documentType = seed.person.documentType;
+      person.email = seed.person.email?.trim() || undefined;
+      person.phone = seed.person.phone?.trim() || undefined;
+      person.address = seed.person.address?.trim() || undefined;
+      person.bankAccounts = seed.person.bankAccounts ?? null;
+      person.deletedAt = undefined;
+
+      await shareholderPersonRepo.save(person);
+
+      let shareholder = await shareholderRepo.findOne({
+        where: { companyId: company.id, personId: person.id },
+        withDeleted: true,
+      });
+
+      const isNewShareholder = !shareholder;
+
+      if (!shareholder) {
+        shareholder = new Shareholder();
+        shareholder.id = uuidv4();
+        shareholder.companyId = company.id;
+        shareholder.personId = person.id;
+      } else {
+        shareholder.companyId = company.id;
+        shareholder.personId = person.id;
+      }
+
+      shareholder.role = seed.role ?? null;
+      shareholder.notes = seed.notes ?? null;
+      shareholder.metadata = seed.metadata ?? null;
+      shareholder.ownershipPercentage = seed.ownershipPercentage ?? null;
+      shareholder.isActive = seed.isActive;
+      shareholder.deletedAt = undefined;
+
+      await shareholderRepo.save(shareholder);
+
+      const displayName = buildPersonDisplayName(person);
+      shareholderSummaries.push(displayName);
+      const prefix = isNewShareholder ? '   ✓' : '   •';
+      const action = isNewShareholder ? 'Socio registrado' : 'Socio actualizado';
+      const ownershipLabel = typeof seed.ownershipPercentage === 'number'
+        ? ` (${seed.ownershipPercentage}% participación)`
+        : '';
+      if (isNewPerson) {
+        console.log(`   ✓ Persona creada: ${displayName}`);
+      }
+      console.log(`${prefix} ${action}: ${displayName}${ownershipLabel}`);
+    }
 
     // ============================================
     // 2. SUCURSALES
@@ -702,7 +888,7 @@ async function seedFlowStore() {
           rate: definition.rate,
           description: definition.description,
           isDefault: Boolean(definition.isDefault),
-          isActive: true,
+          isActive: definition.isActive ?? true,
         });
         await taxRepo.save(taxEntity);
         console.log(`   ✓ Impuesto creado: ${taxEntity.name}`);
@@ -712,7 +898,7 @@ async function seedFlowStore() {
         taxEntity.rate = definition.rate;
         taxEntity.description = definition.description;
         taxEntity.isDefault = Boolean(definition.isDefault);
-        taxEntity.isActive = true;
+        taxEntity.isActive = definition.isActive ?? true;
         await taxRepo.save(taxEntity);
         console.log(`   • Impuesto actualizado: ${taxEntity.name}`);
       }
@@ -1341,54 +1527,6 @@ async function seedFlowStore() {
     }
 
     // ============================================
-    // 9.3 CAPITAL INICIAL
-    // ============================================
-    console.log('\n🏦 Registrando capital inicial...');
-    try {
-      const existingInitialCapital = await transactionRepo.findOne({
-        where: {
-          documentNumber: INITIAL_CAPITAL_DOCUMENT,
-          transactionType: TransactionType.PAYMENT_IN,
-        },
-      });
-
-      if (existingInitialCapital) {
-        console.log(`   ⚠ Capital inicial ya existe: ${INITIAL_CAPITAL_DOCUMENT}`);
-      } else if (!primaryBankAccount?.accountKey) {
-        console.log('   ⚠ No se pudo registrar capital inicial: falta cuenta bancaria principal.');
-      } else {
-        const capitalTransaction = transactionRepo.create({
-          documentNumber: INITIAL_CAPITAL_DOCUMENT,
-          transactionType: TransactionType.PAYMENT_IN,
-          status: TransactionStatus.CONFIRMED,
-          branchId: primaryBranch.id,
-          pointOfSaleId: pointsOfSale[0]?.id ?? null,
-          userId: adminUser.id,
-          subtotal: INITIAL_CAPITAL_AMOUNT,
-          taxAmount: 0,
-          discountAmount: 0,
-          total: INITIAL_CAPITAL_AMOUNT,
-          paymentMethod: PaymentMethod.TRANSFER,
-          bankAccountKey: primaryBankAccount.accountKey,
-          amountPaid: INITIAL_CAPITAL_AMOUNT,
-          changeAmount: 0,
-          notes: 'Capital inicial de la empresa',
-          metadata: {
-            source: 'seed-flowstore',
-            capitalContribution: true,
-            initialCapital: true,
-            occurredOn: '2025-01-01',
-          },
-        });
-
-        await transactionRepo.save(capitalTransaction);
-        console.log(`   ✓ Capital inicial registrado: ${INITIAL_CAPITAL_DOCUMENT} por ${formatCLP(INITIAL_CAPITAL_AMOUNT)}`);
-      }
-    } catch (initialCapitalError) {
-      console.log('   ⚠ No se pudo registrar capital inicial:', initialCapitalError instanceof Error ? initialCapitalError.message : initialCapitalError);
-    }
-
-    // ============================================
     // 10. PERMISOS PARA ADMIN
     // ============================================
     console.log('\n🔐 Asignando permisos al administrador...');
@@ -1671,6 +1809,7 @@ async function seedFlowStore() {
 
     const [
       personCount,
+      shareholderCount,
       customerCount,
       supplierCount,
       userCount,
@@ -1678,6 +1817,7 @@ async function seedFlowStore() {
       priceListItemCount,
     ] = await Promise.all([
       db.getRepository(Person).count({ where: { deletedAt: IsNull() } }),
+      db.getRepository(Shareholder).count({ where: { companyId: company.id, deletedAt: IsNull() } }),
       db.getRepository(Customer).count({ where: { deletedAt: IsNull() } }),
       db.getRepository(Supplier).count({ where: { deletedAt: IsNull() } }),
       db.getRepository(User).count({ where: { deletedAt: IsNull() } }),
@@ -1692,6 +1832,8 @@ async function seedFlowStore() {
 
     const storageDisplayNames = storagesSummaryList.map((entry) => entry.name);
     const storageSummaryText = storageDisplayNames.length > 0 ? storageDisplayNames.join(', ') : '—';
+    const uniqueShareholderSummaries = Array.from(new Set(shareholderSummaries));
+    const shareholderSummaryText = uniqueShareholderSummaries.length > 0 ? uniqueShareholderSummaries.join(', ') : '—';
     const uniqueCustomerSummaries = Array.from(new Set(customerSummaries));
     const customerSummaryText = uniqueCustomerSummaries.length > 0 ? uniqueCustomerSummaries.join(', ') : '—';
     const uniqueSupplierSummaries = Array.from(new Set(supplierSummaries));
@@ -1729,6 +1871,7 @@ async function seedFlowStore() {
     console.log(`   • Permisos asignados: ${permissionCount}`);
     console.log(`   • Usuarios activos: ${userCount}`);
     console.log(`   • Personas registradas: ${personCount}`);
+    console.log(`   • Socios activos: ${shareholderCount}${shareholderSummaryText !== '—' ? ` (${shareholderSummaryText})` : ''}`);
     console.log(`   • Clientes activos: ${customerCount}${customerSummaryText !== '—' ? ` (${customerSummaryText})` : ''}`);
     console.log(`   • Proveedores activos: ${supplierCount}${supplierSummaryText !== '—' ? ` (${supplierSummaryText})` : ''}`);
     console.log(`   • Centros de costo: ${costCenterSeeds.length} activos`);
@@ -1744,7 +1887,6 @@ async function seedFlowStore() {
       return `${pos.name} → ${listName}`;
     });
     console.log(`   • Puntos de venta: ${pointsOfSale.length} (${pointOfSaleSummary.join(', ')})`);
-    console.log(`   • Capital inicial: ${INITIAL_CAPITAL_DOCUMENT} por ${formatCLP(INITIAL_CAPITAL_AMOUNT)}`);
     console.log('\n🔑 Credenciales de acceso:');
     if (adminCredentials) {
       console.log(`   Usuario: ${adminCredentials.userName}`);

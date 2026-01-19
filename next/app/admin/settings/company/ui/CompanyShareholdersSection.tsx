@@ -1,9 +1,9 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { Button } from '@/baseComponents/Button/Button';
 import Badge from '@/baseComponents/Badge/Badge';
 import IconButton from '@/baseComponents/IconButton/IconButton';
+import Switch from '@/baseComponents/Switch/Switch';
 import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { formatDateTime } from '@/lib/dateTimeUtils';
 import {
@@ -154,10 +154,12 @@ export default function CompanyShareholdersSection({ shareholders, onShareholder
         [dialogMode, targetShareholder, refreshShareholders, success],
     );
 
-    const handleToggleActive = async (shareholder: ShareholderRecord) => {
+    const handleSetActive = async (shareholder: ShareholderRecord, desiredState: boolean) => {
+        if (shareholder.isActive === desiredState) {
+            return;
+        }
         setBusyShareholderId(shareholder.id);
         try {
-            const desiredState = !shareholder.isActive;
             const result = await setShareholderActive(shareholder.id, desiredState);
             if (!result.success) {
                 showError(result.error ?? 'No se pudo actualizar el estado del socio.');
@@ -261,26 +263,23 @@ export default function CompanyShareholdersSection({ shareholders, onShareholder
                                     </div>
                                 </div>
 
-                                <div className="mt-6 flex items-center gap-3">
-                                    <Button
-                                        type="button"
-                                        variant="outlined"
+                                <div className="mt-6 flex items-center justify-between">
+                                    <Switch
+                                        checked={shareholder.isActive}
+                                        onChange={(checked) => void handleSetActive(shareholder, checked)}
+                                        disabled={isBusy}
+                                        label="Activo"
+                                        labelPosition="right"
+                                    />
+                                    <IconButton
+                                        icon="edit"
+                                        variant="ghost"
                                         size="sm"
+                                        ariaLabel="Editar socio"
+                                        title="Editar socio"
                                         onClick={() => openEditDialog(shareholder)}
                                         disabled={isBusy}
-                                    >
-                                        Editar
-                                    </Button>
-                                    <Button
-                                        type="button"
-                                        variant="text"
-                                        size="sm"
-                                        onClick={() => void handleToggleActive(shareholder)}
-                                        disabled={isBusy}
-                                        loading={isBusy}
-                                    >
-                                        {shareholder.isActive ? 'Desactivar' : 'Activar'}
-                                    </Button>
+                                    />
                                 </div>
                             </article>
                         );

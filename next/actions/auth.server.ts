@@ -29,14 +29,23 @@ export async function getCurrentSession(): Promise<SessionInfo | null> {
     return null;
   }
 
-  const role = typeof user.role === 'string' ? user.role : UserRole.OPERATOR;
+  const ds = await getDb();
+  const repo = ds.getRepository(User);
+  const persistedUser = await repo.findOne({ where: { id, deletedAt: IsNull() } });
+
+  if (!persistedUser) {
+    return null;
+  }
+
+  const role = persistedUser.rol ?? (typeof user.role === 'string' ? user.role : UserRole.OPERATOR);
   const permissions = Array.isArray(user.permissions)
     ? (user.permissions as string[])
     : [];
 
   return {
-    id,
-    userName: (user.userName as string | undefined)
+    id: persistedUser.id,
+    userName: persistedUser.userName
+      || (user.userName as string | undefined)
       || (user.name as string | undefined)
       || '',
     name: (user.name as string | undefined) ?? null,

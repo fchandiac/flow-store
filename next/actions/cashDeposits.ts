@@ -6,6 +6,7 @@ import { getCompany } from './companies';
 import { getCurrentSession } from './auth.server';
 import { Transaction, TransactionStatus, TransactionType, PaymentMethod } from '@/data/entities/Transaction';
 import { Company } from '@/data/entities/Company';
+import { ensureAccountingPeriodForCompany } from './accounting';
 
 interface CreateCashDepositInput {
     bankAccountKey: string;
@@ -81,6 +82,8 @@ export async function createCashDeposit(input: CreateCashDepositInput): Promise<
     if (!company) {
         return { success: false, error: 'No se encontró la compañía configurada. Configura la empresa antes de registrar depósitos.' };
     }
+
+    await ensureAccountingPeriodForCompany(company.id, occurredOn);
 
     if (!input.bankAccountKey) {
         return { success: false, error: 'Selecciona la cuenta bancaria destino.' };

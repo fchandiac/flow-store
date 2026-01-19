@@ -33,16 +33,20 @@ export default async function AccountingBankingPage() {
                       Boolean(account && account.accountKey),
               )
               .map((account) => {
+                  const rawBalance = account.currentBalance;
+                  const numericBalance = Number(rawBalance);
+                  const hasBalance = Number.isFinite(numericBalance);
                   const parts: string[] = [];
                   if (account.bankName) parts.push(account.bankName);
                   if (account.accountType) parts.push(account.accountType);
                   if (account.accountNumber) parts.push(account.accountNumber);
-                  if (typeof account.currentBalance === 'number') {
-                      parts.push(`Saldo ${currencyFormatter.format(Number(account.currentBalance))}`);
+                  if (hasBalance) {
+                      parts.push(`Saldo ${currencyFormatter.format(numericBalance)}`);
                   }
                   return {
                       id: String(account.accountKey),
                       label: parts.length > 0 ? parts.join(' · ') : 'Cuenta bancaria sin descripción',
+                      balance: hasBalance ? numericBalance : null,
                   };
               })
               .sort((a, b) => a.label.localeCompare(b.label, 'es'))
@@ -51,8 +55,6 @@ export default async function AccountingBankingPage() {
     return (
         <AccountingShell
             title="Tesoreria y cuentas bancarias"
-            description="Coordina aportes de capital, transferencias y otros movimientos entre bancos y cajas internas. Esta vista se enfoca en la preparacion operativa antes de registrar los asientos contables."
-            infoNotice="Punto de partida para planificar integraciones con bancos y vincularlas al plan de cuentas."
         >
             <BankMovementsDashboard
                 overview={overview}

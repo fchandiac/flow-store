@@ -1,0 +1,17 @@
+[
+  {
+    "role": "Socia fundadora",
+    "ownershipPercentage": 100,
+    "notes": "Responsable de la estrategia y del capital inicial de Joyarte.",
+    "person": {
+      "type": "NATURAL",
+      "firstName": "Amalia",
+      "lastName": "Riquelme",
+      "documentType": "RUN",
+      "documentNumber": "16890765-4",
+      "email": "amalia@joyarte.cl",
+      "phone": "+56 9 8765 4321",
+      "address": "Av. Libertad 1234, Parral"
+    }
+  }
+]

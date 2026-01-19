@@ -21,6 +21,8 @@ import { Person } from '../../../data/entities/Person';
 import { Category } from '../../../data/entities/Category';
 import { PriceList } from '../../../data/entities/PriceList';
 import { Shareholder } from '../../../data/entities/Shareholder';
+import { AccountingAccount } from '../../../data/entities/AccountingAccount';
+import { AccountingRule } from '../../../data/entities/AccountingRule';
 
 const envFiles = ['.env', '.env.local'];
 
@@ -70,6 +72,8 @@ export const appDataSource = new DataSource({
     Category,
     PriceList,
     Shareholder,
+    AccountingAccount,
+    AccountingRule,
   ],
   migrations: [],
   subscribers: [],

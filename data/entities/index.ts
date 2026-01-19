@@ -20,6 +20,7 @@ export * from './TreasuryAccount';
 export * from './AccountingAccount';
 export * from './AccountingRule';
 export * from './AccountingPeriod';
+export * from './AccountingPeriodSnapshot';
 
 // Entidades de productos
 export * from './Category';

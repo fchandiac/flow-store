@@ -24,6 +24,8 @@ import {
   hasOverlayPermission,
   isCustomerScreenAvailable,
   requestOverlayPermission,
+  showTestMessageOnCustomerDisplay,
+  stopCustomerDisplay,
   type CustomerExternalDisplay,
 } from '../services/customerScreenService';
 import { loadDeviceSettings, updateDeviceSettings } from '../services/settingsStorage';
@@ -137,7 +139,7 @@ const SecondaryDisplaySettingsScreen: React.FC<SecondaryDisplaySettingsScreenPro
     } finally {
       setIsCheckingOverlay(false);
     }
-  }, []);
+  }, [supportsCustomerScreen]);
 
   const refreshExternalDisplays = useCallback(
     async (options?: RefreshOptions) => {
@@ -221,7 +223,74 @@ const SecondaryDisplaySettingsScreen: React.FC<SecondaryDisplaySettingsScreenPro
     } finally {
       setIsOpeningOverlaySettings(false);
     }
-  }, []);
+  }, [supportsCustomerScreen]);
+
+  const handleVerifyOverlayPermission = useCallback(async () => {
+    if (!supportsCustomerScreen) {
+      return;
+    }
+
+    setIsCheckingOverlay(true);
+    try {
+      const granted = await hasOverlayPermission();
+      setOverlayGranted(granted);
+      Alert.alert(
+        granted ? 'Permiso concedido' : 'Permiso pendiente',
+        granted
+          ? 'La pantalla secundaria puede dibujarse sobre otras aplicaciones.'
+          : 'Aún falta conceder el permiso de superposición para usar la pantalla secundaria.',
+      );
+    } catch (error) {
+      Alert.alert(
+        'No se pudo verificar',
+        error instanceof Error
+          ? error.message
+          : 'Ocurrió un problema al consultar el permiso de superposición.',
+      );
+    } finally {
+      setIsCheckingOverlay(false);
+    }
+  }, [supportsCustomerScreen, hasOverlayPermission]);
+
+  const handleSendTestMessage = useCallback(async () => {
+    if (!supportsCustomerScreen) {
+      return;
+    }
+
+    try {
+      const shown = await showTestMessageOnCustomerDisplay();
+      Alert.alert(
+        shown ? 'Mensaje enviado' : 'No disponible',
+        shown
+          ? 'Se envió un mensaje de prueba a la pantalla secundaria.'
+          : 'No se pudo acceder al módulo de pantalla secundaria.',
+      );
+    } catch (error) {
+      Alert.alert(
+        'No se pudo mostrar',
+        error instanceof Error ? error.message : 'No se pudo enviar el mensaje de prueba.',
+      );
+    }
+  }, [supportsCustomerScreen, showTestMessageOnCustomerDisplay]);
+
+  const handleStopCustomerDisplay = useCallback(async () => {
+    if (!supportsCustomerScreen) {
+      return;
+    }
+
+    try {
+      const cleared = await stopCustomerDisplay();
+      Alert.alert(
+        cleared ? 'Pantalla detenida' : 'No disponible',
+        cleared ? 'Se limpió el contenido de la pantalla secundaria.' : 'No se pudo limpiar la pantalla.',
+      );
+    } catch (error) {
+      Alert.alert(
+        'No se pudo detener',
+        error instanceof Error ? error.message : 'No se pudo limpiar la pantalla secundaria.',
+      );
+    }
+  }, [supportsCustomerScreen, stopCustomerDisplay]);
 
   const handleResetDisplayPreferences = useCallback(() => {
     Alert.alert('Restablecer pantalla', '¿Seguro que deseas borrar la configuración guardada?', [
@@ -455,8 +524,12 @@ const SecondaryDisplaySettingsScreen: React.FC<SecondaryDisplaySettingsScreenPro
       return 'Instala una versión compatible para habilitar la pantalla del cliente.';
     }
 
+    if (!overlayGranted) {
+      return 'Concede el permiso de superposición para usar la pantalla secundaria.';
+    }
+
     return `Estado: ${isSecondaryConnected ? 'Conectada' : 'Sin conexión detectada'}`;
-  }, [isSecondaryConnected]);
+  }, [supportsCustomerScreen, overlayGranted, isSecondaryConnected]);
 
   if (isBootstrapping) {
     return (
@@ -507,9 +580,29 @@ const SecondaryDisplaySettingsScreen: React.FC<SecondaryDisplaySettingsScreenPro
 
         <View style={styles.buttonRow}>
           <TouchableOpacity
-            style={[styles.actionButton, styles.secondaryButton, isCheckingOverlay && styles.actionButtonDisabled]}
+            style={[
+              styles.actionButton,
+              styles.secondaryButton,
+              isRefreshingDisplays && styles.actionButtonDisabled,
+            ]}
             activeOpacity={0.85}
-            onPress={checkOverlayPermissionStatus}
+            onPress={() => refreshExternalDisplays({ showError: true })}
+            disabled={isRefreshingDisplays || !supportsCustomerScreen}
+          >
+            {isRefreshingDisplays ? (
+              <ActivityIndicator color={palette.primaryStrong} />
+            ) : (
+              <Text style={[styles.actionButtonLabel, styles.secondaryButtonLabel]}>Actualizar lista</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              styles.secondaryButton,
+              isCheckingOverlay && styles.actionButtonDisabled,
+            ]}
+            activeOpacity={0.85}
+            onPress={handleVerifyOverlayPermission}
             disabled={isCheckingOverlay || !supportsCustomerScreen}
           >
             {isCheckingOverlay ? (
@@ -532,25 +625,6 @@ const SecondaryDisplaySettingsScreen: React.FC<SecondaryDisplaySettingsScreenPro
               <ActivityIndicator color={palette.primaryStrong} />
             ) : (
               <Text style={[styles.actionButtonLabel, styles.secondaryButtonLabel]}>Abrir ajustes del sistema</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.buttonRow}>
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              styles.secondaryButton,
-              isRefreshingDisplays && styles.actionButtonDisabled,
-            ]}
-            activeOpacity={0.85}
-            onPress={() => refreshExternalDisplays({ showError: true })}
-            disabled={isRefreshingDisplays || !supportsCustomerScreen}
-          >
-            {isRefreshingDisplays ? (
-              <ActivityIndicator color={palette.primaryStrong} />
-            ) : (
-              <Text style={[styles.actionButtonLabel, styles.secondaryButtonLabel]}>Actualizar lista</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -732,13 +806,31 @@ const SecondaryDisplaySettingsScreen: React.FC<SecondaryDisplaySettingsScreenPro
 
         <View style={styles.divider} />
 
-        <TouchableOpacity
-          style={[styles.actionButton, styles.dangerButton]}
-          activeOpacity={0.85}
-          onPress={handleResetDisplayPreferences}
-        >
-          <Text style={styles.actionButtonLabel}>Restablecer pantalla</Text>
-        </TouchableOpacity>
+        <View style={styles.buttonRow}>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.secondaryButton, !supportsCustomerScreen && styles.actionButtonDisabled]}
+            activeOpacity={0.85}
+            onPress={handleSendTestMessage}
+            disabled={!supportsCustomerScreen}
+          >
+            <Text style={[styles.actionButtonLabel, styles.secondaryButtonLabel]}>Probar pantalla</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.secondaryButton, !supportsCustomerScreen && styles.actionButtonDisabled]}
+            activeOpacity={0.85}
+            onPress={handleStopCustomerDisplay}
+            disabled={!supportsCustomerScreen}
+          >
+            <Text style={[styles.actionButtonLabel, styles.secondaryButtonLabel]}>Detener</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, styles.dangerButton]}
+            activeOpacity={0.85}
+            onPress={handleResetDisplayPreferences}
+          >
+            <Text style={styles.actionButtonLabel}>Restablecer pantalla</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </ScrollView>
   );

@@ -156,10 +156,14 @@ const InventoryDataGrid = () => {
     }, [loadRows]);
 
     const headerActions = useMemo(() => (
-        <div className="flex items-center gap-4">
-            <div className="w-48">
+        <div className="flex items-end gap-4">
+            <div className="w-48 flex flex-col gap-1">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Sucursal
+                </span>
                 <Select
-                    label="Sucursal"
+                    placeholder="Selecciona"
+                    aria-label="Filtro por sucursal"
                     options={branchOptions}
                     value={branchId || null}
                     onChange={handleBranchChange}
@@ -167,9 +171,13 @@ const InventoryDataGrid = () => {
                     variant="minimal"
                 />
             </div>
-            <div className="w-48">
+            <div className="w-48 flex flex-col gap-1">
+                <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                    Bodega
+                </span>
                 <Select
-                    label="Bodega"
+                    placeholder="Selecciona"
+                    aria-label="Filtro por bodega"
                     options={storageOptions}
                     value={storageId || null}
                     onChange={handleStorageChange}

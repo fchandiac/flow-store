@@ -29,6 +29,7 @@ import { AccountingAccount } from "./entities/AccountingAccount";
 import { AccountingRule } from "./entities/AccountingRule";
 import { ExpenseCategory } from "./entities/ExpenseCategory";
 import { AccountingPeriod } from "./entities/AccountingPeriod";
+import { AccountingPeriodSnapshot } from "./entities/AccountingPeriodSnapshot";
 import { Employee } from "./entities/Employee";
 import { OrganizationalUnit } from "./entities/OrganizationalUnit";
 import { AuditSubscriber } from "./subscribers/AuditSubscriber";
@@ -154,7 +155,7 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
           CostCenter, Budget,
           Employee,
           OrganizationalUnit,
-          AccountingAccount, AccountingRule, ExpenseCategory, AccountingPeriod,
+          AccountingAccount, AccountingRule, ExpenseCategory, AccountingPeriod, AccountingPeriodSnapshot,
           Shareholder
         ],
         subscribers: [AuditSubscriber],

@@ -2,11 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import DataGrid, { DataGridColumn } from '@/app/baseComponents/DataGrid/DataGrid';
-import Select, { Option } from '@/app/baseComponents/Select/Select';
-import Badge from '@/app/baseComponents/Badge/Badge';
-import IconButton from '@/app/baseComponents/IconButton/IconButton';
-import { Button } from '@/app/baseComponents/Button/Button';
+import DataGrid, { DataGridColumn } from '@/baseComponents/DataGrid/DataGrid';
+import Select, { Option } from '@/baseComponents/Select/Select';
+import Badge from '@/baseComponents/Badge/Badge';
+import IconButton from '@/baseComponents/IconButton/IconButton';
+import { Button } from '@/baseComponents/Button/Button';
 import { getProducts, ProductWithDefaultVariant, VariantSummary } from '@/app/actions/products';
 import { getCategories } from '@/app/actions/categories';
 import { getTaxes } from '@/app/actions/taxes';

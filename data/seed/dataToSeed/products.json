@@ -145,5 +145,373 @@
         ]
       }
     ]
+  },
+  {
+    "name": "Pulsera Tennis Zafiro",
+    "description": "Pulsera tennis con zafiros seleccionados y engaste de alto brillo",
+    "brand": "Brillante",
+    "categoryCode": "PUL",
+    "variants": [
+      {
+        "sku": "PUL-TEN-OROB-ZAF",
+        "baseCost": 520000,
+        "attributeValues": {
+          "Material": "Oro Blanco",
+          "Piedra": "Zafiro",
+          "Quilates": "0.75ct",
+          "Largo": "45cm"
+        },
+        "weight": 7.8,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 1080000, "netPrice": 907563.03, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 1045000, "netPrice": 878151.26, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 980000, "netPrice": 823529.41, "taxCodes": ["IVA-19"] }
+        ]
+      },
+      {
+        "sku": "PUL-TEN-PLATA-ZAF",
+        "baseCost": 310000,
+        "attributeValues": {
+          "Material": "Plata 925",
+          "Piedra": "Zafiro",
+          "Quilates": "0.50ct",
+          "Largo": "45cm"
+        },
+        "weight": 7.1,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 685000, "netPrice": 575630.25, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 659000, "netPrice": 553781.51, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 610000, "netPrice": 512605.04, "taxCodes": ["IVA-19"] }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Pulsera Esclava Martillada",
+    "description": "Pulsera esclava con acabado martillado artesanal",
+    "brand": "Brillante",
+    "categoryCode": "PUL",
+    "variants": [
+      {
+        "sku": "PUL-ESC-ORO-18",
+        "baseCost": 280000,
+        "attributeValues": {
+          "Material": "Oro Rosa",
+          "Largo": "40cm"
+        },
+        "weight": 9.5,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 560000, "netPrice": 470588.24, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 545000, "netPrice": 457983.19, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 498000, "netPrice": 418487.39, "taxCodes": ["IVA-19"] }
+        ]
+      },
+      {
+        "sku": "PUL-ESC-PLATA-18",
+        "baseCost": 140000,
+        "attributeValues": {
+          "Material": "Plata 925",
+          "Largo": "40cm"
+        },
+        "weight": 8.7,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 285000, "netPrice": 239495.8, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 272000, "netPrice": 228571.43, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 248000, "netPrice": 208403.36, "taxCodes": ["IVA-19"] }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Reloj Cronógrafo Elite",
+    "description": "Reloj cronógrafo de precisión con caja reforzada",
+    "brand": "Tempo",
+    "categoryCode": "REL",
+    "variants": [
+      {
+        "sku": "REL-CRO-ACERO-NEG",
+        "baseCost": 450000,
+        "attributeValues": {
+          "Material": "Acero",
+          "Piedra": "Sin piedra",
+          "Quilates": "N/A"
+        },
+        "weight": 92,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 920000, "netPrice": 773109.24, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 899000, "netPrice": 755462.18, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 845000, "netPrice": 710084.03, "taxCodes": ["IVA-19"] }
+        ]
+      },
+      {
+        "sku": "REL-CRO-ORO-NEG",
+        "baseCost": 620000,
+        "attributeValues": {
+          "Material": "Oro Rosa",
+          "Piedra": "Sin piedra",
+          "Quilates": "N/A"
+        },
+        "weight": 88,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 1320000, "netPrice": 1109243.7, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 1285000, "netPrice": 1080252.1, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 1190000, "netPrice": 1000000, "taxCodes": ["IVA-19"] }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Reloj Clásico Dama",
+    "description": "Reloj análogo de diseño clásico con índices facetados",
+    "brand": "Tempo",
+    "categoryCode": "REL",
+    "variants": [
+      {
+        "sku": "REL-CLA-OROB-BLA",
+        "baseCost": 280000,
+        "attributeValues": {
+          "Material": "Oro Blanco",
+          "Piedra": "Diamante",
+          "Quilates": "0.25ct"
+        },
+        "weight": 68,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 745000, "netPrice": 626050.42, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 715000, "netPrice": 601680.67, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 662000, "netPrice": 556302.52, "taxCodes": ["IVA-19"] }
+        ]
+      },
+      {
+        "sku": "REL-CLA-ACERO-MAD",
+        "baseCost": 190000,
+        "attributeValues": {
+          "Material": "Acero",
+          "Piedra": "Sin piedra",
+          "Quilates": "N/A"
+        },
+        "weight": 70,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 435000, "netPrice": 365966.39, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 418000, "netPrice": 351260.5, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 379000, "netPrice": 318487.39, "taxCodes": ["IVA-19"] }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Cadena Singapur Plata",
+    "description": "Cadena estilo Singapur con brillo torsionado",
+    "brand": "Brillante",
+    "categoryCode": "CAD",
+    "variants": [
+      {
+        "sku": "CAD-SIN-PLATA-45",
+        "baseCost": 120000,
+        "attributeValues": {
+          "Material": "Plata 925",
+          "Largo": "45cm",
+          "Piedra": "Sin piedra",
+          "Quilates": "N/A"
+        },
+        "weight": 11.4,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 265000, "netPrice": 222689.08, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 254000, "netPrice": 213445.38, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 228000, "netPrice": 191596.64, "taxCodes": ["IVA-19"] }
+        ]
+      },
+      {
+        "sku": "CAD-SIN-PLATA-55",
+        "baseCost": 135000,
+        "attributeValues": {
+          "Material": "Plata 925",
+          "Largo": "55cm",
+          "Piedra": "Sin piedra",
+          "Quilates": "N/A"
+        },
+        "weight": 12.2,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 298000, "netPrice": 250420.17, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 285000, "netPrice": 239495.8, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 258000, "netPrice": 216806.72, "taxCodes": ["IVA-19"] }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Cadena Barbada Oro",
+    "description": "Cadena barbada sólida en oro amarillo de alto pulido",
+    "brand": "Brillante",
+    "categoryCode": "CAD",
+    "variants": [
+      {
+        "sku": "CAD-BAR-ORO18-50",
+        "baseCost": 310000,
+        "attributeValues": {
+          "Material": "Oro 18K",
+          "Largo": "50cm"
+        },
+        "weight": 14.5,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 655000, "netPrice": 550420.17, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 632000, "netPrice": 531092.44, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 598000, "netPrice": 502521.01, "taxCodes": ["IVA-19"] }
+        ]
+      },
+      {
+        "sku": "CAD-BAR-ORO18-60",
+        "baseCost": 340000,
+        "attributeValues": {
+          "Material": "Oro 18K",
+          "Largo": "60cm"
+        },
+        "weight": 15.8,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 715000, "netPrice": 601680.67, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 692000, "netPrice": 581512.61, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 655000, "netPrice": 550420.17, "taxCodes": ["IVA-19"] }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Set Rubí Imperial",
+    "description": "Set de collar y anillo con rubíes talla cojín",
+    "brand": "Brillante",
+    "categoryCode": "SET",
+    "variants": [
+      {
+        "sku": "SET-RUB-ORO18",
+        "baseCost": 780000,
+        "attributeValues": {
+          "Material": "Oro 18K",
+          "Piedra": "Rubí",
+          "Quilates": "1.50ct"
+        },
+        "weight": 18.5,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 1650000, "netPrice": 1386554.62, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 1595000, "netPrice": 1340336.13, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 1490000, "netPrice": 1252100.84, "taxCodes": ["IVA-19"] }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Set Perla Boreal",
+    "description": "Set de collar y aros con perlas cultivadas boreales",
+    "brand": "Brillante",
+    "categoryCode": "SET",
+    "variants": [
+      {
+        "sku": "SET-PER-PLATA",
+        "baseCost": 420000,
+        "attributeValues": {
+          "Material": "Plata 925",
+          "Piedra": "Perla",
+          "Quilates": "N/A"
+        },
+        "weight": 16.2,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 925000, "netPrice": 777310.92, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 895000, "netPrice": 752100.84, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 840000, "netPrice": 705882.35, "taxCodes": ["IVA-19"] }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Limpiador Ultrasónico Premium",
+    "description": "Equipo ultrasónico para limpieza profunda de joyas",
+    "brand": "Care+",
+    "categoryCode": "ACC",
+    "variants": [
+      {
+        "sku": "ACC-LIMP-ULTRA",
+        "baseCost": 85000,
+        "attributeValues": {
+          "Material": "Acero",
+          "Piedra": "Sin piedra",
+          "Quilates": "N/A"
+        },
+        "weight": 450,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 165000, "netPrice": 138655.46, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 158000, "netPrice": 132773.11, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 145000, "netPrice": 121848.74, "taxCodes": ["IVA-19"] }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Caja de Lujo para Anillos",
+    "description": "Caja forrada en terciopelo con iluminación LED interior",
+    "brand": "Care+",
+    "categoryCode": "ACC",
+    "variants": [
+      {
+        "sku": "ACC-BOX-LUX",
+        "baseCost": 45000,
+        "attributeValues": {
+          "Material": "Acero",
+          "Piedra": "Sin piedra",
+          "Quilates": "N/A"
+        },
+        "weight": 250,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 89000, "netPrice": 74789.92, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 84000, "netPrice": 70588.24, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 78000, "netPrice": 65546.22, "taxCodes": ["IVA-19"] }
+        ]
+      }
+    ]
   }
 ]

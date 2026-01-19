@@ -13,6 +13,8 @@ import PrinterSettingsScreen from './screens/PrinterSettingsScreen';
 import SecondaryDisplaySettingsScreen from './screens/SecondaryDisplaySettingsScreen';
 import ServerSettingsScreen from './screens/ServerSettingsScreen';
 import CashClosingScreen from './screens/CashClosingScreen';
+import CashIncomeScreen from './screens/CashIncomeScreen';
+import CashOutcomeScreen from './screens/CashOutcomeScreen';
 import { type RootStackParamList } from './navigation/types';
 import { normalizeBaseUrl } from './services/apiService';
 import { loadDeviceSettings, updateDeviceSettings } from './services/settingsStorage';
@@ -119,6 +121,16 @@ export default function App() {
             name="CashClosing"
             component={CashClosingScreen}
             options={{ title: 'Cierre de caja' }}
+          />
+          <Stack.Screen
+            name="CashIncome"
+            component={CashIncomeScreen}
+            options={{ title: 'Ingreso de dinero' }}
+          />
+          <Stack.Screen
+            name="CashOutcome"
+            component={CashOutcomeScreen}
+            options={{ title: 'Egreso de dinero' }}
           />
         </Stack.Navigator>
       </NavigationContainer>

@@ -6,6 +6,7 @@ import { getCompany } from './companies';
 import { getCurrentSession } from './auth.server';
 import { Transaction, TransactionStatus, TransactionType, PaymentMethod } from '@/data/entities/Transaction';
 import { Company } from '@/data/entities/Company';
+import { ensureAccountingPeriodForCompany } from './accounting';
 
 interface CreateBankToCashTransferInput {
     bankAccountKey: string;
@@ -84,6 +85,8 @@ export async function createBankToCashTransfer(input: CreateBankToCashTransferIn
         return { success: false, error: 'No se encontró la compañía configurada. Configura la empresa antes de registrar transferencias.' };
     }
 
+    await ensureAccountingPeriodForCompany(company.id, occurredOn);
+
     if (!input.bankAccountKey) {
         return { success: false, error: 'Selecciona la cuenta bancaria de origen.' };
     }
@@ -144,6 +147,7 @@ export async function createBankToCashTransfer(input: CreateBankToCashTransferIn
                 bankAccountNumber: sourceAccount.accountNumber,
                 bankName: sourceAccount.bankName,
                 accountType: sourceAccount.accountType,
+                originAccountCode: '1.1.02',
                 createdByUserId: session.id,
                 balanceBefore,
                 balanceAfter,
@@ -151,6 +155,7 @@ export async function createBankToCashTransfer(input: CreateBankToCashTransferIn
             transfer: {
                 originAccountKey: sourceAccount.accountKey,
                 originAccountLabel: sourceAccountLabel,
+                originAccountCode: '1.1.02',
                 destinationAccountCode: '1.1.01',
                 destinationAccountName: 'Caja General',
                 amount,
@@ -168,6 +173,7 @@ export async function createBankToCashTransfer(input: CreateBankToCashTransferIn
             userId: session.id,
             paymentMethod: PaymentMethod.TRANSFER,
             bankAccountKey: sourceAccount.accountKey,
+            expenseCategoryId: null,
             subtotal: amount,
             discountAmount: 0,
             taxAmount: 0,

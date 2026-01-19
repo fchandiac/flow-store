@@ -41,6 +41,7 @@ const directionToneClasses: Record<string, string> = {
 interface SimpleOption {
     id: string;
     label: string;
+    balance?: number | null;
 }
 
 interface BankMovementsDashboardProps {
@@ -203,9 +204,12 @@ export default function BankMovementsDashboard({
         }
     ], []);
 
+    const projectedBankBalance = Number(overview.summary?.projectedBalance ?? 0);
     const accountFilterDisabled = accountFilterOptions.length <= 1;
     const capitalContributionDisabled = shareholderOptions.length === 0 || bankAccountOptions.length === 0;
-    const bankToCashTransferDisabled = bankAccountOptions.length === 0;
+    const hasAvailableBankBalance = projectedBankBalance > 0
+        || bankAccountOptions.some((option) => option.balance != null && option.balance > 0);
+    const bankToCashTransferDisabled = bankAccountOptions.length === 0 || !hasAvailableBankBalance;
     const cashDepositDisabled = bankAccountOptions.length === 0 || cashBalance <= 0;
 
     const shareholderSelectOptions = useMemo<SelectOption[]>(
@@ -290,25 +294,25 @@ export default function BankMovementsDashboard({
     return (
         <div className="flex flex-col gap-8">
             <section>
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Resumen inicial</h2>
-                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <div className="grid gap-3 md:grid-cols-2">
                     {highlightCards.map((card) => (
-                        <div key={card.title} className="rounded-xl border border-border/70 bg-white p-5 shadow-sm">
-                            <h3 className="text-sm font-medium text-muted-foreground">{card.title}</h3>
-                            <p className="mt-2 text-2xl font-semibold text-foreground">{card.value}</p>
-                            <p className="mt-3 text-xs text-muted-foreground">{card.hint}</p>
+                        <div key={card.title} className="rounded-lg border border-border/70 bg-white p-4 shadow-sm">
+                            <div className="flex items-start justify-between gap-4">
+                                <div className="space-y-2">
+                                    <h3 className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{card.title}</h3>
+                                    <p className="text-xs text-muted-foreground leading-snug max-w-[220px]">{card.hint}</p>
+                                </div>
+                                <p className="text-xl font-semibold text-foreground">{card.value}</p>
+                            </div>
                         </div>
                     ))}
                 </div>
             </section>
 
             <section className="space-y-4">
-                <header className="space-y-1">
-                    <h2 className="text-lg font-semibold text-foreground">Movimientos bancarios</h2>
-                    <p className="text-sm text-muted-foreground">Visualiza y filtra los movimientos registrados por cuenta bancaria.</p>
-                </header>
                 <div className="rounded-xl bg-white p-2 shadow-sm">
                     <DataGrid
+                        title="Movimientos bancarios"
                         columns={columns}
                         rows={rows}
                         height="60vh"

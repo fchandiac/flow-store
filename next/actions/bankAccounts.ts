@@ -6,6 +6,7 @@ import { buildLedger } from '@/data/services/AccountingEngine';
 import { Transaction, TransactionStatus, TransactionType, PaymentMethod } from '@/data/entities/Transaction';
 import { getCompany } from './companies';
 import { getCurrentSession } from './auth.server';
+import { ensureAccountingPeriodForCompany } from './accounting';
 
 const CASH_ACCOUNT_CODE = '1.1.01';
 
@@ -79,6 +80,8 @@ export async function registerCashDeposit(input: RegisterCashDepositInput): Prom
     if (amount > cashBalance) {
         return { success: false, error: 'El monto excede el saldo disponible en Caja General.' };
     }
+
+    await ensureAccountingPeriodForCompany(company.id, new Date());
 
     const ds = await getDb();
     const queryRunner = ds.createQueryRunner();

@@ -8,6 +8,7 @@ import { CashSession } from '@/data/entities/CashSession';
 import { User } from '@/data/entities/User';
 import { revalidatePath } from 'next/cache';
 import { EntityManager, IsNull } from 'typeorm';
+import { ensureAccountingPeriodForDate } from './accounting';
 
 // Types
 interface GetTransactionsParams {
@@ -499,6 +500,7 @@ export async function getTransactionByDocumentNumber(documentNumber: string): Pr
  * IMPORTANTE: Las transacciones son INMUTABLES después de creadas
  */
 export async function createTransaction(data: CreateTransactionDTO): Promise<TransactionResult> {
+    await ensureAccountingPeriodForDate(new Date());
     const ds = await getDb();
     const queryRunner = ds.createQueryRunner();
     

@@ -18,6 +18,15 @@
         "accountHolderName": "Joyarte SpA",
         "isPrimary": true,
         "notes": "Cuenta principal de operaciones"
+      },
+      {
+        "accountKey": "JOYARTE-BCI-VISTA-001",
+        "bankName": "BANCO_BCI",
+        "accountType": "CUENTA_VISTA",
+        "accountNumber": "9876543-2",
+        "accountHolderName": "Joyarte SpA",
+        "isPrimary": false,
+        "notes": "Cuenta secundaria para depósitos y transferencias internas"
       }
     ]
   }

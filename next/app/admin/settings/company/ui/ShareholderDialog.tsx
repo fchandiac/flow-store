@@ -501,8 +501,6 @@ export default function ShareholderDialog({ open, mode, shareholder, onClose, on
             onClose={handleClose}
             title={dialogTitle}
             size="md"
-            showCloseButton
-            closeButtonText="Cancelar"
         >
             <form className="space-y-5" onSubmit={handleSubmit}>
                 {errors.length > 0 && (

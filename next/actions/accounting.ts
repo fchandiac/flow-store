@@ -66,6 +66,58 @@ export interface AccountingPeriodMutationResult {
 
 const ACCOUNTING_PERIODS_PATH = '/admin/accounting/periods';
 
+const toISODate = (date: Date): string => {
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth();
+    const day = date.getUTCDate();
+    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+};
+
+const resolveMonthlyRange = (targetDate: Date): { startDate: string; endDate: string } => {
+    const base = new Date(targetDate);
+    const start = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), 1));
+    const end = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + 1, 0));
+    return {
+        startDate: toISODate(start),
+        endDate: toISODate(end),
+    };
+};
+
+export async function ensureAccountingPeriodForCompany(companyId: string, targetDate: Date = new Date()): Promise<AccountingPeriod> {
+    const ds = await getDb();
+    const repo = ds.getRepository(AccountingPeriod);
+    const { startDate, endDate } = resolveMonthlyRange(targetDate);
+
+    let period = await repo.findOne({
+        where: {
+            companyId,
+            startDate,
+            endDate,
+        },
+    });
+
+    if (period) {
+        return period;
+    }
+
+    period = repo.create({
+        companyId,
+        startDate,
+        endDate,
+        status: AccountingPeriodStatus.OPEN,
+    });
+
+    return repo.save(period);
+}
+
+export async function ensureAccountingPeriodForDate(targetDate: Date = new Date()): Promise<AccountingPeriod> {
+    const company = await getCompany();
+    if (!company) {
+        throw new Error('No se encontró la compañía activa para generar el período contable.');
+    }
+    return ensureAccountingPeriodForCompany(company.id, targetDate);
+}
+
 const periodNameFormatter = new Intl.DateTimeFormat('es-CL', {
     month: 'short',
     day: '2-digit',
@@ -302,6 +354,11 @@ export async function createAccountingPeriod(input: CreateAccountingPeriodInput)
 
     if (endDate < startDate) {
         return { success: false, error: 'La fecha de término no puede ser anterior a la fecha de inicio.' };
+    }
+
+    const expectedRange = resolveMonthlyRange(startDate);
+    if (expectedRange.startDate !== normalizedStart || expectedRange.endDate !== normalizedEnd) {
+        return { success: false, error: 'Los períodos contables deben abarcar exactamente un mes calendario.' };
     }
 
     const ds = await getDb();

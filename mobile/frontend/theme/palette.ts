@@ -1,5 +1,5 @@
 export const palette = {
-  background: '#D3F9FF',
+  background: '#DDFAFF',
   surface: '#FFFFFF',
   surfaceMuted: '#F8F9FB',
   surfaceSubtle: '#F7F7F8',

@@ -7,6 +7,8 @@ import {
     UpdateDateColumn,
     ManyToOne,
     JoinColumn,
+    Unique,
+    Index,
 } from "typeorm";
 import { Company } from "./Company";
 import { User } from "./User";
@@ -18,6 +20,8 @@ export enum AccountingPeriodStatus {
 }
 
 @Entity("accounting_periods")
+@Unique('UQ_accounting_period_company_month', ['companyId', 'startDate', 'endDate'])
+@Index(['companyId', 'startDate'])
 export class AccountingPeriod {
     @PrimaryGeneratedColumn("uuid")
     id!: string;

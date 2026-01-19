@@ -1,7 +1,5 @@
 import type { PropsWithChildren, ReactNode } from 'react';
 
-const DEFAULT_INFO_NOTICE = 'Vista de solo lectura. Los saldos se calculan en línea según la operación.';
-
 interface AccountingShellProps {
     title: string;
     description?: ReactNode;
@@ -13,7 +11,7 @@ export default function AccountingShell({
     title,
     description,
     actions,
-    infoNotice = DEFAULT_INFO_NOTICE,
+    infoNotice,
     children,
 }: PropsWithChildren<AccountingShellProps>) {
     return (

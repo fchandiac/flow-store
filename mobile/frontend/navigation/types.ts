@@ -8,4 +8,6 @@ export type RootStackParamList = {
   PrinterSettings: undefined;
   ServerSettings: undefined;
   CashClosing: undefined;
+  CashIncome: undefined;
+  CashOutcome: undefined;
 };

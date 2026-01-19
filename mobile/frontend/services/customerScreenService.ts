@@ -206,4 +206,34 @@ export async function requestOverlayPermission(): Promise<void> {
   await module.openOverlaySettings();
 }
 
+export async function showTestMessageOnCustomerDisplay(): Promise<boolean> {
+  if (!isAvailable || !module) {
+    return false;
+  }
+
+  await ensureInitialized();
+
+  const lines = [
+    'Flow-store POS',
+    'Pantalla secundaria',
+    'Configuración de prueba',
+    'Todo listo para mostrar',
+    'Gracias por esperar',
+  ];
+  const align = lines.map((_, index) => (index === 0 ? 1 : 0));
+
+  await module.displayLines(lines, align);
+  return true;
+}
+
+export async function stopCustomerDisplay(): Promise<boolean> {
+  if (!isAvailable || !module) {
+    return false;
+  }
+
+  await ensureInitialized();
+  await module.clear();
+  return true;
+}
+
 export const isCustomerScreenAvailable = isAvailable;

@@ -2,15 +2,19 @@ import { NextResponse } from 'next/server';
 import { getDataSource } from '../../../../src/db';
 import { CashSession, CashSessionStatus } from '@/data/entities/CashSession';
 import { PointOfSale } from '@/data/entities/PointOfSale';
+import { Branch } from '@/data/entities/Branch';
 import { User } from '@/data/entities/User';
 import { Transaction, TransactionType } from '@/data/entities/Transaction';
 import { persistCashSessionOpeningTransaction } from '../../../../src/services/cashSessionService';
+import { buildLedger } from '@/data/services/AccountingEngine';
 
 interface CreateOpeningTransactionRequest {
   cashSessionId?: string;
   userName?: string;
   openingAmount?: number;
 }
+
+const CASH_ACCOUNT_CODE = '1.1.01';
 
 export async function POST(request: Request) {
   try {
@@ -21,6 +25,9 @@ export async function POST(request: Request) {
       typeof body.openingAmount === 'number' && !Number.isNaN(body.openingAmount)
         ? body.openingAmount
         : 0;
+    const sanitizedOpeningAmount = Number.isFinite(openingAmount)
+      ? Number(openingAmount.toFixed(2))
+      : 0;
 
     if (!cashSessionId) {
       return NextResponse.json(
@@ -52,7 +59,7 @@ export async function POST(request: Request) {
 
       const pointOfSaleRepo = manager.getRepository(PointOfSale);
       const pointOfSale = session.pointOfSaleId
-        ? await pointOfSaleRepo.findOne({ where: { id: session.pointOfSaleId } })
+        ? await pointOfSaleRepo.findOne({ where: { id: session.pointOfSaleId }, relations: ['branch'] })
         : null;
 
       if (!pointOfSale) {
@@ -82,11 +89,37 @@ export async function POST(request: Request) {
         return { conflict: true, existingTransaction } as const;
       }
 
+      let companyId = pointOfSale.branch?.companyId ?? null;
+      if (!companyId && pointOfSale.branchId) {
+        const branchRepo = manager.getRepository(Branch);
+        const branch = await branchRepo.findOne({ where: { id: pointOfSale.branchId } });
+        companyId = branch?.companyId ?? null;
+      }
+
+      if (!companyId) {
+        return { missingCompany: true } as const;
+      }
+
+      const ledger = await buildLedger(manager.connection, { companyId });
+      const cashAccount = ledger.accounts.find((account) => account.code === CASH_ACCOUNT_CODE);
+      const rawAvailableCash = cashAccount ? ledger.balanceByAccount[cashAccount.id] ?? 0 : 0;
+      const availableCash = Number.isFinite(rawAvailableCash)
+        ? Number(Number(rawAvailableCash).toFixed(2))
+        : 0;
+
+      if (availableCash <= 0) {
+        return { noCashAvailable: true, availableCash } as const;
+      }
+
+      if (sanitizedOpeningAmount > availableCash) {
+        return { insufficientCash: true, availableCash } as const;
+      }
+
       const savedTransaction = await persistCashSessionOpeningTransaction(manager, {
         cashSession: session,
         pointOfSale,
         user,
-        openingAmount,
+        openingAmount: sanitizedOpeningAmount,
       });
 
       return { session, savedTransaction } as const;
@@ -135,6 +168,44 @@ export async function POST(request: Request) {
         {
           success: false,
           message: 'La sesión ya tiene una transacción de apertura registrada.',
+        },
+        { status: 409 },
+      );
+    }
+
+    if ('missingCompany' in result) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'El punto de venta no tiene una sucursal asociada a una empresa para validar el saldo de caja.',
+        },
+        { status: 409 },
+      );
+    }
+
+    if ('noCashAvailable' in result) {
+      const formattedAvailable = result.availableCash.toLocaleString('es-CL', {
+        style: 'currency',
+        currency: 'CLP',
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          message: `No hay saldo disponible en la cuenta de caja (${CASH_ACCOUNT_CODE}) para abrir la caja del punto de venta (saldo actual: ${formattedAvailable}).`,
+        },
+        { status: 409 },
+      );
+    }
+
+    if ('insufficientCash' in result) {
+      const formattedAvailable = result.availableCash.toLocaleString('es-CL', {
+        style: 'currency',
+        currency: 'CLP',
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          message: `El monto de apertura supera el saldo disponible en la cuenta de caja (${CASH_ACCOUNT_CODE}). Saldo disponible: ${formattedAvailable}.`,
         },
         { status: 409 },
       );

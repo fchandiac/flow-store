@@ -8,6 +8,7 @@ import { Shareholder } from '@/data/entities/Shareholder';
 import { Company } from '@/data/entities/Company';
 import { Transaction, TransactionStatus, TransactionType, PaymentMethod } from '@/data/entities/Transaction';
 import type { Repository } from 'typeorm';
+import { ensureAccountingPeriodForCompany } from './accounting';
 
 interface CreateCapitalContributionInput {
     shareholderId: string;
@@ -115,6 +116,8 @@ export async function createCapitalContribution(input: CreateCapitalContribution
     if (!company) {
         return { success: false, error: 'No se encontró la compañía configurada. Configura la empresa antes de registrar aportes.' };
     }
+
+    await ensureAccountingPeriodForCompany(company.id, occurredOn);
 
     if (!input.bankAccountKey) {
         return { success: false, error: 'Selecciona la cuenta bancaria que recibirá el aporte.' };

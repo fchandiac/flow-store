@@ -1,15 +1,12 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import DataGrid, { type DataGridColumn } from '@/baseComponents/DataGrid/DataGrid';
 import Badge, { type BadgeVariant } from '@/baseComponents/Badge/Badge';
-import Alert from '@/baseComponents/Alert/Alert';
 import IconButton from '@/baseComponents/IconButton/IconButton';
 import Dialog from '@/baseComponents/Dialog/Dialog';
 import type { AccountingPeriodSummary } from '@/actions/accounting';
 import { formatDateTime } from '@/lib/dateTimeUtils';
-import CreateAccountingPeriodDialog from './CreateAccountingPeriodDialog';
 
 interface PeriodsTableProps {
     periods: AccountingPeriodSummary[];
@@ -55,8 +52,6 @@ const getStatusInfo = (status: string, locked: boolean): { label: string; varian
 };
 
 export default function PeriodsTable({ periods }: PeriodsTableProps) {
-    const router = useRouter();
-    const [dialogOpen, setDialogOpen] = useState(false);
     const [detailDialogOpen, setDetailDialogOpen] = useState(false);
     const [selectedPeriod, setSelectedPeriod] = useState<AccountingPeriodRow | null>(null);
 
@@ -121,42 +116,15 @@ export default function PeriodsTable({ periods }: PeriodsTableProps) {
         [openDetailDialog],
     );
 
-    const handleOpenDialog = useCallback(() => {
-        setDialogOpen(true);
-    }, []);
-
-    const handleCloseDialog = useCallback(() => {
-        setDialogOpen(false);
-    }, []);
-
-    const handleCreated = useCallback(() => {
-        setDialogOpen(false);
-        router.refresh();
-    }, [router]);
-
     return (
         <div className="space-y-4">
-            {rows.length === 0 && (
-                <Alert variant="info">
-                    Todavía no hay períodos contables registrados. Crea el primero para comenzar el control mensual.
-                </Alert>
-            )}
-
             <DataGrid
                 title="Períodos contables"
                 columns={columns}
                 rows={rows}
                 totalRows={rows.length}
-                onAddClick={handleOpenDialog}
                 height="80vh"
                 data-test-id="accounting-periods-grid"
-            />
-
-            <CreateAccountingPeriodDialog
-                open={dialogOpen}
-                onClose={handleCloseDialog}
-                onSuccess={handleCreated}
-                existingPeriods={periods}
             />
 
             <Dialog

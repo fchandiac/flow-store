@@ -8,6 +8,7 @@ import { CostCenter } from '@/data/entities/CostCenter';
 import { Employee } from '@/data/entities/Employee';
 import { User } from '@/data/entities/User';
 import { getCurrentSession } from './auth.server';
+import { ensureAccountingPeriodForDate } from './accounting';
 
 export interface OperatingExpenseListItem {
     id: string;
@@ -192,6 +193,8 @@ export async function createOperatingExpense(input: CreateOperatingExpenseInput)
     if (!session) {
         return { success: false, error: 'Debes iniciar sesión para registrar gastos operativos.' };
     }
+
+    await ensureAccountingPeriodForDate(new Date());
 
     const ds = await getDb();
     const queryRunner = ds.createQueryRunner();

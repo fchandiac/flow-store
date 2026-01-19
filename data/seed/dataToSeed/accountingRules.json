@@ -101,6 +101,15 @@
   {
     "appliesTo": "TRANSACTION",
     "transactionType": "PAYMENT_OUT",
+    "paymentMethod": "TRANSFER",
+    "debitAccountRef": "CAJA_GENERAL",
+    "creditAccountRef": "INSTITUCIONES_FINANCIERAS",
+    "priority": 19,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
     "expenseCategoryRef": "SERVICIO_AGUA",
     "debitAccountRef": "GASTOS_GENERALES",
     "creditAccountRef": "CAJA_GENERAL",
@@ -276,6 +285,15 @@
     "debitAccountRef": "INSTITUCIONES_FINANCIERAS",
     "creditAccountRef": "CAPITAL_PAGADO",
     "priority": 41,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "CASH_DEPOSIT",
+    "paymentMethod": "CASH",
+    "debitAccountRef": "INSTITUCIONES_FINANCIERAS",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 42,
     "isActive": true
   }
 ]

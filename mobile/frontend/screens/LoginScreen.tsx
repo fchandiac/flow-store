@@ -125,7 +125,7 @@ function LoginScreen({ navigation }: LoginScreenProps) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#D3F9FF',
+    backgroundColor: palette.background,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,

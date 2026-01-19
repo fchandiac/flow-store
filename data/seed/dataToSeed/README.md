@@ -3,6 +3,7 @@
 Estos archivos describen por completo el escenario Joyarte consumido por `data/seed/seed-flowstore.ts`. Cada JSON alimenta un bloque del seed:
 
 - `companies.json`: datos corporativos y cuentas bancarias iniciales.
+- `shareholders.json`: socios de la empresa, roles y porcentaje de participación.
 - `branches.json`: sucursales con referencias internas (`ref`) usadas por otros catálogos.
 - `costCenters.json`, `organizationalUnits.json`: estructura operativa enlazada a sucursales.
 - `taxes.json`: definición de impuestos (solo IVA y Exento activos; el IVA usa el code `IVA`).

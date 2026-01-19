@@ -16,6 +16,8 @@ import { registerOpeningTransaction } from '../services/apiService';
 import { RootStackParamList } from '../navigation/types';
 import { usePosStore } from '../store/usePosStore';
 import { palette } from '../theme/palette';
+import { formatCurrency } from '../utils/formatCurrency';
+import { sanitizeCashAccountMessage } from '../utils/sanitizeCashAccountMessage';
 
 export type OpeningScreenProps = NativeStackScreenProps<RootStackParamList, 'Opening'>;
 
@@ -49,8 +51,13 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
   );
   const [amountValue, setAmountValue] = useState<number>(() => initialAmount ?? 0);
 
-  const syncCaretToEnd = useCallback((digits: string) => {
-    const length = digits.length;
+  const syncCaretToEnd = useCallback((input: string | number) => {
+    const raw = typeof input === 'number' ? String(Math.max(0, Math.round(input))) : input;
+    const digits = raw.replace(/[^0-9]/g, '');
+    const normalizedDigits = digits.replace(/^0+(?=\d)/, '') || '0';
+    const numeric = Number.parseInt(normalizedDigits, 10);
+    const formatted = Number.isFinite(numeric) ? formatCurrency(numeric) : '$0';
+    const length = formatted.length;
     setTimeout(() => {
       amountInputRef.current?.setNativeProps({
         selection: { start: length, end: length },
@@ -58,6 +65,16 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
     }, 0);
   }, []);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const formattedOpeningAmount = useMemo(() => {
+    const digits = amountDigits.replace(/[^0-9]/g, '');
+    const normalized = digits.replace(/^0+(?=\d)/, '') || '0';
+    const numeric = Number.parseInt(normalized, 10);
+    if (!Number.isFinite(numeric)) {
+      return '$0';
+    }
+    return formatCurrency(numeric);
+  }, [amountDigits]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -89,11 +106,11 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
     if (initialAmount !== null) {
       setAmountDigits(String(initialAmount));
       setAmountValue(initialAmount);
-      syncCaretToEnd(String(initialAmount));
+      syncCaretToEnd(initialAmount);
     } else {
       setAmountDigits('0');
       setAmountValue(0);
-      syncCaretToEnd('0');
+      syncCaretToEnd(0);
     }
   }, [initialAmount, syncCaretToEnd]);
 
@@ -102,7 +119,7 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
     if (!digitsOnly) {
       setAmountDigits('0');
       setAmountValue(0);
-      syncCaretToEnd('0');
+      syncCaretToEnd(0);
       return;
     }
 
@@ -111,13 +128,13 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
     if (Number.isNaN(numeric) || numeric < 0) {
       setAmountDigits('0');
       setAmountValue(0);
-      syncCaretToEnd('0');
+      syncCaretToEnd(0);
       return;
     }
 
     setAmountDigits(normalizedDigits);
     setAmountValue(numeric);
-    syncCaretToEnd(normalizedDigits);
+    syncCaretToEnd(numeric);
   };
 
   const handleConfirmOpening = async () => {
@@ -140,7 +157,9 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
       Alert.alert('Sesión abierta', 'El monto de apertura fue registrado.');
       navigation.reset({ index: 0, routes: [{ name: 'Pos' }] });
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo registrar la apertura.';
+      const rawMessage =
+        error instanceof Error ? error.message : 'No se pudo registrar la apertura.';
+      const message = sanitizeCashAccountMessage(rawMessage);
       Alert.alert('Error al registrar apertura', message);
     } finally {
       setIsSubmitting(false);
@@ -159,15 +178,15 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
           Define el monto inicial disponible en la caja antes de iniciar las ventas.
         </Text>
         {pointOfSale ? <Text style={styles.meta}>Punto de venta: {pointOfSale.name}</Text> : null}
-        {session ? <Text style={styles.meta}>Sesión: {session.id}</Text> : null}
         <TextInput
           ref={amountInputRef}
-          keyboardType="number-pad"
+          keyboardType={Platform.select({ android: 'numeric', default: 'number-pad' })}
+          inputMode="numeric"
           onChangeText={handleAmountChange}
           placeholder="Monto de apertura"
           placeholderTextColor={palette.textMuted}
           style={styles.input}
-          value={amountDigits}
+          value={formattedOpeningAmount}
           editable={!isSubmitting}
           onFocus={() => syncCaretToEnd(amountDigits)}
         />
