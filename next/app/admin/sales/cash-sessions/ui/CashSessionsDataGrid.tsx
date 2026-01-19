@@ -241,8 +241,8 @@ const CashSessionsDataGrid = () => {
       field: 'openingAmount',
       headerName: 'Apertura (CLP)',
       width: 150,
-      align: 'right',
-      headerAlign: 'right',
+      align: 'left',
+      headerAlign: 'left',
       renderCell: ({ value }) => (
         <span className="text-sm font-medium text-neutral-900">{currencyFormatter.format(Number(value ?? 0))}</span>
       ),
@@ -251,8 +251,8 @@ const CashSessionsDataGrid = () => {
       field: 'expectedAmount',
       headerName: 'Esperado',
       width: 140,
-      align: 'right',
-      headerAlign: 'right',
+      align: 'left',
+      headerAlign: 'left',
       renderCell: ({ value }) => {
         if (value === null || value === undefined) {
           return <span className="text-xs text-neutral-500">—</span>;
@@ -264,8 +264,8 @@ const CashSessionsDataGrid = () => {
       field: 'closingAmount',
       headerName: 'Cierre reportado',
       width: 160,
-      align: 'right',
-      headerAlign: 'right',
+      align: 'left',
+      headerAlign: 'left',
       renderCell: ({ value }) => {
         if (value === null || value === undefined) {
           return <span className="text-xs text-neutral-500">Sin datos</span>;
@@ -277,8 +277,8 @@ const CashSessionsDataGrid = () => {
       field: 'difference',
       headerName: 'Diferencia',
       width: 140,
-      align: 'right',
-      headerAlign: 'right',
+      align: 'left',
+      headerAlign: 'left',
       renderCell: ({ value }) => {
         if (value === null || value === undefined) {
           return <span className="text-xs text-neutral-500">—</span>;

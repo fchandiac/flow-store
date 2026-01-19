@@ -70,8 +70,8 @@ const LedgerDataGridClient = ({ rows }: LedgerDataGridClientProps) => {
       field: 'debit',
       headerName: 'Debe',
       width: 140,
-      align: 'right',
-      headerAlign: 'right',
+      align: 'left',
+      headerAlign: 'left',
       renderCell: ({ value }) => (
         <span className="text-sm font-semibold text-emerald-700">{formatAmount(value)}</span>
       ),
@@ -80,8 +80,8 @@ const LedgerDataGridClient = ({ rows }: LedgerDataGridClientProps) => {
       field: 'credit',
       headerName: 'Haber',
       width: 140,
-      align: 'right',
-      headerAlign: 'right',
+      align: 'left',
+      headerAlign: 'left',
       renderCell: ({ value }) => (
         <span className="text-sm font-semibold text-rose-700">{formatAmount(value)}</span>
       ),
@@ -90,8 +90,8 @@ const LedgerDataGridClient = ({ rows }: LedgerDataGridClientProps) => {
       field: 'balance',
       headerName: 'Saldo',
       width: 160,
-      align: 'right',
-      headerAlign: 'right',
+      align: 'left',
+      headerAlign: 'left',
       renderCell: ({ value }) => (
         <span className="text-sm font-semibold text-neutral-900">{formatAmount(value, false)}</span>
       ),

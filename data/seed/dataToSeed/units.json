@@ -1,0 +1,38 @@
+[
+  {
+    "name": "Unidad",
+    "symbol": "un",
+    "dimension": "COUNT",
+    "conversionFactor": 1,
+    "isBase": true,
+    "baseSymbol": "un",
+    "allowDecimals": true
+  },
+  {
+    "name": "Caja",
+    "symbol": "cj",
+    "dimension": "COUNT",
+    "conversionFactor": 12,
+    "isBase": false,
+    "baseSymbol": "un",
+    "allowDecimals": true
+  },
+  {
+    "name": "Kilogramo",
+    "symbol": "kg",
+    "dimension": "MASS",
+    "conversionFactor": 1,
+    "isBase": true,
+    "baseSymbol": "kg",
+    "allowDecimals": true
+  },
+  {
+    "name": "Gramo",
+    "symbol": "g",
+    "dimension": "MASS",
+    "conversionFactor": 0.001,
+    "isBase": false,
+    "baseSymbol": "kg",
+    "allowDecimals": true
+  }
+]

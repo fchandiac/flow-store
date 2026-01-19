@@ -66,10 +66,12 @@
     opacity: 1;
     filter: drop-shadow(0 8px 12px rgba(0, 0, 0, 0.4));
   }
+
   80% {
     transform: translateY(-5px) scale(1);
     filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
   }
+
   100% {
     transform: translateY(0) scale(1);
     opacity: 1;
@@ -82,10 +84,12 @@
     transform: scale(0.3);
     opacity: 0;
   }
+
   60% {
     transform: scale(1.2);
     opacity: 0.4;
   }
+
   100% {
     transform: scale(1);
     opacity: 1;
@@ -103,8 +107,15 @@
 
 /* Bounce effect on land */
 @keyframes marker-bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-8px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-8px);
+  }
 }
 
 .leaflet-marker-icon.marker-bounce {
@@ -117,12 +128,14 @@
 }
 
 :root {
-  --color-primary: #242629;
+  --color-primary: #1C2046;
   --color-background: #ffffff;
   --color-foreground: #131615;
   --color-border: #c1c1c2;
+  /* --color-accent: #2563a8; */
   --color-accent: #2563a8;
-  --color-secondary: #56D2E3;
+  /* --color-secondary: #56D2E3; */
+  --color-secondary: #04C9E7;
   --color-muted: #6b7280;
   --color-success: #4CAF50;
   --color-info: #2196F3;
@@ -291,17 +304,17 @@ body {
   }
 
   .title-base-form {
-    @apply text-2xl font-bold text-primary leading-tight ;
+    @apply text-2xl font-bold text-primary leading-tight;
   }
 
-   .subtitle-base-form {
+  .subtitle-base-form {
     @apply text-base font-light text-foreground leading-snug;
   }
 
 
 
   .title {
-    @apply text-2xl font-bold text-primary leading-tight ;
+    @apply text-2xl font-bold text-primary leading-tight;
   }
 
   .subtitle {
@@ -332,7 +345,7 @@ body {
     }
   }
 
-  .masonry-columns > * {
+  .masonry-columns>* {
     break-inside: avoid;
     margin-bottom: 1.5rem;
   }
@@ -557,8 +570,7 @@ body {
   }
 
   .input-base {
-    @apply w-full px-3 py-2 border border-border rounded-md text-sm font-light
-           text-foreground focus:outline-none focus:border-accent disabled:opacity-50;
+    @apply w-full px-3 py-2 border border-border rounded-md text-sm font-light text-foreground focus:outline-none focus:border-accent disabled:opacity-50;
     background-color: var(--color-background);
   }
 
@@ -571,18 +583,15 @@ body {
 
 
   .input-icon {
-    @apply absolute left-3 top-1/2 -translate-y-1/2 text-xl pointer-events-none
-           flex items-center justify-center z-10;
+    @apply absolute left-3 top-1/2 -translate-y-1/2 text-xl pointer-events-none flex items-center justify-center z-10;
   }
 
   .input-icon-right {
-    @apply absolute right-3 top-1/2 -translate-y-1/2 text-xl
-           flex items-center justify-center z-10;
+    @apply absolute right-3 top-1/2 -translate-y-1/2 text-xl flex items-center justify-center z-10;
   }
 
   .password-toggle-button {
-    @apply absolute right-3 top-1/2 -translate-y-1/2 text-xl
-           flex items-center justify-center z-10;
+    @apply absolute right-3 top-1/2 -translate-y-1/2 text-xl flex items-center justify-center z-10;
   }
 
   /* Select Components */
@@ -591,15 +600,11 @@ body {
   }
 
   .select-trigger {
-    @apply w-full px-3 py-2 border border-border rounded-md bg-background
-           text-left flex items-center justify-between cursor-pointer
-           focus:outline-none text-sm font-light
-           text-foreground disabled:opacity-50;
+    @apply w-full px-3 py-2 border border-border rounded-md bg-background text-left flex items-center justify-between cursor-pointer focus:outline-none text-sm font-light text-foreground disabled:opacity-50;
   }
 
   .select-dropdown {
-    @apply absolute w-full mt-1 bg-background border border-border
-           rounded-md shadow-lg max-h-60 overflow-auto;
+    @apply absolute w-full mt-1 bg-background border border-border rounded-md shadow-lg max-h-60 overflow-auto;
     z-index: 60;
   }
 
@@ -628,9 +633,7 @@ body {
   }
 
   .range-thumb {
-    @apply absolute w-6 h-6 bg-primary rounded-full top-1/2 -translate-y-1/2
-           appearance-none cursor-pointer border-2 border-background
-           focus:outline-none focus:ring-1 focus:ring-primary shadow;
+    @apply absolute w-6 h-6 bg-primary rounded-full top-1/2 -translate-y-1/2 appearance-none cursor-pointer border-2 border-background focus:outline-none focus:ring-1 focus:ring-primary shadow;
   }
 
   .range-thumb:hover {
@@ -639,8 +642,7 @@ body {
 
   /* Upload Components */
   .upload-dropzone {
-    @apply border-2 border-dashed border-border rounded-lg p-6 text-center
-           cursor-pointer hover:border-accent transition-colors duration-200;
+    @apply border-2 border-dashed border-border rounded-lg p-6 text-center cursor-pointer hover:border-accent transition-colors duration-200;
   }
 
   .upload-preview {
@@ -658,9 +660,7 @@ body {
   }
 
   .autocomplete-input {
-    @apply w-full px-3 py-2 border border-border rounded-md bg-background
-           text-sm font-light text-foreground focus:outline-none
-           disabled:opacity-50;
+    @apply w-full px-3 py-2 border border-border rounded-md bg-background text-sm font-light text-foreground focus:outline-none disabled:opacity-50;
   }
 
   /* Switch Components */
@@ -674,8 +674,7 @@ body {
   }
 
   .switch-thumb {
-    @apply absolute top-0.5 left-0.5 w-5 h-5 bg-background rounded-full
-           transition-transform duration-200 shadow-sm;
+    @apply absolute top-0.5 left-0.5 w-5 h-5 bg-background rounded-full transition-transform duration-200 shadow-sm;
   }
 
   .switch-checked .switch-track {

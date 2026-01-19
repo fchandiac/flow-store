@@ -1,0 +1,20 @@
+[
+  {
+    "ref": "PARRAL",
+    "name": "Sucursal Parral",
+    "address": "Avenida Aníbal Pinto 123, Parral",
+    "phone": "+56 9 1234 5678",
+    "location": { "lat": -36.1454, "lng": -71.8244 },
+    "isHeadquarters": true,
+    "companyId": "JOYARTE"
+  },
+  {
+    "ref": "ONLINE",
+    "name": "Tienda Online",
+    "address": "Canal e-commerce Joyarte",
+    "phone": "+56 2 600 569 2783",
+    "location": null,
+    "isHeadquarters": false,
+    "companyId": "JOYARTE"
+  }
+]

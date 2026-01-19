@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Caja Principal",
+    "branchRef": "PARRAL",
+    "defaultPriceListKey": "retail",
+    "deviceId": "POS-PARRAL-MAIN-01"
+  },
+  {
+    "name": "Caja Mayorista",
+    "branchRef": "PARRAL",
+    "defaultPriceListKey": "wholesale",
+    "deviceId": "POS-PARRAL-WHS-01"
+  }
+]

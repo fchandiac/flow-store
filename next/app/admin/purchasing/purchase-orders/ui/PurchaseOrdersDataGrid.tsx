@@ -139,8 +139,8 @@ const PurchaseOrdersDataGrid = () => {
                 headerName: 'Total',
                 flex: 0.8,
                 minWidth: 130,
-                align: 'right',
-                headerAlign: 'right',
+                align: 'left',
+                headerAlign: 'left',
                 renderCell: ({ value }) => currencyFormatter.format(Number(value || 0)),
             },
             {
@@ -148,8 +148,8 @@ const PurchaseOrdersDataGrid = () => {
                 headerName: 'Estado',
                 flex: 0.7,
                 minWidth: 120,
-                align: 'center',
-                headerAlign: 'center',
+                align: 'left',
+                headerAlign: 'left',
                 renderCell: ({ value }) => {
                     const status = value as TransactionStatus;
                     const meta = statusVariant[status] ?? { label: status, variant: 'secondary' as const };
@@ -168,7 +168,7 @@ const PurchaseOrdersDataGrid = () => {
                 headerName: '',
                 flex: 0.4,
                 minWidth: 80,
-                align: 'center',
+                align: 'left',
                 sortable: false,
                 filterable: false,
                 renderCell: ({ row }) => <ActionsCell row={row as PurchaseOrderListItem} />,

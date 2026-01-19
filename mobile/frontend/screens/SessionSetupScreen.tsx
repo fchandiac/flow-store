@@ -1,6 +1,7 @@
 import { useFocusEffect, useIsFocused } from '@react-navigation/native';
 import { type NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Ionicons } from '@expo/vector-icons';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -44,6 +45,7 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
   const loginRedirectRef = useRef(false);
   const posRedirectRef = useRef(false);
   const user = usePosStore((state) => state.user);
+  const setUser = usePosStore((state) => state.setUser);
   const setPointOfSale = usePosStore((state) => state.setPointOfSale);
   const setCashSession = usePosStore((state) => state.setCashSession);
   const cashSession = usePosStore((state) => state.cashSession);
@@ -64,6 +66,38 @@ function SessionSetupScreen({ navigation }: SessionSetupScreenProps) {
     [pointsOfSale, selectedPointOfSaleId],
   );
   const sessionRequestRef = useRef(0);
+
+  const handleLogout = useCallback(() => {
+    Alert.alert('Cerrar sesión', '¿Deseas salir de la sesión actual?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Cerrar sesión',
+        style: 'destructive',
+        onPress: () => {
+          setUser(null);
+          setPointOfSale(null);
+          setCashSession(null);
+          navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+        },
+      },
+    ]);
+  }, [navigation, setCashSession, setPointOfSale, setUser]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <TouchableOpacity
+          onPress={handleLogout}
+          style={styles.headerButton}
+          accessibilityLabel="Cerrar sesión"
+          accessibilityRole="button"
+          hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+        >
+          <Ionicons name="log-out-outline" size={22} color="#000000" />
+        </TouchableOpacity>
+      ),
+    });
+  }, [handleLogout, navigation]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -427,6 +461,12 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
     backgroundColor: palette.background,
     minHeight: '100%',
+  },
+  headerButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 24,

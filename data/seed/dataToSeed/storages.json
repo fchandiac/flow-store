@@ -1,0 +1,11 @@
+[
+  {
+    "name": "Vitrina Principal",
+    "code": "VIT-001",
+    "branchRef": "PARRAL",
+    "type": "WAREHOUSE",
+    "category": "IN_BRANCH",
+    "isDefault": true,
+    "isActive": true
+  }
+]

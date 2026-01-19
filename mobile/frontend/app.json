@@ -29,8 +29,9 @@
       "bundleIdentifier": "com.anonymous.android13expoapp"
     },
     "android": {
+      "icon": "./assets/icon_android.png",
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/icon_android.png",
         "backgroundColor": "#ffffff"
       },
       "permissions": [

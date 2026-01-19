@@ -212,10 +212,10 @@ const ReceivedPaymentsDataGrid = () => {
       field: 'total',
       headerName: 'Monto',
       width: 140,
-      align: 'right',
-      headerAlign: 'right',
+      align: 'left',
+      headerAlign: 'left',
       renderCell: ({ row }) => (
-        <div className="flex flex-col items-end text-sm">
+        <div className="flex flex-col items-start text-sm">
           <span className="font-semibold text-neutral-900">{currencyFormatter.format(Number(row.total ?? 0))}</span>
           {Number(row.amountPaid ?? 0) !== Number(row.total ?? 0) && (
             <span className="text-xs text-neutral-500">

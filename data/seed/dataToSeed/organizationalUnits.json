@@ -1,0 +1,27 @@
+[
+  {
+    "code": "ADM-CENTRAL",
+    "name": "Administración Central",
+    "description": "Equipo central responsable de la gestión administrativa y financiera.",
+    "type": "HEADQUARTERS",
+    "costCenterRef": "OPERACIONES_PARRAL"
+  },
+  {
+    "code": "OPS-PARRAL",
+    "name": "Operaciones Sucursal Parral",
+    "description": "Equipo operativo de la sala de ventas presencial en Parral.",
+    "type": "STORE",
+    "branchRef": "PARRAL",
+    "costCenterRef": "OPERACIONES_PARRAL",
+    "parentCode": "ADM-CENTRAL"
+  },
+  {
+    "code": "OPS-ONLINE",
+    "name": "Operaciones Tienda Online",
+    "description": "Equipo encargado del canal online, fulfillment y despacho.",
+    "type": "STORE",
+    "branchRef": "ONLINE",
+    "costCenterRef": "OPERACIONES_ONLINE",
+    "parentCode": "ADM-CENTRAL"
+  }
+]

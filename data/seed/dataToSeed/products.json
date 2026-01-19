@@ -1,0 +1,149 @@
+[
+  {
+    "name": "Anillo Solitario Clásico",
+    "description": "Elegante anillo solitario con diamante central",
+    "brand": "Brillante",
+    "categoryCode": "ANI",
+    "variants": [
+      {
+        "sku": "ANI-SOL-ORO18-T6",
+        "baseCost": 950000,
+        "attributeValues": {
+          "Material": "Oro 18K",
+          "Talla": "6",
+          "Piedra": "Diamante",
+          "Quilates": "1.00ct"
+        },
+        "weight": 6.4,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 1890000, "netPrice": 1588235.29, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 1849000, "netPrice": 1553781.51, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 1720000, "netPrice": 1445378.15, "taxCodes": ["IVA-19"] }
+        ]
+      },
+      {
+        "sku": "ANI-SOL-ORO18-T7",
+        "baseCost": 900000,
+        "attributeValues": {
+          "Material": "Oro 18K",
+          "Talla": "7",
+          "Piedra": "Diamante",
+          "Quilates": "0.75ct"
+        },
+        "weight": 6.1,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 1790000, "netPrice": 1504201.68, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 1750000, "netPrice": 1470588.24, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 1630000, "netPrice": 1369747.9, "taxCodes": ["IVA-19"] }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Collar Cadena Veneciana",
+    "description": "Delicada cadena veneciana en oro",
+    "brand": "Brillante",
+    "categoryCode": "COL",
+    "variants": [
+      {
+        "sku": "COL-VEN-ORO14-45",
+        "baseCost": 220000,
+        "attributeValues": {
+          "Material": "Oro 14K",
+          "Largo": "45cm"
+        },
+        "weight": 12.5,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 450000, "netPrice": 378151.26, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 439000, "netPrice": 368907.56, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 398000, "netPrice": 334453.78, "taxCodes": ["IVA-19"] }
+        ]
+      },
+      {
+        "sku": "COL-VEN-ORO14-50",
+        "baseCost": 235000,
+        "attributeValues": {
+          "Material": "Oro 14K",
+          "Largo": "50cm"
+        },
+        "weight": 13.2,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 475000, "netPrice": 399159.66, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 462000, "netPrice": 388235.29, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 418000, "netPrice": 351260.5, "taxCodes": ["IVA-19"] }
+        ]
+      },
+      {
+        "sku": "COL-VEN-PLATA-50",
+        "baseCost": 110000,
+        "attributeValues": {
+          "Material": "Plata 925",
+          "Largo": "50cm"
+        },
+        "weight": 9.8,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 189000, "netPrice": 158823.53, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 179000, "netPrice": 150420.17, "taxCodes": ["IVA-19"] }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Aros Perla Cultivada",
+    "description": "Aros clásicos con perla cultivada",
+    "brand": "Brillante",
+    "categoryCode": "ARE",
+    "variants": [
+      {
+        "sku": "ARE-PER-PLATA",
+        "baseCost": 85000,
+        "attributeValues": {
+          "Material": "Plata 925",
+          "Piedra": "Perla",
+          "Quilates": "N/A"
+        },
+        "weight": 3.2,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 180000, "netPrice": 151260.5, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 169000, "netPrice": 142016.81, "taxCodes": ["IVA-19"] }
+        ]
+      },
+      {
+        "sku": "ARE-PER-ORO18",
+        "baseCost": 125000,
+        "attributeValues": {
+          "Material": "Oro 18K",
+          "Piedra": "Perla",
+          "Quilates": "N/A"
+        },
+        "weight": 3.5,
+        "weightUnit": "g",
+        "trackInventory": true,
+        "allowNegativeStock": false,
+        "priceEntries": [
+          { "listKey": "retail", "grossPrice": 245000, "netPrice": 205882.35, "taxCodes": ["IVA-19"] },
+          { "listKey": "online", "grossPrice": 235000, "netPrice": 197478.99, "taxCodes": ["IVA-19"] },
+          { "listKey": "wholesale", "grossPrice": 210000, "netPrice": 176470.59, "taxCodes": ["IVA-19"] }
+        ]
+      }
+    ]
+  }
+]

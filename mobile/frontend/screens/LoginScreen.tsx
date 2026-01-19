@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -68,13 +69,19 @@ function LoginScreen({ navigation }: LoginScreenProps) {
           accessibilityRole="button"
           accessibilityLabel="Abrir configuración de dispositivos"
         >
-          <Ionicons name="settings-outline" size={18} color={palette.textMuted} />
+          <Ionicons name="settings-outline" size={18} color={palette.primary} />
           <Text style={styles.settingsLabel}>Configurar dispositivos</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.card}>
-        <Text style={styles.title}>Sesión de Caja</Text>
-        <Text style={styles.subtitle}>Inicia sesión para seleccionar un punto de venta.</Text>
+        <Image
+          source={require('../assets/icon.png')}
+          style={styles.logo}
+          accessibilityRole="image"
+          accessibilityLabel="Logo de FlowStore"
+        />
+        <Text style={styles.brandTitle}>POS</Text>
+        <Text style={styles.subtitle}>Ingresa para abrir una nueva sesión de caja.</Text>
         <TextInput
           autoCapitalize="none"
           autoCorrect={false}
@@ -118,7 +125,7 @@ function LoginScreen({ navigation }: LoginScreenProps) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: palette.background,
+    backgroundColor: '#D3F9FF',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
@@ -135,11 +142,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
+    borderColor: palette.primary,
     backgroundColor: palette.surface,
   },
   settingsLabel: {
-    color: palette.textMuted,
+    color: palette.primary,
     fontSize: 13,
     fontWeight: '600',
     marginLeft: 6,
@@ -152,20 +159,37 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.border,
+    alignItems: 'center',
+  },
+  logo: {
+    width: 96,
+    height: 96,
+    marginBottom: 16,
+    resizeMode: 'contain',
   },
   title: {
     fontSize: 24,
     color: palette.primary,
     fontWeight: '700',
     marginBottom: 4,
+    textAlign: 'center',
+  },
+  brandTitle: {
+    fontSize: 28,
+    color: palette.primary,
+    fontWeight: '800',
+    marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
     fontSize: 14,
     color: palette.textMuted,
     marginBottom: 24,
+    textAlign: 'center',
   },
   input: {
     width: '100%',
+    alignSelf: 'stretch',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: palette.border,
@@ -181,6 +205,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
+    alignSelf: 'stretch',
     backgroundColor: palette.primary,
   },
   buttonDisabled: {

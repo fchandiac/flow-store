@@ -100,6 +100,10 @@ export async function createBankToCashTransfer(input: CreateBankToCashTransferIn
         return { success: false, error: 'El monto excede el saldo estimado disponible en la cuenta bancaria seleccionada.' };
     }
 
+    const openingBalanceRaw = Number(sourceAccount.currentBalance ?? 0);
+    const balanceBefore = Number.isFinite(openingBalanceRaw) ? Number(openingBalanceRaw.toFixed(2)) : 0;
+    const balanceAfter = Number((balanceBefore - amount).toFixed(2));
+
     const dataSource = await getDb();
     const queryRunner = dataSource.createQueryRunner();
 
@@ -141,6 +145,8 @@ export async function createBankToCashTransfer(input: CreateBankToCashTransferIn
                 bankName: sourceAccount.bankName,
                 accountType: sourceAccount.accountType,
                 createdByUserId: session.id,
+                balanceBefore,
+                balanceAfter,
             },
             transfer: {
                 originAccountKey: sourceAccount.accountKey,
@@ -150,6 +156,8 @@ export async function createBankToCashTransfer(input: CreateBankToCashTransferIn
                 amount,
                 occurredOn: occurredOn.toISOString(),
                 notes: normalizedNotes,
+                balanceBefore,
+                balanceAfter,
             },
         };
 
@@ -176,14 +184,9 @@ export async function createBankToCashTransfer(input: CreateBankToCashTransferIn
             if (account.accountKey !== sourceAccount.accountKey) {
                 return account;
             }
-            const balance = Number(account.currentBalance);
-            if (!Number.isFinite(balance)) {
-                return account;
-            }
-            const nextBalance = balance - amount;
             return {
                 ...account,
-                currentBalance: Number(nextBalance.toFixed(2)),
+                currentBalance: balanceAfter,
             };
         });
 

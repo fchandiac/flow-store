@@ -1,0 +1,29 @@
+[
+  {
+    "key": "retail",
+    "name": "Precio Público",
+    "type": "RETAIL",
+    "priority": 0,
+    "isDefault": true,
+    "description": "Lista de precios para venta al público en tienda",
+    "currency": "CLP"
+  },
+  {
+    "key": "online",
+    "name": "Venta Online",
+    "type": "RETAIL",
+    "priority": 10,
+    "isDefault": false,
+    "description": "Precios aplicados para el canal e-commerce",
+    "currency": "CLP"
+  },
+  {
+    "key": "wholesale",
+    "name": "Mayorista Joyero",
+    "type": "WHOLESALE",
+    "priority": 20,
+    "isDefault": false,
+    "description": "Precios preferenciales para joyerías asociadas",
+    "currency": "CLP"
+  }
+]

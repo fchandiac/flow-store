@@ -1,0 +1,134 @@
+[
+  {
+    "businessName": "Metalúrgica Andina SpA",
+    "alias": "Metalúrgica Andina",
+    "contactFirstName": "Claudia",
+    "contactLastName": "Reyes",
+    "documentNumber": "76.345.210-9",
+    "email": "compras@metalurgicaandina.cl",
+    "phone": "+56 2 2789 1122",
+    "address": "Av. Libertador 1450, Santiago",
+    "supplierType": "MANUFACTURER",
+    "defaultPaymentTermDays": 30,
+    "notes": "Proveedor principal de cadenas y cierres de oro 14K.",
+    "bankAccounts": [
+      {
+        "accountKey": "SUP-METAL-BCI-CC",
+        "bankName": "BANCO_BCI",
+        "accountType": "CUENTA_CORRIENTE",
+        "accountNumber": "34567890-1",
+        "accountHolderName": "Metalúrgica Andina SpA",
+        "isPrimary": true,
+        "notes": "Cuenta principal para transferencias nacionales."
+      }
+    ]
+  },
+  {
+    "businessName": "Gemas del Sur Ltda.",
+    "alias": "Gemas del Sur",
+    "contactFirstName": "Ignacio",
+    "contactLastName": "Silva",
+    "documentNumber": "77.210.543-2",
+    "email": "ventas@gemasdelsur.cl",
+    "phone": "+56 9 7654 3210",
+    "address": "Camino Las Piedras 870, Temuco",
+    "supplierType": "DISTRIBUTOR",
+    "defaultPaymentTermDays": 45,
+    "notes": "Distribuidor de piedras certificadas y cortes personalizados.",
+    "bankAccounts": [
+      {
+        "accountKey": "SUP-GEMAS-SANTANDER-CC",
+        "bankName": "BANCO_SANTANDER",
+        "accountType": "CUENTA_CORRIENTE",
+        "accountNumber": "21345678-5",
+        "accountHolderName": "Gemas del Sur Ltda.",
+        "isPrimary": true
+      },
+      {
+        "accountKey": "SUP-GEMAS-BCI-VISTA",
+        "bankName": "BANCO_BCI",
+        "accountType": "CUENTA_VISTA",
+        "accountNumber": "88442211",
+        "accountHolderName": "Gemas del Sur Ltda.",
+        "notes": "Pagos express y anticipos."
+      }
+    ]
+  },
+  {
+    "businessName": "Taller Silva Joyeros EIRL",
+    "alias": "Taller Silva",
+    "contactFirstName": "María",
+    "contactLastName": "Silva",
+    "documentNumber": "78.654.321-5",
+    "email": "contacto@tallersilva.cl",
+    "phone": "+56 2 2456 7789",
+    "address": "Pasaje Lautaro 215, Linares",
+    "supplierType": "LOCAL",
+    "defaultPaymentTermDays": 20,
+    "notes": "Taller artesanal para pedidos personalizados y reparaciones.",
+    "bankAccounts": [
+      {
+        "accountKey": "SUP-SILVA-ESTADO-CC",
+        "bankName": "BANCO_ESTADO",
+        "accountType": "CUENTA_CORRIENTE",
+        "accountNumber": "55667788-9",
+        "accountHolderName": "Taller Silva Joyeros EIRL",
+        "isPrimary": true
+      }
+    ]
+  },
+  {
+    "businessName": "Joyas Patagonia Comercial Ltda.",
+    "alias": "Joyas Patagonia",
+    "contactFirstName": "Diego",
+    "contactLastName": "Montiel",
+    "documentNumber": "79.876.543-1",
+    "email": "compras@joyaspatagonia.cl",
+    "phone": "+56 61 221 9988",
+    "address": "Av. Costanera 1220, Puerto Varas",
+    "supplierType": "WHOLESALER",
+    "defaultPaymentTermDays": 35,
+    "notes": "Especialistas en plata 950 y turquesas patagónicas.",
+    "bankAccounts": [
+      {
+        "accountKey": "SUP-PATA-SCOTIA-CC",
+        "bankName": "BANCO_SCOTIABANK",
+        "accountType": "CUENTA_CORRIENTE",
+        "accountNumber": "66778899-0",
+        "accountHolderName": "Joyas Patagonia Comercial Ltda.",
+        "isPrimary": true
+      }
+    ]
+  },
+  {
+    "businessName": "Luminosa Imports SpA",
+    "alias": "Luminosa Imports",
+    "contactFirstName": "Paula",
+    "contactLastName": "Contreras",
+    "documentNumber": "76.998.112-4",
+    "email": "pagos@luminosaimports.com",
+    "phone": "+56 2 2987 4455",
+    "address": "Calle Londres 78, Santiago",
+    "supplierType": "DISTRIBUTOR",
+    "defaultPaymentTermDays": 40,
+    "notes": "Importador de relojería premium y empaques iluminados.",
+    "bankAccounts": [
+      {
+        "accountKey": "SUP-LUMI-ITAU-CC",
+        "bankName": "BANCO_ITAU",
+        "accountType": "CUENTA_CORRIENTE",
+        "accountNumber": "10223344-6",
+        "accountHolderName": "Luminosa Imports SpA",
+        "isPrimary": true
+      },
+      {
+        "accountKey": "SUP-LUMI-PAGO-VISTA",
+        "bankName": "BANCO_MERCADO_PAGO",
+        "accountType": "CUENTA_VISTA",
+        "accountNumber": "MP-44556677",
+        "accountHolderName": "Luminosa Imports SpA",
+        "notes": "Cuenta dedicada a marketplaces."
+      }
+    ]
+  }
+]

@@ -466,22 +466,22 @@ function PosScreen({ navigation }: PosScreenProps) {
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity
-            style={[styles.headerIconButton, styles.headerIconButtonFirst, styles.headerIconButtonPrimary]}
+            style={[styles.headerIconButton, styles.headerIconButtonFirst]}
             activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityLabel="Abrir movimientos de caja"
             onPress={() => setIsCashMenuVisible(true)}
           >
-            <Ionicons name="cash-outline" size={22} color={palette.primaryText} />
+            <Ionicons name="cash-outline" size={22} color="#000000" />
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.headerIconButton, styles.headerIconButtonDanger]}
+            style={styles.headerIconButton}
             activeOpacity={0.85}
             accessibilityRole="button"
             accessibilityLabel="Cerrar sesión"
             onPress={handleLogout}
           >
-            <Ionicons name="log-out-outline" size={22} color={palette.primaryText} />
+            <Ionicons name="log-out-outline" size={22} color="#000000" />
           </TouchableOpacity>
         </View>
       </View>
@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
     paddingVertical: 20,
-    backgroundColor: palette.background,
+    backgroundColor: '#A4EEF9',
   },
   header: {
     flexDirection: 'row',
@@ -677,26 +677,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   headerIconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: palette.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
+    padding: 8,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 12,
   },
   headerIconButtonFirst: {
     marginLeft: 0,
-  },
-  headerIconButtonPrimary: {
-    backgroundColor: palette.primary,
-    borderColor: palette.primary,
-  },
-  headerIconButtonDanger: {
-    backgroundColor: palette.danger,
-    borderColor: palette.danger,
   },
   card: {
     borderRadius: 16,

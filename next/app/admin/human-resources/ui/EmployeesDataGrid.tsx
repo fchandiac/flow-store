@@ -137,8 +137,8 @@ const buildColumns = (rows: EmployeeRow[], onEditEmployee: (employee: EmployeeLi
             field: 'status',
             headerName: 'Estado',
             width: 140,
-            align: 'center',
-            headerAlign: 'center',
+            align: 'left',
+            headerAlign: 'left',
             renderCell: ({ value }) => {
                 const config = STATUS_CONFIG[value as EmployeeStatus];
                 return <Badge variant={config.variant}>{config.label}</Badge>;
@@ -154,8 +154,8 @@ const buildColumns = (rows: EmployeeRow[], onEditEmployee: (employee: EmployeeLi
             field: 'baseSalaryLabel',
             headerName: 'Salario base',
             width: 160,
-            align: 'right',
-            headerAlign: 'right',
+            align: 'left',
+            headerAlign: 'left',
             renderCell: ({ row }) => row.baseSalaryLabel,
         },
     ];
@@ -173,8 +173,8 @@ const buildColumns = (rows: EmployeeRow[], onEditEmployee: (employee: EmployeeLi
         field: 'actions',
         headerName: 'Acciones',
         width: 140,
-        align: 'center',
-        headerAlign: 'center',
+        align: 'left',
+        headerAlign: 'left',
         renderCell: ({ row }) => (
             <Button
                 variant="text"

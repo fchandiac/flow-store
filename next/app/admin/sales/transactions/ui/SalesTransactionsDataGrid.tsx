@@ -219,8 +219,8 @@ const SalesTransactionsDataGrid = () => {
       field: 'total',
       headerName: 'Total',
       width: 140,
-      align: 'right',
-      headerAlign: 'right',
+      align: 'left',
+      headerAlign: 'left',
       renderCell: ({ value }) => (
         <span className="text-sm font-semibold text-neutral-900">{currencyFormatter.format(Number(value ?? 0))}</span>
       ),
@@ -229,8 +229,8 @@ const SalesTransactionsDataGrid = () => {
       field: 'taxAmount',
       headerName: 'IVA',
       width: 120,
-      align: 'right',
-      headerAlign: 'right',
+      align: 'left',
+      headerAlign: 'left',
       renderCell: ({ value }) => (
         <span className="text-sm text-neutral-800">{currencyFormatter.format(Number(value ?? 0))}</span>
       ),
@@ -301,8 +301,8 @@ const SalesTransactionsDataGrid = () => {
       field: 'actions',
       headerName: '',
       width: 72,
-      align: 'center',
-      headerAlign: 'center',
+      align: 'left',
+      headerAlign: 'left',
       renderCell: ({ row }) => (
         <IconButton
           icon="more_horiz"

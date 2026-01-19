@@ -74,7 +74,7 @@ const columns: DataGridColumn[] = [
     field: 'actions',
     headerName: 'Acciones',
     width: 120,
-    align: 'center',
+    align: 'left',
     sortable: false,
     actionComponent: RowActions, // ← Aquí se especifica el componente
   },

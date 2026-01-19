@@ -15,7 +15,6 @@ import com.facebook.react.defaults.DefaultReactNativeHost
 
 import expo.modules.ApplicationLifecycleDispatcher
 import expo.modules.ReactNativeHostWrapper
-import com.anonymous.android13expoapp.imin.CustomerScreenPackage
 
 class MainApplication : Application(), ReactApplication {
 
@@ -26,11 +25,9 @@ class MainApplication : Application(), ReactApplication {
             PackageList(this).packages.apply {
               // Packages that cannot be autolinked yet can be added manually here, for example:
               // add(MyReactNativePackage())
-              add(CustomerScreenPackage())
             }
 
-            override fun getJSMainModuleName(): String =
-              if (BuildConfig.DEBUG) ".expo/.virtual-metro-entry" else "index"
+          override fun getJSMainModuleName(): String = ".expo/.virtual-metro-entry"
 
           override fun getUseDeveloperSupport(): Boolean = BuildConfig.DEBUG
 

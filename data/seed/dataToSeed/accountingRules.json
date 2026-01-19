@@ -1,0 +1,281 @@
+[
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "SALE",
+    "paymentMethod": "CASH",
+    "debitAccountRef": "CAJA_GENERAL",
+    "creditAccountRef": "VENTAS_MERCADERIAS",
+    "priority": 1,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "SALE",
+    "paymentMethod": "CREDIT_CARD",
+    "debitAccountRef": "INSTITUCIONES_FINANCIERAS",
+    "creditAccountRef": "VENTAS_MERCADERIAS",
+    "priority": 2,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "SALE",
+    "paymentMethod": "DEBIT_CARD",
+    "debitAccountRef": "INSTITUCIONES_FINANCIERAS",
+    "creditAccountRef": "VENTAS_MERCADERIAS",
+    "priority": 3,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "SALE",
+    "paymentMethod": "TRANSFER",
+    "debitAccountRef": "INSTITUCIONES_FINANCIERAS",
+    "creditAccountRef": "VENTAS_MERCADERIAS",
+    "priority": 4,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION_LINE",
+    "transactionType": "SALE",
+    "taxCode": "IVA-19",
+    "debitAccountRef": "CAJA_GENERAL",
+    "creditAccountRef": "IVA_DEBITO_FISCAL",
+    "priority": 10,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PURCHASE",
+    "paymentMethod": "TRANSFER",
+    "debitAccountRef": "EXISTENCIAS",
+    "creditAccountRef": "INSTITUCIONES_FINANCIERAS",
+    "priority": 1,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION_LINE",
+    "transactionType": "PURCHASE",
+    "taxCode": "IVA-19",
+    "debitAccountRef": "IVA_CREDITO_FISCAL",
+    "creditAccountRef": "EXISTENCIAS",
+    "priority": 15,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "OPERATING_EXPENSE",
+    "paymentMethod": "CASH",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 5,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "OPERATING_EXPENSE",
+    "paymentMethod": "TRANSFER",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "INSTITUCIONES_FINANCIERAS",
+    "priority": 6,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "OPERATING_EXPENSE",
+    "paymentMethod": "DEBIT_CARD",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "INSTITUCIONES_FINANCIERAS",
+    "priority": 7,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "OPERATING_EXPENSE",
+    "paymentMethod": "CREDIT_CARD",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "INSTITUCIONES_FINANCIERAS",
+    "priority": 8,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "SERVICIO_AGUA",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 20,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "SERVICIO_ELECTRICIDAD",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 21,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "SERVICIO_INTERNET",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 22,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "SERVICIO_BASICOS_OTROS",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 23,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "SUELDOS_REMUNERACIONES",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 24,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "SUELDOS_ADELANTOS",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 25,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "SUELDOS_BENEFICIOS",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 26,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "SERVICIOS_CONTRATADOS",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 27,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "MANTENCION_LOCAL",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 28,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "SERVICIOS_LIMPIEZA_SEGURIDAD",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 29,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "LICENCIAS_SOFTWARE",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 30,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "SERVICIOS_CLOUD",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 31,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "PUBLICIDAD_DIGITAL",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 32,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "PUBLICIDAD_TRADICIONAL",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 33,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "LOGISTICA_DESPACHO",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 34,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "SUMINISTROS_OFICINA",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 35,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "CAPACITACION_PERSONAL",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 36,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_OUT",
+    "expenseCategoryRef": "SEGUROS_POLIZAS",
+    "debitAccountRef": "GASTOS_GENERALES",
+    "creditAccountRef": "CAJA_GENERAL",
+    "priority": 37,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_IN",
+    "paymentMethod": "CASH",
+    "debitAccountRef": "CAJA_GENERAL",
+    "creditAccountRef": "CAPITAL_PAGADO",
+    "priority": 40,
+    "isActive": true
+  },
+  {
+    "appliesTo": "TRANSACTION",
+    "transactionType": "PAYMENT_IN",
+    "paymentMethod": "TRANSFER",
+    "debitAccountRef": "INSTITUCIONES_FINANCIERAS",
+    "creditAccountRef": "CAPITAL_PAGADO",
+    "priority": 41,
+    "isActive": true
+  }
+]

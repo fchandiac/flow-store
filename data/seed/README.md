@@ -35,6 +35,16 @@ data/seed/
 ### `seed-flowstore.ts`
 - Seed completo basado en las entidades de TypeORM, pensado para levantar escenarios funcionales de FlowStore con relaciones complejas.
 
+#### Datos generados (escenario Joyarte)
+- **Identidad y estructura**: crea la empresa Joyarte SpA (CLP) con cuenta corriente Santander `JOYARTE-SANTANDER-CC-001`; habilita las sucursales Sucursal Parral (casa matriz con geolocalización) y Tienda Online; asegura los centros de costo `OPS-PARRAL` y `OPS-ONLINE`, además de las unidades organizativas `ADM-CENTRAL`, `OPS-PARRAL` y `OPS-ONLINE`.
+- **Finanzas y contabilidad**: provisiona 8 impuestos (IVA 19 %, Exento, cuatro ILA configurados y un impuesto de lujo); publica un plan de cuentas base con 38 códigos que cubren activos, pasivos, patrimonio, ingresos y gastos; mantiene activas 18 categorías de gasto con metadatos y más de 30 reglas contables automáticas para ventas, compras, egresos y aportes de capital.
+- **Catálogo y precios**: reemplaza catálogos heredados por 8 categorías de joyería; define 5 atributos de variantes (Material, Talla, Piedra, Quilates, Largo); genera 3 listas de precios (`Precio Público`, `Venta Online`, `Mayorista Joyero`) y 3 productos de ejemplo con 7 variantes que quedan valorizadas en cada lista.
+- **Operaciones**: crea la bodega `Vitrina Principal` en la sede Parral como almacén por defecto; registra 2 puntos de venta (`Caja Principal`, `Caja Mayorista`) enlazados a sus listas; configura unidades de medida `un`, `cj`, `kg` y `g` con factores de conversión consistentes.
+- **Personas y accesos**: asegura el usuario administrador `admin` con contraseña `890890` y le asigna todos los permisos disponibles; registra 3 clientes base (Camila Paredes, Miguel Mesa, Valeria Rojas) y 5 proveedores con cuentas bancarias y plazos de pago definidos.
+- **Movimientos iniciales**: normaliza las cuentas bancarias existentes y registra el aporte de capital `CAP-INITIAL-0001` por CLP 10.000.000 como transferencia inicial; elimina documentos legacy (`CAP-2025-11-30`, `CAP-2025-12-15`) antes de crear el nuevo asiento.
+
+> ⚠️ El script desactiva llaves foráneas y trunca todas las tablas antes de sembrar datos; ejecútalo únicamente en una base desechable.
+
 ### `seed-production.ts` y `seed-prod-direct.ts`
 - Variantes productivas minimalistas (TypeORM o SQL directo) centradas en asegurar la existencia del usuario administrador y datos críticos.
 

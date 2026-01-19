@@ -192,8 +192,8 @@ export const SuppliersDataGrid = () => {
         field: "isActive",
         headerName: "Estado",
         width: 110,
-        align: "center",
-        headerAlign: "center",
+        align: "left",
+        headerAlign: "left",
         renderCell: ({ value }) => (
           <Badge variant={value ? "success" : "error"}>
             {value ? "Activo" : "Inactivo"}
@@ -204,7 +204,7 @@ export const SuppliersDataGrid = () => {
         field: "actions",
         headerName: "",
         width: 100,
-        align: "center",
+        align: "left",
         sortable: false,
         filterable: false,
         renderCell: ({ row }) => <SupplierActionsCell row={row as SupplierRow} />,

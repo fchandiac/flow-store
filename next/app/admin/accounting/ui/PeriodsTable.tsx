@@ -95,8 +95,8 @@ export default function PeriodsTable({ periods }: PeriodsTableProps) {
                 headerName: 'Estado',
                 minWidth: 160,
                 flex: 0.8,
-                align: 'center',
-                headerAlign: 'center',
+                align: 'left',
+                headerAlign: 'left',
                 renderCell: ({ row }) => <Badge variant={row.statusBadge}>{row.statusLabel}</Badge>,
             },
             { field: 'closedAtLabel', headerName: 'Cerrado el', minWidth: 200, flex: 1 },
@@ -105,8 +105,8 @@ export default function PeriodsTable({ periods }: PeriodsTableProps) {
                 headerName: 'Acciones',
                 minWidth: 120,
                 flex: 0.6,
-                align: 'center',
-                headerAlign: 'center',
+                align: 'left',
+                headerAlign: 'left',
                 renderCell: ({ row }) => (
                     <IconButton
                         icon="more_horiz"

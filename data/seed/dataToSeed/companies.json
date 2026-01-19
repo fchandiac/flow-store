@@ -1,0 +1,24 @@
+[
+  {
+    "id": "JOYARTE",
+    "name": "Joyarte SpA",
+    "defaultCurrency": "CLP",
+    "isActive": true,
+    "settings": {
+      "allowNegativeStock": false,
+      "requireCustomerForSale": false,
+      "defaultPaymentMethod": "CASH"
+    },
+    "bankAccounts": [
+      {
+        "accountKey": "JOYARTE-SANTANDER-CC-001",
+        "bankName": "BANCO_SANTANDER",
+        "accountType": "CUENTA_CORRIENTE",
+        "accountNumber": "12345678-9",
+        "accountHolderName": "Joyarte SpA",
+        "isPrimary": true,
+        "notes": "Cuenta principal de operaciones"
+      }
+    ]
+  }
+]

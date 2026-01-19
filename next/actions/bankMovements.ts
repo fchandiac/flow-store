@@ -247,6 +247,15 @@ function mapTransactionToRecord(
     const account = transaction.bankAccountKey ? accountIndex.get(transaction.bankAccountKey) : undefined;
     const accountView = buildAccountLabel(account, transaction.bankAccountKey);
 
+    let resolvedBalance: number | null = accountView.balance;
+    const metadataBalanceAfter = metadata?.bankMovement?.balanceAfter;
+    if (metadataBalanceAfter !== undefined && metadataBalanceAfter !== null) {
+        const numericBalance = Number(metadataBalanceAfter);
+        if (Number.isFinite(numericBalance)) {
+            resolvedBalance = Number(numericBalance.toFixed(2));
+        }
+    }
+
     let counterpartyName = buildCounterpartyName(transaction);
     if (!counterpartyName && kind === 'SUPPLIER_PAYMENT') {
         counterpartyName = metadata?.paymentDetails?.supplierName
@@ -277,7 +286,7 @@ function mapTransactionToRecord(
         bankAccountLabel: accountView.label,
         bankAccountNumber: accountView.number,
         bankName: accountView.bankName,
-        bankAccountBalance: accountView.balance,
+        bankAccountBalance: resolvedBalance,
         notes: transaction.notes ?? null,
         paymentMethod: transaction.paymentMethod ?? null,
         recordedBy: buildRecordedBy(transaction),

@@ -1,0 +1,156 @@
+[
+  {
+    "ref": "SERVICIO_AGUA",
+    "code": "SERV_AGUA",
+    "name": "Agua y alcantarillado",
+    "description": "Consumo de agua potable, alcantarillado y derechos sanitarios.",
+    "defaultCostCenterRef": "OPERACIONES_PARRAL",
+    "metadata": { "group": "Servicios básicos", "examples": ["Essbio", "Aguas Andinas", "SMAPA"] }
+  },
+  {
+    "ref": "SERVICIO_ELECTRICIDAD",
+    "code": "SERV_LUZ",
+    "name": "Electricidad",
+    "description": "Facturas eléctricas, cargos fijos y potencia contratada.",
+    "defaultCostCenterRef": "OPERACIONES_PARRAL",
+    "metadata": { "group": "Servicios básicos", "examples": ["Enel", "CGE", "SAESA"] }
+  },
+  {
+    "ref": "SERVICIO_INTERNET",
+    "code": "SERV_INTERNET",
+    "name": "Internet y telecomunicaciones",
+    "description": "Servicios de internet, telefonía IP y planes móviles corporativos.",
+    "defaultCostCenterRef": "OPERACIONES_PARRAL",
+    "metadata": { "group": "Servicios básicos", "examples": ["Movistar", "Entel", "Claro Empresas"] }
+  },
+  {
+    "ref": "SERVICIO_BASICOS_OTROS",
+    "code": "SERV_BAS_OTH",
+    "name": "Servicios básicos complementarios",
+    "description": "Gas, calefacción y otros suministros esenciales no clasificados.",
+    "defaultCostCenterRef": "OPERACIONES_PARRAL",
+    "metadata": { "group": "Servicios básicos", "examples": ["Gasco", "Abastible", "Lipigas"] }
+  },
+  {
+    "ref": "SUELDOS_REMUNERACIONES",
+    "code": "RRHH_SUELDOS",
+    "name": "Pago de remuneraciones",
+    "description": "Nómina, jornales y honorarios del personal interno.",
+    "defaultCostCenterRef": "OPERACIONES_PARRAL",
+    "metadata": {
+      "group": "Personal",
+      "examples": ["Pago mensual", "Liquidaciones"],
+      "locked": true,
+      "payroll": { "type": "salary" }
+    }
+  },
+  {
+    "ref": "SUELDOS_ADELANTOS",
+    "code": "RRHH_ADELANTO",
+    "name": "Adelantos de sueldos",
+    "description": "Adelantos extraordinarios o préstamos a colaboradores.",
+    "defaultCostCenterRef": "OPERACIONES_PARRAL",
+    "metadata": {
+      "group": "Personal",
+      "examples": ["Adelanto quincenal", "Préstamo interno"],
+      "locked": true,
+      "payroll": { "type": "advance" }
+    }
+  },
+  {
+    "ref": "SUELDOS_BENEFICIOS",
+    "code": "RRHH_BENEF",
+    "name": "Beneficios y viáticos",
+    "description": "Viáticos, colaciones, movilización y otros beneficios al personal.",
+    "defaultCostCenterRef": "OPERACIONES_PARRAL",
+    "metadata": { "group": "Personal", "examples": ["Viáticos", "Giftcards", "Caja de mercadería"] }
+  },
+  {
+    "ref": "SERVICIOS_CONTRATADOS",
+    "code": "SERV_EXTERNOS",
+    "name": "Servicios profesionales externos",
+    "description": "Asesorías contables, legales, TI y outsourcing de procesos.",
+    "defaultCostCenterRef": "OPERACIONES_PARRAL",
+    "metadata": { "group": "Servicios externos", "examples": ["Contador", "Abogado", "Consultor TI"] }
+  },
+  {
+    "ref": "MANTENCION_LOCAL",
+    "code": "MANT_LOCAL",
+    "name": "Mantención y reparaciones del local",
+    "description": "Reparaciones menores, ambientación y mejoras del espacio físico.",
+    "defaultCostCenterRef": "OPERACIONES_PARRAL",
+    "metadata": { "group": "Infraestructura", "examples": ["Pintura", "Carpintería", "Ambientación"] }
+  },
+  {
+    "ref": "SERVICIOS_LIMPIEZA_SEGURIDAD",
+    "code": "SERV_LIMPIEZA",
+    "name": "Limpieza y seguridad",
+    "description": "Servicios periódicos de aseo, sanitización y vigilancia.",
+    "defaultCostCenterRef": "OPERACIONES_PARRAL",
+    "metadata": { "group": "Infraestructura", "examples": ["Empresas de aseo", "Guardias"] }
+  },
+  {
+    "ref": "LICENCIAS_SOFTWARE",
+    "code": "TI_SOFTWARE",
+    "name": "Licencias y software",
+    "description": "Suscripciones de software y licencias empresariales.",
+    "defaultCostCenterRef": "OPERACIONES_ONLINE",
+    "metadata": { "group": "Tecnología", "examples": ["Microsoft 365", "Antivirus", "ERP"] }
+  },
+  {
+    "ref": "SERVICIOS_CLOUD",
+    "code": "TI_CLOUD",
+    "name": "Servicios cloud y SaaS",
+    "description": "Infraestructura cloud, hosting, almacenamiento y SaaS.",
+    "defaultCostCenterRef": "OPERACIONES_ONLINE",
+    "metadata": { "group": "Tecnología", "examples": ["AWS", "Vercel", "Google Workspace"] }
+  },
+  {
+    "ref": "PUBLICIDAD_DIGITAL",
+    "code": "MKT_DIGITAL",
+    "name": "Marketing digital",
+    "description": "Publicidad en redes sociales, campañas online y posicionamiento SEO.",
+    "defaultCostCenterRef": "OPERACIONES_ONLINE",
+    "metadata": { "group": "Marketing", "examples": ["Meta Ads", "Google Ads", "Email marketing"] }
+  },
+  {
+    "ref": "PUBLICIDAD_TRADICIONAL",
+    "code": "MKT_TRADIC",
+    "name": "Marketing offline y eventos",
+    "description": "Ferias, activaciones, impresos y material POP.",
+    "defaultCostCenterRef": "OPERACIONES_PARRAL",
+    "metadata": { "group": "Marketing", "examples": ["Eventos", "Radio", "Gigantografías"] }
+  },
+  {
+    "ref": "LOGISTICA_DESPACHO",
+    "code": "LOG_DESPACHO",
+    "name": "Transporte y logística",
+    "description": "Despachos, encomiendas, fletes y transporte de mercadería.",
+    "defaultCostCenterRef": "OPERACIONES_ONLINE",
+    "metadata": { "group": "Operaciones", "examples": ["Chilexpress", "Transportes locales"] }
+  },
+  {
+    "ref": "SUMINISTROS_OFICINA",
+    "code": "OFI_SUMINISTROS",
+    "name": "Suministros y papelería",
+    "description": "Artículos de oficina, insumos de punto de venta y embalajes.",
+    "defaultCostCenterRef": "OPERACIONES_PARRAL",
+    "metadata": { "group": "Operaciones", "examples": ["Papelería", "Tóner", "Bolsas"] }
+  },
+  {
+    "ref": "CAPACITACION_PERSONAL",
+    "code": "RRHH_CAPAC",
+    "name": "Capacitación y desarrollo",
+    "description": "Cursos, certificaciones, talleres y actividades para el equipo.",
+    "defaultCostCenterRef": "OPERACIONES_PARRAL",
+    "metadata": { "group": "Personal", "examples": ["Cursos en línea", "Workshops", "Charlas"] }
+  },
+  {
+    "ref": "SEGUROS_POLIZAS",
+    "code": "ADM_SEGUROS",
+    "name": "Seguros y pólizas",
+    "description": "Seguros comerciales, de incendio, responsabilidad civil y equipos.",
+    "defaultCostCenterRef": "OPERACIONES_PARRAL",
+    "metadata": { "group": "Administración", "examples": ["Seguro local", "Seguro equipos"] }
+  }
+]

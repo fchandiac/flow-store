@@ -1,0 +1,18 @@
+[
+  {
+    "ref": "OPERACIONES_PARRAL",
+    "code": "OPS-PARRAL",
+    "name": "Operaciones Sucursal Parral",
+    "description": "Centro de costos principal para la operación presencial en Parral.",
+    "type": "OPERATIONS",
+    "branchRef": "PARRAL"
+  },
+  {
+    "ref": "OPERACIONES_ONLINE",
+    "code": "OPS-ONLINE",
+    "name": "Operaciones Tienda Online",
+    "description": "Centro de costos para el canal e-commerce y logística de envíos.",
+    "type": "OPERATIONS",
+    "branchRef": "ONLINE"
+  }
+]

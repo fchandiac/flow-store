@@ -87,7 +87,7 @@ export default function App() {
           <Stack.Screen
             name="SessionSetup"
             component={SessionSetupScreen}
-            options={{ title: 'Seleccionar caja' }}
+            options={{ title: 'Sesión de caja' }}
           />
           <Stack.Screen
             name="Opening"

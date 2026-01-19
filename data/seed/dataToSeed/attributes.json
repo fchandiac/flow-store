@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Material",
+    "description": "Metal o material de la joya",
+    "options": ["Oro 18K", "Oro 14K", "Oro Blanco", "Oro Rosa", "Plata 925", "Platino", "Acero"],
+    "displayOrder": 1
+  },
+  {
+    "name": "Talla",
+    "description": "Talla de anillo",
+    "options": ["5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16"],
+    "displayOrder": 2
+  },
+  {
+    "name": "Piedra",
+    "description": "Tipo de piedra preciosa",
+    "options": ["Diamante", "Rubí", "Esmeralda", "Zafiro", "Amatista", "Topacio", "Perla", "Sin piedra"],
+    "displayOrder": 3
+  },
+  {
+    "name": "Quilates",
+    "description": "Peso en quilates de la piedra",
+    "options": ["0.25ct", "0.50ct", "0.75ct", "1.00ct", "1.50ct", "2.00ct", "N/A"],
+    "displayOrder": 4
+  },
+  {
+    "name": "Largo",
+    "description": "Largo de cadenas y collares",
+    "options": ["40cm", "45cm", "50cm", "55cm", "60cm"],
+    "displayOrder": 5
+  }
+]

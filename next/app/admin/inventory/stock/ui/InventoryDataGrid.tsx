@@ -457,8 +457,8 @@ const InventoryDataGrid = () => {
             field: 'status',
             headerName: 'Estado',
             width: 120,
-            align: 'center',
-            headerAlign: 'center',
+            align: 'left',
+            headerAlign: 'left',
             sortable: false,
             renderCell: ({ row }) => {
                 const variantRow = row as InventoryRowDTO;

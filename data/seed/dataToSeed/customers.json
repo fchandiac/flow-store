@@ -1,0 +1,32 @@
+[
+  {
+    "name": "Camila Paredes",
+    "dni": "17.456.789-5",
+    "phone": "+56 9 2222 1111",
+    "mail": "camila.paredes@joyarte.cl",
+    "address": "Av. Aníbal Pinto 345, Parral",
+    "creditLimit": 450000,
+    "defaultPaymentTermDays": 15,
+    "notes": "Cliente frecuente en vitrina principal."
+  },
+  {
+    "name": "Miguel Mesa",
+    "dni": "18.235.678-4",
+    "phone": "+56 9 3311 8899",
+    "mail": "miguel.mesa@joyarte.cl",
+    "address": "Pasaje Los Artesanos 120, Parral",
+    "creditLimit": 600000,
+    "defaultPaymentTermDays": 30,
+    "notes": "Solicita ajustes de anillos y pagos diferidos."
+  },
+  {
+    "name": "Valeria Rojas",
+    "dni": "16.789.543-2",
+    "phone": "+56 9 9988 7766",
+    "mail": "valeria.rojas@joyarte.cl",
+    "address": "Camino El Boldal S/N, Parral",
+    "creditLimit": 350000,
+    "defaultPaymentTermDays": 10,
+    "notes": "Preferencia por lanzamientos exclusivos."
+  }
+]

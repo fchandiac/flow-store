@@ -182,21 +182,21 @@ const BudgetsDataGrid: React.FC<BudgetsDataGridProps> = ({ budgets, branches, co
         {
             field: 'budgetedAmount',
             headerName: 'Presupuestado',
-            align: 'right',
+            align: 'left',
             minWidth: 140,
             renderCell: ({ row }) => <span>{formatCurrency(row.budgetedAmount)}</span>,
         },
         {
             field: 'spentAmount',
             headerName: 'Ejecutado',
-            align: 'right',
+            align: 'left',
             minWidth: 140,
             renderCell: ({ row }) => <span>{formatCurrency(row.spentAmount)}</span>,
         },
         {
             field: 'varianceLabel',
             headerName: 'Diferencia',
-            align: 'right',
+            align: 'left',
             minWidth: 140,
             renderCell: ({ row }) => (
                 <span className={row.variance < 0 ? 'text-red-600' : 'text-emerald-600'}>
@@ -219,7 +219,7 @@ const BudgetsDataGrid: React.FC<BudgetsDataGridProps> = ({ budgets, branches, co
             field: 'actions',
             headerName: 'Acciones',
             minWidth: 160,
-            align: 'right',
+            align: 'left',
             actionComponent: BudgetStatusActions,
         },
     ], []);

@@ -331,8 +331,8 @@ export default function ProductsPage() {
             field: 'isActive',
             headerName: 'Estado',
             width: 100,
-            align: 'center',
-            headerAlign: 'center',
+            align: 'left',
+            headerAlign: 'left',
             renderCell: ({ value }) => (
                 <Badge variant={value ? 'success' : 'error'}>
                     {value ? 'Activo' : 'Inactivo'}
@@ -343,7 +343,7 @@ export default function ProductsPage() {
             field: 'actions',
             headerName: '',
             width: 100,
-            align: 'center',
+            align: 'left',
             sortable: false,
             filterable: false,
             renderCell: ({ row }) => (

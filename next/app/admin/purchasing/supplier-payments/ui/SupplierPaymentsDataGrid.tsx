@@ -411,7 +411,8 @@ const SupplierPaymentsDataGrid = () => {
             field: 'total',
             headerName: 'Monto',
             flex: 0.8,
-            align: 'right',
+            align: 'left',
+            headerAlign: 'left',
             renderCell: (params) => (
                 <span className='text-sm font-semibold text-gray-900'>
                     {currencyFormatter.format((params.row as SupplierPaymentListItem).total)}
@@ -493,7 +494,7 @@ const SupplierPaymentsDataGrid = () => {
             field: 'actions',
             headerName: 'Acciones',
             flex: 0.5,
-            align: 'center',
+            align: 'left',
             renderCell: (params) => {
                 const row = params.row as SupplierPaymentListItem;
                 const normalized = normalizePaymentStatus(row.paymentStatus);

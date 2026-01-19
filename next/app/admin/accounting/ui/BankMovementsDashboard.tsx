@@ -9,6 +9,7 @@ import Select, { type Option as SelectOption } from '@/baseComponents/Select/Sel
 import { Button } from '@/baseComponents/Button/Button';
 import CreateCapitalContributionDialog from './CreateCapitalContributionDialog';
 import CreateBankToCashTransferDialog from './CreateBankToCashTransferDialog';
+import CreateCashDepositDialog from './CreateCashDepositDialog';
 
 const currencyFormatter = new Intl.NumberFormat('es-CL', {
     style: 'currency',
@@ -21,7 +22,7 @@ const movementKindLabels: Record<string, string> = {
     CUSTOMER_PAYMENT: 'Cobro registrado',
     SUPPLIER_PAYMENT: 'Pago a proveedor',
     OPERATING_EXPENSE: 'Gasto operativo',
-    CASH_DEPOSIT: 'Deposito en banco',
+    CASH_DEPOSIT: 'Depósito en banco',
     GENERAL: 'Movimiento general'
 };
 
@@ -81,6 +82,7 @@ export default function BankMovementsDashboard({
     const [selectedAccount, setSelectedAccount] = useState<string>('__all__');
     const [capitalDialogOpen, setCapitalDialogOpen] = useState(false);
     const [bankToCashDialogOpen, setBankToCashDialogOpen] = useState(false);
+    const [cashDepositDialogOpen, setCashDepositDialogOpen] = useState(false);
 
     useEffect(() => {
         if (selectedAccount === '__all__') {
@@ -162,8 +164,8 @@ export default function BankMovementsDashboard({
             field: 'totalFormatted',
             headerName: 'Monto',
             minWidth: 140,
-            align: 'right',
-            headerAlign: 'right',
+            align: 'left',
+            headerAlign: 'left',
             sortable: false,
             filterable: false
         },
@@ -178,8 +180,8 @@ export default function BankMovementsDashboard({
             field: 'bankAccountBalanceFormatted',
             headerName: 'Saldo cuenta',
             minWidth: 160,
-            align: 'right',
-            headerAlign: 'right',
+            align: 'left',
+            headerAlign: 'left',
             sortable: false,
             filterable: false
         },
@@ -204,6 +206,7 @@ export default function BankMovementsDashboard({
     const accountFilterDisabled = accountFilterOptions.length <= 1;
     const capitalContributionDisabled = shareholderOptions.length === 0 || bankAccountOptions.length === 0;
     const bankToCashTransferDisabled = bankAccountOptions.length === 0;
+    const cashDepositDisabled = bankAccountOptions.length === 0 || cashBalance <= 0;
 
     const shareholderSelectOptions = useMemo<SelectOption[]>(
         () => shareholderOptions.map((option) => ({ id: option.id, label: option.label })),
@@ -217,6 +220,17 @@ export default function BankMovementsDashboard({
 
     const headerActions = (
         <div className="flex flex-wrap items-center gap-3">
+            <Button
+                type="button"
+                variant="outlined"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => setCashDepositDialogOpen(true)}
+                disabled={cashDepositDisabled}
+            >
+                <span className="material-symbols-outlined text-base">account_balance</span>
+                Depositar efectivo
+            </Button>
             <Button
                 type="button"
                 variant="outlined"
@@ -322,6 +336,15 @@ export default function BankMovementsDashboard({
                     router.refresh();
                 }}
                 bankAccountOptions={bankAccountSelectOptions}
+            />
+            <CreateCashDepositDialog
+                open={cashDepositDialogOpen}
+                onClose={() => setCashDepositDialogOpen(false)}
+                onCreated={async () => {
+                    router.refresh();
+                }}
+                bankAccountOptions={bankAccountSelectOptions}
+                availableCash={cashBalance}
             />
         </div>
     );

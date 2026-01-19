@@ -1,6 +1,6 @@
 import { useIsFocused } from '@react-navigation/native';
 import { type NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,7 +15,6 @@ import {
 import { registerOpeningTransaction } from '../services/apiService';
 import { RootStackParamList } from '../navigation/types';
 import { usePosStore } from '../store/usePosStore';
-import { formatCurrency } from '../utils/formatCurrency';
 import { palette } from '../theme/palette';
 
 export type OpeningScreenProps = NativeStackScreenProps<RootStackParamList, 'Opening'>;
@@ -24,6 +23,7 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
   const isFocused = useIsFocused();
   const loginRedirectRef = useRef(false);
   const setupRedirectRef = useRef(false);
+  const amountInputRef = useRef<TextInput>(null);
   const user = usePosStore((state) => state.user);
   const session = usePosStore((state) => state.cashSession);
   const setCashSession = usePosStore((state) => state.setCashSession);
@@ -45,9 +45,18 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
   }, [suggestedAmount]);
 
   const [amountDigits, setAmountDigits] = useState(() =>
-    initialAmount !== null ? String(initialAmount) : '',
+    initialAmount !== null ? String(initialAmount) : '0',
   );
-  const [amountValue, setAmountValue] = useState<number | null>(initialAmount);
+  const [amountValue, setAmountValue] = useState<number>(() => initialAmount ?? 0);
+
+  const syncCaretToEnd = useCallback((digits: string) => {
+    const length = digits.length;
+    setTimeout(() => {
+      amountInputRef.current?.setNativeProps({
+        selection: { start: length, end: length },
+      });
+    }, 0);
+  }, []);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
@@ -80,35 +89,42 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
     if (initialAmount !== null) {
       setAmountDigits(String(initialAmount));
       setAmountValue(initialAmount);
+      syncCaretToEnd(String(initialAmount));
+    } else {
+      setAmountDigits('0');
+      setAmountValue(0);
+      syncCaretToEnd('0');
     }
-  }, [initialAmount]);
-
-  const formattedAmount = amountValue !== null ? formatCurrency(amountValue) : '—';
+  }, [initialAmount, syncCaretToEnd]);
 
   const handleAmountChange = (raw: string) => {
     const digitsOnly = raw.replace(/[^0-9]/g, '');
     if (!digitsOnly) {
-      setAmountDigits('');
-      setAmountValue(null);
+      setAmountDigits('0');
+      setAmountValue(0);
+      syncCaretToEnd('0');
       return;
     }
 
-    const numeric = Number.parseInt(digitsOnly, 10);
+    const normalizedDigits = digitsOnly.replace(/^0+(?=\d)/, '') || '0';
+    const numeric = Number.parseInt(normalizedDigits, 10);
     if (Number.isNaN(numeric) || numeric < 0) {
-      setAmountDigits('');
-      setAmountValue(null);
+      setAmountDigits('0');
+      setAmountValue(0);
+      syncCaretToEnd('0');
       return;
     }
 
-    setAmountDigits(digitsOnly);
+    setAmountDigits(normalizedDigits);
     setAmountValue(numeric);
+    syncCaretToEnd(normalizedDigits);
   };
 
   const handleConfirmOpening = async () => {
     if (!user || !session) {
       return;
     }
-    if (amountValue === null) {
+    if (!Number.isFinite(amountValue) || amountValue < 0) {
       Alert.alert('Monto inválido', 'Ingresa un monto de apertura válido.');
       return;
     }
@@ -145,6 +161,7 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
         {pointOfSale ? <Text style={styles.meta}>Punto de venta: {pointOfSale.name}</Text> : null}
         {session ? <Text style={styles.meta}>Sesión: {session.id}</Text> : null}
         <TextInput
+          ref={amountInputRef}
           keyboardType="number-pad"
           onChangeText={handleAmountChange}
           placeholder="Monto de apertura"
@@ -152,11 +169,8 @@ function OpeningScreen({ navigation, route }: OpeningScreenProps) {
           style={styles.input}
           value={amountDigits}
           editable={!isSubmitting}
+          onFocus={() => syncCaretToEnd(amountDigits)}
         />
-        <View style={styles.formattedRow}>
-          <Text style={styles.formattedLabel}>Monto formateado:</Text>
-          <Text style={styles.formattedValue}>{formattedAmount}</Text>
-        </View>
         <TouchableOpacity
           activeOpacity={0.85}
           disabled={isSubmitting}
@@ -219,21 +233,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 8,
     marginBottom: 12,
-  },
-  formattedRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  formattedLabel: {
-    fontSize: 14,
-    color: palette.textMuted,
-  },
-  formattedValue: {
-    fontSize: 18,
-    color: palette.primary,
-    fontWeight: '700',
   },
   button: {
     borderRadius: 12,

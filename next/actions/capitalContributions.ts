@@ -140,6 +140,10 @@ export async function createCapitalContribution(input: CreateCapitalContribution
 
     const shareholderName = buildShareholderDisplayName(shareholder);
 
+    const openingBalanceRaw = Number(targetAccount.currentBalance ?? 0);
+    const balanceBefore = Number.isFinite(openingBalanceRaw) ? Number(openingBalanceRaw.toFixed(2)) : 0;
+    const balanceAfter = Number((balanceBefore + amount).toFixed(2));
+
     const queryRunner = ds.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -161,6 +165,8 @@ export async function createCapitalContribution(input: CreateCapitalContribution
                 bankAccountKey: targetAccount.accountKey,
                 bankAccountNumber: targetAccount.accountNumber,
                 createdByUserId: session.id,
+                balanceBefore,
+                balanceAfter,
             },
             capitalContribution: {
                 shareholderId: shareholder.id,
@@ -169,6 +175,8 @@ export async function createCapitalContribution(input: CreateCapitalContribution
                 occurredOn: occurredOn.toISOString(),
                 bankAccountKey: targetAccount.accountKey,
                 notes: normalizedNotes,
+                balanceBefore,
+                balanceAfter,
             },
         };
 
@@ -197,11 +205,9 @@ export async function createCapitalContribution(input: CreateCapitalContribution
             if (account.accountKey !== targetAccount.accountKey) {
                 return account;
             }
-            const currentBalance = Number(account.currentBalance ?? 0);
-            const nextBalance = Number.isFinite(currentBalance) ? currentBalance + amount : amount;
             return {
                 ...account,
-                currentBalance: Number(nextBalance.toFixed(2)),
+                currentBalance: balanceAfter,
             };
         });
 

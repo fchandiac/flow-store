@@ -1,0 +1,66 @@
+[
+  {
+    "code": "IVA-19",
+    "name": "IVA 19%",
+    "taxType": "IVA",
+    "rate": 19,
+    "description": "Impuesto al Valor Agregado estándar. Cuenta 2.1.02 IVA Débito Fiscal.",
+    "isDefault": true
+  },
+  {
+    "code": "EXENTO",
+    "name": "Exento",
+    "taxType": "EXEMPT",
+    "rate": 0,
+    "description": "Producto exento de impuestos.",
+    "isDefault": false
+  },
+  {
+    "code": "ILA_BEBIDAS_10",
+    "name": "ILA Bebidas Analcohólicas 10%",
+    "taxType": "SPECIFIC",
+    "rate": 10,
+    "description": "Analcohólicas con azúcar ≤ 15g/100ml. Cuenta 2.1.03 ILA por Pagar.",
+    "isDefault": false
+  },
+  {
+    "code": "ILA_BEBIDAS_18",
+    "name": "ILA Bebidas Azucaradas 18%",
+    "taxType": "SPECIFIC",
+    "rate": 18,
+    "description": "Analcohólicas con azúcar > 15g/100ml. Cuenta 2.1.03 ILA por Pagar.",
+    "isDefault": false
+  },
+  {
+    "code": "ILA_CERVEZAS_20_5",
+    "name": "ILA Cervezas y Sidras 20.5%",
+    "taxType": "SPECIFIC",
+    "rate": 20.5,
+    "description": "Cervezas y sidras. Cuenta 2.1.03 ILA por Pagar.",
+    "isDefault": false
+  },
+  {
+    "code": "ILA_VINOS_20_5",
+    "name": "ILA Vinos y Chichas 20.5%",
+    "taxType": "SPECIFIC",
+    "rate": 20.5,
+    "description": "Vinos y chichas. Cuenta 2.1.03 ILA por Pagar.",
+    "isDefault": false
+  },
+  {
+    "code": "ILA_LICORES_31_5",
+    "name": "ILA Licores y Destilados 31.5%",
+    "taxType": "SPECIFIC",
+    "rate": 31.5,
+    "description": "Destilados (pisco, whisky, ron). Cuenta 2.1.03 ILA por Pagar.",
+    "isDefault": false
+  },
+  {
+    "code": "IMP_LUJO_15",
+    "name": "Impuesto de Lujo 15%",
+    "taxType": "SPECIFIC",
+    "rate": 15,
+    "description": "Joyas, artículos de lujo y objetos de alto valor. Cuenta 2.1.03 ILA por Pagar.",
+    "isDefault": false
+  }
+]

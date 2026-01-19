@@ -192,14 +192,15 @@ export default function ReceptionsDataGrid() {
             field: 'lineCount',
             headerName: 'Productos',
             flex: 0.6,
-            align: 'center',
+            align: 'left',
             renderCell: (params) => <div className="text-sm font-medium">{params.row.lineCount}</div>,
         },
         {
             field: 'total',
             headerName: 'Total',
             flex: 0.8,
-            align: 'right',
+            align: 'left',
+            headerAlign: 'left',
             renderCell: (params) => (
                 <div className="text-sm font-semibold text-gray-900">
                     {currencyFormatter.format(params.row.total)}
@@ -244,14 +245,14 @@ export default function ReceptionsDataGrid() {
             field: 'actions',
             headerName: '',
             flex: 0.5,
-            align: 'right',
+            align: 'left',
             sortable: false,
             renderCell: (params) => {
                 const status = params.row.status as TransactionStatus;
                 const type = params.row.transactionType as TransactionType;
                 const disabled = status === TransactionStatus.CANCELLED || type !== TransactionType.PURCHASE;
                 return (
-                    <div className="flex items-center justify-end gap-1">
+                    <div className="flex items-center justify-start gap-1">
                         <IconButton
                             icon="more_horiz"
                             variant="ghost"
