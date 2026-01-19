@@ -25,24 +25,19 @@ function CashOutcomeScreen({ navigation }: CashOutcomeScreenProps) {
   const isFocused = useIsFocused();
   const loginRedirectRef = useRef(false);
   const setupRedirectRef = useRef(false);
+  const scrollViewRef = useRef<ScrollView | null>(null);
   const amountInputRef = useRef<TextInput>(null);
   const user = usePosStore((state) => state.user);
   const pointOfSale = usePosStore((state) => state.pointOfSale);
   const session = usePosStore((state) => state.cashSession);
   const updateExpectedAmount = usePosStore((state) => state.updateCashSessionExpectedAmount);
 
-  const currentExpectedAmount = useMemo(() => {
-    if (!session) {
-      return 0;
-    }
-    const base = session.expectedAmount ?? session.openingAmount ?? 0;
-    return Number.isFinite(base) ? Number(base) : 0;
-  }, [session]);
-
   const [amountDigits, setAmountDigits] = useState('0');
   const [amountValue, setAmountValue] = useState(0);
   const [reason, setReason] = useState('');
+  const [reasonError, setReasonError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [reasonFieldOffset, setReasonFieldOffset] = useState(0);
 
   const syncCaretToEnd = useCallback((raw: string | number) => {
     const normalizedInput = typeof raw === 'number' ? String(Math.max(0, Math.round(raw))) : raw;
@@ -66,19 +61,16 @@ function CashOutcomeScreen({ navigation }: CashOutcomeScreenProps) {
     return formatCurrency(numeric);
   }, [amountDigits]);
 
-  const projectedExpectedAmount = useMemo(() => {
-    if (!Number.isFinite(amountValue) || amountValue <= 0) {
-      return null;
-    }
-    return currentExpectedAmount - amountValue;
-  }, [amountValue, currentExpectedAmount]);
-
   const exceedsAvailableCash = useMemo(() => {
-    if (projectedExpectedAmount === null) {
+    if (!session) {
       return false;
     }
-    return projectedExpectedAmount < 0;
-  }, [projectedExpectedAmount]);
+    const base = session.expectedAmount ?? session.openingAmount ?? 0;
+    if (!Number.isFinite(base) || base <= 0) {
+      return amountValue > 0;
+    }
+    return amountValue > base;
+  }, [amountValue, session]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -129,6 +121,13 @@ function CashOutcomeScreen({ navigation }: CashOutcomeScreenProps) {
     syncCaretToEnd(numeric);
   };
 
+  const handleReasonChange = (value: string) => {
+    setReason(value);
+    if (reasonError) {
+      setReasonError(null);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!user || !pointOfSale || !session) {
       Alert.alert('Sesión requerida', 'Inicia sesión y abre la caja antes de registrar egresos.');
@@ -145,7 +144,11 @@ function CashOutcomeScreen({ navigation }: CashOutcomeScreenProps) {
       return;
     }
 
-    const trimmedReason = reason.trim() || undefined;
+    const trimmedReason = reason.trim();
+    if (!trimmedReason) {
+      setReasonError('El motivo es obligatorio.');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -160,7 +163,7 @@ function CashOutcomeScreen({ navigation }: CashOutcomeScreenProps) {
       updateExpectedAmount(result.expectedAmount);
       Alert.alert(
         'Egreso registrado',
-        `Documento ${result.transaction.documentNumber} por ${formatCurrency(result.transaction.total)}.`,
+        `Transacción de egreso registrada por ${formatCurrency(result.transaction.total)}.`,
       );
       navigation.goBack();
     } catch (error) {
@@ -179,6 +182,7 @@ function CashOutcomeScreen({ navigation }: CashOutcomeScreenProps) {
       style={styles.root}
     >
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         bounces={false}
@@ -188,17 +192,6 @@ function CashOutcomeScreen({ navigation }: CashOutcomeScreenProps) {
           <Text style={styles.subtitle}>
             Ingresa el monto retirado y agrega un motivo opcional para mantener el registro.
           </Text>
-          <View style={styles.infoBlock}>
-            <Text style={styles.infoLabel}>Saldo esperado actual</Text>
-            <Text style={styles.infoValue}>{formatCurrency(currentExpectedAmount)}</Text>
-            {projectedExpectedAmount !== null ? (
-              <Text style={[styles.infoHint, exceedsAvailableCash ? styles.warningText : null]}>
-                Saldo proyectado después del egreso:{' '}
-                {formatCurrency(projectedExpectedAmount)}
-                {exceedsAvailableCash ? ' (queda negativo)' : ''}
-              </Text>
-            ) : null}
-          </View>
           <View style={styles.field}>
             <Text style={styles.label}>Monto</Text>
             <TextInput
@@ -216,18 +209,28 @@ function CashOutcomeScreen({ navigation }: CashOutcomeScreenProps) {
               onSubmitEditing={handleSubmit}
             />
           </View>
-          <View style={styles.field}>
-            <Text style={styles.label}>Motivo (opcional)</Text>
+          <View
+            style={styles.field}
+            onLayout={({ nativeEvent }) => setReasonFieldOffset(nativeEvent.layout.y)}
+          >
+            <Text style={styles.label}>Motivo</Text>
             <TextInput
               multiline
               numberOfLines={3}
-              onChangeText={setReason}
+              onChangeText={handleReasonChange}
               placeholder="Ej: retiro para pagos menores"
               placeholderTextColor={palette.textMuted}
-              style={[styles.input, styles.textArea]}
+              style={[styles.input, styles.textArea, reasonError ? styles.inputError : null]}
               value={reason}
               editable={!isSubmitting}
+              onFocus={() => {
+                requestAnimationFrame(() => {
+                  const y = Math.max(reasonFieldOffset - 48, 0);
+                  scrollViewRef.current?.scrollTo({ y, animated: true });
+                });
+              }}
             />
+            {reasonError ? <Text style={styles.errorText}>{reasonError}</Text> : null}
           </View>
           <TouchableOpacity
             activeOpacity={0.85}
@@ -278,29 +281,6 @@ const styles = StyleSheet.create({
     color: palette.textMuted,
     marginBottom: 20,
   },
-  infoBlock: {
-    marginBottom: 20,
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: palette.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 4,
-  },
-  infoValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: palette.primary,
-  },
-  infoHint: {
-    fontSize: 12,
-    color: palette.textMuted,
-    marginTop: 4,
-  },
-  warningText: {
-    color: palette.warningText,
-  },
   field: {
     marginBottom: 16,
   },
@@ -323,6 +303,14 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 96,
     textAlignVertical: 'top',
+  },
+  inputError: {
+    borderColor: palette.error,
+  },
+  errorText: {
+    marginTop: 6,
+    color: palette.error,
+    fontSize: 13,
   },
   submitButton: {
     borderRadius: 12,

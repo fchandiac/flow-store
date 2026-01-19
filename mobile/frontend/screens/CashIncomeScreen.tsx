@@ -26,25 +26,19 @@ function CashIncomeScreen({ navigation }: CashIncomeScreenProps) {
   const isFocused = useIsFocused();
   const loginRedirectRef = useRef(false);
   const setupRedirectRef = useRef(false);
+  const scrollViewRef = useRef<ScrollView | null>(null);
   const amountInputRef = useRef<TextInput>(null);
   const user = usePosStore((state) => state.user);
   const pointOfSale = usePosStore((state) => state.pointOfSale);
   const session = usePosStore((state) => state.cashSession);
   const updateExpectedAmount = usePosStore((state) => state.updateCashSessionExpectedAmount);
 
-  const currentExpectedAmount = useMemo(() => {
-    if (!session) {
-      return 0;
-    }
-    const base = session.expectedAmount ?? session.openingAmount ?? 0;
-    return Number.isFinite(base) ? Number(base) : 0;
-  }, [session]);
-
   const [amountDigits, setAmountDigits] = useState('0');
   const [amountValue, setAmountValue] = useState(0);
   const [reason, setReason] = useState('');
   const [reasonError, setReasonError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [reasonFieldOffset, setReasonFieldOffset] = useState(0);
 
   const syncCaretToEnd = useCallback((raw: string | number) => {
     const normalizedInput = typeof raw === 'number' ? String(Math.max(0, Math.round(raw))) : raw;
@@ -67,13 +61,6 @@ function CashIncomeScreen({ navigation }: CashIncomeScreenProps) {
     }
     return formatCurrency(numeric);
   }, [amountDigits]);
-
-  const projectedExpectedAmount = useMemo(() => {
-    if (!Number.isFinite(amountValue) || amountValue <= 0) {
-      return null;
-    }
-    return currentExpectedAmount + amountValue;
-  }, [amountValue, currentExpectedAmount]);
 
   useEffect(() => {
     if (!isFocused) {
@@ -161,7 +148,7 @@ function CashIncomeScreen({ navigation }: CashIncomeScreenProps) {
       updateExpectedAmount(result.expectedAmount);
       Alert.alert(
         'Ingreso registrado',
-        `Documento ${result.transaction.documentNumber} por ${formatCurrency(result.transaction.total)}.`,
+        `Transacción de ingreso registrada por ${formatCurrency(result.transaction.total)}.`,
       );
       navigation.goBack();
     } catch (error) {
@@ -181,6 +168,7 @@ function CashIncomeScreen({ navigation }: CashIncomeScreenProps) {
       style={styles.root}
     >
       <ScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         bounces={false}
@@ -190,15 +178,6 @@ function CashIncomeScreen({ navigation }: CashIncomeScreenProps) {
           <Text style={styles.subtitle}>
             Ingresa el monto recibido y describe el motivo para dejar registro en la caja.
           </Text>
-          <View style={styles.infoBlock}>
-            <Text style={styles.infoLabel}>Saldo esperado actual</Text>
-            <Text style={styles.infoValue}>{formatCurrency(currentExpectedAmount)}</Text>
-            {projectedExpectedAmount !== null ? (
-              <Text style={styles.infoHint}>
-                Saldo proyectado después del ingreso: {formatCurrency(projectedExpectedAmount)}
-              </Text>
-            ) : null}
-          </View>
           <View style={styles.field}>
             <Text style={styles.label}>Monto</Text>
             <TextInput
@@ -216,7 +195,10 @@ function CashIncomeScreen({ navigation }: CashIncomeScreenProps) {
               onSubmitEditing={handleSubmit}
             />
           </View>
-          <View style={styles.field}>
+          <View
+            style={styles.field}
+            onLayout={({ nativeEvent }) => setReasonFieldOffset(nativeEvent.layout.y)}
+          >
             <Text style={styles.label}>Motivo</Text>
             <TextInput
               multiline
@@ -227,6 +209,12 @@ function CashIncomeScreen({ navigation }: CashIncomeScreenProps) {
               style={[styles.input, styles.textArea, reasonError ? styles.inputError : null]}
               value={reason}
               editable={!isSubmitting}
+              onFocus={() => {
+                requestAnimationFrame(() => {
+                  const y = Math.max(reasonFieldOffset - 48, 0);
+                  scrollViewRef.current?.scrollTo({ y, animated: true });
+                });
+              }}
             />
             {reasonError ? <Text style={styles.errorText}>{reasonError}</Text> : null}
           </View>
@@ -278,26 +266,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: palette.textMuted,
     marginBottom: 20,
-  },
-  infoBlock: {
-    marginBottom: 20,
-  },
-  infoLabel: {
-    fontSize: 12,
-    color: palette.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
-    marginBottom: 4,
-  },
-  infoValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: palette.primary,
-  },
-  infoHint: {
-    fontSize: 12,
-    color: palette.textMuted,
-    marginTop: 4,
   },
   field: {
     marginBottom: 16,
