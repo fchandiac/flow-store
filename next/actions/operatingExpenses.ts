@@ -6,6 +6,7 @@ import { Transaction, TransactionStatus, TransactionType, PaymentMethod } from '
 import { ExpenseCategory } from '@/data/entities/ExpenseCategory';
 import { CostCenter } from '@/data/entities/CostCenter';
 import { Employee } from '@/data/entities/Employee';
+import { Supplier } from '@/data/entities/Supplier';
 import { User } from '@/data/entities/User';
 import { getCurrentSession } from './auth.server';
 import { ensureAccountingPeriodForDate } from './accounting';
@@ -19,6 +20,13 @@ export interface OperatingExpenseListItem {
     paymentMethod: PaymentMethod | null;
     createdAt: string;
     notes: string | null;
+    supplier?: {
+        id: string;
+        name: string;
+        alias: string | null;
+        documentNumber: string | null;
+        documentType: string | null;
+    } | null;
     expenseCategory?: {
         id: string;
         code: string;
@@ -45,6 +53,7 @@ export interface OperatingExpenseListItem {
 export interface CreateOperatingExpenseInput {
     expenseCategoryId: string;
     costCenterId: string;
+    supplierId?: string;
     amount: number;
     taxAmount?: number;
     paymentMethod: PaymentMethod;
@@ -69,6 +78,20 @@ const PAYROLL_CATEGORY_CODES: Record<PayrollCategoryType, string> = {
 };
 
 const OPERATING_EXPENSES_PATH = '/admin/operating-expenses';
+
+const formatSupplierName = (supplier: Supplier, fallback = 'Proveedor sin nombre'): string => {
+    const person = supplier.person;
+    if (person?.businessName?.trim()) {
+        return person.businessName.trim();
+    }
+    const parts = [person?.firstName, person?.lastName]
+        .map((value) => value?.trim())
+        .filter((value): value is string => Boolean(value));
+    if (parts.length > 0) {
+        return parts.join(' ');
+    }
+    return fallback;
+};
 
 const resolvePayrollType = (category: ExpenseCategory): PayrollCategoryType | null => {
     const normalizedCode = category.code?.toUpperCase?.() ?? '';
@@ -131,12 +154,22 @@ export async function listOperatingExpenses(limit = 50): Promise<OperatingExpens
         where: { transactionType: TransactionType.OPERATING_EXPENSE },
         take: Math.min(Math.max(limit, 1), 100),
         order: { createdAt: 'DESC' },
-        relations: ['expenseCategory', 'costCenter', 'user'],
+        relations: ['expenseCategory', 'costCenter', 'user', 'supplier', 'supplier.person'],
     });
 
     const serialize = (tx: Transaction): OperatingExpenseListItem => {
         const metadata = (tx.metadata ?? {}) as Record<string, unknown>;
         const rawPayroll = metadata?.payroll as Record<string, unknown> | undefined;
+
+        const supplier = tx.supplier
+            ? {
+                  id: tx.supplier.id,
+                  name: formatSupplierName(tx.supplier),
+                  alias: tx.supplier.alias ?? null,
+                  documentNumber: tx.supplier.person?.documentNumber ?? null,
+                  documentType: tx.supplier.person?.documentType ?? null,
+              }
+            : null;
 
         let payroll: OperatingExpenseListItem['payroll'] = null;
         if (rawPayroll && typeof rawPayroll === 'object') {
@@ -161,6 +194,7 @@ export async function listOperatingExpenses(limit = 50): Promise<OperatingExpens
             paymentMethod: tx.paymentMethod ?? null,
             createdAt: tx.createdAt.toISOString(),
             notes: tx.notes ?? null,
+            supplier,
             expenseCategory: tx.expenseCategory
                 ? {
                       id: tx.expenseCategory.id,
@@ -206,6 +240,7 @@ export async function createOperatingExpense(input: CreateOperatingExpenseInput)
         const expenseCategoryRepo = queryRunner.manager.getRepository(ExpenseCategory);
         const costCenterRepo = queryRunner.manager.getRepository(CostCenter);
         const employeeRepo = queryRunner.manager.getRepository(Employee);
+        const supplierRepo = queryRunner.manager.getRepository(Supplier);
         const transactionRepo = queryRunner.manager.getRepository(Transaction);
         const userRepo = queryRunner.manager.getRepository(User);
 
@@ -230,6 +265,33 @@ export async function createOperatingExpense(input: CreateOperatingExpenseInput)
         }
 
         const payrollType = categoryPayrollType ?? requestedPayrollType;
+
+        const requiresSupplier = !payrollType;
+
+        let supplier: Supplier | null = null;
+        if (requiresSupplier) {
+            if (!input.supplierId) {
+                throw new Error('Debes seleccionar el proveedor asociado al gasto.');
+            }
+
+            supplier = await supplierRepo.findOne({
+                where: { id: input.supplierId },
+                relations: ['person'],
+            });
+
+            if (!supplier || supplier.deletedAt || !supplier.isActive) {
+                throw new Error('El proveedor seleccionado no está disponible.');
+            }
+        } else if (input.supplierId) {
+            supplier = await supplierRepo.findOne({
+                where: { id: input.supplierId },
+                relations: ['person'],
+            });
+
+            if (!supplier || supplier.deletedAt || !supplier.isActive) {
+                supplier = null;
+            }
+        }
 
         if (payrollType && !input.employeeId) {
             throw new Error('Debes seleccionar el colaborador asociado a este gasto.');
@@ -326,7 +388,7 @@ export async function createOperatingExpense(input: CreateOperatingExpenseInput)
         transaction.storageId = undefined;
         transaction.targetStorageId = undefined;
         transaction.customerId = undefined;
-        transaction.supplierId = undefined;
+        transaction.supplierId = supplier?.id ?? undefined;
         transaction.userId = recordedByUser.id;
         transaction.expenseCategoryId = category.id;
         transaction.costCenterId = costCenter.id;
@@ -343,6 +405,27 @@ export async function createOperatingExpense(input: CreateOperatingExpenseInput)
             source: 'operating-expense-ui',
             submittedBy: recordedByUser.userName ?? session.userName,
         };
+
+        if (supplier) {
+            const supplierName = formatSupplierName(supplier);
+            metadata.supplier = {
+                id: supplier.id,
+                personId: supplier.personId,
+                name: supplierName,
+                alias: supplier.alias ?? null,
+                documentNumber: supplier.person?.documentNumber ?? null,
+                documentType: supplier.person?.documentType ?? null,
+                supplierType: supplier.supplierType,
+                defaultPaymentTermDays: Number.isFinite(Number(supplier.defaultPaymentTermDays))
+                    ? Number(supplier.defaultPaymentTermDays)
+                    : null,
+                contact: {
+                    email: supplier.person?.email ?? null,
+                    phone: supplier.person?.phone ?? null,
+                },
+                recordedAt: new Date().toISOString(),
+            } satisfies Record<string, unknown>;
+        }
 
         if (employee && payrollType) {
             const baseSalary = employee.baseSalary != null ? Number(employee.baseSalary) : null;

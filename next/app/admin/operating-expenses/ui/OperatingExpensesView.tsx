@@ -3,7 +3,9 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import DataGrid, { type DataGridColumn } from '@/baseComponents/DataGrid/DataGrid';
-import OperatingExpensesDialog from './OperatingExpensesDialog';
+import OperatingExpensesDialog, { type SupplierOption } from './OperatingExpensesDialog';
+
+export type { SupplierOption } from './OperatingExpensesDialog';
 import type { OperatingExpenseListItem } from '@/actions/operatingExpenses';
 import type { ExpenseCategoryOption } from '@/actions/expenseCategories';
 import type { CostCenterSummary } from '@/actions/costCenters';
@@ -16,6 +18,7 @@ interface OperatingExpensesViewProps {
     costCenters: CostCenterSummary[];
     employees: EmployeeListItem[];
     companyBankAccounts: PersonBankAccount[];
+    suppliers: SupplierOption[];
 }
 
 const PAYMENT_METHOD_LABEL: Record<string, string> = {
@@ -36,6 +39,7 @@ interface OperatingExpenseRow {
     documentNumber: string;
     categoryName: string;
     employeeName: string;
+    supplierName: string;
     costCenterLabel: string;
     paymentMethodLabel: string;
     amountLabel: string;
@@ -44,7 +48,7 @@ interface OperatingExpenseRow {
     recordedBy: string;
 }
 
-export default function OperatingExpensesView({ expenses, categories, costCenters, employees, companyBankAccounts }: OperatingExpensesViewProps) {
+export default function OperatingExpensesView({ expenses, categories, costCenters, employees, companyBankAccounts, suppliers }: OperatingExpensesViewProps) {
     const router = useRouter();
     const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -55,6 +59,7 @@ export default function OperatingExpensesView({ expenses, categories, costCenter
                 documentNumber: expense.documentNumber,
                 categoryName: expense.expenseCategory?.name ?? '—',
                 employeeName: expense.payroll?.employeeName ?? '—',
+                supplierName: expense.supplier?.name ?? '—',
                 costCenterLabel: expense.costCenter
                     ? `${expense.costCenter.name} (${expense.costCenter.code})`
                     : '—',
@@ -74,6 +79,7 @@ export default function OperatingExpensesView({ expenses, categories, costCenter
             { field: 'documentNumber', headerName: 'Documento', minWidth: 150, flex: 1 },
             { field: 'categoryName', headerName: 'Categoría', minWidth: 180, flex: 1 },
             { field: 'employeeName', headerName: 'Colaborador', minWidth: 200, flex: 1 },
+            { field: 'supplierName', headerName: 'Proveedor', minWidth: 220, flex: 1 },
             { field: 'costCenterLabel', headerName: 'Centro de costos', minWidth: 220, flex: 1 },
             { field: 'paymentMethodLabel', headerName: 'Método de pago', minWidth: 160, flex: 1 },
             {
@@ -122,6 +128,7 @@ export default function OperatingExpensesView({ expenses, categories, costCenter
                 costCenters={costCenters}
                 employees={employees}
                 companyBankAccounts={companyBankAccounts}
+                suppliers={suppliers}
             />
         </div>
     );

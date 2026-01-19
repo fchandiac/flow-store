@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import OperatingExpensesView from './OperatingExpensesView';
+import OperatingExpensesView, { type SupplierOption } from './OperatingExpensesView';
 import OperatingExpenseCategoriesView from './OperatingExpenseCategoriesView';
 import type { OperatingExpenseListItem } from '@/actions/operatingExpenses';
 import type { ExpenseCategoryOption } from '@/actions/expenseCategories';
@@ -15,6 +15,7 @@ interface OperatingExpensesTabsProps {
     costCenters: CostCenterSummary[];
     employees: EmployeeListItem[];
     companyBankAccounts: PersonBankAccount[];
+    suppliers: SupplierOption[];
 }
 
 type TabKey = 'expenses' | 'categories';
@@ -32,7 +33,7 @@ const TAB_ITEMS: Array<{ key: TabKey; label: string; description?: string }> = [
     },
 ];
 
-export default function OperatingExpensesTabs({ expenses, categories, costCenters, employees, companyBankAccounts }: OperatingExpensesTabsProps) {
+export default function OperatingExpensesTabs({ expenses, categories, costCenters, employees, companyBankAccounts, suppliers }: OperatingExpensesTabsProps) {
     const [activeTab, setActiveTab] = useState<TabKey>('expenses');
 
     const { title, description } = useMemo(() => {
@@ -78,6 +79,7 @@ export default function OperatingExpensesTabs({ expenses, categories, costCenter
                         costCenters={costCenters}
                         employees={employees}
                         companyBankAccounts={companyBankAccounts}
+                        suppliers={suppliers}
                     />
                 ) : (
                     <OperatingExpenseCategoriesView

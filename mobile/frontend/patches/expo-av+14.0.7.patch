@@ -25,16 +25,22 @@ index e55dbb2..42d7eff 100644
 +        ${REACT_ANDROID_JNI_TARGET}
          android
  )
-
 diff --git a/node_modules/expo-av/android/src/main/java/expo/modules/av/player/SimpleExoPlayerData.java b/node_modules/expo-av/android/src/main/java/expo/modules/av/player/SimpleExoPlayerData.java
-index 8cfea02..2f527b6 100644
+index 672871d..de4c192 100644
 --- a/node_modules/expo-av/android/src/main/java/expo/modules/av/player/SimpleExoPlayerData.java
 +++ b/node_modules/expo-av/android/src/main/java/expo/modules/av/player/SimpleExoPlayerData.java
-@@
--import com.google.android.exoplayer2.MediaItem;
+@@ -13,6 +13,7 @@ import androidx.annotation.NonNull;
+ import androidx.annotation.Nullable;
+ 
+ import com.google.android.exoplayer2.C;
 +import com.google.android.exoplayer2.DefaultRenderersFactory;
-+import com.google.android.exoplayer2.MediaItem;
-@@
+ import com.google.android.exoplayer2.MediaItem;
+ import com.google.android.exoplayer2.PlaybackException;
+ import com.google.android.exoplayer2.PlaybackParameters;
+@@ -86,10 +87,13 @@ class SimpleExoPlayerData extends PlayerData
+     final TrackSelector trackSelector = new DefaultTrackSelector(context, new AdaptiveTrackSelection.Factory());
+ 
+     // Create the player
 -    mSimpleExoPlayer = new SimpleExoPlayer.Builder(context)
 -        .setTrackSelector(trackSelector)
 -        .setBandwidthMeter(bandwidthMeter)
@@ -43,6 +49,9 @@ index 8cfea02..2f527b6 100644
 +    renderersFactory.setEnableDecoderFallback(true);
 +
 +    mSimpleExoPlayer = new SimpleExoPlayer.Builder(context, renderersFactory)
-+        .setTrackSelector(trackSelector)
-+        .setBandwidthMeter(bandwidthMeter)
-+        .build();
++      .setTrackSelector(trackSelector)
++      .setBandwidthMeter(bandwidthMeter)
++      .build();
+ 
+     mSimpleExoPlayer.addListener(this);
+ 

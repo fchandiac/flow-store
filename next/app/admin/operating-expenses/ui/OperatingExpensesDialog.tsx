@@ -13,6 +13,12 @@ import { PaymentMethod } from '@/data/entities/Transaction';
 import type { EmployeeListItem } from '@/actions/employees';
 import type { PersonBankAccount } from '@/data/entities/Person';
 
+export interface SupplierOption extends Option {
+    documentNumber?: string | null;
+    alias?: string | null;
+    paymentTermDays?: number | null;
+}
+
 interface OperatingExpensesDialogProps {
     open: boolean;
     onClose: () => void;
@@ -21,11 +27,13 @@ interface OperatingExpensesDialogProps {
     costCenters: CostCenterSummary[];
     employees: EmployeeListItem[];
     companyBankAccounts: PersonBankAccount[];
+    suppliers: SupplierOption[];
 }
 
 interface FormState {
     expenseCategoryId: string | null;
     costCenterId: string | null;
+    supplierId: string | null;
     paymentMethod: PaymentMethod | null;
     bankAccountKey: string | null;
     amount: string;
@@ -44,6 +52,7 @@ const PAYMENT_METHOD_OPTIONS: Option[] = [
 const INITIAL_FORM_STATE: FormState = {
     expenseCategoryId: null,
     costCenterId: null,
+    supplierId: null,
     paymentMethod: PaymentMethod.CASH,
     bankAccountKey: null,
     amount: '',
@@ -85,7 +94,7 @@ const formatEmployeeName = (employee: EmployeeListItem) => {
 
 const formatCurrency = (value: number) => CLP_FORMATTER.format(value);
 
-export default function OperatingExpensesDialog({ open, onClose, onSuccess, categories, costCenters, employees, companyBankAccounts }: OperatingExpensesDialogProps) {
+export default function OperatingExpensesDialog({ open, onClose, onSuccess, categories, costCenters, employees, companyBankAccounts, suppliers }: OperatingExpensesDialogProps) {
     const [formState, setFormState] = useState<FormState>(INITIAL_FORM_STATE);
     const [errors, setErrors] = useState<string[]>([]);
     const [isPending, startTransition] = useTransition();
@@ -105,6 +114,10 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
     }, [categories, formState.expenseCategoryId]);
 
     const payrollType: PayrollCategoryType | null = selectedCategory?.payrollType ?? null;
+    const requiresSupplier = !payrollType;
+
+    const supplierOptions = useMemo(() => suppliers.slice(), [suppliers]);
+    const hasSupplierOptions = supplierOptions.length > 0;
 
     const employeeOptions = useMemo(
         () =>
@@ -143,6 +156,29 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
             setErrors([]);
         }
     }, [open]);
+
+    useEffect(() => {
+        if (!requiresSupplier) {
+            if (formState.supplierId !== null) {
+                setFormState((prev) => ({ ...prev, supplierId: null }));
+            }
+            return;
+        }
+        if (!hasSupplierOptions) {
+            return;
+        }
+        if (formState.supplierId) {
+            return;
+        }
+        const firstSupplier = supplierOptions[0]?.id;
+        if (!firstSupplier) {
+            return;
+        }
+        setFormState((prev) => ({
+            ...prev,
+            supplierId: typeof firstSupplier === 'string' ? firstSupplier : String(firstSupplier),
+        }));
+    }, [formState.supplierId, hasSupplierOptions, supplierOptions, requiresSupplier]);
 
     useEffect(() => {
         if (!formState.costCenterId && costCenters.length > 0) {
@@ -264,6 +300,7 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
             costCenterId: costCenters[0]?.id ?? null,
             employeeId: null,
             bankAccountKey: hasBankAccountOptions ? String(bankAccountOptions[0]?.id ?? '') || null : null,
+            supplierId: null,
         });
     };
 
@@ -285,6 +322,10 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
         }
         if (!formState.costCenterId) {
             setErrors(['Selecciona un centro de costos.']);
+            return;
+        }
+        if (requiresSupplier && !formState.supplierId) {
+            setErrors(['Selecciona el proveedor asociado al gasto.']);
             return;
         }
         if (!formState.paymentMethod) {
@@ -330,6 +371,7 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
             const result = await createOperatingExpense({
                 expenseCategoryId: formState.expenseCategoryId as string,
                 costCenterId: formState.costCenterId as string,
+                supplierId: requiresSupplier ? (formState.supplierId as string) : undefined,
                 amount: parsedAmount,
                 taxAmount: parsedTaxAmount,
                 paymentMethod: formState.paymentMethod as PaymentMethod,
@@ -362,6 +404,29 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
         >
             <form className="space-y-4" onSubmit={handleSubmit}>
                 <div className="grid gap-4 md:grid-cols-2">
+                    {requiresSupplier ? (
+                        <>
+                            <Select
+                                label="Proveedor"
+                                options={supplierOptions}
+                                value={formState.supplierId}
+                                onChange={(id) =>
+                                    setFormState((prev) => ({
+                                        ...prev,
+                                        supplierId: typeof id === 'string' ? id : id != null ? String(id) : null,
+                                    }))
+                                }
+                                placeholder={hasSupplierOptions ? 'Selecciona el proveedor' : 'No hay proveedores disponibles'}
+                                required
+                                disabled={!hasSupplierOptions}
+                            />
+                            {!hasSupplierOptions && (
+                                <Alert variant="warning" className="md:col-span-2">
+                                    Registra proveedores activos en Compras → Proveedores antes de ingresar gastos operativos.
+                                </Alert>
+                            )}
+                        </>
+                    ) : null}
                     <Select
                         label="Categoría de gasto"
                         options={categoryOptions}

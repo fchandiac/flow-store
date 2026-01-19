@@ -32,6 +32,7 @@ import {
 type CreateCustomerFormState = {
   firstName: string;
   lastName: string;
+  personType: CustomerPersonType;
   documentType: string;
   documentNumber: string;
   email: string;
@@ -39,16 +40,26 @@ type CreateCustomerFormState = {
   address: string;
 };
 
-const documentTypeOptions = [
-  { label: 'RUN', value: 'RUN' },
-  { label: 'RUT', value: 'RUT' },
-  { label: 'Pasaporte', value: 'PASSPORT' },
-  { label: 'Otro', value: 'OTHER' },
+type CustomerPersonType = 'NATURAL' | 'COMPANY';
+
+const documentTypeOptions: Record<CustomerPersonType, Array<{ label: string; value: string }>> = {
+  NATURAL: [
+    { label: 'RUN', value: 'RUN' },
+    { label: 'Pasaporte', value: 'PASSPORT' },
+    { label: 'Otro', value: 'OTHER' },
+  ],
+  COMPANY: [{ label: 'RUT', value: 'RUT' }],
+};
+
+const personTypeOptions: Array<{ label: string; value: CustomerPersonType }> = [
+  { label: 'Persona natural', value: 'NATURAL' },
+  { label: 'Empresa', value: 'COMPANY' },
 ];
 
 const createEmptyCustomerForm = (): CreateCustomerFormState => ({
   firstName: '',
   lastName: '',
+  personType: 'NATURAL',
   documentType: 'RUN',
   documentNumber: '',
   email: '',
@@ -74,6 +85,9 @@ function PaymentScreen() {
   );
   const [createCustomerError, setCreateCustomerError] = useState<string | null>(null);
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
+
+  const currentDocumentTypeOptions = documentTypeOptions[createCustomerForm.personType];
+  const isNaturalPerson = createCustomerForm.personType === 'NATURAL';
 
   const mapCustomerToStore = (customer: CustomerSearchResult): PosCustomer => ({
     customerId: customer.customerId,
@@ -150,6 +164,26 @@ function PaymentScreen() {
     }));
   };
 
+  const handleSelectPersonType = (personType: CustomerPersonType) => {
+    setCreateCustomerForm((prev) => {
+      if (prev.personType === personType) {
+        return prev;
+      }
+
+      const allowedDocumentTypes = documentTypeOptions[personType].map((option) => option.value);
+      const nextDocumentType = allowedDocumentTypes.includes(prev.documentType)
+        ? prev.documentType
+        : allowedDocumentTypes[0];
+
+      return {
+        ...prev,
+        personType,
+        documentType: nextDocumentType,
+        lastName: personType === 'COMPANY' ? '' : prev.lastName,
+      };
+    });
+  };
+
   const handleSubmitCreateCustomer = async () => {
     const trimmedFirstName = createCustomerForm.firstName.trim();
     if (!trimmedFirstName) {
@@ -163,6 +197,7 @@ function PaymentScreen() {
     try {
       const payload: CreateCustomerInput = {
         firstName: trimmedFirstName,
+        personType: createCustomerForm.personType,
       };
 
       const trimmedLastName = createCustomerForm.lastName.trim();
@@ -170,12 +205,16 @@ function PaymentScreen() {
       const trimmedEmail = createCustomerForm.email.trim();
       const trimmedPhone = createCustomerForm.phone.trim();
       const trimmedAddress = createCustomerForm.address.trim();
+      const allowedDocumentTypes = currentDocumentTypeOptions.map((option) => option.value);
+      const selectedDocumentType = allowedDocumentTypes.includes(createCustomerForm.documentType)
+        ? createCustomerForm.documentType
+        : allowedDocumentTypes[0];
 
-      if (trimmedLastName) {
+      if (trimmedLastName && createCustomerForm.personType === 'NATURAL') {
         payload.lastName = trimmedLastName;
       }
-      if (createCustomerForm.documentType) {
-        payload.documentType = createCustomerForm.documentType;
+      if (selectedDocumentType) {
+        payload.documentType = selectedDocumentType;
       }
       if (trimmedDocumentNumber) {
         payload.documentNumber = trimmedDocumentNumber;
@@ -257,23 +296,53 @@ function PaymentScreen() {
                     returnKeyType="next"
                   />
                 </View>
+                {isNaturalPerson ? (
+                  <View style={styles.createCustomerField}>
+                    <Text style={styles.createCustomerLabel}>Apellido</Text>
+                    <TextInput
+                      value={createCustomerForm.lastName}
+                      onChangeText={(value) => updateCreateCustomerField('lastName', value)}
+                      style={styles.createCustomerInput}
+                      placeholder="Apellido"
+                      placeholderTextColor={palette.textMuted}
+                      autoCapitalize="words"
+                      autoCorrect={false}
+                      returnKeyType="next"
+                    />
+                  </View>
+                ) : null}
                 <View style={styles.createCustomerField}>
-                  <Text style={styles.createCustomerLabel}>Apellido</Text>
-                  <TextInput
-                    value={createCustomerForm.lastName}
-                    onChangeText={(value) => updateCreateCustomerField('lastName', value)}
-                    style={styles.createCustomerInput}
-                    placeholder="Apellido"
-                    placeholderTextColor={palette.textMuted}
-                    autoCapitalize="words"
-                    autoCorrect={false}
-                    returnKeyType="next"
-                  />
+                  <Text style={styles.createCustomerLabel}>Tipo de persona</Text>
+                  <View style={styles.createCustomerPersonTypeRow}>
+                    {personTypeOptions.map((option) => {
+                      const isSelected = createCustomerForm.personType === option.value;
+                      return (
+                        <TouchableOpacity
+                          key={option.value}
+                          style={[
+                            styles.createCustomerPersonTypeChip,
+                            isSelected && styles.createCustomerPersonTypeChipSelected,
+                          ]}
+                          activeOpacity={0.85}
+                          onPress={() => handleSelectPersonType(option.value)}
+                        >
+                          <Text
+                            style={[
+                              styles.createCustomerPersonTypeLabel,
+                              isSelected && styles.createCustomerPersonTypeLabelSelected,
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
                 </View>
                 <View style={styles.createCustomerField}>
                   <Text style={styles.createCustomerLabel}>Tipo de documento</Text>
                   <View style={styles.createCustomerDocTypes}>
-                    {documentTypeOptions.map((option) => {
+                    {currentDocumentTypeOptions.map((option) => {
                       const isSelected = createCustomerForm.documentType === option.value;
                       return (
                         <TouchableOpacity
@@ -299,12 +368,14 @@ function PaymentScreen() {
                   </View>
                 </View>
                 <View style={styles.createCustomerField}>
-                  <Text style={styles.createCustomerLabel}>Número de documento</Text>
+                  <Text style={styles.createCustomerLabel}>
+                    {isNaturalPerson ? 'Número de documento' : 'RUT'}
+                  </Text>
                   <TextInput
                     value={createCustomerForm.documentNumber}
                     onChangeText={(value) => updateCreateCustomerField('documentNumber', value)}
                     style={styles.createCustomerInput}
-                    placeholder="Ej. 12.345.678-9"
+                    placeholder={isNaturalPerson ? 'Ej. 12.345.678-9' : 'Ej. 76.543.210-0'}
                     placeholderTextColor={palette.textMuted}
                     autoCapitalize="characters"
                     autoCorrect={false}
@@ -431,10 +502,21 @@ function PaymentScreen() {
             </View>
 
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Cliente</Text>
-              <Text style={styles.cardSubtitle}>
-                Busca un cliente existente o continúa sin asignar uno.
-              </Text>
+              <View style={styles.cardHeader}>
+                <View style={styles.cardHeaderText}>
+                  <Text style={styles.cardTitle}>Cliente</Text>
+                  <Text style={styles.cardSubtitle}>
+                    Busca un cliente existente o continúa sin asignar uno.
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.cardIconButton}
+                  activeOpacity={0.85}
+                  onPress={handleOpenCreateCustomer}
+                >
+                  <Ionicons name="person-add-outline" size={20} color={palette.primaryText} />
+                </TouchableOpacity>
+              </View>
               <View style={styles.searchRow}>
                 <TextInput
                   value={customerQuery}
@@ -464,14 +546,6 @@ function PaymentScreen() {
                   )}
                 </TouchableOpacity>
               </View>
-              <TouchableOpacity
-                style={styles.createCustomerButton}
-                activeOpacity={0.85}
-                onPress={handleOpenCreateCustomer}
-              >
-                <Ionicons name="person-add-outline" size={18} color={palette.primary} />
-                <Text style={styles.createCustomerButtonLabel}>Crear nuevo cliente</Text>
-              </TouchableOpacity>
               {selectedCustomer ? (
                 <View style={styles.selectedCustomerCard}>
                   <View style={styles.selectedCustomerHeader}>
@@ -525,14 +599,7 @@ function PaymentScreen() {
                     <Ionicons name="people-outline" size={18} color={palette.textMuted} />
                     <Text style={styles.searchMessageText}>No se encontraron clientes.</Text>
                   </View>
-                ) : customerResults.length === 0 ? (
-                  <View style={styles.searchMessage}>
-                    <Ionicons name="information-circle-outline" size={18} color={palette.textMuted} />
-                    <Text style={styles.searchMessageText}>
-                      Los resultados de clientes aparecerán aquí.
-                    </Text>
-                  </View>
-                ) : (
+                ) : customerResults.length === 0 ? null : (
                   <ScrollView
                     style={styles.customerResultsList}
                     contentContainerStyle={styles.customerResultsContent}
@@ -646,6 +713,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: palette.textMuted,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  cardHeaderText: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  cardIconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: palette.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   emptyCart: {
     marginTop: 16,
     color: palette.textMuted,
@@ -742,24 +826,6 @@ const styles = StyleSheet.create({
   },
   searchButtonDisabled: {
     opacity: 0.6,
-  },
-  createCustomerButton: {
-    marginTop: 12,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.primary,
-    backgroundColor: palette.surface,
-  },
-  createCustomerButtonLabel: {
-    marginLeft: 6,
-    fontSize: 13,
-    fontWeight: '600',
-    color: palette.primary,
   },
   selectedCustomerCard: {
     marginTop: 16,
@@ -911,7 +977,8 @@ const styles = StyleSheet.create({
   },
   createCustomerModalCard: {
     width: '100%',
-    maxWidth: 480,
+    maxWidth: 560,
+    maxHeight: 640,
     borderRadius: 20,
     backgroundColor: palette.surface,
     padding: 20,
@@ -947,7 +1014,7 @@ const styles = StyleSheet.create({
   },
   createCustomerForm: {
     marginTop: 16,
-    maxHeight: 340,
+    maxHeight: 420,
   },
   createCustomerFormContent: {
     paddingBottom: 8,
@@ -984,6 +1051,33 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.border,
+  createCustomerPersonTypeRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 8,
+    gap: 8,
+  },
+  createCustomerPersonTypeChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+  },
+  createCustomerPersonTypeChipSelected: {
+    borderColor: palette.primary,
+    backgroundColor: palette.surfaceMuted,
+  },
+  createCustomerPersonTypeLabel: {
+    fontSize: 13,
+    color: palette.textMuted,
+    fontWeight: '500',
+  },
+  createCustomerPersonTypeLabelSelected: {
+    color: palette.primary,
+    fontWeight: '600',
+  },
     backgroundColor: palette.surface,
     paddingVertical: 6,
     paddingHorizontal: 10,

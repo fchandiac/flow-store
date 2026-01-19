@@ -1,0 +1,56 @@
+diff --git a/node_modules/react-native-usb-printer/android/build.gradle b/node_modules/react-native-usb-printer/android/build.gradle
+index f97adc1..214c3df 100644
+--- a/node_modules/react-native-usb-printer/android/build.gradle
++++ b/node_modules/react-native-usb-printer/android/build.gradle
+@@ -1,16 +1,15 @@
+ apply plugin: 'com.android.library'
+ 
+ android {
+-    compileSdkVersion 26
+-    buildToolsVersion "26.0.1"
++    compileSdkVersion 36
+ 
+     defaultConfig {
+-        minSdkVersion 15
+-        targetSdkVersion 26
++        minSdkVersion 24
++        targetSdkVersion 33
+         versionCode 1
+         versionName "1.0"
+ 
+-        testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
++        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+ 
+     }
+     buildTypes {
+@@ -22,11 +21,10 @@ android {
+ }
+ 
+ dependencies {
+-    compile fileTree(dir: 'libs', include: ['*.jar'])
+-    androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2', {
+-        exclude group: 'com.android.support', module: 'support-annotations'
++    implementation fileTree(dir: 'libs', include: ['*.jar'])
++    androidTestImplementation('androidx.test.espresso:espresso-core:3.5.1', {
++        exclude group: 'androidx.test', module: 'monitor'
+     })
+-    compile 'com.android.support:appcompat-v7:21.2.1'
+-    compile "com.facebook.react:react-native:+"
+-    testCompile 'junit:junit:4.12'
++    implementation "com.facebook.react:react-native:+"
++    testImplementation 'junit:junit:4.13.2'
+ }
+diff --git a/node_modules/react-native-usb-printer/android/src/main/java/com/pinmi/react/printer/adapter/USBPrinterAdapter.java b/node_modules/react-native-usb-printer/android/src/main/java/com/pinmi/react/printer/adapter/USBPrinterAdapter.java
+index 378368a..f55db6e 100644
+--- a/node_modules/react-native-usb-printer/android/src/main/java/com/pinmi/react/printer/adapter/USBPrinterAdapter.java
++++ b/node_modules/react-native-usb-printer/android/src/main/java/com/pinmi/react/printer/adapter/USBPrinterAdapter.java
+@@ -76,7 +76,8 @@ public class USBPrinterAdapter {
+     public void init(Context reactContext) {
+         this.mContext = reactContext;
+         this.mUSBManager = (UsbManager) this.mContext.getSystemService(Context.USB_SERVICE);
+-        this.mPermissionIndent = PendingIntent.getBroadcast(mContext, 0, new Intent(ACTION_USB_PERMISSION), 0);
++        int flags = PendingIntent.FLAG_IMMUTABLE;
++        this.mPermissionIndent = PendingIntent.getBroadcast(mContext, 0, new Intent(ACTION_USB_PERMISSION), flags);
+         IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
+         filter.addAction(UsbManager.ACTION_USB_DEVICE_DETACHED);
+         mContext.registerReceiver(mUsbDeviceReceiver, filter);
