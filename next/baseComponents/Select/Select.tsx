@@ -147,9 +147,10 @@ const Select: React.FC<SelectProps> = ({ label, options, placeholder, value = nu
             } ${disabled ? 'bg-muted text-muted-foreground' : ''} ${hasClear ? 'pr-12 pl-3' : 'pr-8 pl-3'}`.trim()}
           >
             <span
-              className={`flex-1 truncate text-sm ${
+              className={`flex-1 truncate text-sm font-light ${
                 hasValue ? 'text-foreground' : 'text-muted-foreground'
               }`}
+              style={hasValue ? { color: 'var(--color-foreground)' } : undefined}
             >
               {selected ? selected.label : (placeholder ?? 'Selecciona')}
             </span>

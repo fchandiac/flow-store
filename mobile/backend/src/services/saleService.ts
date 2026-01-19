@@ -357,7 +357,7 @@ function getDocumentPrefix(type: TransactionType): string {
     case TransactionType.PAYMENT_IN:
       return 'PIE-';
     case TransactionType.PAYMENT_OUT:
-      return 'PIS-';
+      return 'PPA-';
     case TransactionType.OPERATING_EXPENSE:
       return 'GOP-';
     case TransactionType.CASH_SESSION_WITHDRAWAL:

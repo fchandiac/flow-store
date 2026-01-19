@@ -564,6 +564,9 @@ body {
 
   .input-base[readonly] {
     cursor: text;
+    color: var(--color-foreground);
+    opacity: 1;
+    background-color: var(--color-background);
   }
 
 

@@ -8,6 +8,7 @@ import DataGrid, { type DataGridColumn } from '@/baseComponents/DataGrid/DataGri
 import Select, { type Option as SelectOption } from '@/baseComponents/Select/Select';
 import { Button } from '@/baseComponents/Button/Button';
 import CreateCapitalContributionDialog from './CreateCapitalContributionDialog';
+import CreateBankToCashTransferDialog from './CreateBankToCashTransferDialog';
 
 const currencyFormatter = new Intl.NumberFormat('es-CL', {
     style: 'currency',
@@ -79,6 +80,7 @@ export default function BankMovementsDashboard({
 
     const [selectedAccount, setSelectedAccount] = useState<string>('__all__');
     const [capitalDialogOpen, setCapitalDialogOpen] = useState(false);
+    const [bankToCashDialogOpen, setBankToCashDialogOpen] = useState(false);
 
     useEffect(() => {
         if (selectedAccount === '__all__') {
@@ -201,6 +203,7 @@ export default function BankMovementsDashboard({
 
     const accountFilterDisabled = accountFilterOptions.length <= 1;
     const capitalContributionDisabled = shareholderOptions.length === 0 || bankAccountOptions.length === 0;
+    const bankToCashTransferDisabled = bankAccountOptions.length === 0;
 
     const shareholderSelectOptions = useMemo<SelectOption[]>(
         () => shareholderOptions.map((option) => ({ id: option.id, label: option.label })),
@@ -214,6 +217,17 @@ export default function BankMovementsDashboard({
 
     const headerActions = (
         <div className="flex flex-wrap items-center gap-3">
+            <Button
+                type="button"
+                variant="outlined"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => setBankToCashDialogOpen(true)}
+                disabled={bankToCashTransferDisabled}
+            >
+                <span className="material-symbols-outlined text-base">sync_alt</span>
+                Transferir a caja
+            </Button>
             <Button
                 type="button"
                 variant="outlined"
@@ -299,6 +313,14 @@ export default function BankMovementsDashboard({
                     router.refresh();
                 }}
                 shareholderOptions={shareholderSelectOptions}
+                bankAccountOptions={bankAccountSelectOptions}
+            />
+            <CreateBankToCashTransferDialog
+                open={bankToCashDialogOpen}
+                onClose={() => setBankToCashDialogOpen(false)}
+                onCreated={async () => {
+                    router.refresh();
+                }}
                 bankAccountOptions={bankAccountSelectOptions}
             />
         </div>
