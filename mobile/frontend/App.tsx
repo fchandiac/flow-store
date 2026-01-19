@@ -136,7 +136,7 @@ export default function App() {
           <Stack.Screen
             name="Payment"
             component={PaymentScreen}
-            options={{ title: 'Pagos' }}
+            options={{ title: 'Proceso de pago' }}
           />
         </Stack.Navigator>
       </NavigationContainer>

@@ -319,6 +319,8 @@ type SupplierSeed = {
   contactFirstName: string;
   contactLastName?: string;
   documentNumber: string;
+  documentType?: keyof typeof DocumentType | string;
+  personType?: keyof typeof PersonType | string;
   email?: string;
   phone?: string;
   address?: string;
@@ -326,6 +328,13 @@ type SupplierSeed = {
   defaultPaymentTermDays?: number;
   notes?: string;
   bankAccounts?: RawBankAccount[];
+};
+
+type SupplierSeedNormalized = Omit<SupplierSeed, 'supplierType' | 'bankAccounts' | 'personType' | 'documentType'> & {
+  supplierType: SupplierType;
+  bankAccounts?: PersonBankAccount[] | null;
+  personType: PersonType;
+  documentType: DocumentType;
 };
 
 type UserSeedPerson = {
@@ -659,11 +668,29 @@ async function seedFlowStore() {
       allowDecimals: entry.allowDecimals ?? true,
     }));
 
-    const supplierSeeds = supplierSeedsRaw.map((entry) => ({
-      ...entry,
-      supplierType: parseEnum(SupplierType, entry.supplierType, `proveedor ${entry.businessName} (type)`),
-      bankAccounts: mapBankAccounts(entry.bankAccounts ?? []) ?? undefined,
-    }));
+    const supplierSeeds: SupplierSeedNormalized[] = supplierSeedsRaw.map((entry, index) => {
+      const contextBase = entry.businessName ? `suppliers.json → ${entry.businessName}` : `suppliers.json → registro ${index + 1}`;
+      const personType = parseEnum(
+        PersonType,
+        entry.personType ?? PersonType.COMPANY,
+        `${contextBase} (personType)`,
+      );
+
+      const defaultDocumentType = personType === PersonType.NATURAL ? DocumentType.RUN : DocumentType.RUT;
+      const documentType = parseEnum(
+        DocumentType,
+        entry.documentType ?? defaultDocumentType,
+        `${contextBase} (documentType)`,
+      );
+
+      return {
+        ...entry,
+        personType,
+        documentType,
+        supplierType: parseEnum(SupplierType, entry.supplierType, `${contextBase} (type)`),
+        bankAccounts: mapBankAccounts(entry.bankAccounts ?? []) ?? null,
+      };
+    });
 
     const shareholderSeeds = shareholderSeedsRaw.map((entry, index) => {
       if (!entry.person) {
@@ -2254,11 +2281,11 @@ async function seedFlowStore() {
         person.id = uuidv4();
       }
 
-      person.type = PersonType.COMPANY;
+      person.type = seed.personType;
       person.firstName = seed.contactFirstName;
       person.lastName = seed.contactLastName ?? undefined;
       person.businessName = seed.businessName;
-      person.documentType = DocumentType.RUT;
+      person.documentType = seed.documentType;
       person.documentNumber = seed.documentNumber;
       person.email = seed.email ?? undefined;
       person.phone = seed.phone ?? undefined;

@@ -130,5 +130,147 @@
         "notes": "Cuenta dedicada a marketplaces."
       }
     ]
+  },
+  {
+    "businessName": "Energia Metropolitana S.A.",
+    "alias": "Energia Metropolitana",
+    "contactFirstName": "Rodrigo",
+    "contactLastName": "Villalobos",
+    "documentNumber": "76.543.210-4",
+    "email": "facturacion@energiametropolitana.cl",
+    "phone": "+56 2 2510 4400",
+    "address": "Av. Nueva Providencia 1234, Santiago",
+    "supplierType": "LOCAL",
+    "defaultPaymentTermDays": 10,
+    "notes": "Proveedor de suministro electrico para las sucursales.",
+    "bankAccounts": [
+      {
+        "accountKey": "SUP-ENERGIA-CHILE-CC",
+        "bankName": "BANCO_CHILE",
+        "accountType": "CUENTA_CORRIENTE",
+        "accountNumber": "12004567-8",
+        "accountHolderName": "Energia Metropolitana S.A.",
+        "isPrimary": true
+      }
+    ]
+  },
+  {
+    "businessName": "Aguas Cordilleranas S.A.",
+    "alias": "Aguas Cordilleranas",
+    "contactFirstName": "Ximena",
+    "contactLastName": "Olivares",
+    "documentNumber": "78.210.654-3",
+    "email": "cobranzas@aguascordilleranas.cl",
+    "phone": "+56 2 2499 8800",
+    "address": "Av. El Bosque Norte 720, Santiago",
+    "supplierType": "LOCAL",
+    "defaultPaymentTermDays": 15,
+    "notes": "Servicio de agua potable y alcantarillado para la casa matriz.",
+    "bankAccounts": [
+      {
+        "accountKey": "SUP-AGUAS-BICE-CC",
+        "bankName": "BANCO_BICE",
+        "accountType": "CUENTA_CORRIENTE",
+        "accountNumber": "33445566-7",
+        "accountHolderName": "Aguas Cordilleranas S.A.",
+        "isPrimary": true
+      }
+    ]
+  },
+  {
+    "businessName": "AndesNet Telecomunicaciones SpA",
+    "alias": "AndesNet Telecom",
+    "contactFirstName": "Marcela",
+    "contactLastName": "Godoy",
+    "documentNumber": "77.890.123-6",
+    "email": "pagos@andesnet.cl",
+    "phone": "+56 600 550 1100",
+    "address": "Av. Apoquindo 4500, Las Condes",
+    "supplierType": "LOCAL",
+    "defaultPaymentTermDays": 20,
+    "notes": "Proveedor de enlaces dedicados de internet y telefonia IP.",
+    "bankAccounts": [
+      {
+        "accountKey": "SUP-ANDESNET-SCOTIA-CC",
+        "bankName": "BANCO_SCOTIABANK",
+        "accountType": "CUENTA_CORRIENTE",
+        "accountNumber": "77889900-5",
+        "accountHolderName": "AndesNet Telecomunicaciones SpA",
+        "isPrimary": true
+      }
+    ]
+  },
+  {
+    "businessName": "Libreria Oficina Total Ltda.",
+    "alias": "Oficina Total",
+    "contactFirstName": "Daniela",
+    "contactLastName": "Cifuentes",
+    "documentNumber": "76.578.990-2",
+    "email": "ventas@oficinatotal.cl",
+    "phone": "+56 2 2301 1122",
+    "address": "Moneda 920, Santiago",
+    "supplierType": "DISTRIBUTOR",
+    "defaultPaymentTermDays": 25,
+    "notes": "Proveedor de articulos de oficina, papeleria y cafeteria.",
+    "bankAccounts": [
+      {
+        "accountKey": "SUP-OFICINA-BANESTADO-CC",
+        "bankName": "BANCO_ESTADO",
+        "accountType": "CUENTA_CORRIENTE",
+        "accountNumber": "99887766-5",
+        "accountHolderName": "Libreria Oficina Total Ltda.",
+        "isPrimary": true
+      }
+    ]
+  },
+  {
+    "businessName": "Servicios Tecnicos Luis Herrera",
+    "alias": "Luis Herrera Servicios",
+    "contactFirstName": "Luis",
+    "contactLastName": "Herrera",
+    "documentNumber": "14.567.890-1",
+    "documentType": "RUN",
+    "personType": "NATURAL",
+    "email": "luis.herrera@serviciotec.cl",
+    "phone": "+56 9 7770 3344",
+    "address": "Pedro de Valdivia 456, Santiago",
+    "supplierType": "LOCAL",
+    "defaultPaymentTermDays": 7,
+    "notes": "Prestador independiente para mantenciones electricas y reparaciones menores.",
+    "bankAccounts": [
+      {
+        "accountKey": "SUP-HERRERA-ESTADO-RUT",
+        "bankName": "BANCO_ESTADO",
+        "accountType": "CUENTA_RUT",
+        "accountNumber": "14.567.890",
+        "accountHolderName": "Luis Herrera",
+        "isPrimary": true
+      }
+    ]
+  },
+  {
+    "businessName": "Consultoria TI Valentina Rojas",
+    "alias": "Valentina Rojas TI",
+    "contactFirstName": "Valentina",
+    "contactLastName": "Rojas",
+    "documentNumber": "17.345.678-2",
+    "documentType": "RUN",
+    "personType": "NATURAL",
+    "email": "valentina.rojas@consultoriati.cl",
+    "phone": "+56 9 9988 7766",
+    "address": "Los Militares 4890, Las Condes",
+    "supplierType": "LOCAL",
+    "defaultPaymentTermDays": 5,
+    "notes": "Servicios de soporte y consultoria TI para puntos de venta y oficinas.",
+    "bankAccounts": [
+      {
+        "accountKey": "SUP-ROJAS-ITAU-CTA",
+        "bankName": "BANCO_ITAU",
+        "accountType": "CUENTA_CORRIENTE",
+        "accountNumber": "45678901-2",
+        "accountHolderName": "Valentina Rojas",
+        "isPrimary": true
+      }
+    ]
   }
 ]

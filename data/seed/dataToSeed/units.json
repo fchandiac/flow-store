@@ -6,7 +6,7 @@
     "conversionFactor": 1,
     "isBase": true,
     "baseSymbol": "un",
-    "allowDecimals": true
+    "allowDecimals": false
   },
   {
     "name": "Caja",

@@ -763,6 +763,7 @@ export type CustomerSearchResultPage = {
 
 export type CreateCustomerInput = {
   firstName: string;
+  personType: 'NATURAL' | 'COMPANY';
   lastName?: string;
   documentType?: string;
   documentNumber?: string;
