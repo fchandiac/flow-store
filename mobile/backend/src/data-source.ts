@@ -23,6 +23,7 @@ import { PriceList } from '../../../data/entities/PriceList';
 import { Shareholder } from '../../../data/entities/Shareholder';
 import { AccountingAccount } from '../../../data/entities/AccountingAccount';
 import { AccountingRule } from '../../../data/entities/AccountingRule';
+import { Attribute } from '../../../data/entities/Attribute';
 
 const envFiles = ['.env', '.env.local'];
 
@@ -71,6 +72,7 @@ export const appDataSource = new DataSource({
     Person,
     Category,
     PriceList,
+    Attribute,
     Shareholder,
     AccountingAccount,
     AccountingRule,

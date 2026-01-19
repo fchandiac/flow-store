@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Button } from '@/app/baseComponents/Button/Button';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
+import IconButton from '@/app/baseComponents/IconButton/IconButton';
 import CategoryCard, { CategoryType } from './CategoryCard';
 import CreateCategoryDialog from './CreateCategoryDialog';
 
@@ -22,7 +22,6 @@ const CategoryList: React.FC<CategoryListProps> = ({
         ? categories.filter(c => {
             return (
                 c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                c.code?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 c.description?.toLowerCase().includes(searchTerm.toLowerCase())
             );
         })
@@ -39,24 +38,24 @@ const CategoryList: React.FC<CategoryListProps> = ({
 
     return (
         <div className="space-y-6" data-test-id={dataTestId}>
-            <div className="flex flex-col sm:flex-row gap-4 justify-between">
-                <TextField
-                    label=""
-                    placeholder="Buscar categoría..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full sm:w-80"
-                    data-test-id="category-search"
-                />
-                <Button
+            <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+                <IconButton
+                    icon="add"
+                    variant="outlined"
+                    aria-label="Agregar categoría"
                     onClick={() => setOpenCreateDialog(true)}
                     data-test-id="create-category-button"
-                >
-                    <span className="material-symbols-outlined mr-2" style={{ fontSize: '1.25rem' }}>
-                        create_new_folder
-                    </span>
-                    Nueva Categoría
-                </Button>
+                />
+                <div className="w-full max-w-sm flex-1 min-w-[200px]">
+                    <TextField
+                        label="Buscar"
+                        placeholder="Buscar categoría..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        startIcon="search"
+                        data-test-id="category-search"
+                    />
+                </div>
             </div>
 
             {sortedCategories.length === 0 ? (
@@ -72,21 +71,16 @@ const CategoryList: React.FC<CategoryListProps> = ({
                     </p>
                 </div>
             ) : (
-                <>
-                    <div className="text-sm text-neutral-500">
-                        Mostrando {sortedCategories.length} de {categories.length} categorías
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {sortedCategories.map((category) => (
-                            <CategoryCard
-                                key={category.id}
-                                category={category}
-                                allCategories={categories}
-                                data-test-id={`category-card-${category.id}`}
-                            />
-                        ))}
-                    </div>
-                </>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {sortedCategories.map((category) => (
+                        <CategoryCard
+                            key={category.id}
+                            category={category}
+                            allCategories={categories}
+                            data-test-id={`category-card-${category.id}`}
+                        />
+                    ))}
+                </div>
             )}
 
             <CreateCategoryDialog

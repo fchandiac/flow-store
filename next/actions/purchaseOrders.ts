@@ -48,6 +48,7 @@ export interface PurchaseOrderProductResult {
     sku: string;
     barcode?: string | null;
     unitOfMeasure: string;
+    allowDecimals: boolean;
     baseCost: number;
     basePrice: number;
     trackInventory: boolean;
@@ -207,6 +208,7 @@ export async function searchProductsForPurchase(params?: SearchPurchaseProductsP
     const queryBuilder = variantRepo
         .createQueryBuilder('variant')
         .leftJoinAndSelect('variant.product', 'product')
+        .leftJoinAndSelect('variant.unit', 'unit')
         .where('variant.deletedAt IS NULL')
         .andWhere('product.deletedAt IS NULL')
         .andWhere('product.isActive = :active', { active: true });
@@ -268,6 +270,7 @@ export async function searchProductsForPurchase(params?: SearchPurchaseProductsP
             sku: variant.sku,
             barcode: variant.barcode ?? null,
             unitOfMeasure: variant.unit?.symbol ?? '',
+            allowDecimals: Boolean(variant.unit?.allowDecimals ?? true),
             baseCost: Number(variant.baseCost ?? 0),
             basePrice: Number(variant.basePrice ?? 0),
             trackInventory: variant.trackInventory,
@@ -312,7 +315,7 @@ export async function createPurchaseOrder(data: CreatePurchaseOrderDTO): Promise
         const variantIds = data.lines.map((line) => line.productVariantId);
         const variants = await variantRepo.find({
             where: { id: In(variantIds) },
-            relations: ['product'],
+            relations: ['product', 'unit'],
         });
 
         if (variants.length !== variantIds.length) {

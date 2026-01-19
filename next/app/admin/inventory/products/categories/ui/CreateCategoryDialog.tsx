@@ -32,7 +32,6 @@ const CreateCategoryDialog: React.FC<CreateCategoryDialogProps> = ({
 
     const [formData, setFormData] = useState({
         name: '',
-        code: '',
         description: '',
         parentId: '',
         sortOrder: '',
@@ -75,7 +74,6 @@ const CreateCategoryDialog: React.FC<CreateCategoryDialogProps> = ({
         try {
             const result = await createCategory({
                 name: formData.name.trim(),
-                code: formData.code.trim() || undefined,
                 description: formData.description.trim() || undefined,
                 parentId: formData.parentId || null,
                 sortOrder: formData.sortOrder ? parseInt(formData.sortOrder) : undefined,
@@ -102,7 +100,6 @@ const CreateCategoryDialog: React.FC<CreateCategoryDialogProps> = ({
     const resetForm = () => {
         setFormData({
             name: '',
-            code: '',
             description: '',
             parentId: '',
             sortOrder: '',
@@ -140,14 +137,6 @@ const CreateCategoryDialog: React.FC<CreateCategoryDialogProps> = ({
                         onChange={(e) => handleChange('name', e.target.value)}
                         required
                         data-test-id="create-category-name"
-                    />
-                    
-                    <TextField
-                        label="Código"
-                        value={formData.code}
-                        onChange={(e) => handleChange('code', e.target.value)}
-                        placeholder="CAT-001"
-                        data-test-id="create-category-code"
                     />
                     
                     <TextField

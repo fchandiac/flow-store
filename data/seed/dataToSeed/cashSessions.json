@@ -1,0 +1,11 @@
+[
+  {
+    "ref": "SESSION-202601-01",
+    "pointOfSaleName": "Caja Mayorista",
+    "openedByUserName": "admin",
+    "openedAt": "2026-01-19T06:56:32.000Z",
+    "openingAmount": 90000,
+    "status": "OPEN",
+    "createdAt": "2026-01-19T06:56:31.640Z"
+  }
+]

@@ -1,0 +1,1040 @@
+import { Ionicons } from '@expo/vector-icons';
+import React, { useState } from 'react';
+import {
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import {
+  selectCartItems,
+  selectCartTotals,
+  selectSelectedCustomer,
+  usePosStore,
+  type PosCustomer,
+} from '../store/usePosStore';
+import { formatCurrency } from '../utils/formatCurrency';
+import { palette } from '../theme/palette';
+import {
+  createCustomer,
+  searchCustomers,
+  type CreateCustomerInput,
+  type CustomerSearchResult,
+} from '../services/apiService';
+
+type CreateCustomerFormState = {
+  firstName: string;
+  lastName: string;
+  documentType: string;
+  documentNumber: string;
+  email: string;
+  phone: string;
+  address: string;
+};
+
+const documentTypeOptions = [
+  { label: 'RUN', value: 'RUN' },
+  { label: 'RUT', value: 'RUT' },
+  { label: 'Pasaporte', value: 'PASSPORT' },
+  { label: 'Otro', value: 'OTHER' },
+];
+
+const createEmptyCustomerForm = (): CreateCustomerFormState => ({
+  firstName: '',
+  lastName: '',
+  documentType: 'RUN',
+  documentNumber: '',
+  email: '',
+  phone: '',
+  address: '',
+});
+
+function PaymentScreen() {
+  const cartItems = usePosStore(selectCartItems);
+  const cartTotals = usePosStore(selectCartTotals);
+  const selectedCustomer = usePosStore(selectSelectedCustomer);
+  const setSelectedCustomer = usePosStore((state) => state.setSelectedCustomer);
+  const clearSelectedCustomer = usePosStore((state) => state.clearSelectedCustomer);
+
+  const [customerQuery, setCustomerQuery] = useState('');
+  const [customerResults, setCustomerResults] = useState<CustomerSearchResult[]>([]);
+  const [isSearchingCustomers, setIsSearchingCustomers] = useState(false);
+  const [customerSearchError, setCustomerSearchError] = useState<string | null>(null);
+  const [hasSearchedCustomers, setHasSearchedCustomers] = useState(false);
+  const [isCreateCustomerVisible, setIsCreateCustomerVisible] = useState(false);
+  const [createCustomerForm, setCreateCustomerForm] = useState<CreateCustomerFormState>(
+    () => createEmptyCustomerForm(),
+  );
+  const [createCustomerError, setCreateCustomerError] = useState<string | null>(null);
+  const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
+
+  const mapCustomerToStore = (customer: CustomerSearchResult): PosCustomer => ({
+    customerId: customer.customerId,
+    personId: customer.personId,
+    displayName: customer.displayName,
+    documentType: customer.documentType,
+    documentNumber: customer.documentNumber,
+    email: customer.email,
+    phone: customer.phone,
+    address: customer.address,
+    creditLimit: customer.creditLimit,
+    currentBalance: customer.currentBalance,
+    availableCredit: customer.availableCredit,
+    defaultPaymentTermDays: customer.defaultPaymentTermDays,
+  });
+
+  const handleCustomerSearch = async () => {
+    const query = customerQuery.trim();
+    setIsSearchingCustomers(true);
+    setCustomerSearchError(null);
+
+    try {
+      const response = await searchCustomers({ query, page: 1, pageSize: 15 });
+      setCustomerResults(response.customers);
+      setHasSearchedCustomers(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo buscar clientes.';
+      setCustomerSearchError(message);
+      setCustomerResults([]);
+      setHasSearchedCustomers(true);
+    } finally {
+      setIsSearchingCustomers(false);
+    }
+  };
+
+  const handleSelectCustomer = (customer: CustomerSearchResult) => {
+    setSelectedCustomer(mapCustomerToStore(customer));
+  };
+
+  const handleClearCustomer = () => {
+    clearSelectedCustomer();
+  };
+
+  const handleOpenCreateCustomer = () => {
+    const trimmed = customerQuery.trim();
+    if (trimmed) {
+      const [firstName, ...rest] = trimmed.split(/\s+/);
+      setCreateCustomerForm({
+        ...createEmptyCustomerForm(),
+        firstName: firstName ?? '',
+        lastName: rest.join(' ').trim(),
+      });
+    } else {
+      setCreateCustomerForm(createEmptyCustomerForm());
+    }
+    setCreateCustomerError(null);
+    setIsCreateCustomerVisible(true);
+  };
+
+  const handleCloseCreateCustomer = () => {
+    if (isCreatingCustomer) {
+      return;
+    }
+    setIsCreateCustomerVisible(false);
+    setCreateCustomerError(null);
+    setIsCreatingCustomer(false);
+    setCreateCustomerForm(createEmptyCustomerForm());
+  };
+
+  const updateCreateCustomerField = (field: keyof CreateCustomerFormState, value: string) => {
+    setCreateCustomerForm((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSubmitCreateCustomer = async () => {
+    const trimmedFirstName = createCustomerForm.firstName.trim();
+    if (!trimmedFirstName) {
+      setCreateCustomerError('El nombre es obligatorio.');
+      return;
+    }
+
+    setIsCreatingCustomer(true);
+    setCreateCustomerError(null);
+
+    try {
+      const payload: CreateCustomerInput = {
+        firstName: trimmedFirstName,
+      };
+
+      const trimmedLastName = createCustomerForm.lastName.trim();
+      const trimmedDocumentNumber = createCustomerForm.documentNumber.trim();
+      const trimmedEmail = createCustomerForm.email.trim();
+      const trimmedPhone = createCustomerForm.phone.trim();
+      const trimmedAddress = createCustomerForm.address.trim();
+
+      if (trimmedLastName) {
+        payload.lastName = trimmedLastName;
+      }
+      if (createCustomerForm.documentType) {
+        payload.documentType = createCustomerForm.documentType;
+      }
+      if (trimmedDocumentNumber) {
+        payload.documentNumber = trimmedDocumentNumber;
+      }
+      if (trimmedEmail) {
+        payload.email = trimmedEmail;
+      }
+      if (trimmedPhone) {
+        payload.phone = trimmedPhone;
+      }
+      if (trimmedAddress) {
+        payload.address = trimmedAddress;
+      }
+
+      const createdCustomer = await createCustomer(payload);
+      setSelectedCustomer(mapCustomerToStore(createdCustomer));
+      setCustomerResults((prev) => {
+        const filtered = prev.filter((customer) => customer.customerId !== createdCustomer.customerId);
+        return [createdCustomer, ...filtered];
+      });
+      setHasSearchedCustomers(true);
+      setIsCreateCustomerVisible(false);
+      setCreateCustomerForm(createEmptyCustomerForm());
+      setCreateCustomerError(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo crear el cliente.';
+      setCreateCustomerError(message);
+    } finally {
+      setIsCreatingCustomer(false);
+    }
+  };
+
+  return (
+    <>
+      <Modal
+        transparent
+        visible={isCreateCustomerVisible}
+        animationType="fade"
+        onRequestClose={handleCloseCreateCustomer}
+      >
+        <Pressable
+          style={styles.createCustomerModalBackdrop}
+          onPress={handleCloseCreateCustomer}
+        >
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            style={styles.createCustomerModalContainer}
+          >
+            <Pressable
+              style={styles.createCustomerModalCard}
+              onPress={(event) => event.stopPropagation()}
+            >
+              <Text style={styles.createCustomerModalTitle}>Crear cliente</Text>
+              <Text style={styles.createCustomerModalSubtitle}>
+                Ingresa los datos básicos del cliente para asociarlo a la venta.
+              </Text>
+              {createCustomerError ? (
+                <View style={styles.createCustomerErrorBox}>
+                  <Ionicons name="alert-circle-outline" size={18} color={palette.danger} />
+                  <Text style={styles.createCustomerErrorText}>{createCustomerError}</Text>
+                </View>
+              ) : null}
+              <ScrollView
+                style={styles.createCustomerForm}
+                contentContainerStyle={styles.createCustomerFormContent}
+                showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+              >
+                <View style={styles.createCustomerField}>
+                  <Text style={styles.createCustomerLabel}>Nombre *</Text>
+                  <TextInput
+                    value={createCustomerForm.firstName}
+                    onChangeText={(value) => updateCreateCustomerField('firstName', value)}
+                    style={styles.createCustomerInput}
+                    placeholder="Nombre"
+                    placeholderTextColor={palette.textMuted}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                  />
+                </View>
+                <View style={styles.createCustomerField}>
+                  <Text style={styles.createCustomerLabel}>Apellido</Text>
+                  <TextInput
+                    value={createCustomerForm.lastName}
+                    onChangeText={(value) => updateCreateCustomerField('lastName', value)}
+                    style={styles.createCustomerInput}
+                    placeholder="Apellido"
+                    placeholderTextColor={palette.textMuted}
+                    autoCapitalize="words"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                  />
+                </View>
+                <View style={styles.createCustomerField}>
+                  <Text style={styles.createCustomerLabel}>Tipo de documento</Text>
+                  <View style={styles.createCustomerDocTypes}>
+                    {documentTypeOptions.map((option) => {
+                      const isSelected = createCustomerForm.documentType === option.value;
+                      return (
+                        <TouchableOpacity
+                          key={option.value}
+                          style={[
+                            styles.createCustomerDocTypeChip,
+                            isSelected && styles.createCustomerDocTypeChipSelected,
+                          ]}
+                          activeOpacity={0.85}
+                          onPress={() => updateCreateCustomerField('documentType', option.value)}
+                        >
+                          <Text
+                            style={[
+                              styles.createCustomerDocTypeLabel,
+                              isSelected && styles.createCustomerDocTypeLabelSelected,
+                            ]}
+                          >
+                            {option.label}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+                <View style={styles.createCustomerField}>
+                  <Text style={styles.createCustomerLabel}>Número de documento</Text>
+                  <TextInput
+                    value={createCustomerForm.documentNumber}
+                    onChangeText={(value) => updateCreateCustomerField('documentNumber', value)}
+                    style={styles.createCustomerInput}
+                    placeholder="Ej. 12.345.678-9"
+                    placeholderTextColor={palette.textMuted}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                  />
+                </View>
+                <View style={styles.createCustomerField}>
+                  <Text style={styles.createCustomerLabel}>Correo electrónico</Text>
+                  <TextInput
+                    value={createCustomerForm.email}
+                    onChangeText={(value) => updateCreateCustomerField('email', value)}
+                    style={styles.createCustomerInput}
+                    placeholder="correo@cliente.com"
+                    placeholderTextColor={palette.textMuted}
+                    autoCapitalize="none"
+                    keyboardType="email-address"
+                    autoCorrect={false}
+                    returnKeyType="next"
+                  />
+                </View>
+                <View style={styles.createCustomerField}>
+                  <Text style={styles.createCustomerLabel}>Teléfono</Text>
+                  <TextInput
+                    value={createCustomerForm.phone}
+                    onChangeText={(value) => updateCreateCustomerField('phone', value)}
+                    style={styles.createCustomerInput}
+                    placeholder="Ej. +56 9 1234 5678"
+                    placeholderTextColor={palette.textMuted}
+                    keyboardType="phone-pad"
+                    returnKeyType="next"
+                  />
+                </View>
+                <View style={styles.createCustomerField}>
+                  <Text style={styles.createCustomerLabel}>Dirección</Text>
+                  <TextInput
+                    value={createCustomerForm.address}
+                    onChangeText={(value) => updateCreateCustomerField('address', value)}
+                    style={[styles.createCustomerInput, styles.createCustomerAddressInput]}
+                    placeholder="Dirección del cliente"
+                    placeholderTextColor={palette.textMuted}
+                    autoCapitalize="sentences"
+                    multiline
+                    numberOfLines={3}
+                    textAlignVertical="top"
+                  />
+                </View>
+              </ScrollView>
+              <View style={styles.createCustomerActions}>
+                <TouchableOpacity
+                  style={styles.createCustomerSecondaryAction}
+                  activeOpacity={0.85}
+                  onPress={handleCloseCreateCustomer}
+                  disabled={isCreatingCustomer}
+                >
+                  <Text style={styles.createCustomerSecondaryActionLabel}>Cancelar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.createCustomerPrimaryAction,
+                    isCreatingCustomer && styles.createCustomerPrimaryActionDisabled,
+                  ]}
+                  activeOpacity={0.85}
+                  onPress={handleSubmitCreateCustomer}
+                  disabled={isCreatingCustomer}
+                >
+                  {isCreatingCustomer ? (
+                    <ActivityIndicator color={palette.primaryText} />
+                  ) : (
+                    <>
+                      <Ionicons name="save-outline" size={18} color={palette.primaryText} />
+                      <Text style={styles.createCustomerPrimaryActionLabel}>Guardar cliente</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </KeyboardAvoidingView>
+        </Pressable>
+      </Modal>
+
+      <View style={styles.root}>
+        <View style={styles.columns}>
+          <View style={[styles.column, styles.leftColumn]}>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Resumen de la venta</Text>
+              {cartItems.length === 0 ? (
+                <Text style={styles.emptyCart}>No hay productos en el carrito.</Text>
+              ) : (
+                <View>
+                  <ScrollView
+                    style={styles.itemsList}
+                    contentContainerStyle={styles.itemsListContent}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {cartItems.map((item) => (
+                      <View key={item.variantId} style={styles.itemRow}>
+                        <View style={styles.itemDetails}>
+                          <Text style={styles.itemName} numberOfLines={1}>
+                            {item.name}
+                          </Text>
+                          <Text style={styles.itemMeta} numberOfLines={1}>
+                            {`${item.qty} x ${formatCurrency(item.unitPriceWithTax)}`}
+                          </Text>
+                        </View>
+                        <Text style={styles.itemLineTotal}>{formatCurrency(item.total)}</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                  <View style={styles.summaryDivider} />
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>Subtotal</Text>
+                    <Text style={styles.summaryValue}>{formatCurrency(cartTotals.subtotal)}</Text>
+                  </View>
+                  <View style={styles.summaryRow}>
+                    <Text style={styles.summaryLabel}>Impuestos</Text>
+                    <Text style={styles.summaryValue}>{formatCurrency(cartTotals.taxAmount)}</Text>
+                  </View>
+                  <View style={styles.summaryRowFinal}>
+                    <Text style={styles.summaryTotalLabel}>Total</Text>
+                    <Text style={styles.summaryTotalValue}>{formatCurrency(cartTotals.total)}</Text>
+                  </View>
+                </View>
+              )}
+            </View>
+
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Cliente</Text>
+              <Text style={styles.cardSubtitle}>
+                Busca un cliente existente o continúa sin asignar uno.
+              </Text>
+              <View style={styles.searchRow}>
+                <TextInput
+                  value={customerQuery}
+                  onChangeText={setCustomerQuery}
+                  placeholder="Nombre, documento o correo"
+                  placeholderTextColor={palette.textMuted}
+                  style={styles.searchInput}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="search"
+                  onSubmitEditing={() => {
+                    void handleCustomerSearch();
+                  }}
+                />
+                <TouchableOpacity
+                  style={[styles.searchButton, isSearchingCustomers && styles.searchButtonDisabled]}
+                  activeOpacity={0.85}
+                  disabled={isSearchingCustomers}
+                  onPress={() => {
+                    void handleCustomerSearch();
+                  }}
+                >
+                  {isSearchingCustomers ? (
+                    <ActivityIndicator color={palette.primaryText} />
+                  ) : (
+                    <Ionicons name="search-outline" size={22} color={palette.primaryText} />
+                  )}
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={styles.createCustomerButton}
+                activeOpacity={0.85}
+                onPress={handleOpenCreateCustomer}
+              >
+                <Ionicons name="person-add-outline" size={18} color={palette.primary} />
+                <Text style={styles.createCustomerButtonLabel}>Crear nuevo cliente</Text>
+              </TouchableOpacity>
+              {selectedCustomer ? (
+                <View style={styles.selectedCustomerCard}>
+                  <View style={styles.selectedCustomerHeader}>
+                    <Ionicons name="person-circle-outline" size={40} color={palette.primary} />
+                    <View style={styles.selectedCustomerInfo}>
+                      <Text style={styles.selectedCustomerName}>{selectedCustomer.displayName}</Text>
+                      {selectedCustomer.documentNumber ? (
+                        <Text style={styles.selectedCustomerMeta}>
+                          {selectedCustomer.documentType
+                            ? `${selectedCustomer.documentType} • ${selectedCustomer.documentNumber}`
+                            : selectedCustomer.documentNumber}
+                        </Text>
+                      ) : null}
+                      {selectedCustomer.email ? (
+                        <Text style={styles.selectedCustomerMeta}>{selectedCustomer.email}</Text>
+                      ) : null}
+                      {selectedCustomer.phone ? (
+                        <Text style={styles.selectedCustomerMeta}>{selectedCustomer.phone}</Text>
+                      ) : null}
+                    </View>
+                  </View>
+                  <View style={styles.selectedCustomerFooter}>
+                    <Text style={styles.selectedCustomerCredit}>
+                      {`Crédito disponible ${formatCurrency(selectedCustomer.availableCredit)}`}
+                    </Text>
+                    <Text style={styles.selectedCustomerMeta}>{`Plazo ${selectedCustomer.defaultPaymentTermDays} días`}</Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.clearCustomerButton}
+                    activeOpacity={0.85}
+                    onPress={handleClearCustomer}
+                  >
+                    <Ionicons name="close-circle-outline" size={18} color={palette.danger} />
+                    <Text style={styles.clearCustomerLabel}>Quitar cliente</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+              <View style={styles.searchResultsContainer}>
+                {isSearchingCustomers ? (
+                  <View style={styles.searchMessage}>
+                    <ActivityIndicator size="small" color={palette.primary} />
+                    <Text style={styles.searchMessageText}>Buscando clientes…</Text>
+                  </View>
+                ) : customerSearchError ? (
+                  <View style={styles.searchMessage}>
+                    <Ionicons name="alert-circle-outline" size={18} color={palette.danger} />
+                    <Text style={[styles.searchMessageText, styles.searchMessageError]}>{customerSearchError}</Text>
+                  </View>
+                ) : hasSearchedCustomers && customerResults.length === 0 ? (
+                  <View style={styles.searchMessage}>
+                    <Ionicons name="people-outline" size={18} color={palette.textMuted} />
+                    <Text style={styles.searchMessageText}>No se encontraron clientes.</Text>
+                  </View>
+                ) : customerResults.length === 0 ? (
+                  <View style={styles.searchMessage}>
+                    <Ionicons name="information-circle-outline" size={18} color={palette.textMuted} />
+                    <Text style={styles.searchMessageText}>
+                      Los resultados de clientes aparecerán aquí.
+                    </Text>
+                  </View>
+                ) : (
+                  <ScrollView
+                    style={styles.customerResultsList}
+                    contentContainerStyle={styles.customerResultsContent}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    {customerResults.map((customer) => {
+                      const isSelected = selectedCustomer?.customerId === customer.customerId;
+                      return (
+                        <TouchableOpacity
+                          key={customer.customerId}
+                          style={[
+                            styles.customerResultCard,
+                            isSelected && styles.customerResultCardSelected,
+                          ]}
+                          activeOpacity={0.85}
+                          onPress={() => handleSelectCustomer(customer)}
+                        >
+                          <View style={styles.customerResultHeader}>
+                            <Ionicons name="person-circle-outline" size={28} color={palette.textSecondary} />
+                            <View style={styles.customerResultInfo}>
+                              <Text style={styles.customerResultName} numberOfLines={1}>
+                                {customer.displayName}
+                              </Text>
+                              {customer.documentNumber ? (
+                                <Text style={styles.customerResultMeta} numberOfLines={1}>
+                                  {customer.documentType
+                                    ? `${customer.documentType} • ${customer.documentNumber}`
+                                    : customer.documentNumber}
+                                </Text>
+                              ) : null}
+                            </View>
+                            {isSelected ? (
+                              <Ionicons name="checkmark-circle" size={20} color={palette.primary} />
+                            ) : null}
+                          </View>
+                          <View style={styles.customerResultBody}>
+                            {customer.email ? (
+                              <Text style={styles.customerResultDetail} numberOfLines={1}>
+                                {customer.email}
+                              </Text>
+                            ) : null}
+                            {customer.phone ? (
+                              <Text style={styles.customerResultDetail} numberOfLines={1}>
+                                {customer.phone}
+                              </Text>
+                            ) : null}
+                          </View>
+                          <View style={styles.customerResultFooter}>
+                            <Text style={styles.customerResultCredit}>
+                              {`Crédito disponible ${formatCurrency(customer.availableCredit)}`}
+                            </Text>
+                            <Text style={styles.customerResultTerm}>{`Plazo ${customer.defaultPaymentTermDays} días`}</Text>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+              </View>
+            </View>
+          </View>
+
+          <View style={[styles.column, styles.rightColumn]}>
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Pagos</Text>
+              <Text style={styles.cardSubtitle}>Próximamente agregaremos los métodos de pago.</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: palette.background,
+    paddingHorizontal: 16,
+    paddingVertical: 20,
+  },
+  columns: {
+    flex: 1,
+    flexDirection: 'row',
+  },
+  column: {
+    flex: 1,
+    minWidth: 0,
+  },
+  leftColumn: {
+    marginRight: 12,
+  },
+  rightColumn: {
+    marginLeft: 12,
+  },
+  card: {
+    borderRadius: 16,
+    backgroundColor: palette.surface,
+    padding: 20,
+    marginBottom: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: palette.textSecondary,
+  },
+  cardSubtitle: {
+    marginTop: 6,
+    fontSize: 13,
+    color: palette.textMuted,
+  },
+  emptyCart: {
+    marginTop: 16,
+    color: palette.textMuted,
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+  },
+  summaryDivider: {
+    marginTop: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: palette.border,
+    marginBottom: 12,
+  },
+  summaryRowFinal: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+  },
+  summaryLabel: {
+    fontSize: 14,
+    color: palette.textMuted,
+  },
+  summaryValue: {
+    fontSize: 14,
+    color: palette.textSecondary,
+    fontWeight: '600',
+  },
+  summaryTotalLabel: {
+    fontSize: 16,
+    color: palette.textSecondary,
+    fontWeight: '600',
+  },
+  summaryTotalValue: {
+    fontSize: 18,
+    color: palette.primary,
+    fontWeight: '700',
+  },
+  itemsList: {
+    marginTop: 16,
+    maxHeight: 220,
+  },
+  itemsListContent: {
+    paddingBottom: 4,
+  },
+  itemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  itemDetails: {
+    flex: 1,
+    marginRight: 12,
+  },
+  itemName: {
+    fontSize: 14,
+    color: palette.textSecondary,
+    fontWeight: '500',
+  },
+  itemMeta: {
+    fontSize: 12,
+    color: palette.textMuted,
+    marginTop: 2,
+  },
+  itemLineTotal: {
+    color: palette.textSecondary,
+    fontWeight: '600',
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  searchInput: {
+    flex: 1,
+    backgroundColor: palette.surface,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
+    color: palette.textPrimary,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
+    marginRight: 10,
+  },
+  searchButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: palette.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchButtonDisabled: {
+    opacity: 0.6,
+  },
+  createCustomerButton: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.primary,
+    backgroundColor: palette.surface,
+  },
+  createCustomerButtonLabel: {
+    marginLeft: 6,
+    fontSize: 13,
+    fontWeight: '600',
+    color: palette.primary,
+  },
+  selectedCustomerCard: {
+    marginTop: 16,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.primary,
+    backgroundColor: palette.surfaceMuted,
+    padding: 16,
+  },
+  selectedCustomerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  selectedCustomerInfo: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  selectedCustomerName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: palette.textSecondary,
+  },
+  selectedCustomerMeta: {
+    marginTop: 2,
+    fontSize: 12,
+    color: palette.textMuted,
+  },
+  selectedCustomerFooter: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  selectedCustomerCredit: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: palette.textSecondary,
+  },
+  clearCustomerButton: {
+    marginTop: 12,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: palette.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+  },
+  clearCustomerLabel: {
+    marginLeft: 6,
+    fontSize: 12,
+    fontWeight: '600',
+    color: palette.danger,
+  },
+  searchResultsContainer: {
+    marginTop: 16,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    minHeight: 120,
+  },
+  searchMessage: {
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchMessageText: {
+    fontSize: 13,
+    color: palette.textMuted,
+    marginLeft: 8,
+  },
+  searchMessageError: {
+    color: palette.danger,
+  },
+  customerResultsList: {
+    maxHeight: 240,
+  },
+  customerResultsContent: {
+    paddingVertical: 8,
+  },
+  customerResultCard: {
+    marginHorizontal: 12,
+    marginBottom: 10,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    padding: 14,
+  },
+  customerResultCardSelected: {
+    borderColor: palette.primary,
+    backgroundColor: palette.surfaceMuted,
+  },
+  customerResultHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  customerResultInfo: {
+    flex: 1,
+    marginHorizontal: 10,
+  },
+  customerResultName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: palette.textSecondary,
+  },
+  customerResultMeta: {
+    marginTop: 2,
+    fontSize: 12,
+    color: palette.textMuted,
+  },
+  customerResultBody: {
+    marginTop: 10,
+  },
+  customerResultDetail: {
+    fontSize: 12,
+    color: palette.textSecondary,
+    marginTop: 2,
+  },
+  customerResultFooter: {
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  customerResultCredit: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: palette.textSecondary,
+  },
+  customerResultTerm: {
+    fontSize: 12,
+    color: palette.textMuted,
+  },
+  createCustomerModalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    padding: 16,
+  },
+  createCustomerModalContainer: {
+    flex: 1,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  createCustomerModalCard: {
+    width: '100%',
+    maxWidth: 480,
+    borderRadius: 20,
+    backgroundColor: palette.surface,
+    padding: 20,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+  },
+  createCustomerModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: palette.textSecondary,
+  },
+  createCustomerModalSubtitle: {
+    marginTop: 4,
+    fontSize: 13,
+    color: palette.textMuted,
+  },
+  createCustomerErrorBox: {
+    marginTop: 12,
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: palette.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.danger,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  createCustomerErrorText: {
+    marginLeft: 8,
+    fontSize: 13,
+    color: palette.danger,
+    flex: 1,
+  },
+  createCustomerForm: {
+    marginTop: 16,
+    maxHeight: 340,
+  },
+  createCustomerFormContent: {
+    paddingBottom: 8,
+  },
+  createCustomerField: {
+    marginBottom: 16,
+  },
+  createCustomerLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: palette.textSecondary,
+    marginBottom: 6,
+  },
+  createCustomerInput: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    color: palette.textPrimary,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+  },
+  createCustomerAddressInput: {
+    minHeight: 96,
+  },
+  createCustomerDocTypes: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  createCustomerDocTypeChip: {
+    marginRight: 8,
+    marginTop: 8,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  createCustomerDocTypeChipSelected: {
+    borderColor: palette.primary,
+    backgroundColor: palette.surfaceMuted,
+  },
+  createCustomerDocTypeLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: palette.textSecondary,
+  },
+  createCustomerDocTypeLabelSelected: {
+    color: palette.primary,
+  },
+  createCustomerActions: {
+    marginTop: 20,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+  },
+  createCustomerSecondaryAction: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+  },
+  createCustomerSecondaryActionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: palette.textMuted,
+  },
+  createCustomerPrimaryAction: {
+    marginLeft: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: 999,
+    backgroundColor: palette.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  createCustomerPrimaryActionDisabled: {
+    opacity: 0.7,
+  },
+  createCustomerPrimaryActionLabel: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '700',
+    color: palette.primaryText,
+  },
+});
+
+export default PaymentScreen;

@@ -16,7 +16,6 @@ interface GetCategoriesParams {
 
 interface CreateCategoryDTO {
     name: string;
-    code?: string;
     description?: string;
     parentId?: string | null;
     sortOrder?: number;
@@ -25,7 +24,6 @@ interface CreateCategoryDTO {
 
 interface UpdateCategoryDTO {
     name?: string;
-    code?: string;
     description?: string;
     parentId?: string | null;
     sortOrder?: number;
@@ -246,7 +244,6 @@ export async function createCategory(data: CreateCategoryDTO): Promise<CategoryR
         
         const category = repo.create({
             name: data.name,
-            code: data.code,
             description: data.description,
             parentId: data.parentId || undefined,
             sortOrder,
@@ -257,7 +254,8 @@ export async function createCategory(data: CreateCategoryDTO): Promise<CategoryR
         await repo.save(category);
         revalidatePath('/admin/categories');
         
-        return { success: true, category };
+        const plainCategory = JSON.parse(JSON.stringify(category));
+        return { success: true, category: plainCategory };
     } catch (error) {
         console.error('Error creating category:', error);
         return { 
@@ -328,7 +326,6 @@ export async function updateCategory(id: string, data: UpdateCategoryDTO): Promi
         }
         
         if (data.name !== undefined) category.name = data.name;
-        if (data.code !== undefined) category.code = data.code;
         if (data.description !== undefined) category.description = data.description;
         if (data.parentId !== undefined) category.parentId = data.parentId || undefined;
         if (data.sortOrder !== undefined) category.sortOrder = data.sortOrder;
@@ -338,7 +335,8 @@ export async function updateCategory(id: string, data: UpdateCategoryDTO): Promi
         await repo.save(category);
         revalidatePath('/admin/categories');
         
-        return { success: true, category };
+        const plainCategory = JSON.parse(JSON.stringify(category));
+        return { success: true, category: plainCategory };
     } catch (error) {
         console.error('Error updating category:', error);
         return { 

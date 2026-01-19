@@ -10,7 +10,6 @@ export interface CategoryType {
     id: string;
     parentId?: string;
     name: string;
-    code?: string;
     description?: string;
     sortOrder: number;
     imagePath?: string;
@@ -46,30 +45,22 @@ const CategoryCard: React.FC<CategoryCardProps> = ({
             >
                 <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <div className="h-12 w-12 rounded-lg bg-gradient-to-br from-primary/10 to-secondary/10 flex items-center justify-center flex-shrink-0">
-                            <span className="material-symbols-outlined text-primary" style={{ fontSize: '1.5rem' }}>
-                                category
-                            </span>
-                        </div>
                         <div className="flex-1 min-w-0">
                             <h3 className="font-semibold text-neutral-800 truncate">
                                 {category.name}
                             </h3>
-                            {category.code && (
-                                <p className="text-sm text-neutral-500">
-                                    Código: {category.code}
-                                </p>
-                            )}
                         </div>
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
                         <IconButton
                             icon="edit"
+                            variant="basicSecondary"
                             onClick={() => setOpenUpdateDialog(true)}
                             data-test-id={`edit-category-${category.id}`}
                         />
                         <IconButton
                             icon="delete"
+                            variant="basicSecondary"
                             onClick={() => setOpenDeleteDialog(true)}
                             data-test-id={`delete-category-${category.id}`}
                         />

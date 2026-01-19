@@ -15,6 +15,7 @@ import ServerSettingsScreen from './screens/ServerSettingsScreen';
 import CashClosingScreen from './screens/CashClosingScreen';
 import CashIncomeScreen from './screens/CashIncomeScreen';
 import CashOutcomeScreen from './screens/CashOutcomeScreen';
+import PaymentScreen from './screens/PaymentScreen';
 import { type RootStackParamList } from './navigation/types';
 import { normalizeBaseUrl } from './services/apiService';
 import { loadDeviceSettings, updateDeviceSettings } from './services/settingsStorage';
@@ -131,6 +132,11 @@ export default function App() {
             name="CashOutcome"
             component={CashOutcomeScreen}
             options={{ title: 'Egreso de dinero' }}
+          />
+          <Stack.Screen
+            name="Payment"
+            component={PaymentScreen}
+            options={{ title: 'Pagos' }}
           />
         </Stack.Navigator>
       </NavigationContainer>

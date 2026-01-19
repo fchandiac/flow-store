@@ -28,7 +28,6 @@ interface FormState {
     costCenterId: string | null;
     paymentMethod: PaymentMethod | null;
     bankAccountKey: string | null;
-    cashSessionId: string;
     amount: string;
     taxAmount: string;
     notes: string;
@@ -40,7 +39,6 @@ const PAYMENT_METHOD_OPTIONS: Option[] = [
     { id: PaymentMethod.CASH, label: 'Efectivo' },
     { id: PaymentMethod.TRANSFER, label: 'Transferencia bancaria' },
     { id: PaymentMethod.DEBIT_CARD, label: 'Tarjeta de débito' },
-    { id: PaymentMethod.CREDIT_CARD, label: 'Tarjeta de crédito' },
 ];
 
 const INITIAL_FORM_STATE: FormState = {
@@ -48,7 +46,6 @@ const INITIAL_FORM_STATE: FormState = {
     costCenterId: null,
     paymentMethod: PaymentMethod.CASH,
     bankAccountKey: null,
-    cashSessionId: '',
     amount: '',
     taxAmount: '',
     notes: '',
@@ -148,12 +145,6 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
     }, [open]);
 
     useEffect(() => {
-        if (!formState.expenseCategoryId && categories.length > 0) {
-            setFormState((prev) => ({ ...prev, expenseCategoryId: categories[0].id }));
-        }
-    }, [categories, formState.expenseCategoryId]);
-
-    useEffect(() => {
         if (!formState.costCenterId && costCenters.length > 0) {
             setFormState((prev) => ({ ...prev, costCenterId: costCenters[0].id }));
         }
@@ -229,7 +220,7 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
     }, [selectedCategory?.payrollType, selectedEmployee?.baseSalary, selectedEmployee?.id]);
 
     useEffect(() => {
-        if (formState.paymentMethod !== PaymentMethod.TRANSFER) {
+        if (formState.paymentMethod !== PaymentMethod.TRANSFER && formState.paymentMethod !== PaymentMethod.DEBIT_CARD) {
             return;
         }
         if (formState.bankAccountKey) {
@@ -240,7 +231,8 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
             return;
         }
         setFormState((prev) => {
-            if (prev.paymentMethod !== PaymentMethod.TRANSFER || prev.bankAccountKey) {
+            const requiresAccount = prev.paymentMethod === PaymentMethod.TRANSFER || prev.paymentMethod === PaymentMethod.DEBIT_CARD;
+            if (!requiresAccount || prev.bankAccountKey) {
                 return prev;
             }
             const nextValue = typeof candidate === 'string' ? candidate : String(candidate);
@@ -252,7 +244,7 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
     }, [bankAccountOptions, formState.bankAccountKey, formState.paymentMethod]);
 
     useEffect(() => {
-        if (formState.paymentMethod === PaymentMethod.TRANSFER) {
+        if (formState.paymentMethod === PaymentMethod.TRANSFER || formState.paymentMethod === PaymentMethod.DEBIT_CARD) {
             return;
         }
         if (formState.bankAccountKey === null) {
@@ -264,25 +256,11 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
         }));
     }, [formState.paymentMethod, formState.bankAccountKey]);
 
-    useEffect(() => {
-        if (formState.paymentMethod === PaymentMethod.CASH) {
-            return;
-        }
-        if (formState.cashSessionId === '') {
-            return;
-        }
-        setFormState((prev) => ({
-            ...prev,
-            cashSessionId: '',
-        }));
-    }, [formState.paymentMethod, formState.cashSessionId]);
-
     const resetForm = () => {
         lastAutoAmountRef.current = null;
         lastAutoCostCenterRef.current = null;
         setFormState({
             ...INITIAL_FORM_STATE,
-            expenseCategoryId: categories[0]?.id ?? null,
             costCenterId: costCenters[0]?.id ?? null,
             employeeId: null,
             bankAccountKey: hasBankAccountOptions ? String(bankAccountOptions[0]?.id ?? '') || null : null,
@@ -314,25 +292,20 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
             return;
         }
         
-        if (formState.paymentMethod === PaymentMethod.TRANSFER) {
+        if (formState.paymentMethod === PaymentMethod.TRANSFER || formState.paymentMethod === PaymentMethod.DEBIT_CARD) {
             if (!hasBankAccountOptions) {
                 setErrors(['Configura una cuenta bancaria de la compañía antes de registrar transferencias.']);
                 return;
             }
             if (!formState.bankAccountKey) {
-                setErrors(['Selecciona la cuenta bancaria utilizada para la transferencia.']);
+                const message = formState.paymentMethod === PaymentMethod.TRANSFER
+                    ? 'Selecciona la cuenta bancaria utilizada para la transferencia.'
+                    : 'Selecciona la cuenta bancaria asociada a la tarjeta de débito.';
+                setErrors([message]);
                 return;
             }
         }
         
-        if (formState.paymentMethod === PaymentMethod.CASH) {
-            const cashSessionId = formState.cashSessionId.trim();
-            if (!cashSessionId) {
-                setErrors(['Indica la sesión de caja asociada al pago en efectivo.']);
-                return;
-            }
-        }
-
         if (payrollType && !formState.employeeId) {
             setErrors(['Selecciona el colaborador asociado al pago.']);
             return;
@@ -354,20 +327,15 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
         setErrors([]);
 
         startTransition(async () => {
-            const trimmedCashSessionId = formState.paymentMethod === PaymentMethod.CASH
-                ? formState.cashSessionId.trim()
-                : '';
-
             const result = await createOperatingExpense({
                 expenseCategoryId: formState.expenseCategoryId as string,
                 costCenterId: formState.costCenterId as string,
                 amount: parsedAmount,
                 taxAmount: parsedTaxAmount,
                 paymentMethod: formState.paymentMethod as PaymentMethod,
-                bankAccountKey: formState.paymentMethod === PaymentMethod.TRANSFER
+                bankAccountKey: formState.paymentMethod === PaymentMethod.TRANSFER || formState.paymentMethod === PaymentMethod.DEBIT_CARD
                     ? formState.bankAccountKey ?? undefined
                     : undefined,
-                cashSessionId: trimmedCashSessionId.length > 0 ? trimmedCashSessionId : undefined,
                 notes: formState.notes.trim() ? formState.notes.trim() : undefined,
                 externalReference: formState.externalReference.trim() ? formState.externalReference.trim() : undefined,
                 employeeId: payrollType ? formState.employeeId ?? undefined : undefined,
@@ -404,6 +372,7 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
                                 expenseCategoryId: typeof id === 'string' ? id : id != null ? String(id) : null,
                             }))
                         }
+                        placeholder="Selecciona la categoría"
                         required
                     />
                     <Select
@@ -470,10 +439,12 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
                     />
                 </div>
 
-                {formState.paymentMethod === PaymentMethod.TRANSFER && (
+                {(formState.paymentMethod === PaymentMethod.TRANSFER || formState.paymentMethod === PaymentMethod.DEBIT_CARD) && (
                     <section className="space-y-3 rounded-lg border border-border bg-background p-4">
                         <Select
-                            label="Cuenta bancaria de la compañía"
+                            label={formState.paymentMethod === PaymentMethod.TRANSFER
+                                ? 'Cuenta bancaria de la compañía'
+                                : 'Cuenta asociada a la tarjeta de débito'}
                             options={bankAccountOptions}
                             value={formState.bankAccountKey}
                             onChange={(id) =>
@@ -489,29 +460,9 @@ export default function OperatingExpensesDialog({ open, onClose, onSuccess, cate
 
                         {!hasBankAccountOptions && (
                             <Alert variant="warning">
-                                Registra las cuentas bancarias de la compañía en Configuración → Información fiscal antes de registrar transferencias.
+                                Registra las cuentas bancarias de la compañía en Configuración → Información fiscal antes de registrar transferencias o pagos con tarjeta de débito.
                             </Alert>
                         )}
-                    </section>
-                )}
-
-                {formState.paymentMethod === PaymentMethod.CASH && (
-                    <section className="space-y-3 rounded-lg border border-border bg-background p-4">
-                        <TextField
-                            label="Sesión de caja"
-                            value={formState.cashSessionId}
-                            onChange={(event) =>
-                                setFormState((prev) => ({
-                                    ...prev,
-                                    cashSessionId: event.target.value,
-                                }))
-                            }
-                            required
-                            placeholder="ID de la sesión abierta (UUID)"
-                        />
-                        <Alert variant="info">
-                            Vincula el gasto con la sesión de caja que financió el movimiento para mantener conciliados los saldos.
-                        </Alert>
                     </section>
                 )}
 

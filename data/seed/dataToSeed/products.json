@@ -3,7 +3,6 @@
     "name": "Anillo Solitario Clásico",
     "description": "Elegante anillo solitario con diamante central",
     "brand": "Brillante",
-    "categoryCode": "ANI",
     "variants": [
       {
         "sku": "ANI-SOL-ORO18-T6",
@@ -19,9 +18,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 1890000, "netPrice": 1588235.29, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 1849000, "netPrice": 1553781.51, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 1720000, "netPrice": 1445378.15, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 1890000,
+            "netPrice": 1588235.29,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 1849000,
+            "netPrice": 1553781.51,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 1720000,
+            "netPrice": 1445378.15,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -38,18 +58,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 1790000, "netPrice": 1504201.68, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 1750000, "netPrice": 1470588.24, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 1630000, "netPrice": 1369747.9, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 1790000,
+            "netPrice": 1504201.68,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 1750000,
+            "netPrice": 1470588.24,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 1630000,
+            "netPrice": 1369747.9,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Anillos"
   },
   {
     "name": "Collar Cadena Veneciana",
     "description": "Delicada cadena veneciana en oro",
     "brand": "Brillante",
-    "categoryCode": "COL",
     "variants": [
       {
         "sku": "COL-VEN-ORO14-45",
@@ -63,9 +104,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 450000, "netPrice": 378151.26, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 439000, "netPrice": 368907.56, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 398000, "netPrice": 334453.78, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 450000,
+            "netPrice": 378151.26,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 439000,
+            "netPrice": 368907.56,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 398000,
+            "netPrice": 334453.78,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -80,9 +142,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 475000, "netPrice": 399159.66, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 462000, "netPrice": 388235.29, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 418000, "netPrice": 351260.5, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 475000,
+            "netPrice": 399159.66,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 462000,
+            "netPrice": 388235.29,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 418000,
+            "netPrice": 351260.5,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -97,17 +180,31 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 189000, "netPrice": 158823.53, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 179000, "netPrice": 150420.17, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 189000,
+            "netPrice": 158823.53,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 179000,
+            "netPrice": 150420.17,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Collares"
   },
   {
     "name": "Aros Perla Cultivada",
     "description": "Aros clásicos con perla cultivada",
     "brand": "Brillante",
-    "categoryCode": "ARE",
     "variants": [
       {
         "sku": "ARE-PER-PLATA",
@@ -122,8 +219,22 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 180000, "netPrice": 151260.5, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 169000, "netPrice": 142016.81, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 180000,
+            "netPrice": 151260.5,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 169000,
+            "netPrice": 142016.81,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -139,18 +250,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 245000, "netPrice": 205882.35, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 235000, "netPrice": 197478.99, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 210000, "netPrice": 176470.59, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 245000,
+            "netPrice": 205882.35,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 235000,
+            "netPrice": 197478.99,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 210000,
+            "netPrice": 176470.59,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Aros"
   },
   {
     "name": "Pulsera Tennis Zafiro",
     "description": "Pulsera tennis con zafiros seleccionados y engaste de alto brillo",
     "brand": "Brillante",
-    "categoryCode": "PUL",
     "variants": [
       {
         "sku": "PUL-TEN-OROB-ZAF",
@@ -166,9 +298,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 1080000, "netPrice": 907563.03, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 1045000, "netPrice": 878151.26, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 980000, "netPrice": 823529.41, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 1080000,
+            "netPrice": 907563.03,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 1045000,
+            "netPrice": 878151.26,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 980000,
+            "netPrice": 823529.41,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -185,18 +338,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 685000, "netPrice": 575630.25, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 659000, "netPrice": 553781.51, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 610000, "netPrice": 512605.04, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 685000,
+            "netPrice": 575630.25,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 659000,
+            "netPrice": 553781.51,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 610000,
+            "netPrice": 512605.04,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Pulseras"
   },
   {
     "name": "Pulsera Esclava Martillada",
     "description": "Pulsera esclava con acabado martillado artesanal",
     "brand": "Brillante",
-    "categoryCode": "PUL",
     "variants": [
       {
         "sku": "PUL-ESC-ORO-18",
@@ -210,9 +384,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 560000, "netPrice": 470588.24, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 545000, "netPrice": 457983.19, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 498000, "netPrice": 418487.39, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 560000,
+            "netPrice": 470588.24,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 545000,
+            "netPrice": 457983.19,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 498000,
+            "netPrice": 418487.39,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -227,18 +422,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 285000, "netPrice": 239495.8, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 272000, "netPrice": 228571.43, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 248000, "netPrice": 208403.36, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 285000,
+            "netPrice": 239495.8,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 272000,
+            "netPrice": 228571.43,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 248000,
+            "netPrice": 208403.36,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Pulseras"
   },
   {
     "name": "Reloj Cronógrafo Elite",
     "description": "Reloj cronógrafo de precisión con caja reforzada",
     "brand": "Tempo",
-    "categoryCode": "REL",
     "variants": [
       {
         "sku": "REL-CRO-ACERO-NEG",
@@ -253,9 +469,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 920000, "netPrice": 773109.24, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 899000, "netPrice": 755462.18, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 845000, "netPrice": 710084.03, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 920000,
+            "netPrice": 773109.24,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 899000,
+            "netPrice": 755462.18,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 845000,
+            "netPrice": 710084.03,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -271,18 +508,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 1320000, "netPrice": 1109243.7, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 1285000, "netPrice": 1080252.1, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 1190000, "netPrice": 1000000, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 1320000,
+            "netPrice": 1109243.7,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 1285000,
+            "netPrice": 1080252.1,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 1190000,
+            "netPrice": 1000000,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Relojes"
   },
   {
     "name": "Reloj Clásico Dama",
     "description": "Reloj análogo de diseño clásico con índices facetados",
     "brand": "Tempo",
-    "categoryCode": "REL",
     "variants": [
       {
         "sku": "REL-CLA-OROB-BLA",
@@ -297,9 +555,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 745000, "netPrice": 626050.42, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 715000, "netPrice": 601680.67, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 662000, "netPrice": 556302.52, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 745000,
+            "netPrice": 626050.42,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 715000,
+            "netPrice": 601680.67,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 662000,
+            "netPrice": 556302.52,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -315,18 +594,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 435000, "netPrice": 365966.39, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 418000, "netPrice": 351260.5, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 379000, "netPrice": 318487.39, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 435000,
+            "netPrice": 365966.39,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 418000,
+            "netPrice": 351260.5,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 379000,
+            "netPrice": 318487.39,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Relojes"
   },
   {
     "name": "Cadena Singapur Plata",
     "description": "Cadena estilo Singapur con brillo torsionado",
     "brand": "Brillante",
-    "categoryCode": "CAD",
     "variants": [
       {
         "sku": "CAD-SIN-PLATA-45",
@@ -342,9 +642,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 265000, "netPrice": 222689.08, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 254000, "netPrice": 213445.38, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 228000, "netPrice": 191596.64, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 265000,
+            "netPrice": 222689.08,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 254000,
+            "netPrice": 213445.38,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 228000,
+            "netPrice": 191596.64,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -361,18 +682,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 298000, "netPrice": 250420.17, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 285000, "netPrice": 239495.8, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 258000, "netPrice": 216806.72, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 298000,
+            "netPrice": 250420.17,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 285000,
+            "netPrice": 239495.8,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 258000,
+            "netPrice": 216806.72,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Cadenas"
   },
   {
     "name": "Cadena Barbada Oro",
     "description": "Cadena barbada sólida en oro amarillo de alto pulido",
     "brand": "Brillante",
-    "categoryCode": "CAD",
     "variants": [
       {
         "sku": "CAD-BAR-ORO18-50",
@@ -386,9 +728,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 655000, "netPrice": 550420.17, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 632000, "netPrice": 531092.44, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 598000, "netPrice": 502521.01, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 655000,
+            "netPrice": 550420.17,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 632000,
+            "netPrice": 531092.44,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 598000,
+            "netPrice": 502521.01,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -403,18 +766,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 715000, "netPrice": 601680.67, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 692000, "netPrice": 581512.61, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 655000, "netPrice": 550420.17, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 715000,
+            "netPrice": 601680.67,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 692000,
+            "netPrice": 581512.61,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 655000,
+            "netPrice": 550420.17,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Cadenas"
   },
   {
     "name": "Set Rubí Imperial",
     "description": "Set de collar y anillo con rubíes talla cojín",
     "brand": "Brillante",
-    "categoryCode": "SET",
     "variants": [
       {
         "sku": "SET-RUB-ORO18",
@@ -429,18 +813,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 1650000, "netPrice": 1386554.62, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 1595000, "netPrice": 1340336.13, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 1490000, "netPrice": 1252100.84, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 1650000,
+            "netPrice": 1386554.62,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 1595000,
+            "netPrice": 1340336.13,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 1490000,
+            "netPrice": 1252100.84,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Sets"
   },
   {
     "name": "Set Perla Boreal",
     "description": "Set de collar y aros con perlas cultivadas boreales",
     "brand": "Brillante",
-    "categoryCode": "SET",
     "variants": [
       {
         "sku": "SET-PER-PLATA",
@@ -455,18 +860,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 925000, "netPrice": 777310.92, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 895000, "netPrice": 752100.84, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 840000, "netPrice": 705882.35, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 925000,
+            "netPrice": 777310.92,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 895000,
+            "netPrice": 752100.84,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 840000,
+            "netPrice": 705882.35,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Sets"
   },
   {
     "name": "Limpiador Ultrasónico Premium",
     "description": "Equipo ultrasónico para limpieza profunda de joyas",
     "brand": "Care+",
-    "categoryCode": "ACC",
     "variants": [
       {
         "sku": "ACC-LIMP-ULTRA",
@@ -481,18 +907,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 165000, "netPrice": 138655.46, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 158000, "netPrice": 132773.11, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 145000, "netPrice": 121848.74, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 165000,
+            "netPrice": 138655.46,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 158000,
+            "netPrice": 132773.11,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 145000,
+            "netPrice": 121848.74,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Accesorios"
   },
   {
     "name": "Caja de Lujo para Anillos",
     "description": "Caja forrada en terciopelo con iluminación LED interior",
     "brand": "Care+",
-    "categoryCode": "ACC",
     "variants": [
       {
         "sku": "ACC-BOX-LUX",
@@ -507,18 +954,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 89000, "netPrice": 74789.92, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 84000, "netPrice": 70588.24, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 78000, "netPrice": 65546.22, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 89000,
+            "netPrice": 74789.92,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 84000,
+            "netPrice": 70588.24,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 78000,
+            "netPrice": 65546.22,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Accesorios"
   },
   {
     "name": "Anillo Eternity Zafiros",
     "description": "Anillo eternity con zafiros talla brillante en todo el aro",
     "brand": "Brillante",
-    "categoryCode": "ANI",
     "variants": [
       {
         "sku": "ANI-ETR-ORO18-T6",
@@ -534,9 +1002,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 1985000, "netPrice": 1668067.23, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 1930000, "netPrice": 1621848.74, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 1875000, "netPrice": 1575630.25, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 1985000,
+            "netPrice": 1668067.23,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 1930000,
+            "netPrice": 1621848.74,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 1875000,
+            "netPrice": 1575630.25,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -553,9 +1042,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 1920000, "netPrice": 1613445.38, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 1865000, "netPrice": 1567226.89, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 1780000, "netPrice": 1495798.32, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 1920000,
+            "netPrice": 1613445.38,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 1865000,
+            "netPrice": 1567226.89,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 1780000,
+            "netPrice": 1495798.32,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -572,18 +1082,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 1850000, "netPrice": 1554621.85, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 1795000, "netPrice": 1508403.36, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 1710000, "netPrice": 1436974.79, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 1850000,
+            "netPrice": 1554621.85,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 1795000,
+            "netPrice": 1508403.36,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 1710000,
+            "netPrice": 1436974.79,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Anillos"
   },
   {
     "name": "Collar Corazón Esmeralda",
     "description": "Collar colgante en forma de corazón con esmeralda central",
     "brand": "Brillante",
-    "categoryCode": "COL",
     "variants": [
       {
         "sku": "COL-COR-ORO18-45",
@@ -599,9 +1130,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 875000, "netPrice": 735294.12, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 845000, "netPrice": 710084.03, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 798000, "netPrice": 670588.24, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 875000,
+            "netPrice": 735294.12,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 845000,
+            "netPrice": 710084.03,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 798000,
+            "netPrice": 670588.24,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -618,18 +1170,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 395000, "netPrice": 331932.77, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 382000, "netPrice": 321848.74, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 350000, "netPrice": 294117.65, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 395000,
+            "netPrice": 331932.77,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 382000,
+            "netPrice": 321848.74,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 350000,
+            "netPrice": 294117.65,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Collares"
   },
   {
     "name": "Pulsera Ajustable Charm",
     "description": "Pulsera ajustable con charms intercambiables",
     "brand": "Brillante",
-    "categoryCode": "PUL",
     "variants": [
       {
         "sku": "PUL-CHA-PLATA-LUNA",
@@ -645,9 +1218,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 215000, "netPrice": 180672.27, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 205000, "netPrice": 172268.91, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 190000, "netPrice": 159663.87, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 215000,
+            "netPrice": 180672.27,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 205000,
+            "netPrice": 172268.91,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 190000,
+            "netPrice": 159663.87,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -664,9 +1258,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 268000, "netPrice": 225210.08, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 259000, "netPrice": 217226.89, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 238000, "netPrice": 200000.00, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 268000,
+            "netPrice": 225210.08,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 259000,
+            "netPrice": 217226.89,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 238000,
+            "netPrice": 200000,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -683,18 +1298,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 289000, "netPrice": 242857.14, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 275000, "netPrice": 231092.44, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 248000, "netPrice": 208403.36, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 289000,
+            "netPrice": 242857.14,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 275000,
+            "netPrice": 231092.44,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 248000,
+            "netPrice": 208403.36,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Pulseras"
   },
   {
     "name": "Aros Halo Morganita",
     "description": "Aros halo con morganita y micro pavé de diamantes",
     "brand": "Brillante",
-    "categoryCode": "ARE",
     "variants": [
       {
         "sku": "ARE-HAL-OROR-MOR",
@@ -709,9 +1345,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 465000, "netPrice": 390756.30, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 449000, "netPrice": 377310.92, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 412000, "netPrice": 346218.49, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 465000,
+            "netPrice": 390756.3,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 449000,
+            "netPrice": 377310.92,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 412000,
+            "netPrice": 346218.49,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -727,18 +1384,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 329000, "netPrice": 276470.59, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 315000, "netPrice": 264705.88, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 292000, "netPrice": 245378.15, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 329000,
+            "netPrice": 276470.59,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 315000,
+            "netPrice": 264705.88,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 292000,
+            "netPrice": 245378.15,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Aros"
   },
   {
     "name": "Reloj Deportivo Titanio",
     "description": "Reloj deportivo con caja de titanio y resistencia al agua 10 ATM",
     "brand": "Tempo",
-    "categoryCode": "REL",
     "variants": [
       {
         "sku": "REL-DEP-TI-AZUL",
@@ -754,9 +1432,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 1085000, "netPrice": 911764.71, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 1049000, "netPrice": 882352.94, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 980000, "netPrice": 823529.41, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 1085000,
+            "netPrice": 911764.71,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 1049000,
+            "netPrice": 882352.94,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 980000,
+            "netPrice": 823529.41,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -773,18 +1472,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 1120000, "netPrice": 941176.47, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 1075000, "netPrice": 904201.68, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 995000, "netPrice": 836134.45, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 1120000,
+            "netPrice": 941176.47,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 1075000,
+            "netPrice": 904201.68,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 995000,
+            "netPrice": 836134.45,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Relojes"
   },
   {
     "name": "Set Esmeralda Aura",
     "description": "Set de collar, aro y anillo con esmeraldas naturales",
     "brand": "Brillante",
-    "categoryCode": "SET",
     "variants": [
       {
         "sku": "SET-ESM-AURA",
@@ -799,18 +1519,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 1689000, "netPrice": 1419327.73, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 1635000, "netPrice": 1373949.58, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 1549000, "netPrice": 1306722.69, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 1689000,
+            "netPrice": 1419327.73,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 1635000,
+            "netPrice": 1373949.58,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 1549000,
+            "netPrice": 1306722.69,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Sets"
   },
   {
     "name": "Cadena Forzada Titanio",
     "description": "Cadena estilo forzada en titanio hipoalergénico",
     "brand": "Brillante",
-    "categoryCode": "CAD",
     "variants": [
       {
         "sku": "CAD-FOR-TI-50",
@@ -826,9 +1567,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 425000, "netPrice": 357142.86, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 412000, "netPrice": 346218.49, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 380000, "netPrice": 319327.73, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 425000,
+            "netPrice": 357142.86,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 412000,
+            "netPrice": 346218.49,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 380000,
+            "netPrice": 319327.73,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -845,18 +1607,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 458000, "netPrice": 384033.61, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 439000, "netPrice": 368907.56, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 398000, "netPrice": 334453.78, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 458000,
+            "netPrice": 384033.61,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 439000,
+            "netPrice": 368907.56,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 398000,
+            "netPrice": 334453.78,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Cadenas"
   },
   {
     "name": "Anillo Compromiso Halo",
     "description": "Anillo de compromiso con halo de diamantes",
     "brand": "Brillante",
-    "categoryCode": "ANI",
     "variants": [
       {
         "sku": "ANI-HAL-OROB-T6",
@@ -872,9 +1655,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 1380000, "netPrice": 1159663.87, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 1335000, "netPrice": 1121848.74, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 1250000, "netPrice": 1050420.17, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 1380000,
+            "netPrice": 1159663.87,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 1335000,
+            "netPrice": 1121848.74,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 1250000,
+            "netPrice": 1050420.17,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -891,18 +1695,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 1290000, "netPrice": 1084033.61, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 1245000, "netPrice": 1046218.49, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 1185000, "netPrice": 995798.32, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 1290000,
+            "netPrice": 1084033.61,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 1245000,
+            "netPrice": 1046218.49,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 1185000,
+            "netPrice": 995798.32,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Anillos"
   },
   {
     "name": "Pulsera Mix Oro Plata",
     "description": "Pulsera bimetálica con eslabones de oro y plata",
     "brand": "Brillante",
-    "categoryCode": "PUL",
     "variants": [
       {
         "sku": "PUL-MIX-BIMETAL",
@@ -918,9 +1743,30 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 495000, "netPrice": 415966.39, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 479000, "netPrice": 402521.01, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 445000, "netPrice": 373949.58, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 495000,
+            "netPrice": 415966.39,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 479000,
+            "netPrice": 402521.01,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 445000,
+            "netPrice": 373949.58,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       },
       {
@@ -937,18 +1783,39 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 465000, "netPrice": 390756.30, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 452000, "netPrice": 380672.27, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 418000, "netPrice": 351260.5, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 465000,
+            "netPrice": 390756.3,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 452000,
+            "netPrice": 380672.27,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 418000,
+            "netPrice": 351260.5,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Pulseras"
   },
   {
     "name": "Kit Limpieza Express",
     "description": "Kit compacto para limpieza rápida de joyas",
     "brand": "Care+",
-    "categoryCode": "ACC",
     "variants": [
       {
         "sku": "ACC-KIT-EXPRESS",
@@ -963,11 +1830,33 @@
         "trackInventory": true,
         "allowNegativeStock": false,
         "priceEntries": [
-          { "listKey": "retail", "grossPrice": 125000, "netPrice": 105042.02, "taxCodes": ["IVA-19"] },
-          { "listKey": "online", "grossPrice": 118000, "netPrice": 99159.66, "taxCodes": ["IVA-19"] },
-          { "listKey": "wholesale", "grossPrice": 108000, "netPrice": 90756.30, "taxCodes": ["IVA-19"] }
+          {
+            "listKey": "retail",
+            "grossPrice": 125000,
+            "netPrice": 105042.02,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "online",
+            "grossPrice": 118000,
+            "netPrice": 99159.66,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          },
+          {
+            "listKey": "wholesale",
+            "grossPrice": 108000,
+            "netPrice": 90756.3,
+            "taxCodes": [
+              "IVA-19"
+            ]
+          }
         ]
       }
-    ]
+    ],
+    "categoryName": "Accesorios"
   }
 ]

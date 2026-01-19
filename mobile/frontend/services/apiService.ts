@@ -688,6 +688,7 @@ type ProductSearchPayload = {
     productId: string | null;
     productName: string;
     productDescription: string | null;
+    productImagePath: string | null;
     variantId: string;
     sku: string;
     barcode: string | null;
@@ -698,6 +699,14 @@ type ProductSearchPayload = {
     unitTaxAmount: number;
     unitPriceWithTax: number;
     trackInventory: boolean;
+    availableStock: number | null;
+    availableStockBase: number | null;
+    attributes: Array<{
+      attributeId: string;
+      attributeName: string | null;
+      attributeValue: string;
+    }>;
+    metadata: Record<string, unknown> | null;
   }>;
   pagination: {
     page: number;
@@ -714,6 +723,57 @@ export type ProductSearchResultPage = {
   products: ProductSearchResult[];
   pagination: ProductSearchPayload['pagination'];
   query: string;
+};
+
+type CustomerSearchPayload = {
+  customers: Array<{
+    customerId: string;
+    personId: string | null;
+    displayName: string;
+    documentType: string | null;
+    documentNumber: string | null;
+    email: string | null;
+    phone: string | null;
+    address: string | null;
+    creditLimit: number;
+    currentBalance: number;
+    availableCredit: number;
+    defaultPaymentTermDays: number;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+  query: string;
+};
+
+export type CustomerSearchResult = CustomerSearchPayload['customers'][number];
+
+export type CustomerSearchResultPage = {
+  customers: CustomerSearchResult[];
+  pagination: CustomerSearchPayload['pagination'];
+  query: string;
+};
+
+export type CreateCustomerInput = {
+  firstName: string;
+  lastName?: string;
+  documentType?: string;
+  documentNumber?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+};
+
+type CreateCustomerPayload = {
+  success: true;
+  customer: CustomerSearchPayload['customers'][number];
 };
 
 export async function searchProducts(params: {
@@ -753,7 +813,82 @@ export async function searchProducts(params: {
       unitTaxRate: product.unitTaxRate,
       unitTaxAmount: product.unitTaxAmount,
       unitPriceWithTax: product.unitPriceWithTax,
+      trackInventory: product.trackInventory,
+      availableStock: product.availableStock,
+      attributes: (product.attributes ?? []).map((attribute) => ({
+        id: attribute.attributeId,
+        name: attribute.attributeName,
+        value: attribute.attributeValue,
+      })),
     })),
+  };
+}
+
+export async function searchCustomers(params: {
+  query: string;
+  page?: number;
+  pageSize?: number;
+}): Promise<CustomerSearchResultPage> {
+  const searchParams = new URLSearchParams();
+  if (typeof params.query === 'string') {
+    searchParams.set('query', params.query);
+  }
+  if (params.page) {
+    searchParams.set('page', String(params.page));
+  }
+  if (params.pageSize) {
+    searchParams.set('pageSize', String(params.pageSize));
+  }
+
+  const payload = await request<CustomerSearchPayload>(
+    `/api/customers/search?${searchParams.toString()}`,
+    { method: 'GET' },
+  );
+
+  return {
+    query: payload.query,
+    pagination: payload.pagination,
+    customers: payload.customers.map((customer) => ({
+      customerId: customer.customerId,
+      personId: customer.personId,
+      displayName: customer.displayName,
+      documentType: customer.documentType,
+      documentNumber: customer.documentNumber,
+      email: customer.email,
+      phone: customer.phone,
+      address: customer.address,
+      creditLimit: Number(customer.creditLimit ?? 0),
+      currentBalance: Number(customer.currentBalance ?? 0),
+      availableCredit: Number(customer.availableCredit ?? 0),
+      defaultPaymentTermDays: customer.defaultPaymentTermDays ?? 0,
+      createdAt: customer.createdAt,
+      updatedAt: customer.updatedAt,
+    })),
+  };
+}
+
+export async function createCustomer(input: CreateCustomerInput): Promise<CustomerSearchResult> {
+  const payload = await request<CreateCustomerPayload>('/api/customers', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+
+  const customer = payload.customer;
+  return {
+    customerId: customer.customerId,
+    personId: customer.personId,
+    displayName: customer.displayName,
+    documentType: customer.documentType,
+    documentNumber: customer.documentNumber,
+    email: customer.email,
+    phone: customer.phone,
+    address: customer.address,
+    creditLimit: Number(customer.creditLimit ?? 0),
+    currentBalance: Number(customer.currentBalance ?? 0),
+    availableCredit: Number(customer.availableCredit ?? 0),
+    defaultPaymentTermDays: customer.defaultPaymentTermDays ?? 0,
+    createdAt: customer.createdAt,
+    updatedAt: customer.updatedAt,
   };
 }
 
@@ -846,6 +981,8 @@ export default {
   registerCashWithdrawal,
   closeCashSession,
   searchProducts,
+  searchCustomers,
+  createCustomer,
   createSale,
   checkoutSale,
 };

@@ -101,9 +101,6 @@ const DeleteCategoryDialog: React.FC<DeleteCategoryDialogProps> = ({
                         </div>
                         <div className="flex-1">
                             <p className="font-medium text-neutral-800">{category.name}</p>
-                            <div className="flex items-center gap-3 text-sm text-neutral-500">
-                                {category.code && <span>Código: {category.code}</span>}
-                            </div>
                         </div>
                     </div>
                     {(category.childrenCount && category.childrenCount > 0) && (

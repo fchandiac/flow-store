@@ -26,7 +26,7 @@ function LoginScreen({ navigation }: LoginScreenProps) {
   const setUser = usePosStore((state) => state.setUser);
   const resetSession = usePosStore((state) => state.resetSession);
   const [userName, setUserName] = useState('admin');
-  const [password, setPassword] = useState('890890');
+  const [password, setPassword] = useState('098098');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async () => {

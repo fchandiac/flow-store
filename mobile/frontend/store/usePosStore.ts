@@ -78,6 +78,13 @@ export type ProductSearchResult = {
   unitTaxRate: number;
   unitTaxAmount: number;
   unitPriceWithTax: number;
+  trackInventory: boolean;
+  availableStock: number | null;
+  attributes: Array<{
+    id: string;
+    name: string | null;
+    value: string;
+  }>;
 };
 
 export type CartItem = {
@@ -96,6 +103,21 @@ export type CartItem = {
   total: number;
 };
 
+export type PosCustomer = {
+  customerId: string;
+  personId: string | null;
+  displayName: string;
+  documentType: string | null;
+  documentNumber: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  creditLimit: number;
+  currentBalance: number;
+  availableCredit: number;
+  defaultPaymentTermDays: number;
+};
+
 export type UsbPrinterSelection = {
   vendorId: string;
   productId: string;
@@ -107,6 +129,7 @@ type PosState = {
   pointOfSale: PointOfSaleSummary | null;
   cashSession: CashSessionSummary | null;
   cartItems: CartItem[];
+  selectedCustomer: PosCustomer | null;
   preferredUsbPrinter: UsbPrinterSelection | null;
   preferredCustomerDisplayId: string | null;
   promoMediaEnabled: boolean;
@@ -123,6 +146,8 @@ type PosState = {
   updateItemQuantity: (variantId: string, qty: number) => void;
   removeItem: (variantId: string) => void;
   clearCart: () => void;
+  setSelectedCustomer: (customer: PosCustomer | null) => void;
+  clearSelectedCustomer: () => void;
   setPreferredUsbPrinter: (printer: UsbPrinterSelection | null) => void;
   setPreferredCustomerDisplay: (id: string | null) => void;
   setPromoMediaEnabled: (enabled: boolean) => void;
@@ -150,6 +175,7 @@ export const usePosStore = create<PosState>((set, get) => ({
   pointOfSale: null,
   cashSession: null,
   cartItems: [],
+  selectedCustomer: null,
   preferredUsbPrinter: null,
   preferredCustomerDisplayId: null,
   promoMediaEnabled: false,
@@ -158,7 +184,7 @@ export const usePosStore = create<PosState>((set, get) => ({
   setUser: (user) => {
     set({ user });
     if (!user) {
-      set({ pointOfSale: null, cashSession: null, cartItems: [] });
+      set({ pointOfSale: null, cashSession: null, cartItems: [], selectedCustomer: null });
     }
   },
   setPointOfSale: (pointOfSale) => set({ pointOfSale }),
@@ -175,7 +201,9 @@ export const usePosStore = create<PosState>((set, get) => ({
         },
       };
     }),
-  resetSession: () => set({ pointOfSale: null, cashSession: null, cartItems: [] }),
+  resetSession: () => set({ pointOfSale: null, cashSession: null, cartItems: [], selectedCustomer: null }),
+  setSelectedCustomer: (customer) => set({ selectedCustomer: customer }),
+  clearSelectedCustomer: () => set({ selectedCustomer: null }),
   addProductToCart: (product) => {
     const existing = get().cartItems.find((item) => item.variantId === product.variantId);
     if (existing) {
@@ -269,6 +297,7 @@ export const selectCartTotals = (state: PosState) => {
   return cachedTotals;
 };
 export const selectCartTotal = (state: PosState) => selectCartTotals(state).total;
+export const selectSelectedCustomer = (state: PosState) => state.selectedCustomer;
 export const selectPreferredUsbPrinter = (state: PosState) => state.preferredUsbPrinter;
 export const selectPreferredCustomerDisplayId = (state: PosState) => state.preferredCustomerDisplayId;
 export const selectPromoMediaEnabled = (state: PosState) => state.promoMediaEnabled;

@@ -14,6 +14,7 @@ import { PriceList, PriceListType } from '../entities/PriceList';
 import { PriceListItem } from '../entities/PriceListItem';
 import { Storage, StorageCategory, StorageType } from '../entities/Storage';
 import { PointOfSale } from '../entities/PointOfSale';
+import { CashSession, CashSessionStatus } from '../entities/CashSession';
 import { Permission, Ability, ALL_ABILITIES } from '../entities/Permission';
 import { Attribute } from '../entities/Attribute';
 import { Product, ProductType } from '../entities/Product';
@@ -23,6 +24,7 @@ import { UnitDimension } from '../entities/unit-dimension.enum';
 import { AccountingAccount, AccountType } from '../entities/AccountingAccount';
 import { ExpenseCategory } from '../entities/ExpenseCategory';
 import { AccountingRule, RuleScope } from '../entities/AccountingRule';
+import { AccountingPeriod, AccountingPeriodStatus } from '../entities/AccountingPeriod';
 import { Transaction, TransactionStatus, PaymentMethod, TransactionType } from '../entities/Transaction';
 import { TransactionLine } from '../entities/TransactionLine';
 import { CostCenter, CostCenterType } from '../entities/CostCenter';
@@ -230,8 +232,25 @@ type AccountingRuleSeed = {
   isActive: boolean;
 };
 
+type AccountingPeriodSeedRaw = {
+  companyName?: string | null;
+  startDate: string;
+  endDate: string;
+  status?: keyof typeof AccountingPeriodStatus | string;
+  closedAt?: string | null;
+  closedByUserName?: string | null;
+};
+
+type AccountingPeriodSeed = {
+  companyName: string;
+  startDate: string;
+  endDate: string;
+  status: AccountingPeriodStatus;
+  closedAt: Date | null;
+  closedByUserName?: string | null;
+};
+
 type CategorySeed = {
-  code: string;
   name: string;
   description?: string;
   sortOrder?: number;
@@ -309,11 +328,21 @@ type SupplierSeed = {
   bankAccounts?: RawBankAccount[];
 };
 
+type UserSeedPerson = {
+  firstName?: string;
+  lastName?: string;
+  documentNumber?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+};
+
 type UserSeed = {
   userName: string;
   pass: string;
   mail?: string;
   rol?: keyof typeof UserRole | string;
+  person?: UserSeedPerson;
 };
 
 type ProductVariantSeed = {
@@ -336,8 +365,102 @@ type ProductSeed = {
   name: string;
   description?: string;
   brand?: string;
-  categoryCode: string;
+  categoryName: string;
   variants: ProductVariantSeed[];
+};
+
+type CashSessionSeedRaw = {
+  ref: string;
+  pointOfSaleName: string;
+  openedByUserName: string;
+  openedAt: string;
+  openingAmount: number;
+  status?: keyof typeof CashSessionStatus | string;
+  notes?: string | null;
+  createdAt?: string | null;
+};
+
+type CashSessionSeed = {
+  ref: string;
+  pointOfSaleName: string;
+  openedByUserName: string;
+  openedAt: Date;
+  openingAmount: number;
+  status: CashSessionStatus;
+  notes?: string | null;
+  createdAt: Date | null;
+};
+
+type TransactionSeedKind = 'CASH_SESSION_OPENING' | 'CAPITAL_CONTRIBUTION' | 'BANK_TO_CASH_TRANSFER';
+
+type TransactionSeedRaw = {
+  ref: string;
+  kind: TransactionSeedKind;
+  documentNumber: string;
+  transactionType?: keyof typeof TransactionType | string;
+  status?: keyof typeof TransactionStatus | string;
+  branchRef?: string | null;
+  pointOfSaleName?: string | null;
+  cashSessionRef?: string | null;
+  userName: string;
+  shareholderDocumentNumber?: string | null;
+  paymentMethod?: keyof typeof PaymentMethod | string | null;
+  bankAccountKey?: string | null;
+  bankAccountNumber?: string | null;
+  bankName?: string | null;
+  bankAccountType?: string | null;
+  bankAccountLabel?: string | null;
+  subtotal: number;
+  taxAmount?: number | null;
+  discountAmount?: number | null;
+  total: number;
+  amountPaid?: number | null;
+  changeAmount?: number | null;
+  notes?: string | null;
+  occurredOn?: string | null;
+  createdAt?: string | null;
+  relatedDocumentNumber?: string | null;
+  transferDestinationLabel?: string | null;
+  originAccountCode?: string | null;
+  destinationAccountCode?: string | null;
+  balanceBefore?: number | null;
+  balanceAfter?: number | null;
+  openingAmount?: number | null;
+};
+
+type TransactionSeed = {
+  ref: string;
+  kind: TransactionSeedKind;
+  documentNumber: string;
+  transactionType: TransactionType;
+  status: TransactionStatus;
+  branchRef?: string | null;
+  pointOfSaleName?: string | null;
+  cashSessionRef?: string | null;
+  userName: string;
+  shareholderDocumentNumber?: string | null;
+  paymentMethod?: PaymentMethod | null;
+  bankAccountKey?: string | null;
+  bankAccountNumber?: string | null;
+  bankName?: string | null;
+  bankAccountType?: string | null;
+  bankAccountLabel?: string | null;
+  subtotal: number;
+  taxAmount: number;
+  discountAmount: number;
+  total: number;
+  amountPaid?: number | null;
+  changeAmount?: number | null;
+  notes?: string | null;
+  occurredOn?: Date | null;
+  createdAt?: Date | null;
+  relatedDocumentNumber?: string | null;
+  transferDestinationLabel?: string | null;
+  originAccountCode?: string | null;
+  destinationAccountCode?: string | null;
+  balanceBefore?: number | null;
+  balanceAfter?: number | null;
+  openingAmount?: number | null;
 };
 
 /**
@@ -420,6 +543,12 @@ async function seedFlowStore() {
   const shareholderSummaries: string[] = [];
   const customerSummaries: string[] = [];
   const supplierSummaries: string[] = [];
+  const clpFormatter = new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  });
 
   console.log('\n🧾 Eliminando aportes de capital legacy...');
   try {
@@ -471,7 +600,13 @@ async function seedFlowStore() {
     const supplierSeedsRaw = ensureArray(await readSeedJson<SupplierSeed[]>('suppliers.json'), 'suppliers.json');
     const userSeeds = ensureArray(await readSeedJson<UserSeed[]>('users.json'), 'users.json');
     const productSeeds = ensureArray(await readSeedJson<ProductSeed[]>('products.json'), 'products.json');
+    const accountingPeriodSeedsRaw = ensureArray(
+      await readSeedJson<AccountingPeriodSeedRaw[]>('accountingPeriods.json'),
+      'accountingPeriods.json',
+    );
     const shareholderSeedsRaw = ensureArray(await readSeedJson<ShareholderSeedRaw[]>('shareholders.json'), 'shareholders.json');
+    const cashSessionSeedsRaw = ensureArray(await readSeedJson<CashSessionSeedRaw[]>('cashSessions.json'), 'cashSessions.json');
+    const transactionSeedsRaw = ensureArray(await readSeedJson<TransactionSeedRaw[]>('transactions.json'), 'transactions.json');
 
     const costCenterSeeds = costCenterSeedsRaw.map((entry) => ({
       ...entry,
@@ -577,6 +712,229 @@ async function seedFlowStore() {
       } satisfies ShareholderSeed;
     });
 
+    const cashSessionSeeds = cashSessionSeedsRaw.map((entry, index) => {
+      const context = `cashSessions.json → registro ${index + 1}`;
+
+      const ref = entry.ref?.trim();
+      if (!ref) {
+        throw new Error(`${context}: "ref" es obligatorio.`);
+      }
+
+      const pointOfSaleName = entry.pointOfSaleName?.trim();
+      if (!pointOfSaleName) {
+        throw new Error(`${context}: "pointOfSaleName" es obligatorio.`);
+      }
+
+      const openedByUserName = entry.openedByUserName?.trim();
+      if (!openedByUserName) {
+        throw new Error(`${context}: "openedByUserName" es obligatorio.`);
+      }
+
+      const openedAt = new Date(entry.openedAt);
+      if (Number.isNaN(openedAt.getTime())) {
+        throw new Error(`${context}: "openedAt" no es una fecha válida.`);
+      }
+
+      const createdAt = entry.createdAt ? new Date(entry.createdAt) : null;
+      if (entry.createdAt && Number.isNaN(createdAt!.getTime())) {
+        throw new Error(`${context}: "createdAt" no es una fecha válida.`);
+      }
+
+      const status = entry.status
+        ? parseEnum(CashSessionStatus, entry.status, `${context} (status)`)
+        : CashSessionStatus.OPEN;
+
+      const openingAmount = Number(entry.openingAmount);
+      if (!Number.isFinite(openingAmount) || openingAmount < 0) {
+        throw new Error(`${context}: "openingAmount" debe ser un número positivo.`);
+      }
+
+      return {
+        ref,
+        pointOfSaleName,
+        openedByUserName,
+        openedAt,
+        openingAmount,
+        status,
+        notes: entry.notes ?? null,
+        createdAt,
+      } satisfies CashSessionSeed;
+    });
+
+    const validTransactionKinds: TransactionSeedKind[] = ['CASH_SESSION_OPENING', 'CAPITAL_CONTRIBUTION', 'BANK_TO_CASH_TRANSFER'];
+
+    const transactionSeeds = transactionSeedsRaw.map((entry, index) => {
+      const context = `transactions.json → registro ${index + 1}`;
+
+      const ref = entry.ref?.trim();
+      if (!ref) {
+        throw new Error(`${context}: "ref" es obligatorio.`);
+      }
+
+      if (!validTransactionKinds.includes(entry.kind)) {
+        throw new Error(`${context}: "kind" debe ser uno de ${validTransactionKinds.join(', ')}`);
+      }
+
+      const transactionTypeRaw = entry.transactionType ?? ((): TransactionType => {
+        switch (entry.kind) {
+          case 'CASH_SESSION_OPENING':
+            return TransactionType.CASH_SESSION_OPENING;
+          case 'CAPITAL_CONTRIBUTION':
+            return TransactionType.PAYMENT_IN;
+          case 'BANK_TO_CASH_TRANSFER':
+            return TransactionType.PAYMENT_OUT;
+          default:
+            return TransactionType.PAYMENT_IN;
+        }
+      })();
+
+      const transactionType = parseEnum(TransactionType, transactionTypeRaw, `${context} (transactionType)`);
+      const status = entry.status
+        ? parseEnum(TransactionStatus, entry.status, `${context} (status)`)
+        : TransactionStatus.CONFIRMED;
+
+      const paymentMethod = entry.paymentMethod
+        ? parseEnum(PaymentMethod, entry.paymentMethod, `${context} (paymentMethod)`)
+        : null;
+
+      const subtotal = Number(entry.subtotal);
+      const taxAmount = Number(entry.taxAmount ?? 0);
+      const discountAmount = Number(entry.discountAmount ?? 0);
+      const total = Number(entry.total);
+
+      for (const [label, value] of [
+        ['subtotal', subtotal],
+        ['taxAmount', taxAmount],
+        ['discountAmount', discountAmount],
+        ['total', total],
+      ] as const) {
+        if (!Number.isFinite(value)) {
+          throw new Error(`${context}: "${label}" debe ser un número.`);
+        }
+      }
+
+      const amountPaid = entry.amountPaid !== undefined ? Number(entry.amountPaid) : null;
+      const changeAmount = entry.changeAmount !== undefined ? Number(entry.changeAmount) : null;
+
+      if (amountPaid !== null && !Number.isFinite(amountPaid)) {
+        throw new Error(`${context}: "amountPaid" debe ser numérico.`);
+      }
+
+      if (changeAmount !== null && !Number.isFinite(changeAmount)) {
+        throw new Error(`${context}: "changeAmount" debe ser numérico.`);
+      }
+
+      const occurredOn = entry.occurredOn ? new Date(entry.occurredOn) : null;
+      if (entry.occurredOn && Number.isNaN(occurredOn!.getTime())) {
+        throw new Error(`${context}: "occurredOn" no es una fecha válida.`);
+      }
+
+      const createdAt = entry.createdAt ? new Date(entry.createdAt) : null;
+      if (entry.createdAt && Number.isNaN(createdAt!.getTime())) {
+        throw new Error(`${context}: "createdAt" no es una fecha válida.`);
+      }
+
+      const documentNumber = entry.documentNumber?.trim();
+      if (!documentNumber) {
+        throw new Error(`${context}: "documentNumber" es obligatorio.`);
+      }
+
+      return {
+        ref,
+        kind: entry.kind,
+        documentNumber,
+        transactionType,
+        status,
+        branchRef: entry.branchRef?.trim() ?? null,
+        pointOfSaleName: entry.pointOfSaleName?.trim() ?? null,
+        cashSessionRef: entry.cashSessionRef?.trim() ?? null,
+        userName: entry.userName.trim(),
+        shareholderDocumentNumber: entry.shareholderDocumentNumber?.trim() ?? null,
+        paymentMethod,
+        bankAccountKey: entry.bankAccountKey?.trim() ?? null,
+        bankAccountNumber: entry.bankAccountNumber?.trim() ?? null,
+        bankName: entry.bankName?.trim() ?? null,
+        bankAccountType: entry.bankAccountType?.trim() ?? null,
+        bankAccountLabel: entry.bankAccountLabel?.trim() ?? null,
+        subtotal,
+        taxAmount,
+        discountAmount,
+        total,
+        amountPaid,
+        changeAmount,
+        notes: entry.notes ?? null,
+        occurredOn,
+        createdAt,
+        relatedDocumentNumber: entry.relatedDocumentNumber?.trim() ?? null,
+        transferDestinationLabel: entry.transferDestinationLabel?.trim() ?? null,
+        originAccountCode: entry.originAccountCode?.trim() ?? null,
+        destinationAccountCode: entry.destinationAccountCode?.trim() ?? null,
+        balanceBefore: entry.balanceBefore ?? null,
+        balanceAfter: entry.balanceAfter ?? null,
+        openingAmount: entry.openingAmount ?? null,
+      } satisfies TransactionSeed;
+    });
+
+    const accountingPeriodSeeds = accountingPeriodSeedsRaw.map((entry, index) => {
+      const context = `accountingPeriods.json → registro ${index + 1}`;
+      const startDate = entry.startDate?.trim();
+      const endDate = entry.endDate?.trim();
+
+      if (!startDate) {
+        throw new Error(`${context}: startDate es obligatorio.`);
+      }
+
+      if (!endDate) {
+        throw new Error(`${context}: endDate es obligatorio.`);
+      }
+
+      const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+      if (!datePattern.test(startDate)) {
+        throw new Error(`${context}: startDate debe tener formato YYYY-MM-DD.`);
+      }
+
+      if (!datePattern.test(endDate)) {
+        throw new Error(`${context}: endDate debe tener formato YYYY-MM-DD.`);
+      }
+
+      const startDateValue = new Date(`${startDate}T00:00:00`);
+      const endDateValue = new Date(`${endDate}T00:00:00`);
+
+      if (Number.isNaN(startDateValue.getTime())) {
+        throw new Error(`${context}: startDate no es una fecha válida.`);
+      }
+
+      if (Number.isNaN(endDateValue.getTime())) {
+        throw new Error(`${context}: endDate no es una fecha válida.`);
+      }
+
+      if (startDateValue.getTime() > endDateValue.getTime()) {
+        throw new Error(`${context}: startDate no puede ser posterior a endDate.`);
+      }
+
+      const status = entry.status
+        ? parseEnum(AccountingPeriodStatus, entry.status, `${context} (status)`)
+        : AccountingPeriodStatus.OPEN;
+
+      let closedAt: Date | null = null;
+      if (entry.closedAt) {
+        const parsedClosedAt = new Date(entry.closedAt);
+        if (Number.isNaN(parsedClosedAt.getTime())) {
+          throw new Error(`${context}: closedAt no es una fecha válida.`);
+        }
+        closedAt = parsedClosedAt;
+      }
+
+      return {
+        companyName: entry.companyName?.trim() || companySeed.name,
+        startDate,
+        endDate,
+        status,
+        closedAt,
+        closedByUserName: entry.closedByUserName?.trim() || null,
+      } as AccountingPeriodSeed;
+    });
+
     const companyBankAccounts = mapBankAccounts(companySeed.bankAccounts ?? []) ?? undefined;
     const fallbackBankAccounts: PersonBankAccount[] = [
       {
@@ -642,6 +1000,8 @@ async function seedFlowStore() {
 
     const shareholderRepo = db.getRepository(Shareholder);
     const shareholderPersonRepo = db.getRepository(Person);
+    const shareholdersByDocumentNumber: Record<string, Shareholder> = {};
+    const shareholderPersonsById: Record<string, Person> = {};
 
     for (const seed of shareholderSeeds) {
       const documentNumber = seed.person.documentNumber.trim();
@@ -710,6 +1070,10 @@ async function seedFlowStore() {
       shareholder.deletedAt = undefined;
 
       await shareholderRepo.save(shareholder);
+
+      shareholdersByDocumentNumber[documentNumber] = shareholder;
+      shareholdersByDocumentNumber[documentNumber.toLowerCase()] = shareholder;
+      shareholderPersonsById[person.id] = person;
 
       const displayName = buildPersonDisplayName(person);
       shareholderSummaries.push(displayName);
@@ -1103,20 +1467,16 @@ async function seedFlowStore() {
     // ============================================
     console.log('\n📁 Creando categorías de joyería...');
     
-    // Eliminar categorías antiguas de supermercado
-    await db.query("DELETE FROM categories WHERE code LIKE 'CAT-%'");
-    
     const categoryRepo = db.getRepository(Category);
-    const categoryMap: Record<string, Category> = {};
+    const categoryMap: Record<string, Category> = {}; // keyed by category name
 
     for (const catData of categorySeeds) {
-      let category = await categoryRepo.findOne({ where: { code: catData.code }, withDeleted: true });
+      let category = await categoryRepo.findOne({ where: { name: catData.name }, withDeleted: true });
       const isNewCategory = !category;
 
       if (!category) {
         category = new Category();
         category.id = uuidv4();
-        category.code = catData.code;
       }
 
       category.name = catData.name;
@@ -1126,7 +1486,7 @@ async function seedFlowStore() {
       category.deletedAt = undefined;
 
       await categoryRepo.save(category);
-      categoryMap[catData.code] = category;
+      categoryMap[catData.name] = category;
 
       const prefix = isNewCategory ? '   ✓' : '   •';
       const action = isNewCategory ? 'Categoría creada' : 'Categoría actualizada';
@@ -1251,6 +1611,7 @@ async function seedFlowStore() {
     const pointOfSaleRepo = db.getRepository(PointOfSale);
 
     const pointsOfSale: PointOfSale[] = [];
+    const pointOfSaleByName: Record<string, PointOfSale> = {};
 
     for (const seed of pointOfSaleSeeds) {
       const targetBranch = branchesByRef[seed.branchRef];
@@ -1280,6 +1641,7 @@ async function seedFlowStore() {
 
       const savedPOS = await pointOfSaleRepo.save(existingPOS);
       pointsOfSale.push(savedPOS);
+      pointOfSaleByName[savedPOS.name.toLowerCase()] = savedPOS;
 
       const prefix = isNewPOS ? '   ✓' : '   •';
       const action = isNewPOS ? 'Punto de venta creado' : 'Punto de venta actualizado';
@@ -1296,6 +1658,7 @@ async function seedFlowStore() {
 
     let adminUser: User | null = null;
     let adminCredentials: { userName: string; password: string } | null = null;
+    const usersByUserName: Record<string, User> = {};
 
     for (const userSeedEntry of userSeeds) {
       const userRole = userSeedEntry.rol ? parseEnum(UserRole, userSeedEntry.rol, `usuario ${userSeedEntry.userName} (rol)`) : UserRole.OPERATOR;
@@ -1307,22 +1670,25 @@ async function seedFlowStore() {
         documentNumber: string;
         email?: string;
         phone?: string;
+        address?: string;
       } = userSeedEntry.userName === 'admin'
         ? {
-            firstName: 'Administrador',
-            lastName: 'Joyería',
+            firstName: userSeedEntry.person?.firstName ?? 'Administrador',
+            lastName: userSeedEntry.person?.lastName ?? 'del Sistema',
             documentType: DocumentType.RUN,
-            documentNumber: '11111111-1',
-            email: userSeedEntry.mail ?? 'admin@joyeriabrillante.cl',
-            phone: '+56 9 0000 0000',
+            documentNumber: userSeedEntry.person?.documentNumber ?? '22.222.222-2',
+            email: userSeedEntry.mail ?? userSeedEntry.person?.email ?? 'admin@joyeria.cl',
+            phone: userSeedEntry.person?.phone ?? '+56 9 1234 0000',
+            address: userSeedEntry.person?.address,
           }
         : {
-            firstName: userSeedEntry.userName,
-            lastName: undefined,
+            firstName: userSeedEntry.person?.firstName ?? userSeedEntry.userName,
+            lastName: userSeedEntry.person?.lastName,
             documentType: DocumentType.RUN,
-            documentNumber: `USR-${userSeedEntry.userName}`,
-            email: userSeedEntry.mail,
-            phone: undefined,
+            documentNumber: userSeedEntry.person?.documentNumber ?? `USR-${userSeedEntry.userName}`,
+            email: userSeedEntry.mail ?? userSeedEntry.person?.email,
+            phone: userSeedEntry.person?.phone,
+            address: userSeedEntry.person?.address,
           };
 
       let person = await personRepository.findOne({
@@ -1345,6 +1711,7 @@ async function seedFlowStore() {
       person.documentType = personSeedDefaults.documentType;
       person.email = userSeedEntry.mail ?? personSeedDefaults.email ?? undefined;
       person.phone = personSeedDefaults.phone ?? undefined;
+      person.address = personSeedDefaults.address ?? undefined;
       person.deletedAt = undefined;
 
       await personRepository.save(person);
@@ -1363,13 +1730,15 @@ async function seedFlowStore() {
         user.userName = userSeedEntry.userName;
       }
 
-      user.mail = userSeedEntry.mail ?? `${userSeedEntry.userName}@joyarte.cl`;
+      user.mail = userSeedEntry.mail ?? personSeedDefaults.email ?? `${userSeedEntry.userName}@joyarte.cl`;
       user.rol = userRole;
       user.pass = hashPassword(userSeedEntry.pass);
       user.person = person;
       user.deletedAt = undefined;
 
       await userRepo.save(user);
+      usersByUserName[user.userName] = user;
+      usersByUserName[user.userName.toLowerCase()] = user;
 
       const personMsgPrefix = isNewPerson ? '   ✓ Persona creada' : '   • Persona actualizada';
       const userMsgPrefix = isNewUser ? '   ✓ Usuario creado' : '   • Usuario actualizado';
@@ -1392,7 +1761,409 @@ async function seedFlowStore() {
     }
 
     // ============================================
-    // 9.1 CLIENTES BASE
+    // 9.1 PERÍODOS CONTABLES
+    // ============================================
+    console.log('\n🗓️  Configurando periodos contables...');
+
+    const accountingPeriodRepo = db.getRepository(AccountingPeriod);
+    const companyCacheByName: Record<string, Company> = {
+      [company.name.toLowerCase()]: company,
+    };
+
+    for (const periodSeed of accountingPeriodSeeds) {
+      const targetCompanyName = periodSeed.companyName || company.name;
+      const lookupKey = targetCompanyName.trim().toLowerCase();
+
+      let targetCompany = companyCacheByName[lookupKey];
+      if (!targetCompany) {
+        const fetchedCompany = await companyRepo.findOne({ where: { name: targetCompanyName } });
+        if (!fetchedCompany) {
+          throw new Error(
+            `accountingPeriods.json → ${targetCompanyName} (${periodSeed.startDate} - ${periodSeed.endDate}): la empresa no existe en la base de datos.`,
+          );
+        }
+        companyCacheByName[lookupKey] = fetchedCompany;
+        targetCompany = fetchedCompany;
+      }
+
+      const closedByUserName = periodSeed.closedByUserName ?? null;
+      let closedByUserId: string | null = null;
+
+      if (closedByUserName) {
+        const targetUser = usersByUserName[closedByUserName];
+        if (!targetUser) {
+          throw new Error(
+            `accountingPeriods.json → ${targetCompanyName} (${periodSeed.startDate} - ${periodSeed.endDate}): el usuario "${closedByUserName}" no existe en users.json.`,
+          );
+        }
+        closedByUserId = targetUser.id;
+      }
+
+      let period = await accountingPeriodRepo.findOne({
+        where: {
+          companyId: targetCompany.id,
+          startDate: periodSeed.startDate,
+          endDate: periodSeed.endDate,
+        },
+      });
+
+      const isNewPeriod = !period;
+
+      if (!period) {
+        period = new AccountingPeriod();
+        period.id = uuidv4();
+        period.companyId = targetCompany.id;
+        period.startDate = periodSeed.startDate;
+        period.endDate = periodSeed.endDate;
+      }
+
+      period.status = periodSeed.status;
+
+      if (periodSeed.status === AccountingPeriodStatus.OPEN) {
+        period.closedAt = null;
+        period.closedBy = null;
+      } else {
+        period.closedAt = periodSeed.closedAt ?? null;
+        period.closedBy = closedByUserId;
+      }
+
+      await accountingPeriodRepo.save(period);
+
+      const statusLabel = (() => {
+        switch (period.status) {
+          case AccountingPeriodStatus.CLOSED:
+            return 'cerrado';
+          case AccountingPeriodStatus.LOCKED:
+            return 'bloqueado';
+          default:
+            return 'abierto';
+        }
+      })();
+
+      console.log(
+        `${isNewPeriod ? '   ✓' : '   •'} Periodo ${statusLabel}: ${targetCompany.name} ${periodSeed.startDate} → ${periodSeed.endDate}`,
+      );
+    }
+
+    // ============================================
+    // 9.2 SESIONES DE CAJA BASE
+    // ============================================
+    const cashSessionRepo = db.getRepository(CashSession);
+    const cashSessionsByRef: Record<string, CashSession> = {};
+
+    if (cashSessionSeeds.length === 0) {
+      console.log('\n💼 No hay sesiones de caja definidas en cashSessions.json.');
+    } else {
+      console.log('\n💼 Configurando sesiones de caja base...');
+
+      for (const seed of cashSessionSeeds) {
+        const pointOfSale = pointOfSaleByName[seed.pointOfSaleName.toLowerCase()];
+        if (!pointOfSale) {
+          throw new Error(`cashSessions.json → ${seed.ref}: no se encontró el punto de venta "${seed.pointOfSaleName}".`);
+        }
+
+        const openedByUser = usersByUserName[seed.openedByUserName] ?? usersByUserName[seed.openedByUserName.toLowerCase()];
+        if (!openedByUser) {
+          throw new Error(`cashSessions.json → ${seed.ref}: el usuario "${seed.openedByUserName}" no existe en users.json.`);
+        }
+
+        let session = await cashSessionRepo.findOne({
+          where: {
+            pointOfSaleId: pointOfSale.id,
+            openedAt: seed.openedAt,
+          },
+          withDeleted: true,
+        });
+
+        const isNewSession = !session;
+
+        if (!session) {
+          session = new CashSession();
+          session.id = uuidv4();
+        }
+
+        session.pointOfSaleId = pointOfSale.id;
+        session.openedById = openedByUser.id;
+        session.closedById = undefined;
+        session.status = seed.status;
+        session.openingAmount = seed.openingAmount;
+        session.closingAmount = undefined;
+        session.expectedAmount = undefined;
+        session.difference = undefined;
+        session.openedAt = seed.openedAt;
+        session.closedAt = undefined;
+        session.notes = seed.notes ?? undefined;
+        session.closingDetails = null;
+        session.deletedAt = undefined;
+
+        await cashSessionRepo.save(session);
+
+        if (seed.createdAt) {
+          await cashSessionRepo
+            .createQueryBuilder()
+            .update()
+            .set({ createdAt: seed.createdAt })
+            .where('id = :id', { id: session.id })
+            .execute();
+        }
+
+        cashSessionsByRef[seed.ref] = session;
+        cashSessionsByRef[seed.ref.toLowerCase()] = session;
+
+        const prefix = isNewSession ? '   ✓' : '   •';
+        const action = isNewSession ? 'Sesión de caja creada' : 'Sesión de caja actualizada';
+        console.log(`${prefix} ${action}: ${seed.pointOfSaleName} → Apertura ${seed.openedAt.toISOString()} (${clpFormatter.format(seed.openingAmount)})`);
+      }
+    }
+
+    // ============================================
+    // 9.3 TRANSACCIONES CONTABLES BASE
+    // ============================================
+    const transactionsByDocumentNumber: Record<string, Transaction> = {};
+
+    if (transactionSeeds.length === 0) {
+      console.log('\n💸 No hay transacciones definidas en transactions.json.');
+    } else {
+      console.log('\n💸 Registrando transacciones contables base...');
+
+      const pendingRelationUpdates: Array<{ transactionId: string; relatedDocumentNumber: string }> = [];
+
+      const resolveUser = (identifier: string): User | undefined => {
+        return usersByUserName[identifier] ?? usersByUserName[identifier.toLowerCase()];
+      };
+
+      const resolvePointOfSale = (name: string | null | undefined): PointOfSale | null => {
+        if (!name) {
+          return null;
+        }
+        return pointOfSaleByName[name.toLowerCase()] ?? null;
+      };
+
+      for (const seed of transactionSeeds) {
+        const actor = resolveUser(seed.userName);
+        if (!actor) {
+          throw new Error(`transactions.json → ${seed.ref}: el usuario "${seed.userName}" no existe en users.json.`);
+        }
+
+        const branch = seed.branchRef ? branchesByRef[seed.branchRef] : undefined;
+        if (seed.branchRef && !branch) {
+          throw new Error(`transactions.json → ${seed.ref}: no se encontró la sucursal con referencia "${seed.branchRef}".`);
+        }
+
+        const pointOfSale = resolvePointOfSale(seed.pointOfSaleName);
+        if (seed.pointOfSaleName && !pointOfSale) {
+          throw new Error(`transactions.json → ${seed.ref}: no se encontró el punto de venta "${seed.pointOfSaleName}".`);
+        }
+
+        const cashSession = seed.cashSessionRef
+          ? cashSessionsByRef[seed.cashSessionRef] ?? cashSessionsByRef[seed.cashSessionRef.toLowerCase()] ?? null
+          : null;
+
+        if (seed.cashSessionRef && !cashSession) {
+          throw new Error(`transactions.json → ${seed.ref}: la sesión de caja "${seed.cashSessionRef}" no existe.`);
+        }
+
+        let shareholder: Shareholder | undefined;
+        let shareholderPerson: Person | undefined;
+
+        if (seed.shareholderDocumentNumber) {
+          shareholder = shareholdersByDocumentNumber[seed.shareholderDocumentNumber]
+            ?? shareholdersByDocumentNumber[seed.shareholderDocumentNumber.toLowerCase()];
+
+          if (!shareholder) {
+            throw new Error(`transactions.json → ${seed.ref}: no se encontró un socio con documento "${seed.shareholderDocumentNumber}".`);
+          }
+
+          shareholderPerson = shareholderPersonsById[shareholder.personId]
+            ?? (await shareholderPersonRepo.findOne({ where: { id: shareholder.personId } }))
+            ?? undefined;
+        }
+
+        const occurredOnIso = seed.occurredOn ? seed.occurredOn.toISOString() : null;
+        const createdAtIso = seed.createdAt ? seed.createdAt.toISOString() : null;
+
+        let transaction = await transactionRepo.findOne({
+          where: { documentNumber: seed.documentNumber },
+          withDeleted: true,
+        });
+
+        const isNewTransaction = !transaction;
+
+        if (!transaction) {
+          transaction = new Transaction();
+          transaction.id = uuidv4();
+          transaction.documentNumber = seed.documentNumber;
+        }
+
+        transaction.transactionType = seed.transactionType;
+        transaction.status = seed.status;
+        transaction.branchId = branch?.id ?? undefined;
+        transaction.pointOfSaleId = pointOfSale?.id ?? undefined;
+        transaction.cashSessionId = cashSession?.id ?? undefined;
+        transaction.storageId = undefined;
+        transaction.targetStorageId = undefined;
+        transaction.customerId = undefined;
+        transaction.supplierId = undefined;
+        transaction.expenseCategoryId = undefined;
+        transaction.costCenterId = undefined;
+        transaction.relatedTransactionId = undefined;
+        transaction.externalReference = undefined;
+        transaction.notes = seed.notes ?? undefined;
+        transaction.metadata = undefined;
+        transaction.shareholderId = shareholder?.id ?? undefined;
+        transaction.userId = actor.id;
+        transaction.subtotal = seed.subtotal;
+        transaction.taxAmount = seed.taxAmount;
+        transaction.discountAmount = seed.discountAmount;
+        transaction.total = seed.total;
+        transaction.paymentMethod = seed.paymentMethod ?? undefined;
+        transaction.bankAccountKey = seed.bankAccountKey ?? undefined;
+
+        if (seed.amountPaid !== null && seed.amountPaid !== undefined) {
+          transaction.amountPaid = seed.amountPaid;
+        } else if (seed.kind === 'CASH_SESSION_OPENING') {
+          transaction.amountPaid = undefined;
+        } else {
+          transaction.amountPaid = seed.total;
+        }
+
+        transaction.changeAmount = seed.changeAmount ?? 0;
+
+        const userDisplayName = actor.person ? buildPersonDisplayName(actor.person) : actor.userName;
+
+        let metadata: Record<string, unknown> | null = null;
+
+        switch (seed.kind) {
+          case 'CASH_SESSION_OPENING': {
+            const openingAmount = seed.openingAmount ?? seed.total;
+            const openedAtIso = occurredOnIso ?? cashSession?.openedAt?.toISOString() ?? createdAtIso ?? new Date().toISOString();
+
+            metadata = {
+              seedTag: 'flowstore-initial',
+              branchId: transaction.branchId,
+              cashSessionId: cashSession?.id ?? null,
+              openingAmount,
+              pointOfSaleId: pointOfSale?.id ?? null,
+              openedByUserId: actor.id,
+              pointOfSaleName: pointOfSale?.name ?? null,
+              openedByUserName: userDisplayName,
+              cashSessionOpenedAt: openedAtIso,
+            };
+
+            break;
+          }
+          case 'CAPITAL_CONTRIBUTION': {
+            const shareholderName = shareholderPerson ? buildPersonDisplayName(shareholderPerson) : seed.shareholderDocumentNumber;
+            const balanceBefore = seed.balanceBefore ?? 0;
+            const balanceAfter = seed.balanceAfter ?? balanceBefore + seed.total;
+            const occurred = occurredOnIso ?? createdAtIso ?? new Date().toISOString();
+
+            metadata = {
+              seedTag: 'flowstore-initial',
+              source: 'capital-contribution-ui',
+              occurredOn: occurred,
+              bankMovement: {
+                kind: 'CAPITAL_CONTRIBUTION',
+                balanceAfter,
+                balanceBefore,
+                shareholderId: shareholder?.id ?? null,
+                bankAccountKey: seed.bankAccountKey ?? null,
+                createdByUserId: actor.id,
+                shareholderName,
+                bankAccountNumber: seed.bankAccountNumber ?? null,
+              },
+              capitalContribution: {
+                amount: seed.total,
+                occurredOn: occurred,
+                balanceAfter,
+                balanceBefore,
+                shareholderId: shareholder?.id ?? null,
+                bankAccountKey: seed.bankAccountKey ?? null,
+                shareholderName,
+              },
+            };
+
+            break;
+          }
+          case 'BANK_TO_CASH_TRANSFER': {
+            const balanceBefore = seed.balanceBefore ?? seed.total;
+            const balanceAfter = seed.balanceAfter ?? balanceBefore - seed.total;
+            const occurred = occurredOnIso ?? createdAtIso ?? new Date().toISOString();
+
+            metadata = {
+              seedTag: 'flowstore-initial',
+              source: 'bank-to-cash-transfer-ui',
+              transfer: {
+                amount: seed.total,
+                occurredOn: occurred,
+                balanceAfter,
+                balanceBefore,
+                originAccountKey: seed.bankAccountKey ?? null,
+                originAccountCode: seed.originAccountCode ?? null,
+                originAccountLabel: seed.bankAccountLabel ?? null,
+                destinationAccountCode: seed.destinationAccountCode ?? null,
+                destinationAccountName: seed.transferDestinationLabel ?? null,
+              },
+              occurredOn: occurred,
+              bankMovement: {
+                kind: 'BANK_TO_CASH_TRANSFER',
+                bankName: seed.bankName ?? null,
+                accountType: seed.bankAccountType ?? null,
+                balanceAfter,
+                balanceBefore,
+                bankAccountKey: seed.bankAccountKey ?? null,
+                createdByUserId: actor.id,
+                bankAccountNumber: seed.bankAccountNumber ?? null,
+                originAccountCode: seed.originAccountCode ?? null,
+              },
+            };
+
+            break;
+          }
+          default: {
+            metadata = null;
+          }
+        }
+
+        transaction.metadata = metadata ?? undefined;
+
+        await transactionRepo.save(transaction);
+
+        if (seed.createdAt) {
+          await transactionRepo
+            .createQueryBuilder()
+            .update()
+            .set({ createdAt: seed.createdAt })
+            .where('id = :id', { id: transaction.id })
+            .execute();
+        }
+
+        transactionsByDocumentNumber[transaction.documentNumber] = transaction;
+        transactionsByDocumentNumber[transaction.documentNumber.toLowerCase()] = transaction;
+
+        if (seed.relatedDocumentNumber) {
+          pendingRelationUpdates.push({ transactionId: transaction.id, relatedDocumentNumber: seed.relatedDocumentNumber });
+        }
+
+        const prefix = isNewTransaction ? '   ✓' : '   •';
+        const action = isNewTransaction ? 'Transacción registrada' : 'Transacción actualizada';
+        console.log(`${prefix} ${action}: ${transaction.documentNumber} (${transaction.transactionType}) → ${clpFormatter.format(transaction.total)}`);
+      }
+
+      for (const pending of pendingRelationUpdates) {
+        const related = transactionsByDocumentNumber[pending.relatedDocumentNumber]
+          ?? transactionsByDocumentNumber[pending.relatedDocumentNumber.toLowerCase()];
+
+        if (!related) {
+          throw new Error(`transactions.json: no se pudo resolver la transacción relacionada "${pending.relatedDocumentNumber}".`);
+        }
+
+        await transactionRepo.update({ id: pending.transactionId }, { relatedTransactionId: related.id });
+      }
+    }
+
+    // ============================================
+    // 9.4 CLIENTES BASE
     // ============================================
     console.log('\n🧑‍🤝‍🧑 Creando clientes base...');
 
@@ -1468,7 +2239,7 @@ async function seedFlowStore() {
     }
 
     // ============================================
-    // 9.2 PROVEEDORES BASE
+    // 9.5 PROVEEDORES BASE
     // ============================================
     console.log('\n🏭 Creando proveedores base...');
 
@@ -1672,7 +2443,10 @@ async function seedFlowStore() {
         product.productType = ProductType.PHYSICAL;
       }
 
-      const category = categoryMap[productSeed.categoryCode];
+      const category = categoryMap[productSeed.categoryName];
+      if (!category) {
+        console.log(`   ⚠ No se encontró la categoría ${productSeed.categoryName} para ${productSeed.name}`);
+      }
       const baseUnit = unitsBySymbol.get('un');
 
       if (!baseUnit) {

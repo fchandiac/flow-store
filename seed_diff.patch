@@ -1947,7 +1947,7 @@ index dc6d6a5..7e5db66 100644
 +        name: 'Anillo Halo Esmeralda',
 +        description: 'Halo con esmeralda central y diamantes laterales.',
 +        brand: 'Brillante High Jewelry',
-+        categoryCode: 'ANI',
++        categoryName: 'Anillos',
 +        variants: [
 +          {
 +            sku: 'ANI-HALO-ESM-T5',
@@ -1982,7 +1982,7 @@ index dc6d6a5..7e5db66 100644
 +        name: 'Pulsera Tennis Diamantes',
 +        description: 'Pulsera tennis con diamantes engastados en oro.',
 +        brand: 'Signature',
-+        categoryCode: 'PUL',
++        categoryName: 'Pulseras',
 +        variants: [
 +          {
 +            sku: 'PUL-TEN-DIA-19',
@@ -1999,7 +1999,7 @@ index dc6d6a5..7e5db66 100644
 +        name: 'Collar Perla Austral',
 +        description: 'Collar con perlas australes seleccionadas.',
 +        brand: 'Australis',
-+        categoryCode: 'COL',
++        categoryName: 'Collares',
 +        variants: [
 +          {
 +            sku: 'COL-PER-AUS-45',
@@ -2025,7 +2025,7 @@ index dc6d6a5..7e5db66 100644
 +        name: 'Set Ceremonial Oro Blanco',
 +        description: 'Set completo para ceremonias con incrustaciones brillantes.',
 +        brand: 'Brillante Exclusive',
-+        categoryCode: 'SET',
++        categoryName: 'Sets',
 +        variants: [
 +          {
 +            sku: 'SET-CER-ORO-BLN',
@@ -2042,7 +2042,7 @@ index dc6d6a5..7e5db66 100644
 +        name: 'Accesorio Limpiador Joyas',
 +        description: 'Spray limpiador suave para joyería delicada.',
 +        brand: 'CarePlus',
-+        categoryCode: 'ACC',
++        categoryName: 'Accesorios',
 +        variants: [
 +          {
 +            sku: 'ACC-LIMPIADOR-SPRAY',
@@ -2058,7 +2058,7 @@ index dc6d6a5..7e5db66 100644
 +        name: 'Caja Regalo Lujo',
 +        description: 'Caja de presentación de lujo con interior aterciopelado.',
 +        brand: 'Brillante Accessoires',
-+        categoryCode: 'ACC',
++        categoryName: 'Accesorios',
 +        variants: [
 +          {
 +            sku: 'ACC-CAJA-LUJO',
@@ -2074,7 +2074,7 @@ index dc6d6a5..7e5db66 100644
 +        name: 'Anillo Minimalista Plata',
 +        description: 'Anillo minimalista de plata pulida para uso diario.',
 +        brand: 'Linea Essential',
-+        categoryCode: 'ANI',
++        categoryName: 'Anillos',
 +        variants: [
 +          {
 +            sku: 'ANI-MINI-PLATA-T6',

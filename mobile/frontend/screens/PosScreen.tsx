@@ -5,6 +5,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Dimensions,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -16,23 +18,36 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { checkoutSale, searchProducts, type ProductSearchResultPage } from '../services/apiService';
+import { searchProducts, type ProductSearchResultPage } from '../services/apiService';
 import { RootStackParamList } from '../navigation/types';
-import {
-  selectCartItems,
-  selectCartTotals,
-  usePosStore,
-  type CartItem,
-} from '../store/usePosStore';
+import { selectCartItems, selectCartTotals, usePosStore, type CartItem } from '../store/usePosStore';
 import { formatCurrency } from '../utils/formatCurrency';
 import { palette } from '../theme/palette';
 
 export type PosScreenProps = NativeStackScreenProps<RootStackParamList, 'Pos'>;
 
+const LOGO_WIDTH_RATIO = 0.05;
+const LOGO_MIN_SIZE = 48;
+
+const formatStockValue = (value: number | null) => {
+  if (value === null || Number.isNaN(value)) {
+    return '0';
+  }
+  if (Number.isInteger(value)) {
+    return value.toLocaleString('es-PE');
+  }
+  return value.toLocaleString('es-PE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+};
+
 function PosScreen({ navigation }: PosScreenProps) {
   const isFocused = useIsFocused();
   const loginRedirectRef = useRef(false);
   const setupRedirectRef = useRef(false);
+  const searchInputRef = useRef<TextInput | null>(null);
+
   const user = usePosStore((state) => state.user);
   const pointOfSale = usePosStore((state) => state.pointOfSale);
   const session = usePosStore((state) => state.cashSession);
@@ -49,8 +64,12 @@ function PosScreen({ navigation }: PosScreenProps) {
   const [query, setQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [results, setResults] = useState<ProductSearchResultPage | null>(null);
-  const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [isCashMenuVisible, setIsCashMenuVisible] = useState(false);
+
+  const logoSize = Math.max(
+    LOGO_MIN_SIZE,
+    Math.round(Dimensions.get('window').width * LOGO_WIDTH_RATIO),
+  );
 
   useEffect(() => {
     if (!isFocused) {
@@ -67,15 +86,7 @@ function PosScreen({ navigation }: PosScreenProps) {
 
     loginRedirectRef.current = false;
 
-    if (!session || !pointOfSale) {
-      if (!setupRedirectRef.current) {
-        setupRedirectRef.current = true;
-        navigation.reset({ index: 0, routes: [{ name: 'SessionSetup' }] });
-      }
-      return;
-    }
-
-    if (session.status !== 'OPEN') {
+    if (!pointOfSale || !session || session.status !== 'OPEN') {
       if (!setupRedirectRef.current) {
         setupRedirectRef.current = true;
         navigation.reset({ index: 0, routes: [{ name: 'SessionSetup' }] });
@@ -92,10 +103,12 @@ function PosScreen({ navigation }: PosScreenProps) {
       Alert.alert('Consulta requerida', 'Ingresa texto para buscar productos.');
       return;
     }
+
     setIsSearching(true);
     try {
       const response = await searchProducts({ query: trimmed, page: 1, pageSize: 25 });
       setResults(response);
+
       if (!response.products.length) {
         Alert.alert('Sin resultados', 'No se encontraron productos que coincidan.');
       }
@@ -111,34 +124,24 @@ function PosScreen({ navigation }: PosScreenProps) {
     addProductToCart(product);
   };
 
-  const handleCheckout = async () => {
+  const handleClearSearch = () => {
+    setQuery('');
+    setResults(null);
+    searchInputRef.current?.focus();
+  };
+
+  const handleProceedToPayment = () => {
     if (!user || !pointOfSale || !session) {
       navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
       return;
     }
+
     if (!cartItems.length) {
       Alert.alert('Carrito vacío', 'Agrega productos antes de finalizar la venta.');
       return;
     }
-    setIsCheckingOut(true);
-    try {
-      const response = await checkoutSale({
-        cartItems,
-        userName: user.userName,
-        pointOfSaleId: pointOfSale.id,
-        cashSessionId: session.id,
-      });
-      clearCart();
-      Alert.alert(
-        'Venta registrada',
-        `Documento ${response.transaction.documentNumber} por ${formatCurrency(response.transaction.total)}.`,
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'No se pudo finalizar la venta.';
-      Alert.alert('Error en la venta', message);
-    } finally {
-      setIsCheckingOut(false);
-    }
+
+    navigation.navigate('Payment');
   };
 
   const handleLogout = () => {
@@ -215,12 +218,21 @@ function PosScreen({ navigation }: PosScreenProps) {
         </Pressable>
       </Modal>
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>{pointOfSale?.name ?? 'Punto de venta'}</Text>
-          <Text style={styles.headerSubtitle}>
-            {user ? `Usuario ${user.userName}` : 'Sesion no autenticada'}
-          </Text>
-          {session ? <Text style={styles.headerSubtitle}>Sesión {session.id}</Text> : null}
+        <View style={styles.headerContent}>
+          <Image
+            source={require('../assets/icon.png')}
+            style={[styles.headerLogo, { width: logoSize, height: logoSize }]}
+            accessibilityRole="image"
+            accessibilityLabel="Logo de FlowStore"
+          />
+          <View style={styles.headerInfo}>
+            <Text style={styles.headerTitle} numberOfLines={1} ellipsizeMode="tail">
+              {pointOfSale?.name ?? 'Punto de venta'}
+            </Text>
+            <Text style={styles.headerSubtitle} numberOfLines={1} ellipsizeMode="tail">
+              {user?.personName ?? 'Persona no asignada'}
+            </Text>
+          </View>
         </View>
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -245,15 +257,12 @@ function PosScreen({ navigation }: PosScreenProps) {
       </View>
 
       <View style={styles.columns}>
-        <ScrollView
-          style={[styles.column, styles.leftColumn]}
-          contentContainerStyle={styles.columnContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <View style={styles.card}>
+        <View style={[styles.column, styles.leftColumn]}>
+          <View style={[styles.card, styles.searchCard]}>
             <Text style={styles.sectionTitle}>Buscar productos</Text>
             <View style={styles.searchRow}>
               <TextInput
+                ref={searchInputRef}
                 autoCapitalize="characters"
                 autoCorrect={false}
                 onChangeText={setQuery}
@@ -261,46 +270,106 @@ function PosScreen({ navigation }: PosScreenProps) {
                 placeholderTextColor={palette.textMuted}
                 style={styles.searchInput}
                 value={query}
+                returnKeyType="search"
+                blurOnSubmit={false}
+                onSubmitEditing={() => {
+                  void handleSearch();
+                }}
               />
-              <TouchableOpacity
-                activeOpacity={0.85}
-                onPress={handleSearch}
-                style={[styles.primaryButton, styles.searchButton]}
-                disabled={isSearching}
-              >
-                {isSearching ? (
-                  <ActivityIndicator color={palette.primaryText} />
-                ) : (
-                  <Text style={styles.primaryButtonLabel}>Buscar</Text>
-                )}
-              </TouchableOpacity>
+              <View style={styles.searchActions}>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleSearch}
+                  disabled={isSearching}
+                  accessibilityRole="button"
+                  accessibilityLabel="Buscar productos"
+                  style={[styles.iconButton, isSearching && styles.iconButtonDisabled]}
+                >
+                  {isSearching ? (
+                    <ActivityIndicator color={palette.primaryText} size="small" />
+                  ) : (
+                    <Ionicons name="search-outline" size={22} color={palette.primaryText} />
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.85}
+                  onPress={handleClearSearch}
+                  disabled={!query || query.trim().length === 0}
+                  accessibilityRole="button"
+                  accessibilityLabel="Limpiar búsqueda"
+                  style={[
+                    styles.iconButton,
+                    styles.iconButtonSecondary,
+                    styles.iconButtonSpacer,
+                    (!query || query.trim().length === 0) && styles.iconButtonDisabled,
+                  ]}
+                >
+                  <Ionicons name="close-outline" size={22} color={palette.textPrimary} />
+                </TouchableOpacity>
+              </View>
             </View>
             {results ? (
-              <View style={styles.results}>
-                {results.products.map((product) => (
-                  <TouchableOpacity
-                    key={product.variantId}
-                    activeOpacity={0.85}
-                    onPress={() => handleAddProduct(product)}
-                    style={styles.resultItem}
-                  >
-                    <View style={styles.resultInfo}>
-                      <Text style={styles.resultName}>{product.productName}</Text>
-                      <Text style={styles.resultMeta}>
-                        SKU {product.sku}
-                        {product.barcode ? ` • Código ${product.barcode}` : ''}
-                      </Text>
-                    </View>
-                    <View style={styles.resultPriceBlock}>
-                      <Text style={styles.resultPrice}>{formatCurrency(product.unitPriceWithTax)}</Text>
-                      <Text style={styles.resultHint}>{`+IVA ${product.unitTaxRate.toFixed(2)}%`}</Text>
-                    </View>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.resultsContainer}>
+                <ScrollView
+                  style={styles.resultsList}
+                  contentContainerStyle={styles.resultsContent}
+                  showsVerticalScrollIndicator={false}
+                >
+                  {results.products.map((product) => {
+                    const hasInventoryControl = product.trackInventory;
+                    const rawStock = hasInventoryControl ? product.availableStock ?? 0 : null;
+                    const isOutOfStock = hasInventoryControl && (rawStock ?? 0) <= 0;
+                    const stockLabel = hasInventoryControl
+                      ? `Stock ${formatStockValue(rawStock)}${product.unitSymbol ? ` ${product.unitSymbol}` : ''}`
+                      : 'Inventario sin control';
+
+                    return (
+                      <TouchableOpacity
+                        key={product.variantId}
+                        activeOpacity={0.85}
+                        onPress={() => handleAddProduct(product)}
+                        style={styles.resultItem}
+                      >
+                        <View style={styles.resultInfo}>
+                          <Text style={styles.resultName} numberOfLines={2}>
+                            {product.productName}
+                          </Text>
+                          <Text style={styles.resultMeta} numberOfLines={1}>
+                            SKU {product.sku}
+                            {product.barcode ? ` • Código ${product.barcode}` : ''}
+                          </Text>
+                        </View>
+                        <View style={styles.resultAttributes}>
+                          {product.attributes.length ? (
+                            product.attributes.map((attribute) => (
+                              <View key={`${product.variantId}-${attribute.id}`} style={styles.attributeBadge}>
+                                <Text style={styles.attributeBadgeText} numberOfLines={1}>
+                                  {attribute.name ? `${attribute.name}: ` : ''}
+                                  {attribute.value}
+                                </Text>
+                              </View>
+                            ))
+                          ) : (
+                            <Text style={styles.attributePlaceholder}>Sin atributos</Text>
+                          )}
+                        </View>
+                        <View style={styles.resultPriceBlock}>
+                          <Text style={styles.resultPrice}>{formatCurrency(product.unitPriceWithTax)}</Text>
+                          <Text
+                            style={[styles.resultStock, isOutOfStock && styles.resultStockEmpty]}
+                            numberOfLines={1}
+                          >
+                            {stockLabel}
+                          </Text>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
               </View>
             ) : null}
           </View>
-        </ScrollView>
+        </View>
 
         <ScrollView
           style={[styles.column, styles.rightColumn]}
@@ -312,42 +381,43 @@ function PosScreen({ navigation }: PosScreenProps) {
             {cartItems.length ? (
               cartItems.map((item: CartItem) => (
                 <View key={item.variantId} style={styles.cartItem}>
-                  <View style={styles.cartItemInfo}>
-                    <Text style={styles.cartItemName}>{item.name}</Text>
-                    <Text style={styles.cartItemMeta}>
-                      SKU {item.sku}
-                      {item.unitSymbol ? ` • ${item.unitSymbol}` : ''}
-                    </Text>
-                  </View>
-                  <View style={styles.cartActions}>
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      onPress={() => decrementItem(item.variantId)}
-                      style={[styles.counterButton, styles.counterButtonLeft]}
-                    >
-                      <Text style={styles.counterLabel}>-</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.counterValue}>{item.qty}</Text>
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      onPress={() => incrementItem(item.variantId)}
-                      style={[styles.counterButton, styles.counterButtonRight]}
-                    >
-                      <Text style={styles.counterLabel}>+</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      activeOpacity={0.85}
-                      onPress={() => removeItem(item.variantId)}
-                      style={styles.removeButton}
-                    >
-                      <Text style={styles.removeLabel}>Eliminar</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.cartItemTotals}>
-                    <Text style={styles.cartItemPrice}>{formatCurrency(item.total)}</Text>
-                    <Text style={styles.cartItemHint}>
-                      {`Subtotal ${formatCurrency(item.subtotal)} • IVA ${formatCurrency(item.taxAmount)}`}
-                    </Text>
+                  <View style={styles.cartItemRow}>
+                    <View style={styles.cartItemColumnLeft}>
+                      <Text style={styles.cartItemName} numberOfLines={2}>
+                        {item.name}
+                      </Text>
+                      <Text style={styles.cartItemSku}>{`SKU ${item.sku}`}</Text>
+                      <Text style={styles.cartItemUnitPrice}>{formatCurrency(item.unitPriceWithTax)}</Text>
+                      <Text style={styles.cartItemLineTotal}>{formatCurrency(item.total)}</Text>
+                    </View>
+                    <View style={styles.cartItemColumnRight}>
+                      <View style={styles.cartCounterGroup}>
+                        <TouchableOpacity
+                          activeOpacity={0.85}
+                          onPress={() => decrementItem(item.variantId)}
+                          style={[styles.counterButton, styles.counterButtonLeft]}
+                        >
+                          <Text style={styles.counterLabel}>-</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.counterValue}>{item.qty}</Text>
+                        <TouchableOpacity
+                          activeOpacity={0.85}
+                          onPress={() => incrementItem(item.variantId)}
+                          style={[styles.counterButton, styles.counterButtonRight]}
+                        >
+                          <Text style={styles.counterLabel}>+</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <TouchableOpacity
+                        activeOpacity={0.85}
+                        onPress={() => removeItem(item.variantId)}
+                        style={styles.cartRemoveIcon}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Eliminar ${item.name}`}
+                      >
+                        <Ionicons name="trash-outline" size={18} color={palette.danger} />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
               ))
@@ -368,19 +438,15 @@ function PosScreen({ navigation }: PosScreenProps) {
             </View>
             <TouchableOpacity
               activeOpacity={0.85}
-              disabled={isCheckingOut || !cartItems.length}
-              onPress={handleCheckout}
+              disabled={!cartItems.length}
+              onPress={handleProceedToPayment}
               style={[
                 styles.primaryButton,
                 styles.checkoutButton,
-                (isCheckingOut || !cartItems.length) && styles.checkoutButtonDisabled,
+                !cartItems.length && styles.checkoutButtonDisabled,
               ]}
             >
-              {isCheckingOut ? (
-                <ActivityIndicator color={palette.primaryText} />
-              ) : (
-                <Text style={styles.checkoutLabel}>Finalizar venta</Text>
-              )}
+              <Text style={styles.checkoutLabel}>Proceder al pago</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -401,10 +467,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 16,
+    paddingTop: 6,
+  },
+  headerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  headerLogo: {
+    resizeMode: 'contain',
+  },
+  headerInfo: {
+    marginLeft: 12,
+    flexShrink: 1,
+  },
+  headerTitle: {
+    fontSize: 22,
+    color: palette.textSecondary,
+    fontWeight: '600',
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: palette.textMuted,
+    marginTop: 4,
   },
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  headerIconButton: {
+    padding: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  headerIconButtonFirst: {
+    marginLeft: 0,
   },
   columns: {
     flex: 1,
@@ -424,25 +522,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingBottom: 24,
   },
-  headerTitle: {
-    fontSize: 22,
-    color: palette.textSecondary,
-    fontWeight: '600',
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: palette.textMuted,
-    marginTop: 4,
-  },
-  headerIconButton: {
-    padding: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 12,
-  },
-  headerIconButtonFirst: {
-    marginLeft: 0,
-  },
   card: {
     borderRadius: 16,
     backgroundColor: palette.surface,
@@ -450,6 +529,10 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.border,
+  },
+  searchCard: {
+    flex: 1,
+    marginBottom: 0,
   },
   sectionTitle: {
     fontSize: 18,
@@ -473,34 +556,58 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginRight: 12,
   },
+  searchActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: palette.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconButtonSecondary: {
+    backgroundColor: palette.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+  },
+  iconButtonSpacer: {
+    marginLeft: 8,
+  },
+  iconButtonDisabled: {
+    opacity: 0.5,
+  },
   primaryButton: {
     borderRadius: 12,
     paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: palette.primary,
   },
-  searchButton: {
-    minWidth: 120,
-  },
-  primaryButtonLabel: {
-    color: palette.primaryText,
-    fontWeight: '600',
-  },
-  results: {
+  resultsContainer: {
     marginTop: 16,
+    flex: 1,
+  },
+  resultsList: {
+    flex: 1,
+  },
+  resultsContent: {
+    flexGrow: 1,
+    paddingBottom: 12,
   },
   resultItem: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.border,
-    padding: 14,
+    paddingVertical: 16,
+    paddingHorizontal: 14,
     marginBottom: 12,
     backgroundColor: palette.surface,
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   resultInfo: {
     flex: 1,
@@ -516,43 +623,103 @@ const styles = StyleSheet.create({
     color: palette.textMuted,
     marginTop: 4,
   },
+  resultAttributes: {
+    flex: 1,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginRight: 12,
+    paddingTop: 2,
+  },
+  attributeBadge: {
+    borderRadius: 999,
+    backgroundColor: palette.surfaceMuted,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: palette.border,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  attributeBadgeText: {
+    fontSize: 12,
+    color: palette.textSecondary,
+    fontWeight: '500',
+  },
+  attributePlaceholder: {
+    fontSize: 12,
+    color: palette.textMuted,
+  },
   resultPriceBlock: {
     alignItems: 'flex-end',
+    minWidth: 120,
+    marginLeft: 12,
   },
   resultPrice: {
     fontSize: 16,
     color: palette.primary,
     fontWeight: '700',
   },
+  resultStock: {
+    fontSize: 12,
+    color: palette.textSecondary,
+    marginTop: 6,
+    fontWeight: '500',
+  },
+  resultStockEmpty: {
+    color: palette.danger,
+  },
   resultHint: {
     fontSize: 12,
     color: palette.textMuted,
+    marginTop: 4,
   },
   cartItem: {
     borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.border,
-    padding: 14,
+    padding: 16,
     marginBottom: 12,
     backgroundColor: palette.surface,
   },
-  cartItemInfo: {
-    marginBottom: 10,
+  cartItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  cartItemColumnLeft: {
+    flex: 1,
+    marginRight: 12,
   },
   cartItemName: {
     fontSize: 16,
     color: palette.textSecondary,
     fontWeight: '600',
   },
-  cartItemMeta: {
+  cartItemSku: {
     fontSize: 12,
     color: palette.textMuted,
     marginTop: 4,
   },
-  cartActions: {
+  cartItemUnitPrice: {
+    fontSize: 14,
+    color: palette.textSecondary,
+    fontWeight: '600',
+    marginTop: 10,
+  },
+  cartItemLineTotal: {
+    fontSize: 16,
+    color: palette.primary,
+    fontWeight: '700',
+    marginTop: 4,
+  },
+  cartItemColumnRight: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    flexShrink: 0,
+    paddingLeft: 12,
+  },
+  cartCounterGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
   },
   counterButton: {
     width: 40,
@@ -579,30 +746,14 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: palette.textSecondary,
     fontWeight: '600',
+    minWidth: 24,
+    textAlign: 'center',
   },
-  removeButton: {
-    marginLeft: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: palette.danger,
-  },
-  removeLabel: {
-    color: palette.primaryText,
-    fontWeight: '600',
-  },
-  cartItemTotals: {
-    alignItems: 'flex-start',
-  },
-  cartItemPrice: {
-    fontSize: 16,
-    color: palette.textSecondary,
-    fontWeight: '600',
-  },
-  cartItemHint: {
-    fontSize: 12,
-    color: palette.textMuted,
-    marginTop: 4,
+  cartRemoveIcon: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: palette.dangerTint,
+    marginTop: 12,
   },
   emptyCart: {
     color: palette.textMuted,
@@ -643,8 +794,8 @@ const styles = StyleSheet.create({
   checkoutButton: {
     marginTop: 20,
     paddingVertical: 16,
-    backgroundColor: palette.primary,
     borderRadius: 12,
+    backgroundColor: palette.primary,
   },
   checkoutButtonDisabled: {
     backgroundColor: palette.primaryStrong,

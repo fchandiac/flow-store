@@ -10,4 +10,5 @@ export type RootStackParamList = {
   CashClosing: undefined;
   CashIncome: undefined;
   CashOutcome: undefined;
+  Payment: undefined;
 };

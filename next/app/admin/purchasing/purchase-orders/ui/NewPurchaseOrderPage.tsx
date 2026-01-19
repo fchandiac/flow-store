@@ -15,6 +15,7 @@ import { getInventoryFilters } from '@/app/actions/inventory';
 import { getActiveTaxes } from '@/app/actions/taxes';
 import { getAttributes } from '@/app/actions/attributes';
 import Switch from '@/app/baseComponents/Switch/Switch';
+import NumberStepper from '@/baseComponents/NumberStepper/NumberStepper';
 import {
     createPurchaseOrder,
     searchProductsForPurchase,
@@ -59,6 +60,22 @@ const currencyFormatter = new Intl.NumberFormat('es-CL', {
     minimumFractionDigits: 0,
     maximumFractionDigits: 0,
 });
+
+const DECIMAL_STEP = 0.001;
+
+const sanitizeLineQuantity = (value: number, allowDecimals: boolean): number => {
+    if (!Number.isFinite(value)) {
+        return allowDecimals ? DECIMAL_STEP : 1;
+    }
+
+    if (allowDecimals) {
+        const clamped = Math.max(DECIMAL_STEP, value);
+        return Number(clamped.toFixed(3));
+    }
+
+    const rounded = Math.round(value);
+    return Math.max(1, rounded);
+};
 
 const formatAttributeKey = (key: string) => {
     const normalized = key.replace(/[_-]+/g, ' ').trim();
@@ -298,9 +315,11 @@ const NewPurchaseOrderPage = () => {
                 const enforcedSelection = enforceExemptRules(existing.selectedTaxIds ?? []);
                 const appliedSelection = enforcedSelection.length > 0 ? enforcedSelection : enforceExemptRules(getDefaultTaxSelection());
                 const lineFallbackRates = existing.taxes?.map((tax) => ({ id: tax.id, rate: tax.rate })) ?? fallbackRates;
+                const allowDecimals = existing.allowDecimals ?? true;
+                const nextQuantity = sanitizeLineQuantity(existing.quantity + 1, allowDecimals);
                 updated[existingIndex] = {
                     ...existing,
-                    quantity: Number(existing.quantity + 1),
+                    quantity: nextQuantity,
                     selectedTaxIds: appliedSelection,
                     taxRate: computeCombinedRate(appliedSelection, lineFallbackRates),
                 };
@@ -308,9 +327,10 @@ const NewPurchaseOrderPage = () => {
             }
 
             const defaultPrice = product.pmp ?? product.baseCost ?? product.basePrice ?? 0;
+            const allowDecimals = product.allowDecimals ?? true;
             const newLine: OrderLine = {
                 ...product,
-                quantity: 1,
+                quantity: sanitizeLineQuantity(1, allowDecimals),
                 unitPrice: defaultPrice,
                 unitCost: defaultPrice,
                 taxRate: defaultTaxRate,
@@ -339,11 +359,18 @@ const NewPurchaseOrderPage = () => {
     }, []);
 
     const handleQuantityChange = useCallback((variantId: string, quantity: number) => {
-        setLines((prev) => prev.map((line) => (
-            line.variantId === variantId
-                ? { ...line, quantity } 
-                : line
-        )));
+        setLines((prev) =>
+            prev.map((line) => {
+                if (line.variantId !== variantId) {
+                    return line;
+                }
+                const allowDecimals = line.allowDecimals ?? true;
+                return {
+                    ...line,
+                    quantity: sanitizeLineQuantity(quantity, allowDecimals),
+                };
+            })
+        );
     }, []);
 
     const handlePriceChange = useCallback((variantId: string, value: number) => {
@@ -481,7 +508,14 @@ const NewPurchaseOrderPage = () => {
             });
 
             if (!result.success) {
-                throw new Error(result.error || 'No se pudo crear la orden');
+                if (result.error && result.error.toLowerCase().includes('no autenticado')) {
+                    error('Tu sesión ha expirado. Inicia sesión nuevamente para crear órdenes.');
+                    router.push('/');
+                    return;
+                }
+
+                error(result.error || 'No se pudo crear la orden de compra');
+                return;
             }
 
             success('Orden de compra creada');
@@ -654,6 +688,7 @@ const NewPurchaseOrderPage = () => {
                                         const rate = Number(line.taxRate ?? 0);
                                         const sanitizedRate = Number.isFinite(rate) ? rate : 0;
                                         const attributeEntries = Object.entries(line.attributeValues ?? {}).filter(([, value]) => Boolean(value));
+                                        const allowDecimals = line.allowDecimals ?? true;
                                         return (
                                             <tr key={line.variantId} className="border-b border-border/60">
                                                 <td className="py-3 pr-3 align-top">
@@ -675,21 +710,18 @@ const NewPurchaseOrderPage = () => {
                                                     </div>
                                                 </td>
                                                 <td className="py-3 pr-3 align-top">
-                                                    <TextField
-                                                        label="Cantidad"
-                                                        type="number"
-                                                        value={String(line.quantity)}
-                                                        placeholder=""
-                                                        aria-label="Cantidad"
-                                                        onChange={(event) => {
-                                                            const parsed = Number(event.target.value);
-                                                            const sanitized = Number.isFinite(parsed) ? Math.max(1, Math.floor(parsed)) : 1;
-                                                            handleQuantityChange(line.variantId, sanitized);
-                                                        }}
-                                                        min={1}
-                                                        step={1}
-                                                        className="w-24 [&_[data-test-id='text-field-label']]:hidden [&_label]:hidden"
-                                                    />
+                                                    <div className="w-32">
+                                                        <NumberStepper
+                                                            value={line.quantity}
+                                                            onChange={(value) => handleQuantityChange(line.variantId, value)}
+                                                            step={allowDecimals ? DECIMAL_STEP : 1}
+                                                            min={allowDecimals ? DECIMAL_STEP : 1}
+                                                            allowNegative={false}
+                                                            allowFloat={allowDecimals}
+                                                            className="text-center"
+                                                            data-test-id={`purchase-order-line-${line.variantId}-quantity`}
+                                                        />
+                                                    </div>
                                                 </td>
                                                 <td className="py-3 pr-3 align-top">
                                                     <TextField

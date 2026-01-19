@@ -1,8 +1,29 @@
 [
   {
     "userName": "admin",
-    "pass": "890890",
-    "mail": "admin@joyeriabrillante.cl",
-    "rol": "ADMIN"
+    "pass": "098098",
+    "mail": "felipe.chandia.cast@gmail.com",
+    "rol": "ADMIN",
+    "person": {
+      "firstName": "Felipe",
+      "lastName": "Chandía Castillo",
+      "documentNumber": "16.822.404-4",
+      "phone": "+56 9 30978304",
+      "address": "Parral, Chile"
+    }
+  },
+  {
+    "userName": "op",
+    "pass": "098098",
+    "mail": "operaciones@joyeria.cl",
+    "rol": "OPERATOR",
+    "person": {
+      "firstName": "Camila",
+      "lastName": "Rojas Manríquez",
+      "documentNumber": "18.456.321-7",
+      "email": "camila.rojas@joyeria.cl",
+      "phone": "+56 9 6543 2109",
+      "address": "Las Torres 562, La Florida"
+    }
   }
 ]

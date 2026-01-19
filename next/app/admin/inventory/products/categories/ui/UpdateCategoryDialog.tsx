@@ -35,7 +35,6 @@ const UpdateCategoryDialog: React.FC<UpdateCategoryDialogProps> = ({
 
     const [formData, setFormData] = useState({
         name: category.name,
-        code: category.code || '',
         description: category.description || '',
         parentId: category.parentId || '',
         sortOrder: category.sortOrder.toString(),
@@ -45,7 +44,6 @@ const UpdateCategoryDialog: React.FC<UpdateCategoryDialogProps> = ({
     useEffect(() => {
         setFormData({
             name: category.name,
-            code: category.code || '',
             description: category.description || '',
             parentId: category.parentId || '',
             sortOrder: category.sortOrder.toString(),
@@ -101,7 +99,6 @@ const UpdateCategoryDialog: React.FC<UpdateCategoryDialogProps> = ({
         try {
             const result = await updateCategory(category.id, {
                 name: formData.name.trim(),
-                code: formData.code.trim() || undefined,
                 description: formData.description.trim() || undefined,
                 parentId: formData.parentId || null,
                 sortOrder: parseInt(formData.sortOrder) || 0,
@@ -128,7 +125,6 @@ const UpdateCategoryDialog: React.FC<UpdateCategoryDialogProps> = ({
     const handleClose = () => {
         setFormData({
             name: category.name,
-            code: category.code || '',
             description: category.description || '',
             parentId: category.parentId || '',
             sortOrder: category.sortOrder.toString(),
@@ -163,14 +159,6 @@ const UpdateCategoryDialog: React.FC<UpdateCategoryDialogProps> = ({
                         onChange={(e) => handleChange('name', e.target.value)}
                         required
                         data-test-id="update-category-name"
-                    />
-                    
-                    <TextField
-                        label="Código"
-                        value={formData.code}
-                        onChange={(e) => handleChange('code', e.target.value)}
-                        placeholder="CAT-001"
-                        data-test-id="update-category-code"
                     />
                     
                     <TextField
