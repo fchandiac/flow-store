@@ -6,6 +6,8 @@ import { signIn, signOut, useSession } from "next-auth/react";
 import { TextField } from "@/app/baseComponents/TextField/TextField";
 import { Button } from "@/app/baseComponents/Button/Button";
 import Alert from "@/app/baseComponents/Alert/Alert";
+import IconButton from "@/app/baseComponents/IconButton/IconButton";
+import Dialog from "@/app/baseComponents/Dialog/Dialog";
 
 /**
  * Página de Login
@@ -19,6 +21,16 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Estado para el Dialog de configuración DB
+    const [dbDialogOpen, setDbDialogOpen] = useState(false);
+    // Estado para los campos de conexión DB
+    const [dbHost, setDbHost] = useState("localhost");
+    const [dbPort, setDbPort] = useState("3306");
+    const [dbUser, setDbUser] = useState("root");
+    const [dbPassword, setDbPassword] = useState("");
+    const [dbName, setDbName] = useState("flow-store");
+    const [dbEngine, setDbEngine] = useState("mysql");
 
     useEffect(() => {
         if (status === "authenticated") {
@@ -53,15 +65,26 @@ export default function LoginPage() {
 
             if (!response) {
                 setError("No se pudo procesar la autenticación");
-                setIsSubmitting(false);
+            const [dbDialogOpen, setDbDialogOpen] = useState(false);
+            // Estado para los campos de conexión DB
+            const [dbHost, setDbHost] = useState("localhost");
+            const [dbPort, setDbPort] = useState("3306");
+            const [dbUser, setDbUser] = useState("root");
+            const [dbPassword, setDbPassword] = useState("");
+            const [dbName, setDbName] = useState("flow-store");
+            const [dbEngine, setDbEngine] = useState("mysql");
                 return;
             }
 
             if (response.error) {
-                const message =
-                    response.error === "CredentialsSignin"
-                        ? "Usuario o contraseña incorrectos"
-                        : response.error;
+                let message = "";
+                if (response.error === "CredentialsSignin") {
+                    message = "Usuario o contraseña incorrectos";
+                } else if (response.error.includes("Access denied for user")) {
+                    message = "Acceso denegado: usuario o contraseña de base de datos incorrectos.";
+                } else {
+                    message = response.error;
+                }
                 setError(message);
                 setIsSubmitting(false);
                 return;
@@ -76,7 +99,84 @@ export default function LoginPage() {
     };
 
     return (
-        <main className="min-h-screen flex items-center justify-center bg-white">
+        <main className="min-h-screen flex items-center justify-center bg-white relative">
+            {/* Botón de configuración DB en esquina inferior derecha */}
+            <div className="fixed bottom-6 right-6 z-50">
+                <IconButton
+                    icon="settings"
+                    variant="ghost"
+                    size="lg"
+                    ariaLabel="Configurar conexión a base de datos"
+                    onClick={() => setDbDialogOpen(true)}
+                />
+            </div>
+
+            {/* Dialog de configuración DB */}
+            <Dialog
+                open={dbDialogOpen}
+                onClose={() => setDbDialogOpen(false)}
+                title="Configuración de Base de Datos"
+                showCloseButton
+                size="md"
+            >
+                <form className="space-y-4 p-2">
+                    <TextField
+                        label="Host"
+                        value={dbHost}
+                        onChange={e => setDbHost(e.target.value)}
+                        placeholder="localhost"
+                        required
+                    />
+                    <TextField
+                        label="Puerto"
+                        value={dbPort}
+                        onChange={e => setDbPort(e.target.value)}
+                        placeholder="3306"
+                        required
+                        type="number"
+                    />
+                    <TextField
+                        label="Usuario"
+                        value={dbUser}
+                        onChange={e => setDbUser(e.target.value)}
+                        placeholder="root"
+                        required
+                    />
+                    <TextField
+                        label="Contraseña"
+                        value={dbPassword}
+                        onChange={e => setDbPassword(e.target.value)}
+                        placeholder="••••••••"
+                        type="password"
+                        required
+                        passwordVisibilityToggle
+                    />
+                    <TextField
+                        label="Base de datos"
+                        value={dbName}
+                        onChange={e => setDbName(e.target.value)}
+                        placeholder="flow-store"
+                        required
+                    />
+                    {/* Opcional: engine/tipo */}
+                    <TextField
+                        label="Engine"
+                        value={dbEngine}
+                        onChange={e => setDbEngine(e.target.value)}
+                        placeholder="mysql"
+                        required
+                    />
+                    <div className="flex justify-end gap-2 pt-2">
+                        <Button type="button" variant="outlined" onClick={() => setDbDialogOpen(false)}>
+                            Cancelar
+                        </Button>
+                        <Button type="submit" variant="primary">
+                            Guardar
+                        </Button>
+                    </div>
+                </form>
+            </Dialog>
+
             <div className="w-full max-w-md">
                 {/* Card de Login */}
                 <div className="bg-white rounded-2xl shadow-2xl p-8">

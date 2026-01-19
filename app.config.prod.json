@@ -8,16 +8,9 @@
     "password": "redbull90",
     "database": "flow-store",
     "synchronize": false,
-    "logging": false
-  },
-  "dataBase": {
-    "name": "flow-store",
+    "logging": false,
     "version": "1.0.0",
     "description": "Database for FlowStore application",
-    "port": 3306,
-    "host": "localhost",
-    "username": "root",
-    "password": "redbull90",
     "engine": "mysql"
   },
   "app": {

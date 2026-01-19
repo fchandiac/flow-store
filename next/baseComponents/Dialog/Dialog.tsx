@@ -267,19 +267,21 @@ const Dialog: React.FC<DialogProps> = ({
         data-test-id={dataTestId || 'dialog-content'}
       >
         {title && title !== '' && (
-          <div className="flex items-center justify-between mb-2 p-4 pb-0">
+          <div className="flex items-center mb-2 p-4 pb-0">
             <h2 className="title p-1 flex-1" data-test-id="dialog-title">
               {title}
             </h2>
             {showCloseButton && (
-              <Button
-                variant="outlined"
-                size="sm"
-                onClick={handleCloseButtonClick}
-                className="ml-2"
-              >
-                {closeButtonText}
-              </Button>
+              <div className="flex justify-end w-auto">
+                <Button
+                  variant="outlined"
+                  size="sm"
+                  onClick={handleCloseButtonClick}
+                  className="ml-2"
+                >
+                  {closeButtonText}
+                </Button>
+              </div>
             )}
           </div>
         )}

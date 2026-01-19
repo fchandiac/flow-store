@@ -133,17 +133,18 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
     // 1️⃣ CREA EL DATASOURCE SI NO EXISTE (singleton)
     if (!globalDataSource) {
       console.log("[DB] Creando nueva instancia de DataSource (singleton)...");
+      const dbConf = appConfig?.database || appConfig?.dataBase || {};
       globalDataSource = new DataSource({
-        type: "mysql",
-        host: appConfig?.dataBase?.host || "localhost",
-        port: appConfig?.dataBase?.port || 3306,
-        username: appConfig?.dataBase?.username || "root",
-        password: appConfig?.dataBase?.password || "",
-        database: appConfig?.dataBase?.name || "next-start",
-        synchronize: process.env.NODE_ENV === 'test' ? false : (appConfig?.database?.synchronize ?? false), // Desactivar synchronize en tests
-        logging: appConfig?.database?.logging ?? false,
-        ssl: appConfig?.database?.ssl || appConfig?.dataBase?.ssl ? {
-          rejectUnauthorized: appConfig?.database?.ssl?.rejectUnauthorized ?? false
+        type: dbConf.type || "mysql",
+        host: dbConf.host || "localhost",
+        port: dbConf.port || 3306,
+        username: dbConf.username || "root",
+        password: dbConf.password || "",
+        database: dbConf.database || dbConf.name || "next-start",
+        synchronize: process.env.NODE_ENV === 'test' ? false : (dbConf.synchronize ?? false),
+        logging: dbConf.logging ?? false,
+        ssl: dbConf.ssl ? {
+          rejectUnauthorized: dbConf.ssl?.rejectUnauthorized ?? false
         } : false,
         entities: [
           User, Person, Audit, Permission,
@@ -170,7 +171,7 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
           connectTimeout: 20000,
           idleTimeout: 10000,
           authPlugins: {
-            mysql_clear_password: () => () => appConfig?.dataBase?.password || "",
+            mysql_clear_password: () => () => dbConf.password || "",
           }
         }
       });
