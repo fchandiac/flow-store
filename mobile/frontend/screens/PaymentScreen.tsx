@@ -887,11 +887,12 @@ const styles = StyleSheet.create({
   },
   searchResultsContainer: {
     marginTop: 16,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
-    backgroundColor: palette.surface,
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
+    backgroundColor: 'transparent',
     minHeight: 120,
+    padding: 0,
   },
   searchMessage: {
     padding: 16,
@@ -914,13 +915,15 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   customerResultCard: {
-    marginHorizontal: 12,
+    marginHorizontal: 0,
     marginBottom: 10,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: palette.border,
+    borderRadius: 0,
+    borderWidth: 0,
+    borderColor: 'transparent',
     backgroundColor: palette.surface,
-    padding: 14,
+    padding: 0,
+    width: '100%',
+    alignSelf: 'stretch',
   },
   customerResultCardSelected: {
     borderColor: palette.primary,
@@ -981,12 +984,16 @@ const styles = StyleSheet.create({
   createCustomerModalCard: {
     width: '100%',
     maxWidth: 560,
-    maxHeight: 640,
+    height: 'auto',
+    
+    // Remove fixed maxHeight to allow content to grow
+    // maxHeight: 640,
     borderRadius: 20,
     backgroundColor: palette.surface,
     padding: 20,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: palette.border,
+    alignSelf: 'center',
   },
   createCustomerModalTitle: {
     fontSize: 18,
