@@ -460,7 +460,10 @@ function PaymentScreen() {
         <View style={styles.columns}>
           <View style={[styles.column, styles.leftColumn]}>
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>Resumen de la venta</Text>
+              <View style={styles.summaryHeader}>
+                <Text style={styles.cardTitle}>Resumen de la venta</Text>
+                <Text style={styles.summaryTotalValueLarge}>{formatCurrency(cartTotals.total)}</Text>
+              </View>
               {cartItems.length === 0 ? (
                 <Text style={styles.emptyCart}>No hay productos en el carrito.</Text>
               ) : (
@@ -493,12 +496,9 @@ function PaymentScreen() {
                     <Text style={styles.summaryLabel}>Impuestos</Text>
                     <Text style={styles.summaryValue}>{formatCurrency(cartTotals.taxAmount)}</Text>
                   </View>
-                  <View style={styles.summaryRowFinal}>
-                    <Text style={styles.summaryTotalLabel}>Total</Text>
-                    <Text style={styles.summaryTotalValue}>{formatCurrency(cartTotals.total)}</Text>
-                  </View>
                 </View>
               )}
+
             </View>
 
               <View style={styles.card}>
@@ -678,6 +678,30 @@ function PaymentScreen() {
 }
 
 const styles = StyleSheet.create({
+      summaryHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 12,
+      },
+      summaryTotalValueLarge: {
+        fontSize: 32,
+        color: palette.primary,
+        fontWeight: 'bold',
+        marginLeft: 12,
+      },
+    summaryHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      marginBottom: 12,
+    },
+    summaryTotalValueLarge: {
+      fontSize: 32,
+      color: palette.primary,
+      fontWeight: 'bold',
+      marginLeft: 12,
+    },
   root: {
     flex: 1,
     backgroundColor: palette.background,
