@@ -9,10 +9,7 @@ export default function TransactionsPage() {
     return (
         <div className="p-6 space-y-6">
             <header>
-                <h1 className="text-2xl font-bold">Transacciones</h1>
-                <p className="text-sm text-muted-foreground mt-1">
-                    Consulta operaciones de venta, devoluciones y movimientos de inventario asociados.
-                </p>
+                <h1 className="text-2xl font-bold">Transacciones de venta</h1>
             </header>
             <SalesTransactionsDataGrid />
         </div>

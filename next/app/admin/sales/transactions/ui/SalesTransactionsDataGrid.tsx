@@ -317,22 +317,24 @@ const SalesTransactionsDataGrid = () => {
 
   const headerActions = (
     <div className="flex flex-wrap items-end gap-3">
-      <Select
-        label="Estado"
-        options={statusOptions}
-        value={filters.status}
-        onChange={(value) => handleFilterChange('status', (value ?? 'ALL') as StatusFilterOption)}
-        allowClear
-        className="min-w-[180px]"
-      />
-      <Select
-        label="Método de pago"
-        options={paymentMethodOptions}
-        value={filters.paymentMethod}
-        onChange={(value) => handleFilterChange('paymentMethod', (value ?? 'ALL') as FiltersState['paymentMethod'])}
-        allowClear
-        className="min-w-[200px]"
-      />
+      <div className="flex w-full gap-3">
+        <Select
+          label="Estado"
+          options={statusOptions}
+          value={filters.status}
+          onChange={(value) => handleFilterChange('status', (value ?? 'ALL') as StatusFilterOption)}
+          allowClear
+          className="flex-1 min-w-[180px]"
+        />
+        <Select
+          label="Método de pago"
+          options={paymentMethodOptions}
+          value={filters.paymentMethod}
+          onChange={(value) => handleFilterChange('paymentMethod', (value ?? 'ALL') as FiltersState['paymentMethod'])}
+          allowClear
+          className="flex-1 min-w-[200px]"
+        />
+      </div>
       <div className="flex w-full gap-3">
         <TextField
           label="Desde"
@@ -349,24 +351,26 @@ const SalesTransactionsDataGrid = () => {
           className="flex-1"
         />
       </div>
-      <TextField
-        label="Buscar"
-        value={filters.search}
-        onChange={(event) => handleFilterChange('search', event.target.value)}
-        placeholder="Documento o referencia"
-        className="min-w-[220px]"
-      />
-      <IconButton
-        icon="refresh"
-        variant="ghost"
-        size="sm"
-        ariaLabel="Actualizar transacciones"
-        onClick={() => void loadTransactions()}
-        isLoading={loading}
-      />
-      <Button type="button" variant="text" size="sm" onClick={handleResetFilters}>
-        Limpiar filtros
-      </Button>
+      <div className="flex w-full items-end gap-3">
+        <TextField
+          label="Buscar"
+          value={filters.search}
+          onChange={(event) => handleFilterChange('search', event.target.value)}
+          placeholder="Documento o referencia"
+          className="flex-1 min-w-[220px]"
+        />
+        <Button type="button" variant="text" size="sm" onClick={handleResetFilters}>
+          Limpiar filtros
+        </Button>
+        <IconButton
+          icon="refresh"
+          variant="ghost"
+          size="sm"
+          ariaLabel="Actualizar transacciones"
+          onClick={() => void loadTransactions()}
+          isLoading={loading}
+        />
+      </div>
     </div>
   );
 
@@ -379,6 +383,9 @@ const SalesTransactionsDataGrid = () => {
         totalRows={rows.length}
         height="70vh"
         headerActions={headerActions}
+        showSortButton={false}
+        showFilterButton={false}
+        showExportButton={false}
       />
 
       <Dialog

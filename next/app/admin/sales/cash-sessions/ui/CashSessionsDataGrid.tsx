@@ -400,7 +400,7 @@ const CashSessionsDataGrid = () => {
   return (
     <Fragment>
       <DataGrid
-        title="Sesiones de caja"
+        title=""
         columns={columns}
         rows={rows}
         totalRows={rows.length}

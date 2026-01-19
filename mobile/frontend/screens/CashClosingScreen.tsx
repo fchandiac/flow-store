@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { type NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 import { closeCashSession } from '../services/apiService';
 import { formatCurrency } from '../utils/formatCurrency';
 import { usePosStore } from '../store/usePosStore';
@@ -22,16 +23,17 @@ import { palette } from '../theme/palette';
 const MIN_NOTE_LENGTH = 3;
 
 type ClosingNavigation = NativeStackNavigationProp<RootStackParamList, 'CashClosing'>;
+type AmountField =
+  | 'actualCash'
+  | 'voucherDebit'
+  | 'voucherCredit'
+  | 'transfer'
+  | 'check'
+  | 'other';
+type CashClosingState = Record<AmountField, string> & { notes: string };
 
-type CashClosingState = {
-  actualCash: string;
-  voucherDebit: string;
-  voucherCredit: string;
-  transfer: string;
-  check: string;
-  other: string;
-  notes: string;
-};
+type FieldOffsets = Partial<Record<AmountField | 'notes', number>>;
+type AmountInputRefs = Partial<Record<AmountField, TextInput | null>>;
 
 const INITIAL_STATE: CashClosingState = {
   actualCash: '',
@@ -43,21 +45,37 @@ const INITIAL_STATE: CashClosingState = {
   notes: '',
 };
 
-function sanitizeAmount(value: string): number {
-  if (!value) {
+const normalizeDigits = (value: string): string => value.replace(/[^0-9]/g, '');
+
+const formatDigitsValue = (digits: string): string => {
+  if (!digits) {
+    return '';
+  }
+  const numeric = Number(digits);
+  if (!Number.isFinite(numeric)) {
+    return '';
+  }
+  return formatCurrency(numeric);
+};
+
+const sanitizeAmount = (digits: string): number => {
+  if (!digits) {
     return 0;
   }
-  const normalized = value.replace(/[^0-9.,-]/g, '').replace(',', '.');
-  const parsed = Number(normalized);
+  const parsed = Number(digits);
   if (!Number.isFinite(parsed)) {
     return 0;
   }
-  return Number(parsed.toFixed(2));
-}
+  return parsed;
+};
 
-export default function CashClosingScreen() {
+export default function CashClosingScreen(): JSX.Element {
   const navigation = useNavigation<ClosingNavigation>();
   const isFocused = useIsFocused();
+  const scrollRef = useRef<ScrollView | null>(null);
+  const formCardOffsetRef = useRef(0);
+  const fieldOffsetsRef = useRef<FieldOffsets>({});
+  const amountInputRefs = useRef<AmountInputRefs>({});
   const loginRedirectRef = useRef(false);
   const setupRedirectRef = useRef(false);
   const pendingLogoutRef = useRef(false);
@@ -136,15 +154,54 @@ export default function CashClosingScreen() {
     return () => clearTimeout(timeoutId);
   }, [closingResult, completeLogout, isFocused]);
 
-  const expectedAmount = useMemo(() => {
-    if (closingResult) {
-      return closingResult.expected.cash;
-    }
-    return session?.expectedAmount ?? session?.openingAmount ?? 0;
-  }, [closingResult, session]);
+  const setFieldOffset = (field: AmountField | 'notes', y: number) => {
+    fieldOffsetsRef.current[field] = y;
+  };
 
-  const handleChange = (field: keyof CashClosingState, value: string) => {
-    setForm((current) => ({ ...current, [field]: value }));
+  const scrollToField = (field: AmountField | 'notes') => {
+    const offset = fieldOffsetsRef.current[field];
+    if (typeof offset !== 'number') {
+      return;
+    }
+
+    const target = formCardOffsetRef.current + offset;
+    scrollRef.current?.scrollTo({ y: Math.max(target - 40, 0), animated: true });
+  };
+
+  const syncCaretToEnd = (field: AmountField, digits: string) => {
+    const formatted = formatDigitsValue(digits);
+    const length = formatted.length;
+
+    requestAnimationFrame(() => {
+      amountInputRefs.current[field]?.setNativeProps({
+        selection: { start: length, end: length },
+      });
+    });
+  };
+
+  const handleAmountDigitsChange = (field: AmountField, rawInput: string) => {
+    const normalized = normalizeDigits(rawInput);
+    setForm((current) => {
+      if (current[field] === normalized) {
+        return current;
+      }
+      return { ...current, [field]: normalized };
+    });
+
+    syncCaretToEnd(field, normalized);
+
+    if (closingError) {
+      setClosingError(null);
+    }
+  };
+
+  const handleAmountFocus = (field: AmountField) => {
+    syncCaretToEnd(field, form[field]);
+    scrollToField(field);
+  };
+
+  const handleNotesChange = (value: string) => {
+    setForm((current) => ({ ...current, notes: value }));
     if (closingError) {
       setClosingError(null);
     }
@@ -167,18 +224,6 @@ export default function CashClosingScreen() {
     const transferAmount = sanitizeAmount(form.transfer);
     const checkAmount = sanitizeAmount(form.check);
     const otherAmount = sanitizeAmount(form.other);
-
-    const negativeDetected = [
-      voucherDebitAmount,
-      voucherCreditAmount,
-      transferAmount,
-      checkAmount,
-      otherAmount,
-    ].some((amount) => amount < 0);
-    if (negativeDetected) {
-      setClosingError('Los montos no pueden ser negativos.');
-      return;
-    }
 
     const payload = {
       actualCash,
@@ -206,13 +251,14 @@ export default function CashClosingScreen() {
       {
         text: 'Cerrar caja',
         style: 'destructive',
-        onPress: () => submitClosing({
-          userName: user.userName,
-          pointOfSaleId: pointOfSale.id,
-          cashSessionId: session.id,
-          ...payload,
-          notes: trimmedNotes || undefined,
-        }),
+        onPress: () =>
+          submitClosing({
+            userName: user.userName,
+            pointOfSaleId: pointOfSale.id,
+            cashSessionId: session.id,
+            ...payload,
+            notes: trimmedNotes || undefined,
+          }),
       },
     ]);
   };
@@ -273,7 +319,9 @@ export default function CashClosingScreen() {
       return styles.differenceBadgeOk;
     }
 
-    return closingResult.varianceCash < 0 ? styles.differenceBadgeNegative : styles.differenceBadgePositive;
+    return closingResult.varianceCash < 0
+      ? styles.differenceBadgeNegative
+      : styles.differenceBadgePositive;
   }, [closingResult]);
 
   const handleExit = () => {
@@ -281,50 +329,78 @@ export default function CashClosingScreen() {
   };
 
   const renderForm = () => (
-    <View style={styles.formCard}>
+    <View
+      style={styles.formCard}
+      onLayout={({ nativeEvent }) => {
+        formCardOffsetRef.current = nativeEvent.layout.y;
+      }}
+    >
       <Text style={styles.cardTitle}>Conteo ciego</Text>
       <Text style={styles.cardSubtitle}>
-        Ingresa el efectivo real en caja y los comprobantes separados por medio de pago. El sistema
-        mostrará las diferencias luego de confirmar.
+        Ingresa el efectivo real en caja y los comprobantes separados por medio de pago. El sistema mostrará las diferencias luego de confirmar.
       </Text>
 
-      <View style={styles.fieldGroup}>
+      <View
+        style={styles.fieldGroup}
+        onLayout={({ nativeEvent }) => setFieldOffset('actualCash', nativeEvent.layout.y)}
+      >
         <Text style={styles.fieldLabel}>Efectivo en caja *</Text>
         <TextInput
+          ref={(ref) => {
+            amountInputRefs.current.actualCash = ref;
+          }}
           style={styles.input}
-          keyboardType="decimal-pad"
-          placeholder="0"
+          keyboardType={Platform.select({ android: 'numeric', default: 'number-pad' })}
+          inputMode="numeric"
+          placeholder="$0"
           placeholderTextColor={palette.textMuted}
-          value={form.actualCash}
-          onChangeText={(value) => handleChange('actualCash', value)}
+          value={formatDigitsValue(form.actualCash)}
+          onChangeText={(value) => handleAmountDigitsChange('actualCash', value)}
+          onFocus={() => handleAmountFocus('actualCash')}
           editable={!isSubmitting && !closingResult}
           returnKeyType="done"
         />
       </View>
 
       <View style={styles.fieldGroupRow}>
-        <View style={styles.fieldColumn}>
+        <View
+          style={styles.fieldColumn}
+          onLayout={({ nativeEvent }) => setFieldOffset('voucherDebit', nativeEvent.layout.y)}
+        >
           <Text style={styles.fieldLabel}>Vouchers débito</Text>
           <TextInput
+            ref={(ref) => {
+              amountInputRefs.current.voucherDebit = ref;
+            }}
             style={styles.input}
-            keyboardType="decimal-pad"
-            placeholder="0"
+            keyboardType={Platform.select({ android: 'numeric', default: 'number-pad' })}
+            inputMode="numeric"
+            placeholder="$0"
             placeholderTextColor={palette.textMuted}
-            value={form.voucherDebit}
-            onChangeText={(value) => handleChange('voucherDebit', value)}
+            value={formatDigitsValue(form.voucherDebit)}
+            onChangeText={(value) => handleAmountDigitsChange('voucherDebit', value)}
+            onFocus={() => handleAmountFocus('voucherDebit')}
             editable={!isSubmitting && !closingResult}
             returnKeyType="done"
           />
         </View>
-        <View style={styles.fieldColumn}>
+        <View
+          style={styles.fieldColumn}
+          onLayout={({ nativeEvent }) => setFieldOffset('voucherCredit', nativeEvent.layout.y)}
+        >
           <Text style={styles.fieldLabel}>Vouchers crédito</Text>
           <TextInput
+            ref={(ref) => {
+              amountInputRefs.current.voucherCredit = ref;
+            }}
             style={styles.input}
-            keyboardType="decimal-pad"
-            placeholder="0"
+            keyboardType={Platform.select({ android: 'numeric', default: 'number-pad' })}
+            inputMode="numeric"
+            placeholder="$0"
             placeholderTextColor={palette.textMuted}
-            value={form.voucherCredit}
-            onChangeText={(value) => handleChange('voucherCredit', value)}
+            value={formatDigitsValue(form.voucherCredit)}
+            onChangeText={(value) => handleAmountDigitsChange('voucherCredit', value)}
+            onFocus={() => handleAmountFocus('voucherCredit')}
             editable={!isSubmitting && !closingResult}
             returnKeyType="done"
           />
@@ -332,63 +408,90 @@ export default function CashClosingScreen() {
       </View>
 
       <View style={styles.fieldGroupRow}>
-        <View style={styles.fieldColumn}>
+        <View
+          style={styles.fieldColumn}
+          onLayout={({ nativeEvent }) => setFieldOffset('transfer', nativeEvent.layout.y)}
+        >
           <Text style={styles.fieldLabel}>Transferencias</Text>
           <TextInput
+            ref={(ref) => {
+              amountInputRefs.current.transfer = ref;
+            }}
             style={styles.input}
-            keyboardType="decimal-pad"
-            placeholder="0"
+            keyboardType={Platform.select({ android: 'numeric', default: 'number-pad' })}
+            inputMode="numeric"
+            placeholder="$0"
             placeholderTextColor={palette.textMuted}
-            value={form.transfer}
-            onChangeText={(value) => handleChange('transfer', value)}
+            value={formatDigitsValue(form.transfer)}
+            onChangeText={(value) => handleAmountDigitsChange('transfer', value)}
+            onFocus={() => handleAmountFocus('transfer')}
             editable={!isSubmitting && !closingResult}
             returnKeyType="done"
           />
         </View>
-        <View style={styles.fieldColumn}>
+        <View
+          style={styles.fieldColumn}
+          onLayout={({ nativeEvent }) => setFieldOffset('check', nativeEvent.layout.y)}
+        >
           <Text style={styles.fieldLabel}>Cheques</Text>
           <TextInput
+            ref={(ref) => {
+              amountInputRefs.current.check = ref;
+            }}
             style={styles.input}
-            keyboardType="decimal-pad"
-            placeholder="0"
+            keyboardType={Platform.select({ android: 'numeric', default: 'number-pad' })}
+            inputMode="numeric"
+            placeholder="$0"
             placeholderTextColor={palette.textMuted}
-            value={form.check}
-            onChangeText={(value) => handleChange('check', value)}
+            value={formatDigitsValue(form.check)}
+            onChangeText={(value) => handleAmountDigitsChange('check', value)}
+            onFocus={() => handleAmountFocus('check')}
             editable={!isSubmitting && !closingResult}
             returnKeyType="done"
           />
         </View>
       </View>
 
-      <View style={styles.fieldGroup}>
+      <View
+        style={styles.fieldGroup}
+        onLayout={({ nativeEvent }) => setFieldOffset('other', nativeEvent.layout.y)}
+      >
         <Text style={styles.fieldLabel}>Otros</Text>
         <TextInput
+          ref={(ref) => {
+            amountInputRefs.current.other = ref;
+          }}
           style={styles.input}
-          keyboardType="decimal-pad"
-          placeholder="0"
+          keyboardType={Platform.select({ android: 'numeric', default: 'number-pad' })}
+          inputMode="numeric"
+          placeholder="$0"
           placeholderTextColor={palette.textMuted}
-          value={form.other}
-          onChangeText={(value) => handleChange('other', value)}
+          value={formatDigitsValue(form.other)}
+          onChangeText={(value) => handleAmountDigitsChange('other', value)}
+          onFocus={() => handleAmountFocus('other')}
           editable={!isSubmitting && !closingResult}
           returnKeyType="done"
         />
       </View>
 
-      <View style={styles.fieldGroup}>
+      <View
+        style={styles.fieldGroup}
+        onLayout={({ nativeEvent }) => setFieldOffset('notes', nativeEvent.layout.y)}
+      >
         <Text style={styles.fieldLabel}>Notas</Text>
         <TextInput
           style={[styles.input, styles.notesInput]}
           placeholder="Ej: El cajero entregó $10.000 menos"
           placeholderTextColor={palette.textMuted}
           value={form.notes}
-          onChangeText={(value) => handleChange('notes', value)}
+          onChangeText={handleNotesChange}
+          onFocus={() => scrollToField('notes')}
           editable={!isSubmitting && !closingResult}
           multiline
           numberOfLines={4}
         />
         <Text style={styles.notesHint}>
-          Si se detecta una diferencia en efectivo se solicitará un comentario (mínimo {MIN_NOTE_LENGTH}{' '}
-          caracteres).
+          Si se detecta una diferencia en efectivo se solicitará un comentario (mínimo {MIN_NOTE_LENGTH} caracteres).
         </Text>
       </View>
 
@@ -447,7 +550,6 @@ export default function CashClosingScreen() {
 
         <View style={styles.breakdownSection}>
           <Text style={styles.breakdownTitle}>Detalle de medios de pago</Text>
-
           <View style={styles.breakdownRow}>
             <Text style={styles.breakdownHeader}>Medio</Text>
             <Text style={styles.breakdownHeader}>Esperado</Text>
@@ -463,11 +565,7 @@ export default function CashClosingScreen() {
           ))}
         </View>
 
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          activeOpacity={0.85}
-          onPress={handleExit}
-        >
+        <TouchableOpacity style={styles.secondaryButton} activeOpacity={0.85} onPress={handleExit}>
           <Text style={styles.secondaryButtonLabel}>Volver al login</Text>
         </TouchableOpacity>
         <Text style={styles.autoRedirectHint}>Serás redirigido al login automáticamente.</Text>
@@ -481,13 +579,15 @@ export default function CashClosingScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 24 : 0}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        contentInsetAdjustmentBehavior="always"
+      >
         <Text style={styles.headerTitle}>Cierre de caja</Text>
         <Text style={styles.headerSubtitle}>
-          Sesión: {session?.id.slice(0, 8) ?? '-'} • POS {pointOfSale?.name ?? '-'}
-        </Text>
-        <Text style={styles.headerSubtitle}>
-          Saldo esperado actual: {formatCurrency(expectedAmount)}
+          Registra el conteo final para cerrar la caja. Nada de los montos esperados se mostrará hasta confirmar el cierre.
         </Text>
 
         {renderForm()}
@@ -498,7 +598,6 @@ export default function CashClosingScreen() {
 }
 
 type BreakdownRow = { key: string; label: string; expected: number; actual: number };
-
 type BreakdownInput = {
   cash: number;
   debitCard: number;

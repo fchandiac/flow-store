@@ -112,7 +112,7 @@ const Header: React.FC<HeaderProps> = ({
         {!headerActions && <div className="flex-1" />}
         
         {/* Toolbar y Search - solo visible en sm y superior */}
-        <div className="hidden sm:flex items-center gap-4">
+        <div className="hidden sm:flex items-start gap-4 self-start ml-4 pr-4">
           {/* Toolbar */}
           <div>
             <Toolbar
@@ -127,7 +127,7 @@ const Header: React.FC<HeaderProps> = ({
             />
           </div>
           {/* Search field */}
-          <div className="flex items-center">
+          <div className="flex items-start">
             <label htmlFor="datagrid-search" className="sr-only">Buscar</label>
             <div className="w-48">
               <TextField
@@ -152,7 +152,7 @@ const Header: React.FC<HeaderProps> = ({
       )}
 
       {/* Tercera fila: Toolbar + Search - solo visible en móvil (menor a sm) */}
-      <div className="flex sm:hidden items-center justify-end gap-4 mt-3">
+      <div className="flex sm:hidden items-start justify-end gap-4 mt-3">
         {/* Toolbar */}
         <div>
           <Toolbar
@@ -167,7 +167,7 @@ const Header: React.FC<HeaderProps> = ({
           />
         </div>
         {/* Search field */}
-        <div className="flex items-center flex-1 max-w-xs">
+        <div className="flex items-start flex-1 max-w-xs">
           <label htmlFor="datagrid-search-mobile" className="sr-only">Buscar</label>
           <TextField
             label="Buscar"
