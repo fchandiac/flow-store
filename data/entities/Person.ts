@@ -57,6 +57,7 @@ export interface PersonBankAccount {
     accountHolderName?: string;
     isPrimary?: boolean;
     notes?: string;
+    currentBalance?: number;
 }
 
 @Entity("persons")

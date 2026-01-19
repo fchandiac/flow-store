@@ -1,10 +1,13 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import type { BankMovementsOverview, BankMovementRecord } from '@/actions/bankMovements';
 import { formatDateTime } from '@/lib/dateTimeUtils';
 import DataGrid, { type DataGridColumn } from '@/baseComponents/DataGrid/DataGrid';
 import Select, { type Option as SelectOption } from '@/baseComponents/Select/Select';
+import { Button } from '@/baseComponents/Button/Button';
+import CreateCapitalContributionDialog from './CreateCapitalContributionDialog';
 
 const currencyFormatter = new Intl.NumberFormat('es-CL', {
     style: 'currency',
@@ -33,7 +36,25 @@ const directionToneClasses: Record<string, string> = {
     OUT: 'bg-rose-50 text-rose-700 border border-rose-200'
 };
 
-export default function BankMovementsDashboard({ overview, cashBalance }: { overview: BankMovementsOverview; cashBalance: number }) {
+interface SimpleOption {
+    id: string;
+    label: string;
+}
+
+interface BankMovementsDashboardProps {
+    overview: BankMovementsOverview;
+    cashBalance: number;
+    shareholderOptions: SimpleOption[];
+    bankAccountOptions: SimpleOption[];
+}
+
+export default function BankMovementsDashboard({
+    overview,
+    cashBalance,
+    shareholderOptions,
+    bankAccountOptions,
+}: BankMovementsDashboardProps) {
+    const router = useRouter();
     const baseMovements = useMemo<BankMovementRecord[]>(() => {
         if (Array.isArray(overview.monthMovements) && overview.monthMovements.length > 0) {
             return overview.monthMovements;
@@ -42,20 +63,22 @@ export default function BankMovementsDashboard({ overview, cashBalance }: { over
     }, [overview.monthMovements, overview.recentMovements]);
 
     const accountFilterOptions = useMemo<SelectOption[]>(() => {
-        const map = new Map<string, string>();
+        const map = new Map<string, { label: string; balance?: number | null }>();
         baseMovements.forEach((movement) => {
             const key = movement.bankAccountKey ?? movement.bankAccountLabel ?? 'sin-cuenta';
-            const label = movement.bankAccountLabel ?? 'Cuenta sin registrar';
+            const label = movement.bankAccountLabel ?? movement.bankAccountNumber ?? 'Cuenta sin registrar';
+            const balance = movement.bankAccountBalance ?? null;
             if (!map.has(key)) {
-                map.set(key, label);
+                map.set(key, { label, balance });
             }
         });
-        const entries = Array.from(map.entries()).map(([id, label]) => ({ id, label }));
+        const entries = Array.from(map.entries()).map(([id, data]) => ({ id, label: data.balance != null ? `${data.label} · Saldo ${formatCurrency(data.balance)}` : data.label }));
         entries.sort((a, b) => a.label.localeCompare(b.label, 'es'));
         return [{ id: '__all__', label: 'Todas las cuentas' }, ...entries];
     }, [baseMovements]);
 
     const [selectedAccount, setSelectedAccount] = useState<string>('__all__');
+    const [capitalDialogOpen, setCapitalDialogOpen] = useState(false);
 
     useEffect(() => {
         if (selectedAccount === '__all__') {
@@ -81,7 +104,7 @@ export default function BankMovementsDashboard({ overview, cashBalance }: { over
         return filteredMovements.map((movement) => {
             const directionLabel = movement.direction === 'IN' ? 'Ingreso' : 'Salida';
             const movementKindLabel = movementKindLabels[movement.movementKind] ?? movement.movementKind;
-            const accountLabel = movement.bankAccountLabel ?? 'Cuenta sin registrar';
+            const accountLabel = movement.bankAccountLabel ?? movement.bankAccountNumber ?? 'Cuenta sin registrar';
             return {
                 id: movement.id,
                 createdAtDisplay: formatDate(movement.createdAt),
@@ -91,6 +114,7 @@ export default function BankMovementsDashboard({ overview, cashBalance }: { over
                 directionLabel,
                 totalFormatted: formatCurrency(movement.total),
                 bankAccountLabel: accountLabel,
+                bankAccountBalanceFormatted: movement.bankAccountBalance != null ? formatCurrency(movement.bankAccountBalance) : '—',
                 counterparty: movement.counterpartyName ?? '—',
                 notes: movement.notes ?? '—'
             };
@@ -149,6 +173,15 @@ export default function BankMovementsDashboard({ overview, cashBalance }: { over
             filterable: false
         },
         {
+            field: 'bankAccountBalanceFormatted',
+            headerName: 'Saldo cuenta',
+            minWidth: 160,
+            align: 'right',
+            headerAlign: 'right',
+            sortable: false,
+            filterable: false
+        },
+        {
             field: 'counterparty',
             headerName: 'Contraparte',
             minWidth: 200,
@@ -167,9 +200,31 @@ export default function BankMovementsDashboard({ overview, cashBalance }: { over
     ], []);
 
     const accountFilterDisabled = accountFilterOptions.length <= 1;
+    const capitalContributionDisabled = shareholderOptions.length === 0 || bankAccountOptions.length === 0;
+
+    const shareholderSelectOptions = useMemo<SelectOption[]>(
+        () => shareholderOptions.map((option) => ({ id: option.id, label: option.label })),
+        [shareholderOptions],
+    );
+
+    const bankAccountSelectOptions = useMemo<SelectOption[]>(
+        () => bankAccountOptions.map((option) => ({ id: option.id, label: option.label })),
+        [bankAccountOptions],
+    );
 
     const headerActions = (
         <div className="flex flex-wrap items-center gap-3">
+            <Button
+                type="button"
+                variant="outlined"
+                size="sm"
+                className="flex items-center gap-1"
+                onClick={() => setCapitalDialogOpen(true)}
+                disabled={capitalContributionDisabled}
+            >
+                <span className="material-symbols-outlined text-base">add</span>
+                Aporte de capital
+            </Button>
             <Select
                 variant="minimal"
                 options={accountFilterOptions}
@@ -182,7 +237,7 @@ export default function BankMovementsDashboard({ overview, cashBalance }: { over
                     setSelectedAccount(String(value));
                 }}
                 placeholder="Filtrar por cuenta"
-                className="min-w-[220px]"
+                className="min-w-[260px]"
                 data-test-id="bank-account-filter"
                 disabled={accountFilterDisabled}
             />
@@ -224,11 +279,10 @@ export default function BankMovementsDashboard({ overview, cashBalance }: { over
                     <h2 className="text-lg font-semibold text-foreground">Movimientos bancarios</h2>
                     <p className="text-sm text-muted-foreground">Visualiza y filtra los movimientos registrados por cuenta bancaria.</p>
                 </header>
-                <div className="rounded-xl border border-border/70 bg-white p-2 shadow-sm">
+                <div className="rounded-xl bg-white p-2 shadow-sm">
                     <DataGrid
                         columns={columns}
                         rows={rows}
-                        title="Movimientos bancarios"
                         height="60vh"
                         showSortButton={false}
                         showFilterButton={false}
@@ -238,6 +292,15 @@ export default function BankMovementsDashboard({ overview, cashBalance }: { over
                     />
                 </div>
             </section>
+            <CreateCapitalContributionDialog
+                open={capitalDialogOpen}
+                onClose={() => setCapitalDialogOpen(false)}
+                onCreated={async () => {
+                    router.refresh();
+                }}
+                shareholderOptions={shareholderSelectOptions}
+                bankAccountOptions={bankAccountSelectOptions}
+            />
         </div>
     );
 }

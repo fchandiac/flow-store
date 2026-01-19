@@ -61,6 +61,7 @@ export interface CreateTransactionDTO {
     targetStorageId?: string;
     customerId?: string;
     supplierId?: string;
+    shareholderId?: string;
     userId: string;
     paymentMethod?: PaymentMethod;
     documentNumber?: string;
@@ -586,6 +587,7 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
             targetStorageId: data.targetStorageId,
             customerId: data.customerId,
             supplierId: data.supplierId,
+            shareholderId: data.shareholderId,
             userId: data.userId,
             documentNumber,
             externalReference: data.externalReference,

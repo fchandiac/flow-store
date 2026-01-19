@@ -7,6 +7,7 @@ import type { CompanyBankAccount } from '@/data/entities/Company';
 import type { Customer } from '@/data/entities/Customer';
 import type { Supplier } from '@/data/entities/Supplier';
 import type { Person } from '@/data/entities/Person';
+import type { Shareholder } from '@/data/entities/Shareholder';
 
 const RELEVANT_TRANSACTION_TYPES: TransactionType[] = [
     TransactionType.PAYMENT_IN,
@@ -50,6 +51,7 @@ export interface BankMovementRecord {
     bankAccountLabel: string | null;
     bankAccountNumber?: string | null;
     bankName?: string | null;
+    bankAccountBalance?: number | null;
     notes?: string | null;
     paymentMethod?: PaymentMethod | null;
     recordedBy?: string | null;
@@ -126,6 +128,7 @@ function buildAccountLabel(account: CompanyBankAccount | undefined, fallbackKey:
     label: string | null;
     number: string | null;
     bankName: string | null;
+    balance: number | null;
 } {
     if (!account) {
         if (!fallbackKey) {
@@ -133,42 +136,77 @@ function buildAccountLabel(account: CompanyBankAccount | undefined, fallbackKey:
                 label: null,
                 number: null,
                 bankName: null,
+                balance: null,
             };
         }
         return {
-            label: `Cuenta ${fallbackKey.slice(0, 8)}…`,
-            number: null,
+            label: `Cuenta ${fallbackKey}`,
+            number: fallbackKey,
             bankName: null,
+            balance: null,
         };
     }
 
-    const maskedNumber = account.accountNumber.length > 4
-        ? `${account.accountNumber.slice(0, -4).replace(/[0-9]/g, '•')}${account.accountNumber.slice(-4)}`
-        : account.accountNumber;
+    const descriptorParts: string[] = [];
+    if (account.bankName) {
+        descriptorParts.push(account.bankName);
+    }
+    if (account.accountType) {
+        descriptorParts.push(account.accountType);
+    }
+    if (account.accountNumber) {
+        descriptorParts.push(account.accountNumber);
+    }
+    const label = descriptorParts.join(' · ') || account.accountNumber || account.accountKey || null;
 
     return {
-        label: `${account.bankName} · ${maskedNumber}`,
+        label,
         number: account.accountNumber,
         bankName: account.bankName,
+        balance: typeof account.currentBalance === 'number' ? toNumber(account.currentBalance) : null,
     };
+}
+
+function buildPersonDisplay(person?: Person | null): string | null {
+    if (!person) {
+        return null;
+    }
+    if (person.businessName && person.businessName.trim().length > 0) {
+        return person.businessName.trim();
+    }
+    const first = person.firstName?.trim() ?? '';
+    const last = person.lastName?.trim() ?? '';
+    const combined = `${first} ${last}`.trim();
+    return combined.length > 0 ? combined : null;
 }
 
 function buildCounterpartyName(transaction: Transaction & {
     supplier?: Supplier | null;
     customer?: Customer | null;
+    shareholder?: Shareholder | null;
 }): string | null {
     const supplierPerson = (transaction.supplier as Supplier | undefined)?.person as Person | undefined;
     if (supplierPerson) {
-        return supplierPerson.businessName
-            || [supplierPerson.firstName, supplierPerson.lastName].filter(Boolean).join(' ')
-            || null;
+        const display = buildPersonDisplay(supplierPerson);
+        if (display) {
+            return display;
+        }
     }
 
     const customerPerson = (transaction.customer as Customer | undefined)?.person as Person | undefined;
     if (customerPerson) {
-        return customerPerson.businessName
-            || [customerPerson.firstName, customerPerson.lastName].filter(Boolean).join(' ')
-            || null;
+        const display = buildPersonDisplay(customerPerson);
+        if (display) {
+            return display;
+        }
+    }
+
+    const shareholderPerson = (transaction.shareholder as Shareholder | undefined)?.person as Person | undefined;
+    if (shareholderPerson) {
+        const display = buildPersonDisplay(shareholderPerson);
+        if (display) {
+            return display;
+        }
     }
 
     return null;
@@ -199,6 +237,7 @@ function mapTransactionToRecord(
         supplier?: Supplier | null;
         customer?: Customer | null;
         user?: { person?: Person | null } | null;
+        shareholder?: Shareholder | null;
     },
     accountIndex: Map<string, CompanyBankAccount>,
 ): BankMovementRecord {
@@ -207,6 +246,22 @@ function mapTransactionToRecord(
     const kind = inferMovementKind(transaction, metadata);
     const account = transaction.bankAccountKey ? accountIndex.get(transaction.bankAccountKey) : undefined;
     const accountView = buildAccountLabel(account, transaction.bankAccountKey);
+
+    let counterpartyName = buildCounterpartyName(transaction);
+    if (!counterpartyName && kind === 'SUPPLIER_PAYMENT') {
+        counterpartyName = metadata?.paymentDetails?.supplierName
+            || metadata?.bankMovement?.supplierName
+            || metadata?.bankMovement?.counterpartyName
+            || metadata?.counterpartyName
+            || null;
+    }
+
+    if (!counterpartyName && kind === 'CAPITAL_CONTRIBUTION') {
+        counterpartyName = metadata?.bankMovement?.shareholderName
+            || metadata?.capitalContribution?.shareholderName
+            || buildPersonDisplay((transaction.shareholder as Shareholder | undefined)?.person ?? null)
+            || null;
+    }
 
     return {
         id: transaction.id,
@@ -222,10 +277,11 @@ function mapTransactionToRecord(
         bankAccountLabel: accountView.label,
         bankAccountNumber: accountView.number,
         bankName: accountView.bankName,
+        bankAccountBalance: accountView.balance,
         notes: transaction.notes ?? null,
         paymentMethod: transaction.paymentMethod ?? null,
         recordedBy: buildRecordedBy(transaction),
-        counterpartyName: buildCounterpartyName(transaction),
+        counterpartyName,
         metadata,
     };
 }
@@ -285,6 +341,8 @@ export async function getBankMovementsOverview(): Promise<BankMovementsOverview>
             .leftJoinAndSelect('supplier.person', 'supplierPerson')
             .leftJoinAndSelect('transaction.customer', 'customer')
             .leftJoinAndSelect('customer.person', 'customerPerson')
+            .leftJoinAndSelect('transaction.shareholder', 'shareholder')
+            .leftJoinAndSelect('shareholder.person', 'shareholderPerson')
             .leftJoinAndSelect('transaction.user', 'registeredBy')
             .leftJoinAndSelect('registeredBy.person', 'registeredByPerson')
             .where('transaction.status = :status', { status: TransactionStatus.CONFIRMED })
@@ -305,6 +363,14 @@ export async function getBankMovementsOverview(): Promise<BankMovementsOverview>
                 monthStart,
                 monthEnd: now,
             })
+            .leftJoinAndSelect('transaction.supplier', 'supplier')
+            .leftJoinAndSelect('supplier.person', 'supplierPerson')
+            .leftJoinAndSelect('transaction.customer', 'customer')
+            .leftJoinAndSelect('customer.person', 'customerPerson')
+            .leftJoinAndSelect('transaction.shareholder', 'shareholder')
+            .leftJoinAndSelect('shareholder.person', 'shareholderPerson')
+            .leftJoinAndSelect('transaction.user', 'registeredBy')
+            .leftJoinAndSelect('registeredBy.person', 'registeredByPerson')
             .orderBy('transaction.createdAt', 'DESC')
             .getMany(),
         repo.createQueryBuilder('transaction')
@@ -333,6 +399,7 @@ export async function getBankMovementsOverview(): Promise<BankMovementsOverview>
             supplier?: Supplier | null;
             customer?: Customer | null;
             user?: { person?: Person | null } | null;
+            shareholder?: Shareholder | null;
         }, accountIndex)
     );
 
@@ -341,6 +408,7 @@ export async function getBankMovementsOverview(): Promise<BankMovementsOverview>
             supplier?: Supplier | null;
             customer?: Customer | null;
             user?: { person?: Person | null } | null;
+            shareholder?: Shareholder | null;
         }, accountIndex)
     );
 
