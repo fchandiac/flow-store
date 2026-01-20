@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDataSource } from '../../../../../data/db';
+import { getDataSource } from '../../../db';
 import { EntityManager } from 'typeorm';
-import { Transaction, TransactionType, TransactionStatus, PaymentMethod } from '../../../../../data/entities/Transaction';
-import { TransactionLine } from '../../../../../data/entities/TransactionLine';
-import { CashSession } from '../../../../../data/entities/CashSession';
-import { PointOfSale } from '../../../../../data/entities/PointOfSale';
-import { User } from '../../../../../data/entities/User';
-import { Customer } from '../../../../../data/entities/Customer';
-import { AccountingEngine } from '../../../../../data/services/AccountingEngine';
+import { Transaction, TransactionType, TransactionStatus, PaymentMethod } from '@/data/entities/Transaction';
+import { TransactionLine } from '@/data/entities/TransactionLine';
+import { CashSession } from '@/data/entities/CashSession';
+import { PointOfSale } from '@/data/entities/PointOfSale';
+import { User } from '@/data/entities/User';
+import { Customer } from '@/data/entities/Customer';
+import { AccountingEngine } from '../../../services/AccountingEngine';
 
 type CreateMultiplePaymentsInput = {
   saleTransactionId: string;
@@ -33,20 +33,20 @@ export async function POST(request: NextRequest) {
       // Verificar que la venta existe
       const saleTransaction = await manager.findOne(Transaction, {
         where: { id: saleTransactionId, transactionType: TransactionType.SALE },
-      });
+      }) as Transaction | null;
 
       if (!saleTransaction) {
         throw new Error('Venta no encontrada');
       }
 
       // Obtener datos relacionados
-      const cashSession = await manager.findOne(CashSession, {
-        where: { id: saleTransaction.cashSessionId! },
-      });
+      const cashSession = saleTransaction.cashSessionId ? await manager.findOne(CashSession, {
+        where: { id: saleTransaction.cashSessionId },
+      }) : null;
 
-      const pointOfSale = await manager.findOne(PointOfSale, {
-        where: { id: saleTransaction.pointOfSaleId! },
-      });
+      const pointOfSale = saleTransaction.pointOfSaleId ? await manager.findOne(PointOfSale, {
+        where: { id: saleTransaction.pointOfSaleId },
+      }) : null;
 
       const user = await manager.findOne(User, {
         where: { id: saleTransaction.userId },
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
             pointOfSale,
             user,
           }
-        );
+        ) as { id: string; [key: string]: any };
 
         paymentTransactions.push({
           id: paymentTransaction.id,
@@ -143,7 +143,7 @@ async function createPaymentTransaction(
 ) {
   const { saleTransaction, payment, cashSession, pointOfSale, user } = params;
 
-  const transaction = manager.create(Transaction);
+  const transaction = manager.create(Transaction) as Transaction;
   transaction.documentNumber = generatePaymentDocumentNumber(saleTransaction.documentNumber);
   transaction.transactionType = TransactionType.PAYMENT_IN;
   transaction.status = TransactionStatus.CONFIRMED;
@@ -178,9 +178,9 @@ async function createChangeTransaction(
 ) {
   const { amount, saleTransaction, cashSession, pointOfSale, user } = params;
 
-  const transaction = manager.create(Transaction);
+  const transaction = manager.create(Transaction) as Transaction;
   transaction.documentNumber = generateChangeDocumentNumber(saleTransaction.documentNumber);
-  transaction.transactionType = TransactionType.CASH_OUT;
+  transaction.transactionType = TransactionType.PAYMENT_OUT;
   transaction.status = TransactionStatus.CONFIRMED;
   transaction.branchId = pointOfSale.branchId;
   transaction.pointOfSaleId = pointOfSale.id;

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDataSource } from '../../../../data/db';
-import { TreasuryAccount } from '../../../../data/entities/TreasuryAccount';
+import { getDataSource } from '../../../../src/db';
+import { TreasuryAccount } from '@/data/entities/TreasuryAccount';
 
 export async function GET() {
   try {
@@ -12,7 +12,7 @@ export async function GET() {
       order: { name: 'ASC' },
     });
 
-    const response = accounts.map(account => ({
+    const response = accounts.map((account: TreasuryAccount) => ({
       id: account.id,
       name: account.name,
       bankName: account.bankName,
