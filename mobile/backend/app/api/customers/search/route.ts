@@ -48,16 +48,22 @@ export async function GET(request: Request) {
 
     if (query.length > 0) {
       const likeQuery = `%${query.toLowerCase()}%`;
+      
+      // Normalize the search query by removing dots, dashes, and spaces
+      const normalizedQuery = query.replace(/[.\-\s]/g, '').toLowerCase();
+      const normalizedLikeQuery = `%${normalizedQuery}%`;
+      
       const conditions = [
         'LOWER(COALESCE(person.businessName, "")) LIKE :likeQuery',
         'LOWER(CONCAT(COALESCE(person.firstName, ""), " ", COALESCE(person.lastName, ""))) LIKE :likeQuery',
         'LOWER(COALESCE(person.firstName, "")) LIKE :likeQuery',
         'LOWER(COALESCE(person.lastName, "")) LIKE :likeQuery',
         'LOWER(COALESCE(person.documentNumber, "")) LIKE :likeQuery',
+        'LOWER(REPLACE(REPLACE(REPLACE(COALESCE(person.documentNumber, ""), ".", ""), "-", ""), " ", "")) LIKE :normalizedLikeQuery',
         'LOWER(COALESCE(person.email, "")) LIKE :likeQuery',
         'LOWER(COALESCE(person.phone, "")) LIKE :likeQuery',
       ];
-      qb.andWhere(`(${conditions.join(' OR ')})`, { likeQuery });
+      qb.andWhere(`(${conditions.join(' OR ')})`, { likeQuery, normalizedLikeQuery });
     }
 
     qb.orderBy('person.businessName', 'ASC')

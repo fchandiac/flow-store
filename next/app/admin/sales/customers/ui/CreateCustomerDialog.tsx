@@ -4,15 +4,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ChangeEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import Dialog from '@/app/baseComponents/Dialog/Dialog';
-import AutoComplete, { type Option as AutoCompleteOption } from '@/app/baseComponents/AutoComplete/AutoComplete';
 import { TextField } from '@/app/baseComponents/TextField/TextField';
 import Select from '@/app/baseComponents/Select/Select';
 import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
 import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { createCustomer } from '@/app/actions/customers';
-import { searchPersons } from '@/app/actions/persons';
-import { DocumentType, PersonType } from '@/data/entities/Person';
+import { searchPersons, getPersonByDocumentNumber } from '@/app/actions/persons';
+import { DocumentType, PersonType, Person } from '@/data/entities/Person';
 
 interface CreateCustomerDialogProps {
     open: boolean;
@@ -35,14 +34,6 @@ const naturalDocumentTypeOptions = [
 const companyDocumentTypeOptions = [
     { id: DocumentType.RUT, label: 'RUT' },
 ];
-
-type PersonSearchResult = Awaited<ReturnType<typeof searchPersons>>[number];
-
-interface PersonOption extends AutoCompleteOption {
-    person?: PersonSearchResult;
-    isCreateOption?: boolean;
-    searchTerm?: string;
-}
 
 interface PersonFormState {
     personType: PersonType;
@@ -80,7 +71,7 @@ const createInitialCustomerForm = (): CustomerFormState => ({
     notes: '',
 });
 
-const buildPersonDisplayName = (person: PersonSearchResult): string => {
+const buildPersonDisplayName = (person: Person): string => {
     if (person.type === PersonType.COMPANY) {
         return person.businessName?.trim() || person.firstName || 'Empresa sin nombre';
     }
@@ -91,25 +82,6 @@ const buildPersonDisplayName = (person: PersonSearchResult): string => {
     }
 
     return person.businessName?.trim() || 'Persona sin nombre';
-};
-
-const buildPersonOptionLabel = (person: PersonSearchResult): string => {
-    const name = buildPersonDisplayName(person);
-    const typeLabel = person.type === PersonType.COMPANY ? 'Empresa' : 'Persona natural';
-    const documentLabel = person.documentNumber ? `${person.documentType ?? ''} ${person.documentNumber}`.trim() : 'Sin documento';
-    return `${name} · ${documentLabel} (${typeLabel})`;
-};
-
-const buildCreateOption = (term: string): PersonOption => ({
-    id: '__create__',
-    label: 'Crear nueva persona',
-    isCreateOption: true,
-    searchTerm: term,
-});
-
-const isDocumentLike = (value: string): boolean => {
-    const sanitized = value.replace(/\s+/g, '');
-    return /^[0-9.\-kK]+$/.test(sanitized);
 };
 
 const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({ 
@@ -125,13 +97,7 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
     const [errors, setErrors] = useState<string[]>([]);
     const [personForm, setPersonForm] = useState<PersonFormState>(() => createInitialPersonForm());
     const [customerForm, setCustomerForm] = useState<CustomerFormState>(() => createInitialCustomerForm());
-    const [personOptions, setPersonOptions] = useState<PersonOption[]>([]);
-    const [selectedPersonOption, setSelectedPersonOption] = useState<PersonOption | null>(null);
-    const [personSearchTerm, setPersonSearchTerm] = useState('');
-    const [isSearchingPersons, setIsSearchingPersons] = useState(false);
-    const [isCreatingNewPerson, setIsCreatingNewPerson] = useState(false);
-    const [autocompleteLocked, setAutocompleteLocked] = useState(false);
-    const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const [foundPerson, setFoundPerson] = useState<Person | null>(null);
 
     const handlePersonFieldChange = (field: keyof PersonFormState, value: string) => {
         setPersonForm(prev => ({
@@ -169,97 +135,27 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
         }));
     };
 
-    const handlePersonSearchInput = (value: string) => {
-        if (autocompleteLocked) {
-            return;
-        }
-        setPersonSearchTerm(value);
-        if (!value.trim()) {
-            setPersonOptions([]);
-        }
-    };
-
     useEffect(() => {
-        if (autocompleteLocked) {
-            return;
-        }
-        if (searchTimeoutRef.current) {
-            clearTimeout(searchTimeoutRef.current);
-        }
-
-        const trimmed = personSearchTerm.trim();
-
-        if (!trimmed) {
-            setIsSearchingPersons(false);
-            setPersonOptions([]);
-            return;
-        }
-
-        if (trimmed.length < 2) {
-            setIsSearchingPersons(false);
-            setPersonOptions([buildCreateOption(trimmed)]);
-            return;
-        }
-
-        setIsSearchingPersons(true);
-        searchTimeoutRef.current = setTimeout(async () => {
-            try {
-                const persons = await searchPersons({ term: trimmed, limit: 10 });
-                const mapped: PersonOption[] = persons.map(person => ({
-                    id: person.id,
-                    label: buildPersonOptionLabel(person),
-                    person,
-                }));
-                mapped.push(buildCreateOption(trimmed));
-                setPersonOptions(mapped);
-            } catch (error) {
-                console.error('Error searching persons:', error);
-                setPersonOptions([buildCreateOption(trimmed)]);
-            } finally {
-                setIsSearchingPersons(false);
+        const checkExistingPerson = async () => {
+            const trimmed = personForm.documentNumber.trim();
+            if (!trimmed) {
+                setFoundPerson(null);
+                return;
             }
-        }, 300);
-
-        return () => {
-            if (searchTimeoutRef.current) {
-                clearTimeout(searchTimeoutRef.current);
+            
+            try {
+                const person = await getPersonByDocumentNumber(trimmed);
+                setFoundPerson(person ? { ...person } : null);
+            } catch (error) {
+                console.error('Error checking existing person:', error);
+                setFoundPerson(null);
             }
         };
-    }, [personSearchTerm, autocompleteLocked]);
 
-    const handlePersonSelection = (option: PersonOption | null) => {
-        if (!option && autocompleteLocked) {
-            return;
-        }
-        if (!option) {
-            setSelectedPersonOption(null);
-            setIsCreatingNewPerson(false);
-            setPersonForm(createInitialPersonForm());
-            setAutocompleteLocked(false);
-            return;
-        }
+        const timeoutId = setTimeout(checkExistingPerson, 300);
+        return () => clearTimeout(timeoutId);
+    }, [personForm.documentNumber]);
 
-        if (option.isCreateOption) {
-            setSelectedPersonOption(null);
-            setIsCreatingNewPerson(true);
-            setAutocompleteLocked(true);
-            setPersonOptions([]);
-            setPersonSearchTerm('');
-            setIsSearchingPersons(false);
-            if (searchTimeoutRef.current) {
-                clearTimeout(searchTimeoutRef.current);
-                searchTimeoutRef.current = null;
-            }
-            setPersonForm(createInitialPersonForm());
-            return;
-        }
-
-        setSelectedPersonOption(option);
-        setIsCreatingNewPerson(false);
-        setAutocompleteLocked(false);
-    };
-
-    const selectedPerson = selectedPersonOption?.person;
     const isCompany = personForm.personType === PersonType.COMPANY;
     const documentTypeOptions = isCompany ? companyDocumentTypeOptions : naturalDocumentTypeOptions;
     const isRutOrRun = personForm.documentType === DocumentType.RUT || personForm.documentType === DocumentType.RUN;
@@ -276,26 +172,13 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
         e.preventDefault();
         
         const validationErrors: string[] = [];
-        if (!isCreatingNewPerson && !selectedPerson) {
-            validationErrors.push('Selecciona una persona existente o crea una nueva');
+        
+        if (!personForm.documentNumber.trim()) {
+            validationErrors.push('El número de documento es requerido');
         }
-
-        if (isCreatingNewPerson) {
-            if (!personForm.firstName.trim()) {
-                validationErrors.push('El nombre es requerido');
-            }
-            if (personForm.personType === PersonType.NATURAL && !personForm.lastName.trim()) {
-                validationErrors.push('El apellido es requerido para personas naturales');
-            }
-            if (personForm.personType === PersonType.COMPANY && !personForm.businessName.trim()) {
-                validationErrors.push('La razón social es requerida para empresas');
-            }
-            if (!personForm.documentNumber.trim()) {
-                validationErrors.push('El número de documento es requerido');
-            }
-            if (personForm.personType === PersonType.NATURAL && personForm.documentType === DocumentType.RUT) {
-                validationErrors.push('Las personas naturales no pueden tener documento tipo RUT');
-            }
+        
+        if (personForm.personType === PersonType.NATURAL && personForm.documentType === DocumentType.RUT) {
+            validationErrors.push('Las personas naturales no pueden tener documento tipo RUT');
         }
 
         const parsedPaymentDay = Number.parseInt(customerForm.paymentDayOfMonth, 10);
@@ -314,42 +197,87 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
 
         try {
             const paymentDay = validDays.includes(parsedPaymentDay) ? (parsedPaymentDay as 5 | 10 | 15 | 20 | 25 | 30) : 5;
-            const payload: any = {
-                creditLimit: parseFloat(customerForm.creditLimit) || 0,
-                paymentDayOfMonth: paymentDay,
-                notes: customerForm.notes || undefined,
-            };
-
-            if (!isCreatingNewPerson && selectedPerson) {
-                payload.personId = selectedPerson.id;
-            } else {
-                const resolvedDocumentType = isCompany ? DocumentType.RUT : personForm.documentType ?? DocumentType.RUN;
-                payload.person = {
-                    type: personForm.personType,
-                    firstName: personForm.firstName.trim(),
-                    lastName: personForm.personType === PersonType.NATURAL ? personForm.lastName.trim() || undefined : undefined,
-                    businessName: personForm.personType === PersonType.COMPANY ? personForm.businessName.trim() || undefined : undefined,
-                    documentType: resolvedDocumentType,
-                    documentNumber: personForm.documentNumber.trim() || undefined,
-                    email: personForm.email.trim() || undefined,
-                    phone: personForm.phone.trim() || undefined,
-                    address: personForm.address.trim() || undefined,
+            
+            // Check if person exists by document number
+            const existingPerson = await getPersonByDocumentNumber(personForm.documentNumber.trim());
+            
+            if (existingPerson) {
+                // Person exists, try to create customer for this person
+                const payload = {
+                    personId: existingPerson.id,
+                    creditLimit: parseFloat(customerForm.creditLimit) || 0,
+                    paymentDayOfMonth: paymentDay,
+                    notes: customerForm.notes || undefined,
                 };
-            }
-
-            const result = await createCustomer(payload);
-
-            if (result.success) {
-                resetForm();
-                if (onSuccess) {
-                    await onSuccess();
+                
+                const result = await createCustomer(payload);
+                
+                if (result.success) {
+                    resetForm();
+                    if (onSuccess) {
+                        await onSuccess();
+                    } else {
+                        success('Cliente creado correctamente');
+                        router.refresh();
+                    }
+                    onClose();
                 } else {
-                    success('Cliente creado correctamente');
-                    router.refresh();
+                    if (result.error === 'Esta persona ya es cliente') {
+                        setErrors(['Esta persona ya es cliente']);
+                    } else {
+                        setErrors([result.error || 'Error al crear el cliente']);
+                    }
                 }
-                onClose();
             } else {
-                setErrors([result.error || 'Error al crear el cliente']);
+                // Person doesn't exist, validate and create new person and customer
+                if (!personForm.firstName.trim()) {
+                    setErrors(['El nombre es requerido']);
+                    setIsSubmitting(false);
+                    return;
+                }
+                if (personForm.personType === PersonType.NATURAL && !personForm.lastName.trim()) {
+                    setErrors(['El apellido es requerido para personas naturales']);
+                    setIsSubmitting(false);
+                    return;
+                }
+                if (personForm.personType === PersonType.COMPANY && !personForm.businessName.trim()) {
+                    setErrors(['La razón social es requerida para empresas']);
+                    setIsSubmitting(false);
+                    return;
+                }
+                
+                const resolvedDocumentType = personForm.personType === PersonType.COMPANY ? DocumentType.RUT : personForm.documentType ?? DocumentType.RUN;
+                const payload = {
+                    creditLimit: parseFloat(customerForm.creditLimit) || 0,
+                    paymentDayOfMonth: paymentDay,
+                    notes: customerForm.notes || undefined,
+                    person: {
+                        type: personForm.personType,
+                        firstName: personForm.firstName.trim(),
+                        lastName: personForm.personType === PersonType.NATURAL ? personForm.lastName.trim() || undefined : undefined,
+                        businessName: personForm.personType === PersonType.COMPANY ? personForm.businessName.trim() || undefined : undefined,
+                        documentType: resolvedDocumentType,
+                        documentNumber: personForm.documentNumber.trim() || undefined,
+                        email: personForm.email.trim() || undefined,
+                        phone: personForm.phone.trim() || undefined,
+                        address: personForm.address.trim() || undefined,
+                    },
+                };
+                
+                const result = await createCustomer(payload);
+                
+                if (result.success) {
+                    resetForm();
+                    if (onSuccess) {
+                        await onSuccess();
+                    } else {
+                        success('Cliente creado correctamente');
+                        router.refresh();
+                    }
+                    onClose();
+                } else {
+                    setErrors([result.error || 'Error al crear el cliente']);
+                }
             }
         } catch (err: any) {
             setErrors([err?.message || 'Error al crear el cliente']);
@@ -361,16 +289,7 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
     const resetForm = useCallback(() => {
         setPersonForm(createInitialPersonForm());
         setCustomerForm(createInitialCustomerForm());
-        setPersonOptions([]);
-        setSelectedPersonOption(null);
-        setPersonSearchTerm('');
-        setIsCreatingNewPerson(false);
-        setAutocompleteLocked(false);
-        setIsSearchingPersons(false);
-        if (searchTimeoutRef.current) {
-            clearTimeout(searchTimeoutRef.current);
-            searchTimeoutRef.current = null;
-        }
+        setFoundPerson(null);
     }, []);
 
     const handleClose = () => {
@@ -409,120 +328,117 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
                     </Alert>
                 )}
 
-                {!isCreatingNewPerson && selectedPerson && (
+                {foundPerson && (
                     <div className="rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm space-y-1">
-                        <p className="font-medium text-neutral-800">{buildPersonDisplayName(selectedPerson)}</p>
-                        <p className="text-neutral-600">Tipo: {selectedPerson.type === PersonType.COMPANY ? 'Empresa' : 'Persona natural'}</p>
-                        {selectedPerson.documentNumber && (
+                        <p className="font-medium text-neutral-800">{buildPersonDisplayName(foundPerson)}</p>
+                        <p className="text-neutral-600">Tipo: {foundPerson.type === PersonType.COMPANY ? 'Empresa' : 'Persona natural'}</p>
+                        {foundPerson.documentNumber && (
                             <p className="text-neutral-600">
-                                Documento: {(selectedPerson.documentType ?? 'Documento')} {selectedPerson.documentNumber}
+                                Documento: {(foundPerson.documentType ?? 'Documento')} {foundPerson.documentNumber}
                             </p>
                         )}
-                        {selectedPerson.email && <p className="text-neutral-600">Correo: {selectedPerson.email}</p>}
-                        {selectedPerson.phone && <p className="text-neutral-600">Teléfono: {selectedPerson.phone}</p>}
-                        {selectedPerson.address && <p className="text-neutral-600">Dirección: {selectedPerson.address}</p>}
+                        {foundPerson.email && <p className="text-neutral-600">Correo: {foundPerson.email}</p>}
+                        {foundPerson.phone && <p className="text-neutral-600">Teléfono: {foundPerson.phone}</p>}
+                        {foundPerson.address && <p className="text-neutral-600">Dirección: {foundPerson.address}</p>}
                     </div>
                 )}
 
-                {isCreatingNewPerson && (
-                    <div className="space-y-4">
+                <div className="space-y-4">
+                    <Select
+                        label="Tipo de Persona"
+                        options={personTypeOptions}
+                        value={personForm.personType}
+                        onChange={(val) => {
+                            if (typeof val === 'string') {
+                                handlePersonTypeChange(val as PersonType);
+                            }
+                        }}
+                        data-test-id="create-customer-person-type"
+                    />
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <Select
-                            label="Tipo de Persona"
-                            options={personTypeOptions}
-                            value={personForm.personType}
+                            label="Tipo de Documento"
+                            options={documentTypeOptions}
+                            value={personForm.documentType}
                             onChange={(val) => {
                                 if (typeof val === 'string') {
-                                    handlePersonTypeChange(val as PersonType);
+                                    handleDocumentTypeChange(val as DocumentType);
                                 }
                             }}
-                            data-test-id="create-customer-person-type"
+                            disabled={isDocumentTypeSelectDisabled}
+                            data-test-id="create-customer-document-type"
                         />
-
-                        {personForm.personType === PersonType.NATURAL ? (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <TextField
-                                    label="Nombre"
-                                    value={personForm.firstName}
-                                    onChange={(e) => handlePersonFieldChange('firstName', e.target.value)}
-                                    required
-                                    data-test-id="create-customer-first-name"
-                                />
-                                <TextField
-                                    label="Apellido"
-                                    value={personForm.lastName}
-                                    onChange={(e) => handlePersonFieldChange('lastName', e.target.value)}
-                                    required
-                                    data-test-id="create-customer-last-name"
-                                />
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <TextField
-                                    label="Razón Social"
-                                    value={personForm.businessName}
-                                    onChange={(e) => handlePersonFieldChange('businessName', e.target.value)}
-                                    required
-                                    data-test-id="create-customer-business-name"
-                                />
-                                <TextField
-                                    label="Nombre de Contacto"
-                                    value={personForm.firstName}
-                                    onChange={(e) => handlePersonFieldChange('firstName', e.target.value)}
-                                    required
-                                    data-test-id="create-customer-contact-name"
-                                />
-                            </div>
-                        )}
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Select
-                                label="Tipo de Documento"
-                                options={documentTypeOptions}
-                                value={personForm.documentType}
-                                onChange={(val) => {
-                                    if (typeof val === 'string') {
-                                        handleDocumentTypeChange(val as DocumentType);
-                                    }
-                                }}
-                                disabled={isDocumentTypeSelectDisabled}
-                                data-test-id="create-customer-document-type"
-                            />
-                            <TextField
-                                label={documentLabel}
-                                placeholder={documentPlaceholder}
-                                type={documentFieldType}
-                                value={personForm.documentNumber}
-                                onChange={(e) => handlePersonFieldChange('documentNumber', e.target.value)}
-                                required
-                                data-test-id="create-customer-document"
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <TextField
-                                label="Teléfono"
-                                value={personForm.phone}
-                                onChange={(e) => handlePersonFieldChange('phone', e.target.value)}
-                                placeholder="+56 9 1234 5678"
-                                data-test-id="create-customer-phone"
-                            />
-                            <TextField
-                                label="Email"
-                                type="email"
-                                value={personForm.email}
-                                onChange={(e) => handlePersonFieldChange('email', e.target.value)}
-                                data-test-id="create-customer-email"
-                            />
-                        </div>
-
                         <TextField
-                            label="Dirección"
-                            value={personForm.address}
-                            onChange={(e) => handlePersonFieldChange('address', e.target.value)}
-                            data-test-id="create-customer-address"
+                            label={documentLabel}
+                            placeholder={documentPlaceholder}
+                            type={documentFieldType}
+                            value={personForm.documentNumber}
+                            onChange={(e) => handlePersonFieldChange('documentNumber', e.target.value)}
+                            required
+                            data-test-id="create-customer-document"
                         />
                     </div>
-                )}
+
+                    {personForm.personType === PersonType.NATURAL ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <TextField
+                                label="Nombre"
+                                value={personForm.firstName}
+                                onChange={(e) => handlePersonFieldChange('firstName', e.target.value)}
+                                required={!foundPerson}
+                                data-test-id="create-customer-first-name"
+                            />
+                            <TextField
+                                label="Apellido"
+                                value={personForm.lastName}
+                                onChange={(e) => handlePersonFieldChange('lastName', e.target.value)}
+                                required={!foundPerson && personForm.personType === PersonType.NATURAL}
+                                data-test-id="create-customer-last-name"
+                            />
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <TextField
+                                label="Razón Social"
+                                value={personForm.businessName}
+                                onChange={(e) => handlePersonFieldChange('businessName', e.target.value)}
+                                required={!foundPerson}
+                                data-test-id="create-customer-business-name"
+                            />
+                            <TextField
+                                label="Nombre de Contacto"
+                                value={personForm.firstName}
+                                onChange={(e) => handlePersonFieldChange('firstName', e.target.value)}
+                                data-test-id="create-customer-contact-name"
+                            />
+                        </div>
+                    )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <TextField
+                            label="Teléfono"
+                            value={personForm.phone}
+                            onChange={(e) => handlePersonFieldChange('phone', e.target.value)}
+                            placeholder="+56 9 1234 5678"
+                            data-test-id="create-customer-phone"
+                        />
+                        <TextField
+                            label="Email"
+                            type="email"
+                            value={personForm.email}
+                            onChange={(e) => handlePersonFieldChange('email', e.target.value)}
+                            data-test-id="create-customer-email"
+                        />
+                    </div>
+
+                    <TextField
+                        label="Dirección"
+                        value={personForm.address}
+                        onChange={(e) => handlePersonFieldChange('address', e.target.value)}
+                        data-test-id="create-customer-address"
+                    />
+                </div>
 
                 {/* Datos de Cliente */}
                 <div className="space-y-4">

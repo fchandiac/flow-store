@@ -154,9 +154,29 @@ export async function getPersonByDocumentNumber(documentNumber: string): Promise
     const ds = await getDb();
     const repo = ds.getRepository(Person);
     
-    return repo.findOne({
+    const person = await repo.findOne({
         where: { documentNumber, deletedAt: IsNull() }
     });
+    
+    if (!person) return null;
+    
+    // Convertir a objeto plano
+    return {
+        id: person.id,
+        type: person.type,
+        firstName: person.firstName,
+        lastName: person.lastName,
+        businessName: person.businessName,
+        documentType: person.documentType,
+        documentNumber: person.documentNumber,
+        email: person.email,
+        phone: person.phone,
+        address: person.address,
+        bankAccounts: person.bankAccounts,
+        createdAt: person.createdAt,
+        updatedAt: person.updatedAt,
+        deletedAt: person.deletedAt,
+    };
 }
 
 /**

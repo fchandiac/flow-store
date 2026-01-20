@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -12,22 +12,33 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  Alert,
 } from 'react-native';
 import {
   selectCartItems,
   selectCartTotals,
   selectSelectedCustomer,
+  selectPaymentCards,
+  selectTreasuryAccounts,
   usePosStore,
   type PosCustomer,
+  type PaymentCard,
+  type TreasuryAccountOption,
 } from '../store/usePosStore';
-import { formatCurrency } from '../utils/formatCurrency';
+import { formatCurrency, formatAmount } from '../utils/currency';
 import { palette } from '../theme/palette';
 import {
   createCustomer,
   searchCustomers,
+  getTreasuryAccounts,
+  createMultiplePayments,
   type CreateCustomerInput,
   type CustomerSearchResult,
 } from '../services/apiService';
+import { PaymentCard as PaymentCardComponent } from '../components/PaymentCard';
+import { PaymentSummary } from '../components/PaymentSummary';
+import { PaymentControls } from '../components/PaymentControls';
+import { usePaymentCalculations } from '../hooks/usePaymentCalculations';
 
 type CreateCustomerFormState = {
   firstName: string;
@@ -71,8 +82,18 @@ function PaymentScreen() {
   const cartItems = usePosStore(selectCartItems);
   const cartTotals = usePosStore(selectCartTotals);
   const selectedCustomer: PosCustomer | null = usePosStore(selectSelectedCustomer);
+  const paymentCards = usePosStore(selectPaymentCards);
+  const treasuryAccounts = usePosStore(selectTreasuryAccounts);
   const setSelectedCustomer = usePosStore((state) => state.setSelectedCustomer);
   const clearSelectedCustomer = usePosStore((state) => state.clearSelectedCustomer);
+  const addPaymentCard = usePosStore((state) => state.addPaymentCard);
+  const updatePaymentCard = usePosStore((state) => state.updatePaymentCard);
+  const removePaymentCard = usePosStore((state) => state.removePaymentCard);
+  const addSubPayment = usePosStore((state) => state.addSubPayment);
+  const updateSubPayment = usePosStore((state) => state.updateSubPayment);
+  const removeSubPayment = usePosStore((state) => state.removeSubPayment);
+  const clearPayments = usePosStore((state) => state.clearPayments);
+  const setTreasuryAccounts = usePosStore((state) => state.setTreasuryAccounts);
 
   const [customerQuery, setCustomerQuery] = useState('');
   const [customerResults, setCustomerResults] = useState<CustomerSearchResult[]>([]);
@@ -85,6 +106,31 @@ function PaymentScreen() {
   );
   const [createCustomerError, setCreateCustomerError] = useState<string | null>(null);
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
+  const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+
+  // Cálculos de pagos
+  const paymentCalculations = usePaymentCalculations({
+    paymentCards,
+    totalToPay: cartTotals.total,
+  });
+
+  // Cargar cuentas bancarias al montar el componente
+  useEffect(() => {
+    const loadTreasuryAccounts = async () => {
+      setIsLoadingAccounts(true);
+      try {
+        const accounts = await getTreasuryAccounts();
+        setTreasuryAccounts(accounts);
+      } catch (error) {
+        console.error('Error loading treasury accounts:', error);
+      } finally {
+        setIsLoadingAccounts(false);
+      }
+    };
+
+    void loadTreasuryAccounts();
+  }, [setTreasuryAccounts]);
 
   const currentDocumentTypeOptions = documentTypeOptions[createCustomerForm.personType];
   const isNaturalPerson = createCustomerForm.personType === 'NATURAL';
@@ -244,6 +290,54 @@ function PaymentScreen() {
       setCreateCustomerError(message);
     } finally {
       setIsCreatingCustomer(false);
+    }
+  };
+
+  // Payment handlers
+  const handleAddPaymentCard = (type: Parameters<typeof addPaymentCard>[0]) => {
+    // Por defecto, el monto de la nueva tarjeta es el saldo restante
+    addPaymentCard(type);
+    // El cálculo automático se hará en el useEffect del componente PaymentCard
+  };
+
+  const handleUpdatePaymentCard = (id: string, updates: Partial<PaymentCard>) => {
+    updatePaymentCard(id, updates);
+  };
+
+  const handleRemovePaymentCard = (id: string) => {
+    removePaymentCard(id);
+  };
+
+  const handleAddSubPayment = (cardId: string, subPayment: Parameters<typeof addSubPayment>[1]) => {
+    addSubPayment(cardId, subPayment);
+  };
+
+  const handleUpdateSubPayment = (cardId: string, subPaymentId: string, updates: Parameters<typeof updateSubPayment>[2]) => {
+    updateSubPayment(cardId, subPaymentId, updates);
+  };
+
+  const handleRemoveSubPayment = (cardId: string, subPaymentId: string) => {
+    removeSubPayment(cardId, subPaymentId);
+  };
+
+  const handleFinalizeSale = async () => {
+    if (!paymentCalculations.canFinalize) {
+      Alert.alert('Error', 'No se puede finalizar la venta. Verifique los montos de pago.');
+      return;
+    }
+
+    setIsProcessingPayment(true);
+    try {
+      // Aquí irá la lógica para crear la venta y los pagos múltiples
+      Alert.alert('Éxito', 'Venta finalizada correctamente');
+      // Limpiar estado después de finalizar
+      clearPayments();
+      clearSelectedCustomer();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Error al procesar el pago';
+      Alert.alert('Error', message);
+    } finally {
+      setIsProcessingPayment(false);
     }
   };
 
@@ -666,10 +760,83 @@ function PaymentScreen() {
           </View>
 
           <View style={[styles.column, styles.rightColumn]}>
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Pagos</Text>
-              <Text style={styles.cardSubtitle}>Próximamente agregaremos los métodos de pago.</Text>
-            </View>
+            <ScrollView 
+              style={styles.paymentScrollContainer}
+              contentContainerStyle={styles.paymentScrollContent}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Layout de tres columnas para pagos */}
+              <View style={styles.paymentLayout}>
+                {/* Columna izquierda: Montos */}
+                <View style={styles.paymentLeftColumn}>
+                  <PaymentSummary
+                    totalToPay={cartTotals.total}
+                    totalPaid={paymentCalculations.totalPaid}
+                    change={paymentCalculations.change}
+                  />
+                </View>
+
+                {/* Columna central: Cards de pago */}
+                <View style={styles.paymentCenterColumn}>
+                  <View style={styles.paymentCardsContainer}>
+                    {paymentCards.map((card) => (
+                      <PaymentCardComponent
+                        key={card.id}
+                        card={card}
+                        treasuryAccounts={treasuryAccounts}
+                        onUpdate={(updates) => handleUpdatePaymentCard(card.id, updates)}
+                        onRemove={() => handleRemovePaymentCard(card.id)}
+                        onAddSubPayment={(subPayment) => handleAddSubPayment(card.id, subPayment)}
+                        onUpdateSubPayment={(subPaymentId, updates) =>
+                          handleUpdateSubPayment(card.id, subPaymentId, updates)
+                        }
+                        onRemoveSubPayment={(subPaymentId) =>
+                          handleRemoveSubPayment(card.id, subPaymentId)
+                        }
+                        maxAmount={cartTotals.total}
+                        customerPaymentDay={selectedCustomer?.paymentDayOfMonth}
+                      />
+                    ))}
+                    {paymentCards.length === 0 && (
+                      <View style={styles.emptyPayments}>
+                        <Ionicons name="card-outline" size={48} color={palette.textMuted} />
+                        <Text style={styles.emptyPaymentsText}>
+                          Agrega métodos de pago para continuar
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                {/* Columna derecha: Controles */}
+                <View style={styles.paymentRightColumn}>
+                  <PaymentControls onAddPayment={handleAddPaymentCard} />
+                </View>
+              </View>
+
+              {/* Botón finalizar - fuera de las columnas */}
+              <View style={styles.paymentFooter}>
+                <TouchableOpacity
+                  style={[
+                    styles.finalizeButton,
+                    !paymentCalculations.canFinalize && styles.finalizeButtonDisabled,
+                  ]}
+                  onPress={handleFinalizeSale}
+                  disabled={!paymentCalculations.canFinalize || isProcessingPayment}
+                  activeOpacity={0.85}
+                >
+                  {isProcessingPayment ? (
+                    <ActivityIndicator color={palette.primaryText} />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark-circle-outline" size={20} color={palette.primaryText} />
+                      <Text style={styles.finalizeButtonText}>Finalizar venta</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </View>
@@ -696,6 +863,7 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   rightColumn: {
+    flex: 1,
     marginLeft: 12,
   },
   card: {
@@ -1149,6 +1317,73 @@ const styles = StyleSheet.create({
   createCustomerPrimaryActionLabel: {
     marginLeft: 8,
     fontSize: 14,
+    fontWeight: '700',
+    color: palette.primaryText,
+  },
+  // Payment styles
+  paymentLayout: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 20,
+  },
+  paymentLeftColumn: {
+    flex: 1,
+    marginRight: 4,
+  },
+  paymentCenterColumn: {
+    flex: 3,
+    marginHorizontal: 4,
+  },
+  paymentRightColumn: {
+    flex: 1,
+    alignItems: 'flex-end',
+    marginLeft: 4,
+  },
+  paymentScrollContainer: {
+    flex: 1,
+  },
+  paymentScrollContent: {
+    paddingBottom: 20,
+  },
+  paymentCardsContainer: {
+    gap: 12,
+  },
+  paymentFooter: {
+    marginTop: 20,
+  },
+  emptyPayments: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  emptyPaymentsText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: palette.textMuted,
+    textAlign: 'center',
+  },
+  finalizeButton: {
+    backgroundColor: palette.success || '#28a745',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: palette.success || '#28a745',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  finalizeButtonDisabled: {
+    backgroundColor: palette.textMuted,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  finalizeButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
     fontWeight: '700',
     color: palette.primaryText,
   },

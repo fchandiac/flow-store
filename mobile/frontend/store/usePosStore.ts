@@ -124,6 +124,30 @@ export type UsbPrinterSelection = {
   deviceName?: string | null;
 };
 
+export type PaymentCardType = 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'TRANSFER' | 'INTERNAL_CREDIT';
+
+export type PaymentCard = {
+  id: string;
+  type: PaymentCardType;
+  amount: number;
+  bankAccountId?: string;
+  subPayments?: InternalCreditSubPayment[];
+};
+
+export type InternalCreditSubPayment = {
+  id: string;
+  amount: number;
+  dueDate: string;
+};
+
+export type TreasuryAccountOption = {
+  id: string;
+  name: string;
+  bankName?: string;
+  accountNumber?: string;
+  type: string;
+};
+
 type PosState = {
   user: AuthenticatedUser | null;
   pointOfSale: PointOfSaleSummary | null;
@@ -153,6 +177,17 @@ type PosState = {
   setPromoMediaEnabled: (enabled: boolean) => void;
   setPromoMedia: (asset: PromoMediaAsset | null) => void;
   setBackendBaseUrl: (url: string | null) => void;
+  // Payment state
+  paymentCards: PaymentCard[];
+  treasuryAccounts: TreasuryAccountOption[];
+  addPaymentCard: (type: PaymentCardType) => void;
+  updatePaymentCard: (id: string, updates: Partial<PaymentCard>) => void;
+  removePaymentCard: (id: string) => void;
+  addSubPayment: (cardId: string, subPayment: Omit<InternalCreditSubPayment, 'id'>) => void;
+  updateSubPayment: (cardId: string, subPaymentId: string, updates: Partial<InternalCreditSubPayment>) => void;
+  removeSubPayment: (cardId: string, subPaymentId: string) => void;
+  clearPayments: () => void;
+  setTreasuryAccounts: (accounts: TreasuryAccountOption[]) => void;
 };
 
 function recalcTotals(item: CartItem): CartItem {
@@ -264,6 +299,71 @@ export const usePosStore = create<PosState>((set, get) => ({
   setPromoMediaEnabled: (enabled) => set({ promoMediaEnabled: enabled }),
   setPromoMedia: (asset) => set({ promoMedia: asset }),
   setBackendBaseUrl: (url) => set({ backendBaseUrl: url ?? null }),
+  // Payment state
+  paymentCards: [],
+  treasuryAccounts: [],
+  addPaymentCard: (type) => {
+    const newCard: PaymentCard = {
+      id: `payment-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      type,
+      amount: 0,
+      subPayments: type === 'INTERNAL_CREDIT' ? [] : undefined,
+    };
+    set((state) => ({ paymentCards: [...state.paymentCards, newCard] }));
+  },
+  updatePaymentCard: (id, updates) => {
+    set((state) => ({
+      paymentCards: state.paymentCards.map((card) =>
+        card.id === id ? { ...card, ...updates } : card
+      ),
+    }));
+  },
+  removePaymentCard: (id) => {
+    set((state) => ({
+      paymentCards: state.paymentCards.filter((card) => card.id !== id),
+    }));
+  },
+  addSubPayment: (cardId, subPayment) => {
+    const newSubPayment: InternalCreditSubPayment = {
+      id: `sub-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      ...subPayment,
+    };
+    set((state) => ({
+      paymentCards: state.paymentCards.map((card) =>
+        card.id === cardId && card.subPayments
+          ? { ...card, subPayments: [...card.subPayments, newSubPayment] }
+          : card
+      ),
+    }));
+  },
+  updateSubPayment: (cardId, subPaymentId, updates) => {
+    set((state) => ({
+      paymentCards: state.paymentCards.map((card) =>
+        card.id === cardId && card.subPayments
+          ? {
+              ...card,
+              subPayments: card.subPayments.map((sub) =>
+                sub.id === subPaymentId ? { ...sub, ...updates } : sub
+              ),
+            }
+          : card
+      ),
+    }));
+  },
+  removeSubPayment: (cardId, subPaymentId) => {
+    set((state) => ({
+      paymentCards: state.paymentCards.map((card) =>
+        card.id === cardId && card.subPayments
+          ? {
+              ...card,
+              subPayments: card.subPayments.filter((sub) => sub.id !== subPaymentId),
+            }
+          : card
+      ),
+    }));
+  },
+  clearPayments: () => set({ paymentCards: [] }),
+  setTreasuryAccounts: (accounts) => set({ treasuryAccounts: accounts }),
 }));
 
 export const selectUser = (state: PosState) => state.user;
@@ -303,3 +403,5 @@ export const selectPreferredCustomerDisplayId = (state: PosState) => state.prefe
 export const selectPromoMediaEnabled = (state: PosState) => state.promoMediaEnabled;
 export const selectPromoMedia = (state: PosState) => state.promoMedia;
 export const selectBackendBaseUrl = (state: PosState) => state.backendBaseUrl;
+export const selectPaymentCards = (state: PosState) => state.paymentCards;
+export const selectTreasuryAccounts = (state: PosState) => state.treasuryAccounts;

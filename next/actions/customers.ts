@@ -16,7 +16,31 @@ interface GetCustomersParams {
 }
 
 interface CustomersResponse {
-    data: (Customer & { person: Person })[];
+    data: {
+        id: string;
+        personId: string;
+        creditLimit: number;
+        paymentDayOfMonth: 5 | 10 | 15 | 20 | 25 | 30;
+        notes?: string;
+        currentBalance: number;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        person: {
+            id: string;
+            type: PersonType;
+            firstName: string;
+            lastName?: string;
+            businessName?: string;
+            documentType?: DocumentType | null;
+            documentNumber?: string;
+            email?: string;
+            phone?: string;
+            address?: string;
+            createdAt: Date;
+            updatedAt: Date;
+        };
+    }[];
     total: number;
 }
 
@@ -86,8 +110,34 @@ export async function getCustomers(params?: GetCustomersParams): Promise<Custome
     
     const [data, total] = await queryBuilder.getManyAndCount();
     
-    // Serializar para evitar error de Server Components
-    return JSON.parse(JSON.stringify({ data, total }));
+    // Convertir a objetos planos para evitar problemas de serialización
+    const plainData = data.map(customer => ({
+        id: customer.id,
+        personId: customer.personId,
+        creditLimit: customer.creditLimit,
+        paymentDayOfMonth: customer.paymentDayOfMonth,
+        notes: customer.notes,
+        currentBalance: customer.currentBalance,
+        isActive: customer.isActive,
+        createdAt: customer.createdAt,
+        updatedAt: customer.updatedAt,
+        person: {
+            id: customer.person!.id,
+            type: customer.person!.type,
+            firstName: customer.person!.firstName,
+            lastName: customer.person!.lastName,
+            businessName: customer.person!.businessName,
+            documentType: customer.person!.documentType,
+            documentNumber: customer.person!.documentNumber,
+            email: customer.person!.email,
+            phone: customer.person!.phone,
+            address: customer.person!.address,
+            createdAt: customer.person!.createdAt,
+            updatedAt: customer.person!.updatedAt,
+        }
+    }));
+    
+    return { data: plainData, total };
 }
 
 /**
@@ -114,7 +164,43 @@ export async function getCustomerById(id: string): Promise<(Customer & {
         take: 10
     });
     
-    return { ...customer, recentTransactions } as any;
+    // Convertir a objeto plano
+    const plainCustomer = {
+        id: customer.id,
+        personId: customer.personId,
+        creditLimit: customer.creditLimit,
+        paymentDayOfMonth: customer.paymentDayOfMonth,
+        notes: customer.notes,
+        currentBalance: customer.currentBalance,
+        isActive: customer.isActive,
+        createdAt: customer.createdAt,
+        updatedAt: customer.updatedAt,
+        person: customer.person ? {
+            id: customer.person.id,
+            type: customer.person.type,
+            firstName: customer.person.firstName,
+            lastName: customer.person.lastName,
+            businessName: customer.person.businessName,
+            documentType: customer.person.documentType,
+            documentNumber: customer.person.documentNumber,
+            email: customer.person.email,
+            phone: customer.person.phone,
+            address: customer.person.address,
+            createdAt: customer.person.createdAt,
+            updatedAt: customer.person.updatedAt,
+        } : undefined,
+        recentTransactions: recentTransactions.map(tx => ({
+            id: tx.id,
+            customerId: tx.customerId,
+            documentNumber: tx.documentNumber,
+            transactionType: tx.transactionType,
+            status: tx.status,
+            total: tx.total,
+            createdAt: tx.createdAt,
+        }))
+    };
+    
+    return plainCustomer as any;
 }
 
 /**
@@ -198,7 +284,34 @@ export async function createCustomer(data: CreateCustomerDTO): Promise<CustomerR
         
         revalidatePath('/admin/sales/customers');
         
-        return JSON.parse(JSON.stringify({ success: true, customer: savedCustomer! }));
+        // Convertir a objeto plano para evitar problemas de serialización
+        const plainCustomer = {
+            id: savedCustomer!.id,
+            personId: savedCustomer!.personId,
+            creditLimit: savedCustomer!.creditLimit,
+            paymentDayOfMonth: savedCustomer!.paymentDayOfMonth,
+            notes: savedCustomer!.notes,
+            currentBalance: savedCustomer!.currentBalance,
+            isActive: savedCustomer!.isActive,
+            createdAt: savedCustomer!.createdAt,
+            updatedAt: savedCustomer!.updatedAt,
+            person: savedCustomer!.person ? {
+                id: savedCustomer!.person.id,
+                type: savedCustomer!.person.type,
+                firstName: savedCustomer!.person.firstName,
+                lastName: savedCustomer!.person.lastName,
+                businessName: savedCustomer!.person.businessName,
+                documentType: savedCustomer!.person.documentType,
+                documentNumber: savedCustomer!.person.documentNumber,
+                email: savedCustomer!.person.email,
+                phone: savedCustomer!.person.phone,
+                address: savedCustomer!.person.address,
+                createdAt: savedCustomer!.person.createdAt,
+                updatedAt: savedCustomer!.person.updatedAt,
+            } : undefined
+        };
+        
+        return { success: true, customer: plainCustomer };
     } catch (error) {
         console.error('Error creating customer:', error);
         return { 
@@ -233,7 +346,34 @@ export async function updateCustomer(id: string, data: UpdateCustomerDTO): Promi
         await repo.save(customer);
         revalidatePath('/admin/sales/customers');
         
-        return JSON.parse(JSON.stringify({ success: true, customer }));
+        // Convertir a objeto plano
+        const plainCustomer = {
+            id: customer.id,
+            personId: customer.personId,
+            creditLimit: customer.creditLimit,
+            paymentDayOfMonth: customer.paymentDayOfMonth,
+            notes: customer.notes,
+            currentBalance: customer.currentBalance,
+            isActive: customer.isActive,
+            createdAt: customer.createdAt,
+            updatedAt: customer.updatedAt,
+            person: customer.person ? {
+                id: customer.person.id,
+                type: customer.person.type,
+                firstName: customer.person.firstName,
+                lastName: customer.person.lastName,
+                businessName: customer.person.businessName,
+                documentType: customer.person.documentType,
+                documentNumber: customer.person.documentNumber,
+                email: customer.person.email,
+                phone: customer.person.phone,
+                address: customer.person.address,
+                createdAt: customer.person.createdAt,
+                updatedAt: customer.person.updatedAt,
+            } : undefined
+        };
+        
+        return { success: true, customer: plainCustomer };
     } catch (error) {
         console.error('Error updating customer:', error);
         return { 

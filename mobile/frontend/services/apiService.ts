@@ -973,6 +973,61 @@ export async function checkoutSale(
   return response;
 }
 
+// Treasury accounts
+export type TreasuryAccountResponse = {
+  id: string;
+  name: string;
+  bankName?: string;
+  accountNumber?: string;
+  type: string;
+};
+
+export async function getTreasuryAccounts(): Promise<TreasuryAccountResponse[]> {
+  const payload = await request<TreasuryAccountResponse[]>(
+    '/api/treasury-accounts',
+    { method: 'GET' },
+  );
+  return payload;
+}
+
+// Multiple payments
+export type CreateMultiplePaymentsInput = {
+  saleTransactionId: string;
+  payments: Array<{
+    paymentMethod: 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'TRANSFER' | 'CREDIT' | 'INTERNAL_CREDIT' | 'MIXED';
+    amount: number;
+    bankAccountId?: string;
+    subPayments?: Array<{
+      amount: number;
+      dueDate: string;
+    }>;
+  }>;
+};
+
+export type MultiplePaymentsResult = {
+  payments: Array<{
+    id: string;
+    paymentMethod: string;
+    amount: number;
+    transactionId: string;
+  }>;
+  totalPaid: number;
+  change: number;
+};
+
+export async function createMultiplePayments(
+  input: CreateMultiplePaymentsInput,
+): Promise<MultiplePaymentsResult> {
+  const payload = await request<MultiplePaymentsResult>(
+    '/api/payments/multiple',
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+  return payload;
+}
+
 export default {
   login,
   fetchPointsOfSale,
@@ -986,4 +1041,6 @@ export default {
   createCustomer,
   createSale,
   checkoutSale,
+  getTreasuryAccounts,
+  createMultiplePayments,
 };
