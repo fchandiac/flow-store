@@ -309,7 +309,7 @@ type CustomerSeed = {
   mail?: string;
   address?: string;
   creditLimit?: number;
-  defaultPaymentTermDays?: number;
+  paymentDayOfMonth?: 5 | 10 | 15 | 20 | 25 | 30;
   notes?: string;
 };
 
@@ -2246,7 +2246,7 @@ async function seedFlowStore() {
 
       customer.creditLimit = seed.creditLimit ?? 0;
       customer.currentBalance = 0;
-      customer.defaultPaymentTermDays = seed.defaultPaymentTermDays ?? 0;
+      customer.paymentDayOfMonth = seed.paymentDayOfMonth ?? 5;
       customer.isActive = true;
       customer.notes = seed.notes ?? undefined;
       customer.deletedAt = undefined;

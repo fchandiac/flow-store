@@ -139,12 +139,12 @@ export const CustomersDataGrid = () => {
         renderCell: ({ value }) => value || "-",
       },
       {
-        field: "defaultPaymentTermDays",
-        headerName: "Plazo (días)",
+        field: "paymentDayOfMonth",
+        headerName: "Día de Pago",
         width: 130,
         align: "left",
         headerAlign: "left",
-        renderCell: ({ value }) => (value ? `${value}` : "0"),
+        renderCell: ({ value }) => (value ? `Día ${value}` : "-"),
       },
       {
         field: "creditLimit",

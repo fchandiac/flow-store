@@ -115,7 +115,7 @@ export type PosCustomer = {
   creditLimit: number;
   currentBalance: number;
   availableCredit: number;
-  defaultPaymentTermDays: number;
+  paymentDayOfMonth: number;
 };
 
 export type UsbPrinterSelection = {

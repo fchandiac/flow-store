@@ -84,7 +84,7 @@ export async function GET(request: Request) {
         creditLimit,
         currentBalance,
         availableCredit,
-        defaultPaymentTermDays: customer.defaultPaymentTermDays ?? 0,
+        paymentDayOfMonth: customer.paymentDayOfMonth,
         createdAt: customer.createdAt,
         updatedAt: customer.updatedAt,
       };

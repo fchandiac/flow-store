@@ -9,6 +9,7 @@ import { Button } from '@/app/baseComponents/Button/Button';
 import Alert from '@/app/baseComponents/Alert/Alert';
 import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { updateCustomer } from '@/app/actions/customers';
+import Select from '@/app/baseComponents/Select/Select';
 import type { CustomerWithPerson } from './types';
 
 interface UpdateCustomerDialogProps {
@@ -38,7 +39,7 @@ const UpdateCustomerDialog: React.FC<UpdateCustomerDialogProps> = ({
 
     const [formData, setFormData] = useState({
         creditLimit: customer.creditLimit.toString(),
-        defaultPaymentTermDays: customer.defaultPaymentTermDays.toString(),
+        paymentDayOfMonth: (customer.paymentDayOfMonth ?? 5).toString(),
         notes: customer.notes || '',
         isActive: customer.isActive,
     });
@@ -46,7 +47,7 @@ const UpdateCustomerDialog: React.FC<UpdateCustomerDialogProps> = ({
     useEffect(() => {
         setFormData({
             creditLimit: customer.creditLimit.toString(),
-            defaultPaymentTermDays: customer.defaultPaymentTermDays.toString(),
+            paymentDayOfMonth: (customer.paymentDayOfMonth ?? 5).toString(),
             notes: customer.notes || '',
             isActive: customer.isActive,
         });
@@ -66,9 +67,14 @@ const UpdateCustomerDialog: React.FC<UpdateCustomerDialogProps> = ({
         setErrors([]);
 
         try {
+            const validDays = [5, 10, 15, 20, 25, 30];
+            const paymentDay = Number(formData.paymentDayOfMonth);
+            const paymentDayOfMonth = validDays.includes(paymentDay)
+                ? (paymentDay as 5 | 10 | 15 | 20 | 25 | 30)
+                : undefined;
             const result = await updateCustomer(customer.id, {
                 creditLimit: parseFloat(formData.creditLimit) || 0,
-                defaultPaymentTermDays: parseInt(formData.defaultPaymentTermDays) || 0,
+                paymentDayOfMonth,
                 notes: formData.notes || undefined,
                 isActive: formData.isActive,
             });
@@ -94,7 +100,7 @@ const UpdateCustomerDialog: React.FC<UpdateCustomerDialogProps> = ({
     const handleClose = () => {
         setFormData({
             creditLimit: customer.creditLimit.toString(),
-            defaultPaymentTermDays: customer.defaultPaymentTermDays.toString(),
+            paymentDayOfMonth: (customer.paymentDayOfMonth ?? 5).toString(),
             notes: customer.notes || '',
             isActive: customer.isActive,
         });
@@ -120,23 +126,6 @@ const UpdateCustomerDialog: React.FC<UpdateCustomerDialogProps> = ({
                     </Alert>
                 )}
 
-                {/* Info del cliente */}
-                <div className="p-4 bg-neutral-50 rounded-lg">
-                    <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-full bg-white border-2 border-secondary flex items-center justify-center">
-                            <span className="material-symbols-outlined text-secondary" style={{ fontSize: '1.25rem' }}>
-                                {customer.person.type === 'NATURAL' ? 'person' : 'business'}
-                            </span>
-                        </div>
-                        <div>
-                            <p className="font-medium text-neutral-800">{displayName}</p>
-                            {customer.person.documentNumber && (
-                                <p className="text-sm text-neutral-500">RUT: {customer.person.documentNumber}</p>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                         <TextField
@@ -147,12 +136,19 @@ const UpdateCustomerDialog: React.FC<UpdateCustomerDialogProps> = ({
                             onChange={(e) => handleChange('creditLimit', e.target.value)}
                             data-test-id="update-customer-credit-limit"
                         />
-                        <TextField
-                            label="Días de Pago"
-                            type="number"
-                            value={formData.defaultPaymentTermDays}
-                            onChange={(e) => handleChange('defaultPaymentTermDays', e.target.value)}
-                            data-test-id="update-customer-payment-days"
+                        <Select
+                            label="Día de Pago del Mes"
+                            options={[
+                                { id: 5, label: '5' },
+                                { id: 10, label: '10' },
+                                { id: 15, label: '15' },
+                                { id: 20, label: '20' },
+                                { id: 25, label: '25' },
+                                { id: 30, label: '30' },
+                            ]}
+                            value={Number(formData.paymentDayOfMonth)}
+                            onChange={(id) => handleChange('paymentDayOfMonth', String(id ?? 5))}
+                            data-test-id="update-customer-payment-day"
                         />
                     </div>
                     

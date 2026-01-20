@@ -58,7 +58,7 @@ interface PersonFormState {
 
 interface CustomerFormState {
     creditLimit: string;
-    defaultPaymentTermDays: string;
+    paymentDayOfMonth: string;
     notes: string;
 }
 
@@ -76,7 +76,7 @@ const createInitialPersonForm = (): PersonFormState => ({
 
 const createInitialCustomerForm = (): CustomerFormState => ({
     creditLimit: '',
-    defaultPaymentTermDays: '1',
+    paymentDayOfMonth: '5',
     notes: '',
 });
 
@@ -144,39 +144,6 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
         setCustomerForm(prev => ({
             ...prev,
             [field]: value,
-        }));
-    };
-
-    const handlePaymentTermDaysInput = (
-        event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-    ) => {
-        const rawValue = event.target.value ?? '';
-        const digitsOnly = rawValue.replace(/\D/g, '');
-
-        if (digitsOnly.length === 0) {
-            setCustomerForm(prev => ({
-                ...prev,
-                defaultPaymentTermDays: '',
-            }));
-            return;
-        }
-
-        const trimmed = digitsOnly.slice(0, 2);
-        let numericValue = Number.parseInt(trimmed, 10);
-
-        if (Number.isNaN(numericValue)) {
-            setCustomerForm(prev => ({
-                ...prev,
-                defaultPaymentTermDays: '',
-            }));
-            return;
-        }
-
-        numericValue = Math.min(31, Math.max(1, numericValue));
-
-        setCustomerForm(prev => ({
-            ...prev,
-            defaultPaymentTermDays: numericValue.toString(),
         }));
     };
 
@@ -331,9 +298,10 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
             }
         }
 
-        const parsedPaymentDays = Number.parseInt(customerForm.defaultPaymentTermDays, 10);
-        if (Number.isNaN(parsedPaymentDays) || parsedPaymentDays < 1 || parsedPaymentDays > 31) {
-            validationErrors.push('Los días de pago deben estar entre 1 y 31');
+        const parsedPaymentDay = Number.parseInt(customerForm.paymentDayOfMonth, 10);
+        const validDays = [5, 10, 15, 20, 25, 30];
+        if (!validDays.includes(parsedPaymentDay)) {
+            validationErrors.push('El día de pago debe ser uno de: 5, 10, 15, 20, 25 o 30');
         }
         
         if (validationErrors.length > 0) {
@@ -345,12 +313,12 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
         setErrors([]);
 
         try {
-            const paymentDaysNumber = Math.min(31, Math.max(1, parsedPaymentDays));
-            const payload = {
+            const paymentDay = validDays.includes(parsedPaymentDay) ? (parsedPaymentDay as 5 | 10 | 15 | 20 | 25 | 30) : 5;
+            const payload: any = {
                 creditLimit: parseFloat(customerForm.creditLimit) || 0,
-                defaultPaymentTermDays: paymentDaysNumber,
+                paymentDayOfMonth: paymentDay,
                 notes: customerForm.notes || undefined,
-            } as Parameters<typeof createCustomer>[0];
+            };
 
             if (!isCreatingNewPerson && selectedPerson) {
                 payload.personId = selectedPerson.id;
@@ -441,149 +409,120 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
                     </Alert>
                 )}
 
-                {/* Datos de Persona */}
-                <div className="space-y-4">
-                    <h3 className="font-medium text-neutral-700 border-b pb-2">Datos de Persona</h3>
+                {!isCreatingNewPerson && selectedPerson && (
+                    <div className="rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm space-y-1">
+                        <p className="font-medium text-neutral-800">{buildPersonDisplayName(selectedPerson)}</p>
+                        <p className="text-neutral-600">Tipo: {selectedPerson.type === PersonType.COMPANY ? 'Empresa' : 'Persona natural'}</p>
+                        {selectedPerson.documentNumber && (
+                            <p className="text-neutral-600">
+                                Documento: {(selectedPerson.documentType ?? 'Documento')} {selectedPerson.documentNumber}
+                            </p>
+                        )}
+                        {selectedPerson.email && <p className="text-neutral-600">Correo: {selectedPerson.email}</p>}
+                        {selectedPerson.phone && <p className="text-neutral-600">Teléfono: {selectedPerson.phone}</p>}
+                        {selectedPerson.address && <p className="text-neutral-600">Dirección: {selectedPerson.address}</p>}
+                    </div>
+                )}
 
-                    {!autocompleteLocked && (
-                        <>
-                            <AutoComplete<PersonOption>
-                                label="Persona"
-                                placeholder="Busca por nombre o documento"
-                                options={personOptions}
-                                value={selectedPersonOption}
-                                onChange={handlePersonSelection}
-                                onInputChange={handlePersonSearchInput}
-                                filterOption={(option, inputValue) => {
-                                    if ((option as PersonOption).isCreateOption) {
-                                        return true;
-                                    }
-                                    return option.label.toLowerCase().includes(inputValue.toLowerCase());
-                                }}
-                                data-test-id="create-customer-person-autocomplete"
-                            />
+                {isCreatingNewPerson && (
+                    <div className="space-y-4">
+                        <Select
+                            label="Tipo de Persona"
+                            options={personTypeOptions}
+                            value={personForm.personType}
+                            onChange={(val) => {
+                                if (typeof val === 'string') {
+                                    handlePersonTypeChange(val as PersonType);
+                                }
+                            }}
+                            data-test-id="create-customer-person-type"
+                        />
 
-                            {isSearchingPersons && (
-                                <p className="text-xs text-neutral-500">Buscando personas…</p>
-                            )}
-                        </>
-                    )}
+                        {personForm.personType === PersonType.NATURAL ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <TextField
+                                    label="Nombre"
+                                    value={personForm.firstName}
+                                    onChange={(e) => handlePersonFieldChange('firstName', e.target.value)}
+                                    required
+                                    data-test-id="create-customer-first-name"
+                                />
+                                <TextField
+                                    label="Apellido"
+                                    value={personForm.lastName}
+                                    onChange={(e) => handlePersonFieldChange('lastName', e.target.value)}
+                                    required
+                                    data-test-id="create-customer-last-name"
+                                />
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <TextField
+                                    label="Razón Social"
+                                    value={personForm.businessName}
+                                    onChange={(e) => handlePersonFieldChange('businessName', e.target.value)}
+                                    required
+                                    data-test-id="create-customer-business-name"
+                                />
+                                <TextField
+                                    label="Nombre de Contacto"
+                                    value={personForm.firstName}
+                                    onChange={(e) => handlePersonFieldChange('firstName', e.target.value)}
+                                    required
+                                    data-test-id="create-customer-contact-name"
+                                />
+                            </div>
+                        )}
 
-                    {!isCreatingNewPerson && selectedPerson && (
-                        <div className="rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm space-y-1">
-                            <p className="font-medium text-neutral-800">{buildPersonDisplayName(selectedPerson)}</p>
-                            <p className="text-neutral-600">Tipo: {selectedPerson.type === PersonType.COMPANY ? 'Empresa' : 'Persona natural'}</p>
-                            {selectedPerson.documentNumber && (
-                                <p className="text-neutral-600">
-                                    Documento: {(selectedPerson.documentType ?? 'Documento')} {selectedPerson.documentNumber}
-                                </p>
-                            )}
-                            {selectedPerson.email && <p className="text-neutral-600">Correo: {selectedPerson.email}</p>}
-                            {selectedPerson.phone && <p className="text-neutral-600">Teléfono: {selectedPerson.phone}</p>}
-                            {selectedPerson.address && <p className="text-neutral-600">Dirección: {selectedPerson.address}</p>}
-                        </div>
-                    )}
-
-                    {isCreatingNewPerson && (
-                        <div className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <Select
-                                label="Tipo de Persona"
-                                options={personTypeOptions}
-                                value={personForm.personType}
+                                label="Tipo de Documento"
+                                options={documentTypeOptions}
+                                value={personForm.documentType}
                                 onChange={(val) => {
                                     if (typeof val === 'string') {
-                                        handlePersonTypeChange(val as PersonType);
+                                        handleDocumentTypeChange(val as DocumentType);
                                     }
                                 }}
-                                data-test-id="create-customer-person-type"
+                                disabled={isDocumentTypeSelectDisabled}
+                                data-test-id="create-customer-document-type"
                             />
-
-                            {personForm.personType === PersonType.NATURAL ? (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <TextField
-                                        label="Nombre"
-                                        value={personForm.firstName}
-                                        onChange={(e) => handlePersonFieldChange('firstName', e.target.value)}
-                                        required
-                                        data-test-id="create-customer-first-name"
-                                    />
-                                    <TextField
-                                        label="Apellido"
-                                        value={personForm.lastName}
-                                        onChange={(e) => handlePersonFieldChange('lastName', e.target.value)}
-                                        required
-                                        data-test-id="create-customer-last-name"
-                                    />
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <TextField
-                                        label="Razón Social"
-                                        value={personForm.businessName}
-                                        onChange={(e) => handlePersonFieldChange('businessName', e.target.value)}
-                                        required
-                                        data-test-id="create-customer-business-name"
-                                    />
-                                    <TextField
-                                        label="Nombre de Contacto"
-                                        value={personForm.firstName}
-                                        onChange={(e) => handlePersonFieldChange('firstName', e.target.value)}
-                                        required
-                                        data-test-id="create-customer-contact-name"
-                                    />
-                                </div>
-                            )}
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <Select
-                                    label="Tipo de Documento"
-                                    options={documentTypeOptions}
-                                    value={personForm.documentType}
-                                    onChange={(val) => {
-                                        if (typeof val === 'string') {
-                                            handleDocumentTypeChange(val as DocumentType);
-                                        }
-                                    }}
-                                    disabled={isDocumentTypeSelectDisabled}
-                                    data-test-id="create-customer-document-type"
-                                />
-                                <TextField
-                                    label={documentLabel}
-                                    placeholder={documentPlaceholder}
-                                    type={documentFieldType}
-                                    value={personForm.documentNumber}
-                                    onChange={(e) => handlePersonFieldChange('documentNumber', e.target.value)}
-                                    required
-                                    data-test-id="create-customer-document"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <TextField
-                                    label="Teléfono"
-                                    value={personForm.phone}
-                                    onChange={(e) => handlePersonFieldChange('phone', e.target.value)}
-                                    placeholder="+56 9 1234 5678"
-                                    data-test-id="create-customer-phone"
-                                />
-                                <TextField
-                                    label="Email"
-                                    type="email"
-                                    value={personForm.email}
-                                    onChange={(e) => handlePersonFieldChange('email', e.target.value)}
-                                    data-test-id="create-customer-email"
-                                />
-                            </div>
-
                             <TextField
-                                label="Dirección"
-                                value={personForm.address}
-                                onChange={(e) => handlePersonFieldChange('address', e.target.value)}
-                                data-test-id="create-customer-address"
+                                label={documentLabel}
+                                placeholder={documentPlaceholder}
+                                type={documentFieldType}
+                                value={personForm.documentNumber}
+                                onChange={(e) => handlePersonFieldChange('documentNumber', e.target.value)}
+                                required
+                                data-test-id="create-customer-document"
                             />
                         </div>
-                    )}
-                </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <TextField
+                                label="Teléfono"
+                                value={personForm.phone}
+                                onChange={(e) => handlePersonFieldChange('phone', e.target.value)}
+                                placeholder="+56 9 1234 5678"
+                                data-test-id="create-customer-phone"
+                            />
+                            <TextField
+                                label="Email"
+                                type="email"
+                                value={personForm.email}
+                                onChange={(e) => handlePersonFieldChange('email', e.target.value)}
+                                data-test-id="create-customer-email"
+                            />
+                        </div>
+
+                        <TextField
+                            label="Dirección"
+                            value={personForm.address}
+                            onChange={(e) => handlePersonFieldChange('address', e.target.value)}
+                            data-test-id="create-customer-address"
+                        />
+                    </div>
+                )}
 
                 {/* Datos de Cliente */}
                 <div className="space-y-4">
@@ -598,16 +537,19 @@ const CreateCustomerDialog: React.FC<CreateCustomerDialogProps> = ({
                             onChange={(e) => handleCustomerFieldChange('creditLimit', e.target.value)}
                             data-test-id="create-customer-credit-limit"
                         />
-                        <TextField
-                            label="Días de Pago"
-                            type="number"
-                            value={customerForm.defaultPaymentTermDays}
-                            onChange={handlePaymentTermDaysInput}
-                            min={1}
-                            max={31}
-                            step={1}
-                            inputMode="numeric"
-                            data-test-id="create-customer-payment-days"
+                        <Select
+                            label="Día de Pago del Mes"
+                            options={[
+                                { id: 5, label: '5' },
+                                { id: 10, label: '10' },
+                                { id: 15, label: '15' },
+                                { id: 20, label: '20' },
+                                { id: 25, label: '25' },
+                                { id: 30, label: '30' },
+                            ]}
+                            value={Number(customerForm.paymentDayOfMonth)}
+                            onChange={(id) => handleCustomerFieldChange('paymentDayOfMonth', String(id ?? 5))}
+                            data-test-id="create-customer-payment-day"
                         />
                     </div>
 

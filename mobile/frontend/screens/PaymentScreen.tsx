@@ -101,7 +101,7 @@ function PaymentScreen() {
     creditLimit: customer.creditLimit,
     currentBalance: customer.currentBalance,
     availableCredit: customer.availableCredit,
-    defaultPaymentTermDays: customer.defaultPaymentTermDays,
+    paymentDayOfMonth: customer.paymentDayOfMonth,
   });
 
   const handleCustomerSearch = async () => {
@@ -542,7 +542,7 @@ function PaymentScreen() {
                       <Text style={styles.selectedCustomerCredit}>
                         {`Crédito disponible ${formatCurrency(selectedCustomer.availableCredit)}`}
                       </Text>
-                      <Text style={styles.selectedCustomerMeta}>{`Plazo ${selectedCustomer.defaultPaymentTermDays} días`}</Text>
+                      <Text style={styles.selectedCustomerMeta}>{`Día de pago ${selectedCustomer.paymentDayOfMonth}`}</Text>
                     </View>
                     <TouchableOpacity
                       style={styles.clearCustomerButton}
@@ -607,7 +607,7 @@ function PaymentScreen() {
                           showsVerticalScrollIndicator={false}
                         >
                           {customerResults.map((customer) => {
-                            const isSelected = selectedCustomer?.customerId === customer.customerId;
+                            const isSelected = !!selectedCustomer && (selectedCustomer as PosCustomer).customerId === customer.customerId;
                             return (
                               <TouchableOpacity
                                 key={customer.customerId}
@@ -652,7 +652,7 @@ function PaymentScreen() {
                                   <Text style={styles.customerResultCredit}>
                                     {`Crédito disponible ${formatCurrency(customer.availableCredit)}`}
                                   </Text>
-                                  <Text style={styles.customerResultTerm}>{`Plazo ${customer.defaultPaymentTermDays} días`}</Text>
+                                  <Text style={styles.customerResultTerm}>{`Día de pago ${customer.paymentDayOfMonth}`}</Text>
                                 </View>
                               </TouchableOpacity>
                             );
@@ -678,30 +678,6 @@ function PaymentScreen() {
 }
 
 const styles = StyleSheet.create({
-      summaryHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 12,
-      },
-      summaryTotalValueLarge: {
-        fontSize: 32,
-        color: palette.primary,
-        fontWeight: 'bold',
-        marginLeft: 12,
-      },
-    summaryHeader: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'flex-start',
-      marginBottom: 12,
-    },
-    summaryTotalValueLarge: {
-      fontSize: 32,
-      color: palette.primary,
-      fontWeight: 'bold',
-      marginLeft: 12,
-    },
   root: {
     flex: 1,
     backgroundColor: palette.background,
@@ -748,6 +724,18 @@ const styles = StyleSheet.create({
   cardHeaderText: {
     flex: 1,
     paddingRight: 12,
+  },
+  summaryHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  summaryTotalValueLarge: {
+    fontSize: 32,
+    color: palette.primary,
+    fontWeight: 'bold',
+    marginLeft: 12,
   },
   cardIconButton: {
     width: 44,
@@ -915,7 +903,6 @@ const styles = StyleSheet.create({
     borderWidth: 0,
     borderColor: 'transparent',
     backgroundColor: 'transparent',
-    minHeight: 120,
     padding: 0,
   },
   searchMessage: {
@@ -986,13 +973,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   customerResultCredit: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: palette.textSecondary,
+    fontSize: 12,
+    color: '#666',
   },
   customerResultTerm: {
     fontSize: 12,
-    color: palette.textMuted,
+    color: '#666',
+    marginTop: 2,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#E0E0E0',
+    marginVertical: 15,
   },
   createCustomerModalBackdrop: {
     flex: 1,

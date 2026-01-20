@@ -25,8 +25,14 @@ export class Customer {
     @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
     currentBalance!: number;
 
-    @Column({ type: 'int', default: 0 })
-    defaultPaymentTermDays!: number;
+
+    @Column({
+        type: 'enum',
+        enum: [5, 10, 15, 20, 25, 30],
+        default: 5,
+        comment: 'Día de pago del mes para programar pagos automáticos'
+    })
+    paymentDayOfMonth!: 5 | 10 | 15 | 20 | 25 | 30;
 
 
     @Column({ type: 'boolean', default: true })

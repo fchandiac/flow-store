@@ -74,10 +74,10 @@ export async function POST(request: Request) {
         }
 
         if (existingCustomer && existingCustomer.deletedAt) {
-          existingCustomer.deletedAt = null;
+          existingCustomer.deletedAt = undefined as any;
           existingCustomer.isActive = true;
           await customerRepo.save(existingCustomer);
-          person.deletedAt = null;
+          person.deletedAt = undefined as any;
           person.firstName = firstName;
           person.lastName = lastName ?? undefined;
           person.documentType = documentType;
@@ -107,7 +107,7 @@ export async function POST(request: Request) {
               creditLimit,
               currentBalance,
               availableCredit,
-              defaultPaymentTermDays: existingCustomer.defaultPaymentTermDays ?? 0,
+              paymentDayOfMonth: existingCustomer.paymentDayOfMonth,
               createdAt: existingCustomer.createdAt,
               updatedAt: existingCustomer.updatedAt,
             },
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
       });
       await personRepo.save(person);
     } else {
-      person.deletedAt = null;
+      person.deletedAt = undefined as any;
       person.firstName = firstName;
       person.lastName = lastName ?? undefined;
       person.documentType = documentType ?? null;
@@ -144,7 +144,7 @@ export async function POST(request: Request) {
       personId: person.id,
       creditLimit: 0,
       currentBalance: 0,
-      defaultPaymentTermDays: 0,
+      paymentDayOfMonth: 5,
       isActive: true,
     });
     await customerRepo.save(customer);
@@ -167,7 +167,7 @@ export async function POST(request: Request) {
         creditLimit: 0,
         currentBalance: 0,
         availableCredit: 0,
-        defaultPaymentTermDays: 0,
+        paymentDayOfMonth: customer.paymentDayOfMonth,
         createdAt: customer.createdAt,
         updatedAt: customer.updatedAt,
       },

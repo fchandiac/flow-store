@@ -100,7 +100,7 @@ export interface POSCustomerSummary {
     creditLimit: number;
     currentBalance: number;
     availableCredit: number;
-    defaultPaymentTermDays?: number | null;
+    paymentDayOfMonth?: number | null;
 }
 
 export interface SearchCustomersForPOSParams {
@@ -430,7 +430,7 @@ export async function searchCustomersForPOS(
             creditLimit,
             currentBalance,
             availableCredit,
-            defaultPaymentTermDays: customer.defaultPaymentTermDays ?? null,
+            paymentDayOfMonth: customer.paymentDayOfMonth ?? null,
         };
     });
 

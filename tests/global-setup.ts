@@ -471,6 +471,7 @@ async function setupTestDatabase() {
         personId varchar(36) NULL,
         creditLimit decimal(12,2) NULL,
         paymentTerms varchar(255) NULL,
+        paymentDayOfMonth varchar(50) NOT NULL DEFAULT '30',
         isActive boolean NOT NULL DEFAULT true,
         deletedAt datetime NULL,
         createdAt datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -34,13 +34,13 @@ interface CreateCustomerDTO {
         address?: string;
     };
     creditLimit?: number;
-    defaultPaymentTermDays?: number;
+    paymentDayOfMonth?: 5 | 10 | 15 | 20 | 25 | 30;
     notes?: string;
 }
 
 interface UpdateCustomerDTO {
     creditLimit?: number;
-    defaultPaymentTermDays?: number;
+    paymentDayOfMonth?: 5 | 10 | 15 | 20 | 25 | 30;
     notes?: string;
     isActive?: boolean;
 }
@@ -182,7 +182,7 @@ export async function createCustomer(data: CreateCustomerDTO): Promise<CustomerR
         const customer = customerRepo.create({
             personId,
             creditLimit: data.creditLimit ?? 0,
-            defaultPaymentTermDays: data.defaultPaymentTermDays ?? 0,
+            paymentDayOfMonth: data.paymentDayOfMonth ?? 5,
             notes: data.notes,
             currentBalance: 0,
             isActive: true
@@ -226,7 +226,7 @@ export async function updateCustomer(id: string, data: UpdateCustomerDTO): Promi
         }
         
         if (data.creditLimit !== undefined) customer.creditLimit = data.creditLimit;
-        if (data.defaultPaymentTermDays !== undefined) customer.defaultPaymentTermDays = data.defaultPaymentTermDays;
+        if (data.paymentDayOfMonth !== undefined) customer.paymentDayOfMonth = data.paymentDayOfMonth;
         if (data.notes !== undefined) customer.notes = data.notes;
         if (data.isActive !== undefined) customer.isActive = data.isActive;
         

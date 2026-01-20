@@ -738,7 +738,7 @@ type CustomerSearchPayload = {
     creditLimit: number;
     currentBalance: number;
     availableCredit: number;
-    defaultPaymentTermDays: number;
+    paymentDayOfMonth: number;
     createdAt: string;
     updatedAt: string;
   }>;
@@ -861,7 +861,7 @@ export async function searchCustomers(params: {
       creditLimit: Number(customer.creditLimit ?? 0),
       currentBalance: Number(customer.currentBalance ?? 0),
       availableCredit: Number(customer.availableCredit ?? 0),
-      defaultPaymentTermDays: customer.defaultPaymentTermDays ?? 0,
+      paymentDayOfMonth: customer.paymentDayOfMonth,
       createdAt: customer.createdAt,
       updatedAt: customer.updatedAt,
     })),
@@ -887,7 +887,7 @@ export async function createCustomer(input: CreateCustomerInput): Promise<Custom
     creditLimit: Number(customer.creditLimit ?? 0),
     currentBalance: Number(customer.currentBalance ?? 0),
     availableCredit: Number(customer.availableCredit ?? 0),
-    defaultPaymentTermDays: customer.defaultPaymentTermDays ?? 0,
+    paymentDayOfMonth: customer.paymentDayOfMonth,
     createdAt: customer.createdAt,
     updatedAt: customer.updatedAt,
   };
