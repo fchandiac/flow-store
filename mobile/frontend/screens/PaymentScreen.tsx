@@ -37,7 +37,6 @@ import {
 } from '../services/apiService';
 import { PaymentCard as PaymentCardComponent } from '../components/PaymentCard';
 import { PaymentSummary } from '../components/PaymentSummary';
-import { PaymentControls } from '../components/PaymentControls';
 import { usePaymentCalculations } from '../hooks/usePaymentCalculations';
 
 type CreateCustomerFormState = {
@@ -78,6 +77,14 @@ const createEmptyCustomerForm = (): CreateCustomerFormState => ({
   address: '',
 });
 
+const PAYMENT_OPTIONS: Array<{ type: PaymentCardType; label: string; icon: string }> = [
+  { type: 'CASH', label: 'Efectivo', icon: 'cash-outline' },
+  { type: 'CREDIT_CARD', label: 'Tarjeta de crédito', icon: 'card-outline' },
+  { type: 'DEBIT_CARD', label: 'Tarjeta de débito', icon: 'card-outline' },
+  { type: 'TRANSFER', label: 'Transferencia', icon: 'swap-horizontal-outline' },
+  { type: 'INTERNAL_CREDIT', label: 'Crédito interno', icon: 'wallet-outline' },
+];
+
 function PaymentScreen() {
   const cartItems = usePosStore(selectCartItems);
   const cartTotals = usePosStore(selectCartTotals);
@@ -108,6 +115,7 @@ function PaymentScreen() {
   const [isCreatingCustomer, setIsCreatingCustomer] = useState(false);
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [showPaymentOptions, setShowPaymentOptions] = useState(false);
 
   // Cálculos de pagos
   const paymentCalculations = usePaymentCalculations({
@@ -294,9 +302,14 @@ function PaymentScreen() {
   };
 
   // Payment handlers
+  const handleShowPaymentOptions = () => {
+    setShowPaymentOptions(true);
+  };
+
   const handleAddPaymentCard = (type: Parameters<typeof addPaymentCard>[0]) => {
     // Por defecto, el monto de la nueva tarjeta es el saldo restante
     addPaymentCard(type);
+    setShowPaymentOptions(false);
     // El cálculo automático se hará en el useEffect del componente PaymentCard
   };
 
@@ -774,6 +787,7 @@ function PaymentScreen() {
                     totalToPay={cartTotals.total}
                     totalPaid={paymentCalculations.totalPaid}
                     change={paymentCalculations.change}
+                    onShowAddPaymentModal={handleShowPaymentOptions}
                   />
                 </View>
 
@@ -808,11 +822,6 @@ function PaymentScreen() {
                     )}
                   </View>
                 </View>
-
-                {/* Columna derecha: Controles */}
-                <View style={styles.paymentRightColumn}>
-                  <PaymentControls onAddPayment={handleAddPaymentCard} />
-                </View>
               </View>
 
               {/* Botón finalizar - fuera de las columnas */}
@@ -840,6 +849,46 @@ function PaymentScreen() {
           </View>
         </View>
       </View>
+
+      {/* Modal de opciones de pago */}
+      <Modal
+        transparent
+        visible={showPaymentOptions}
+        animationType="fade"
+        onRequestClose={() => setShowPaymentOptions(false)}
+      >
+        <Pressable
+          style={styles.modalBackdrop}
+          onPress={() => setShowPaymentOptions(false)}
+        >
+          <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+            <Text style={styles.modalTitle}>Agregar método de pago</Text>
+            <ScrollView style={styles.optionsList} showsVerticalScrollIndicator={false}>
+              {PAYMENT_OPTIONS.map((option) => (
+                <TouchableOpacity
+                  key={option.type}
+                  style={styles.optionItem}
+                  onPress={() => handleAddPaymentCard(option.type)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.optionIcon}>
+                    <Ionicons name={option.icon as any} size={20} color={palette.primary} />
+                  </View>
+                  <Text style={styles.optionLabel}>{option.label}</Text>
+                  <Ionicons name="chevron-forward" size={16} color={palette.textMuted} />
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setShowPaymentOptions(false)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.cancelButtonText}>Cancelar</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </>
   );
 }
@@ -1331,12 +1380,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   paymentCenterColumn: {
-    flex: 3,
-    marginHorizontal: 4,
-  },
-  paymentRightColumn: {
-    flex: 1,
-    alignItems: 'flex-end',
+    flex: 4,
     marginLeft: 4,
   },
   paymentScrollContainer: {
@@ -1386,6 +1430,68 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: palette.primaryText,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: palette.surface,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 320,
+    maxHeight: '70%',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: palette.textSecondary,
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  optionsList: {
+    maxHeight: 300,
+  },
+  optionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    marginBottom: 8,
+    backgroundColor: palette.surfaceMuted,
+  },
+  optionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: palette.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  optionLabel: {
+    flex: 1,
+    fontSize: 16,
+    color: palette.textPrimary,
+    fontWeight: '500',
+  },
+  cancelButton: {
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: palette.surfaceMuted,
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    color: palette.textSecondary,
+    fontWeight: '500',
   },
 });
 
