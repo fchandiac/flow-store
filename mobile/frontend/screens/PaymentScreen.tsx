@@ -20,10 +20,14 @@ import {
   selectSelectedCustomer,
   selectPaymentCards,
   selectTreasuryAccounts,
+  selectUser,
+  selectPointOfSale,
+  selectCashSession,
   usePosStore,
   type PosCustomer,
   type PaymentCard,
   type TreasuryAccountOption,
+  type PaymentCardType,
 } from '../store/usePosStore';
 import { formatCurrency, formatAmount } from '../utils/currency';
 import { palette } from '../theme/palette';
@@ -32,8 +36,10 @@ import {
   searchCustomers,
   getTreasuryAccounts,
   createMultiplePayments,
+  createSale,
   type CreateCustomerInput,
   type CustomerSearchResult,
+  type SaleLineInput,
 } from '../services/apiService';
 import { PaymentCard as PaymentCardComponent } from '../components/PaymentCard';
 import { PaymentSummary } from '../components/PaymentSummary';
@@ -85,7 +91,12 @@ const PAYMENT_OPTIONS: Array<{ type: PaymentCardType; label: string; icon: strin
   { type: 'INTERNAL_CREDIT', label: 'Crédito interno', icon: 'wallet-outline' },
 ];
 
-function PaymentScreen() {
+import { type NativeStackScreenProps } from '@react-navigation/native-stack';
+import { type RootStackParamList } from '../navigation/types';
+
+type PaymentScreenProps = NativeStackScreenProps<RootStackParamList, 'Payment'>;
+
+function PaymentScreen({ navigation }: PaymentScreenProps) {
   const cartItems = usePosStore(selectCartItems);
   const cartTotals = usePosStore(selectCartTotals);
   const selectedCustomer: PosCustomer | null = usePosStore(selectSelectedCustomer);
@@ -341,11 +352,61 @@ function PaymentScreen() {
 
     setIsProcessingPayment(true);
     try {
-      // Aquí irá la lógica para crear la venta y los pagos múltiples
-      Alert.alert('Éxito', 'Venta finalizada correctamente');
-      // Limpiar estado después de finalizar
+      // Obtener datos del store
+      const user = selectUser(usePosStore.getState());
+      const pointOfSale = selectPointOfSale(usePosStore.getState());
+      const cashSession = selectCashSession(usePosStore.getState());
+
+      if (!user || !pointOfSale || !cashSession) {
+        throw new Error('Información de usuario, punto de venta o sesión de caja no disponible');
+      }
+
+      // Crear las líneas de venta
+      const saleLines: SaleLineInput[] = cartItems.map((item) => ({
+        productVariantId: item.variantId,
+        quantity: item.qty,
+        unitPrice: item.unitPrice,
+        taxRate: item.unitTaxRate,
+        taxAmount: item.taxAmount,
+      }));
+
+      // Crear la venta
+      const saleResult = await createSale({
+        userName: user.userName,
+        pointOfSaleId: pointOfSale.id,
+        cashSessionId: cashSession.id,
+        paymentMethod: 'MIXED', // Usamos MIXED para pagos múltiples
+        amountPaid: paymentCalculations.totalPaid,
+        lines: saleLines,
+      });
+
+      // Crear los pagos múltiples
+      if (paymentCards.length > 0) {
+        const paymentsInput = paymentCards.map((card) => ({
+          paymentMethod: card.type,
+          amount: card.amount,
+          bankAccountId: card.bankAccountId,
+          subPayments: card.subPayments?.map((sub) => ({
+            amount: sub.amount,
+            dueDate: sub.dueDate,
+          })),
+        }));
+
+        await createMultiplePayments({
+          saleTransactionId: saleResult.transaction.id,
+          payments: paymentsInput,
+        });
+      }
+
+      Alert.alert('Éxito', `Venta finalizada correctamente\nNúmero: ${saleResult.transaction.documentNumber}`);
+
+      // Limpiar estado
       clearPayments();
       clearSelectedCustomer();
+
+      // Navegar automáticamente a la pantalla POS
+      navigation.navigate('Pos');
+
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Error al procesar el pago';
       Alert.alert('Error', message);
