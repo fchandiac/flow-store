@@ -21,33 +21,37 @@ module.exports = {
     postPackage: async (forgeConfig, options) => {
       const fs = require('fs-extra');
       const path = require('path');
-      
+
       // Determine the correct standalone path based on platform
-      // On macOS, the app bundle structure is different: AppName.app/Contents/Resources/standalone
-      // On Windows/Linux, it's just: resources/standalone
       let standalonePath;
       if (options.platform === 'darwin') {
-        // Find the .app bundle in the output directory
         const outputDir = options.outputPaths[0];
         const appName = forgeConfig.packagerConfig.name || 'FlowStore';
         standalonePath = path.join(outputDir, `${appName}.app`, 'Contents', 'Resources', 'standalone');
       } else {
         standalonePath = path.join(options.outputPaths[0], 'resources', 'standalone');
       }
-      
+
       console.log(`Platform: ${options.platform}, Standalone path: ${standalonePath}`);
-      
+
+      // Always copy all contents of next/.next/standalone/next (server.js, .next, etc.)
+      const nextStandaloneServerSource = path.resolve(__dirname, 'next', '.next', 'standalone', 'next');
+      if (fs.existsSync(nextStandaloneServerSource)) {
+        console.log(`Copying Next.js standalone server from ${nextStandaloneServerSource} to ${standalonePath}`);
+        await fs.copy(nextStandaloneServerSource, standalonePath, { overwrite: true });
+      } else {
+        console.warn(`Next.js standalone server source not found at ${nextStandaloneServerSource}`);
+      }
+
       // Copy app.config.prod.json for production
       const prodConfigSource = path.resolve(__dirname, 'app.config.prod.json');
       const prodConfigDest = path.join(standalonePath, 'app.config.prod.json');
-      
       console.log(`Copying ${prodConfigSource} to ${prodConfigDest}`);
       await fs.copy(prodConfigSource, prodConfigDest);
-      
+
       // Also copy app.config.json as fallback
       const configSource = path.resolve(__dirname, 'app.config.json');
       const configDest = path.join(standalonePath, 'app.config.json');
-      
       console.log(`Copying ${configSource} to ${configDest}`);
       await fs.copy(configSource, configDest);
     }

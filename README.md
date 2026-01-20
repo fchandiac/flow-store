@@ -165,3 +165,25 @@ El proyecto utiliza variables CSS para temas consistentes:
 3. Commit tus cambios (`git commit -am 'Agrega nueva funcionalidad'`)
 4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
 5. Abre un Pull Request
+
+## Empaquetado para Mac (`pack:mac`)
+
+El comando `npm run pack:mac` realiza el empaquetado de la aplicación para macOS siguiendo estos pasos:
+
+1. **Construcción Next.js standalone**
+   - Ejecuta `cd next && npx next build` para generar la build optimizada de Next.js en modo standalone dentro de `next/.next/standalone/`.
+
+2. **Limpieza y build de Electron**
+   - Ejecuta `npm run build:electron` para limpiar solo la carpeta `.next` en la raíz (no afecta el build de Next.js), compilar TypeScript y copiar los assets a `dist/`.
+
+3. **Copia de archivos standalone**
+   - Ejecuta `npm run copy:standalone` para copiar los archivos públicos y estáticos de Next.js al directorio standalone.
+
+4. **Empaquetado con Electron Forge**
+   - Llama a `electron-forge package --platform=darwin` para crear la app `.app` de macOS.
+   - El hook postPackage copia la carpeta `next/.next/standalone/next` y los archivos de configuración (`app.config*.json`) dentro del paquete final en `out/FlowStore-darwin-arm64/FlowStore.app/Contents/Resources/standalone/`.
+
+### Resultado final
+- El paquete generado contiene todo lo necesario para ejecutar la app Electron+Next.js en Mac, incluyendo el servidor Next.js standalone (`server.js`), assets y archivos de configuración.
+
+> **Tip:** Si necesitas personalizar archivos incluidos, revisa el hook `postPackage` en `forge.config.js`.
