@@ -100,7 +100,8 @@ export async function POST(request: Request) {
         return { missingCompany: true } as const;
       }
 
-      const ledger = await buildLedger(manager.connection, { companyId });
+      const dataSource = await getDataSource();
+      const ledger = await buildLedger(dataSource as any, { companyId });
       const cashAccount = ledger.accounts.find((account) => account.code === CASH_ACCOUNT_CODE);
       const rawAvailableCash = cashAccount ? ledger.balanceByAccount[cashAccount.id] ?? 0 : 0;
       const availableCash = Number.isFinite(rawAvailableCash)
@@ -184,7 +185,7 @@ export async function POST(request: Request) {
     }
 
     if ('noCashAvailable' in result) {
-      const formattedAvailable = result.availableCash.toLocaleString('es-CL', {
+      const formattedAvailable = result.availableCash!.toLocaleString('es-CL', {
         style: 'currency',
         currency: 'CLP',
       });
@@ -198,7 +199,7 @@ export async function POST(request: Request) {
     }
 
     if ('insufficientCash' in result) {
-      const formattedAvailable = result.availableCash.toLocaleString('es-CL', {
+      const formattedAvailable = result.availableCash!.toLocaleString('es-CL', {
         style: 'currency',
         currency: 'CLP',
       });

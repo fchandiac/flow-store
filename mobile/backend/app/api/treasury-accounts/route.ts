@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDataSource } from '../../../../src/db';
-import { TreasuryAccount } from '@/data/entities/TreasuryAccount';
+import { getDb } from '../../../../../data/db';
+import { TreasuryAccount } from '../../../../../data/entities/TreasuryAccount';
 
 export async function GET() {
   try {
-    const dataSource = await getDataSource();
+    const dataSource = await getDb();
     const treasuryAccountRepo = dataSource.getRepository(TreasuryAccount);
 
     const accounts = await treasuryAccountRepo.find({
@@ -20,7 +20,10 @@ export async function GET() {
       type: account.type,
     }));
 
-    return NextResponse.json(response);
+    return NextResponse.json({
+      success: true,
+      data: response,
+    });
   } catch (error) {
     console.error('Error fetching treasury accounts:', error);
     return NextResponse.json(

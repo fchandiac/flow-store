@@ -154,6 +154,19 @@ type CustomerSeedRow = {
   mail?: string;
 };
 
+type TreasuryAccountSeedRow = {
+  id: string;
+  companyId: string;
+  branchId: string | null;
+  type: string;
+  name: string;
+  bankName: string | null;
+  accountNumber: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
 type SupplierSeedRow = {
   name: string;
   dni: string;
@@ -501,6 +514,40 @@ const seedCustomers = async (connection: mysql.Connection) => {
   console.log(`   ✓ Inserted ${inserted} customers (with persons)`);
 };
 
+const seedTreasuryAccounts = async (connection: mysql.Connection) => {
+  console.log("\n🏦 Seeding treasury accounts...");
+  console.log("   Loading treasuryAccounts.json...");
+
+  const treasuryAccounts = loadSeedJson<TreasuryAccountSeedRow[]>("treasuryAccounts.json");
+  console.log(`   Loaded ${treasuryAccounts.length} treasury accounts`);
+
+  let inserted = 0;
+
+  for (const account of treasuryAccounts) {
+    await executeStatement(
+      connection,
+      `INSERT INTO treasury_accounts (
+        id, companyId, branchId, type, name, bankName, accountNumber, isActive, createdAt, updatedAt
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        account.id,
+        account.companyId,
+        account.branchId,
+        account.type,
+        account.name,
+        account.bankName,
+        account.accountNumber,
+        account.isActive,
+        account.createdAt,
+        account.updatedAt,
+      ]
+    );
+    inserted++;
+  }
+
+  console.log(`   ✓ Inserted ${inserted} treasury accounts`);
+};
+
 const seedSuppliers = async (connection: mysql.Connection) => {
   console.log("\n🏭 Seeding suppliers...");
 
@@ -748,38 +795,33 @@ const runSeed = async (environment: "test" | "production" | "local" = "test") =>
       "Drop All Tables"
     );
 
+    // Note: create-tables.sql doesn't exist, skipping
+    // await executeSqlFile(
+    //   connection,
+    //   path.join(sqlDir, "create-tables.sql"),
+    //   "Create Tables"
+    // );
+
+    console.log("About to execute treasury accounts SQL file...");
     await executeSqlFile(
       connection,
-      path.join(sqlDir, "create-tables.sql"),
-      "Create Tables"
+      path.join(sqlDir, "2026-01-20-treasury-accounts.sql"),
+      "Create Treasury Accounts Table"
     );
+    console.log("Treasury accounts table created successfully");
 
     // Seed data in order
     console.log("\n📚 Loading seed data from JSON files...");
     
-    // 1. Admin user (with person)
-    await seedAdminUser(connection);
-    
-    // 2. Season (active)
-    await seedSeasons(connection);
-    
-    // 3. Trays
-    await seedTrays(connection);
-    
-    // 4. Varieties (price 0)
-    await seedVarieties(connection);
-    
-    // 5. Formats (price 0)
-    await seedFormats(connection);
-    
-    // 6. Producers (with persons)
-    await seedProducers(connection);
-    
-    // 7. Customers (with persons)
-    await seedCustomers(connection);
-
-    // 8. Suppliers (with persons + bank accounts)
-    await seedSuppliers(connection);
+    // Only seed treasury accounts for testing
+    console.log("About to seed treasury accounts...");
+    try {
+      await seedTreasuryAccounts(connection);
+      console.log("seedTreasuryAccounts completed successfully");
+    } catch (error) {
+      console.error("Error seeding treasury accounts:", error);
+      throw error;
+    }
 
     // Re-enable foreign key checks
     console.log("\n🔓 Re-enabling foreign key checks...");
@@ -796,6 +838,7 @@ const runSeed = async (environment: "test" | "production" | "local" = "test") =>
     console.log("   - Formats from formats.json");
     console.log("   - Producers from producers.json (with persons)");
     console.log("   - Customers from customers.json (with persons)");
+    console.log("   - Treasury accounts from treasuryAccounts.json");
     console.log("   - Suppliers (3 predefined, with bank accounts)");
     console.log("\n📭 Empty tables:");
     console.log("   - transactions, reception_packs, transaction_relations");

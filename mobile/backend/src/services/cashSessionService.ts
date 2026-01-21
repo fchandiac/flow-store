@@ -38,7 +38,7 @@ export async function persistCashSessionOpeningTransaction(
   transaction.documentNumber = documentNumber;
   transaction.transactionType = TransactionType.CASH_SESSION_OPENING;
   transaction.status = TransactionStatus.CONFIRMED;
-  transaction.branchId = pointOfSale.branchId ?? null;
+  transaction.branchId = pointOfSale.branchId ?? undefined;
   transaction.pointOfSaleId = pointOfSale.id;
   transaction.cashSessionId = cashSession.id;
   transaction.userId = cashSession.openedById ?? user.id;
@@ -116,7 +116,7 @@ export async function persistCashSessionWithdrawalTransaction(
   const transaction = transactionRepo.create();
   transaction.transactionType = TransactionType.CASH_SESSION_WITHDRAWAL;
   transaction.status = TransactionStatus.CONFIRMED;
-  transaction.branchId = params.pointOfSale.branchId ?? null;
+  transaction.branchId = params.pointOfSale.branchId ?? undefined;
   transaction.pointOfSaleId = params.pointOfSale.id;
   transaction.cashSessionId = params.cashSession.id;
   transaction.userId = params.user.id;
@@ -126,7 +126,7 @@ export async function persistCashSessionWithdrawalTransaction(
   transaction.discountAmount = 0;
   transaction.taxAmount = 0;
   transaction.total = amount;
-  transaction.notes = params.reason?.trim() || null;
+  transaction.notes = params.reason?.trim() || undefined;
   transaction.metadata = JSON.parse(JSON.stringify(metadataPayload));
 
   const savedTransaction = await transactionRepo.save(transaction);
@@ -187,7 +187,7 @@ export async function persistCashSessionDepositTransaction(
   const transaction = transactionRepo.create();
   transaction.transactionType = TransactionType.CASH_SESSION_DEPOSIT;
   transaction.status = TransactionStatus.CONFIRMED;
-  transaction.branchId = params.pointOfSale.branchId ?? null;
+  transaction.branchId = params.pointOfSale.branchId ?? undefined;
   transaction.pointOfSaleId = params.pointOfSale.id;
   transaction.cashSessionId = params.cashSession.id;
   transaction.userId = params.user.id;
@@ -197,7 +197,7 @@ export async function persistCashSessionDepositTransaction(
   transaction.discountAmount = 0;
   transaction.taxAmount = 0;
   transaction.total = amount;
-  transaction.notes = params.reason?.trim() || null;
+  transaction.notes = params.reason?.trim() || undefined;
   transaction.metadata = JSON.parse(JSON.stringify(metadataPayload));
 
   const savedTransaction = await transactionRepo.save(transaction);

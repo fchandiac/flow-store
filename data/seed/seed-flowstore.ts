@@ -27,6 +27,7 @@ import { AccountingRule, RuleScope } from '../entities/AccountingRule';
 import { AccountingPeriod, AccountingPeriodStatus } from '../entities/AccountingPeriod';
 import { Transaction, TransactionStatus, PaymentMethod, TransactionType } from '../entities/Transaction';
 import { TransactionLine } from '../entities/TransactionLine';
+import { TreasuryAccount } from '../entities/TreasuryAccount';
 import { CostCenter, CostCenterType } from '../entities/CostCenter';
 import { OrganizationalUnit, OrganizationalUnitType } from '../entities/OrganizationalUnit';
 import { v4 as uuidv4 } from 'uuid';
@@ -248,6 +249,19 @@ type AccountingPeriodSeed = {
   status: AccountingPeriodStatus;
   closedAt: Date | null;
   closedByUserName?: string | null;
+};
+
+type TreasuryAccountSeed = {
+  id: string;
+  companyId: string;
+  branchId: string | null;
+  type: string;
+  name: string;
+  bankName: string | null;
+  accountNumber: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type CategorySeed = {
@@ -2188,6 +2202,32 @@ async function seedFlowStore() {
         await transactionRepo.update({ id: pending.transactionId }, { relatedTransactionId: related.id });
       }
     }
+
+    // ============================================
+    // 9.3 CUENTAS DE TESORERÍA
+    // ============================================
+    console.log('\n🏦 Creando cuentas de tesorería...');
+
+    const treasuryAccountRepo = db.getRepository(TreasuryAccount);
+    const treasuryAccountSeeds = ensureArray(await readSeedJson<TreasuryAccountSeed[]>('treasuryAccounts.json'), 'treasuryAccounts.json');
+
+    for (const seed of treasuryAccountSeeds) {
+      const treasuryAccount = new TreasuryAccount();
+      treasuryAccount.id = seed.id;
+      treasuryAccount.companyId = company.id; // Use the actual company ID
+      treasuryAccount.branchId = seed.branchId;
+      treasuryAccount.type = seed.type as any; // Type assertion since we know the values are valid
+      treasuryAccount.name = seed.name;
+      treasuryAccount.bankName = seed.bankName;
+      treasuryAccount.accountNumber = seed.accountNumber;
+      treasuryAccount.isActive = seed.isActive;
+      treasuryAccount.createdAt = new Date(seed.createdAt);
+      treasuryAccount.updatedAt = new Date(seed.updatedAt);
+
+      await treasuryAccountRepo.save(treasuryAccount);
+    }
+
+    console.log(`   ✓ Cuentas de tesorería creadas: ${treasuryAccountSeeds.length}`);
 
     // ============================================
     // 9.4 CLIENTES BASE

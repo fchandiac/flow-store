@@ -85,8 +85,8 @@ const createEmptyCustomerForm = (): CreateCustomerFormState => ({
 
 const PAYMENT_OPTIONS: Array<{ type: PaymentCardType; label: string; icon: string }> = [
   { type: 'CASH', label: 'Efectivo', icon: 'cash-outline' },
+    { type: 'DEBIT_CARD', label: 'Tarjeta de débito', icon: 'card-outline' },
   { type: 'CREDIT_CARD', label: 'Tarjeta de crédito', icon: 'card-outline' },
-  { type: 'DEBIT_CARD', label: 'Tarjeta de débito', icon: 'card-outline' },
   { type: 'TRANSFER', label: 'Transferencia', icon: 'swap-horizontal-outline' },
   { type: 'INTERNAL_CREDIT', label: 'Crédito interno', icon: 'wallet-outline' },
 ];

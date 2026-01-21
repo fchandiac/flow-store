@@ -23,6 +23,7 @@ import { PriceListItem } from "./entities/PriceListItem";
 import { Tax } from "./entities/Tax";
 import { Transaction } from "./entities/Transaction";
 import { TransactionLine } from "./entities/TransactionLine";
+import { TreasuryAccount } from "./entities/TreasuryAccount";
 import { CostCenter } from "./entities/CostCenter";
 import { Budget } from "./entities/Budget";
 import { AccountingAccount } from "./entities/AccountingAccount";
@@ -152,7 +153,7 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
           Customer, Supplier,
           Category, Product, ProductVariant, Unit, Attribute,
           PriceList, PriceListItem, Tax,
-          Transaction, TransactionLine,
+          Transaction, TransactionLine, TreasuryAccount,
           CostCenter, Budget,
           Employee,
           OrganizationalUnit,

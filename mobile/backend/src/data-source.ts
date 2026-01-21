@@ -30,7 +30,7 @@ const envFiles = ['.env', '.env.local'];
 for (const fileName of envFiles) {
   const resolved = path.resolve(process.cwd(), fileName);
   const result = loadEnv({ path: resolved, override: true });
-  if (result.error && result.error.code !== 'ENOENT') {
+  if (result.error && (!('code' in result.error) || result.error.code !== 'ENOENT')) {
     console.warn(`[TypeORM] No se pudo cargar ${fileName}:`, result.error.message);
   }
 }

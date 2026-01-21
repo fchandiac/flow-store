@@ -1,0 +1,38 @@
+[
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440001",
+    "companyId": "550e8400-e29b-41d4-a716-446655440000",
+    "branchId": null,
+    "type": "BANK",
+    "name": "Cuenta Corriente Banco Estado",
+    "bankName": "Banco Estado",
+    "accountNumber": "123456789",
+    "isActive": true,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440002",
+    "companyId": "550e8400-e29b-41d4-a716-446655440000",
+    "branchId": null,
+    "type": "CASH",
+    "name": "Caja General",
+    "bankName": null,
+    "accountNumber": null,
+    "isActive": true,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z"
+  },
+  {
+    "id": "550e8400-e29b-41d4-a716-446655440003",
+    "companyId": "550e8400-e29b-41d4-a716-446655440000",
+    "branchId": null,
+    "type": "BANK",
+    "name": "Cuenta Vista Banco de Chile",
+    "bankName": "Banco de Chile",
+    "accountNumber": "987654321",
+    "isActive": true,
+    "createdAt": "2024-01-01T00:00:00.000Z",
+    "updatedAt": "2024-01-01T00:00:00.000Z"
+  }
+]

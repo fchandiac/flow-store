@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { IsNull } from 'typeorm';
 import { getDataSource } from '../../../src/db';
 import { PointOfSale } from '@/data/entities/PointOfSale';
 
@@ -11,7 +12,7 @@ export async function GET() {
       relations: ['branch'],
       where: {
         isActive: true,
-        deletedAt: null,
+        deletedAt: IsNull(),
       },
       order: {
         name: 'ASC',

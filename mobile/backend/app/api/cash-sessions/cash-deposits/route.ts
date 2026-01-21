@@ -88,7 +88,7 @@ export async function POST(request: Request) {
         return { kind: 'MISSING_COMPANY' } as const;
       }
 
-      const dataSource = manager.connection ?? manager.dataSource;
+      const dataSource = await getDataSource() as any;
       const ledger = await buildLedger(dataSource, { companyId });
       const cashAccount = ledger.accounts.find((account) => account.code === CASH_ACCOUNT_CODE);
       const rawAvailableCash = cashAccount ? ledger.balanceByAccount[cashAccount.id] ?? 0 : 0;

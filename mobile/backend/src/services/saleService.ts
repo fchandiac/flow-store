@@ -280,24 +280,24 @@ export async function createSaleTransaction(
   const transaction = transactionRepo.create();
   transaction.transactionType = TransactionType.SALE;
   transaction.status = TransactionStatus.CONFIRMED;
-  transaction.branchId = params.pointOfSale.branchId ?? null;
+  transaction.branchId = params.pointOfSale.branchId ?? undefined;
   transaction.pointOfSaleId = params.pointOfSale.id;
   transaction.cashSessionId = params.cashSession.id;
-  transaction.customerId = params.customerId ?? null;
+  transaction.customerId = params.customerId ?? undefined;
   transaction.userId = params.user.id;
   transaction.documentNumber = documentNumber;
-  transaction.externalReference = params.externalReference ?? null;
+  transaction.externalReference = params.externalReference ?? undefined;
   transaction.paymentMethod = params.paymentMethod;
-  transaction.bankAccountKey = params.bankAccountKey ?? null;
+  transaction.bankAccountKey = params.bankAccountKey ?? undefined;
   transaction.subtotal = subtotal;
   transaction.discountAmount = discountAmount;
   transaction.taxAmount = taxAmount;
   transaction.total = total;
-  transaction.notes = params.notes?.trim() ?? null;
+  transaction.notes = params.notes?.trim() ?? undefined;
   transaction.metadata = JSON.parse(JSON.stringify(metadataPayload));
   transaction.amountPaid = amountPaid ?? undefined;
   transaction.changeAmount = changeAmount ?? undefined;
-  transaction.storageId = params.storageId ?? null;
+  transaction.storageId = params.storageId ?? undefined;
 
   const savedTransaction = await transactionRepo.save(transaction);
 

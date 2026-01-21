@@ -10,7 +10,6 @@ import {
 } from "typeorm";
 import { Company } from "./Company";
 import { Branch } from "./Branch";
-import { BankName, AccountTypeName } from "./Person";
 
 export enum TreasuryAccountType {
     BANK = "BANK",
@@ -39,11 +38,8 @@ export class TreasuryAccount {
     @Column({ type: "varchar", length: 255 })
     name!: string;
 
-    @Column({ type: "enum", enum: BankName, nullable: true })
-    bankName?: BankName | null;
-
-    @Column({ type: "enum", enum: AccountTypeName, nullable: true })
-    accountType?: AccountTypeName | null;
+    @Column({ type: "varchar", length: 100, nullable: true })
+    bankName?: string | null;
 
     @Column({ type: "varchar", length: 50, nullable: true })
     accountNumber?: string | null;

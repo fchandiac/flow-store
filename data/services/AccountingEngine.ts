@@ -461,34 +461,36 @@ export async function recordPayment(
         case 'CASH':
             // Efectivo va a caja
             // Débito: Caja, Crédito: Ingreso por venta
-            await createBasicPosting(manager, transaction, 'CAJA', 'VENTAS', amount);
+            await createBasicPosting(manager, transaction, '1.1.01', '4.1.01', amount);
             break;
 
         case 'CREDIT_CARD':
-        case 'DEBIT_CARD':
-            // Tarjetas van a cuenta bancaria principal
+            // Tarjetas de crédito: el banco adelanta el dinero
             // Débito: Banco, Crédito: Ingreso por venta
-            await createBasicPosting(manager, transaction, 'BANCO', 'VENTAS', amount);
+            await createBasicPosting(manager, transaction, '1.1.02', '4.1.01', amount);
+            break;
+
+        case 'DEBIT_CARD':
+            // Tarjetas de débito: el dinero viene directamente del cliente
+            // Débito: Ingreso por venta, Crédito: Banco (aumenta saldo bancario)
+            await createBasicPosting(manager, transaction, '4.1.01', '1.1.02', amount);
             break;
 
         case 'TRANSFER':
-            // Transferencias van a la cuenta bancaria específica
-            if (bankAccountId) {
-                await createBasicPosting(manager, transaction, bankAccountId, 'VENTAS', amount);
-            } else {
-                await createBasicPosting(manager, transaction, 'BANCO', 'VENTAS', amount);
-            }
+            // Transferencias van a la cuenta bancaria principal
+            // (bankAccountId es un ID de cuenta bancaria, no código contable)
+            await createBasicPosting(manager, transaction, '1.1.02', '4.1.01', amount);
             break;
 
         case 'INTERNAL_CREDIT':
             // Crédito interno afecta cuentas por cobrar
             // Débito: Cuentas por cobrar, Crédito: Ingreso por venta
-            await createBasicPosting(manager, transaction, 'CUENTAS_POR_COBRAR', 'VENTAS', amount);
+            await createBasicPosting(manager, transaction, '1.1.03', '4.1.01', amount);
             break;
 
         default:
             // Para otros métodos, usar cuenta genérica
-            await createBasicPosting(manager, transaction, 'OTROS', 'VENTAS', amount);
+            await createBasicPosting(manager, transaction, '1.1.01', '4.1.01', amount);
     }
 }
 

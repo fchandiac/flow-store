@@ -1,0 +1,343 @@
+
+> flow-store@1.3.0 seed:test
+> node run-seed.js test
+
+Running seed for environment: test
+[DB] Starting... NODE_ENV=undefined, looking for: app.config.json
+[DB] CWD: /Users/felipe/dev/flow-store/app
+[DB] CONFIG_PATH env: undefined
+[DB] Checking paths: [
+  {
+    path: '/Users/felipe/dev/flow-store/app/app.config.json',
+    exists: true
+  },
+  {
+    path: '/Users/felipe/dev/flow-store/app.config.json',
+    exists: false
+  },
+  { path: '/Users/felipe/dev/app.config.json', exists: false }
+]
+[DB] ✓ Found app.config.json at: /Users/felipe/dev/flow-store/app/app.config.json
+[DB] Reading config from: /Users/felipe/dev/flow-store/app/app.config.json
+[DB] Database name: undefined
+[DB] NODE_ENV: undefined
+[DB] Creando nueva instancia de DataSource (singleton)...
+[DB] Inicializando DataSource...
+[DB] ✅ DataSource inicializado correctamente
+
+💎 FlowStore Joyería - Seed Inicial
+═══════════════════════════════════════════════════════════
+
+🧹 Limpiando datos corruptos...
+   ✓ Datos corruptos limpiados
+
+🔄 Verificando conexión a base de datos...
+   ✓ Conexión verificada correctamente
+
+🧨 Reiniciando base de datos...
+   ✓ Base de datos reiniciada
+
+🧾 Eliminando aportes de capital legacy...
+   • Sin aportes de capital legacy que limpiar
+
+🏢 Creando empresa...
+   ✓ Empresa asegurada: Joyarte SpA
+
+🤝 Registrando socios...
+   ✓ Persona creada: Amalia Riquelme
+   ✓ Socio registrado: Amalia Riquelme (100% participación)
+
+🏬 Configurando sucursales...
+   ✓ Sucursal creada: Sucursal Parral
+   ✓ Sucursal creada: Tienda Online
+
+🏷️  Configurando centros de costo...
+   • Centro de costo OPS-PARRAL (Operaciones Sucursal Parral) listo
+   • Centro de costo OPS-ONLINE (Operaciones Tienda Online) listo
+
+🗂️  Configurando unidades organizativas...
+   • Unidad organizativa ADM-CENTRAL (Administración Central) lista
+   • Unidad organizativa OPS-PARRAL (Operaciones Sucursal Parral) lista
+   • Unidad organizativa OPS-ONLINE (Operaciones Tienda Online) lista
+
+💰 Creando impuestos...
+   ✓ Impuesto creado: IVA 19%
+   ✓ Impuesto creado: Exento
+   ✓ Impuesto creado: ILA Bebidas Analcohólicas 10%
+   ✓ Impuesto creado: ILA Bebidas Azucaradas 18%
+   ✓ Impuesto creado: ILA Cervezas y Sidras 20.5%
+   ✓ Impuesto creado: ILA Vinos y Chichas 20.5%
+   ✓ Impuesto creado: ILA Licores y Destilados 31.5%
+   ✓ Impuesto creado: Impuesto de Lujo 15%
+
+📚 Configurando plan de cuentas contable...
+   • Cuenta 1 (ACTIVOS) lista
+   • Cuenta 1.1 (ACTIVO CIRCULANTE) lista
+   • Cuenta 1.1.01 (Caja General) lista
+   • Cuenta 1.1.02 (Instituciones Financieras (Bancos)) lista
+   • Cuenta 1.1.03 (Clientes (Cuentas por Cobrar)) lista
+   • Cuenta 1.1.04 (Existencias (Inventario)) lista
+   • Cuenta 1.1.05 (IVA Crédito Fiscal (19%)) lista
+   • Cuenta 1.1.06 (PPM (Pagos Provisionales Mensuales)) lista
+   • Cuenta 1.2 (ACTIVO FIJO) lista
+   • Cuenta 1.2.01 (Maquinaria e Instalaciones) lista
+   • Cuenta 1.2.02 (Vehículos) lista
+   • Cuenta 2 (PASIVOS) lista
+   • Cuenta 2.1 (PASIVO CIRCULANTE) lista
+   • Cuenta 2.1.01 (Proveedores (Cuentas por Pagar)) lista
+   • Cuenta 2.1.02 (IVA Débito Fiscal (19%)) lista
+   • Cuenta 2.1.03 (Retenciones de Honorarios (13.75%)) lista
+   • Cuenta 2.1.04 (Remuneraciones por Pagar) lista
+   • Cuenta 2.1.05 (Leyes Sociales por Pagar) lista
+   • Cuenta 3 (PATRIMONIO) lista
+   • Cuenta 3.1.01 (Capital Pagado) lista
+   • Cuenta 3.1.02 (Utilidades / Pérdidas Acumuladas) lista
+   • Cuenta 4 (INGRESOS) lista
+   • Cuenta 4.1 (Ingresos Operacionales) lista
+   • Cuenta 4.1.01 (Ventas de Mercaderías) lista
+   • Cuenta 4.1.02 (Ventas de Servicios) lista
+   • Cuenta 4.2 (Ingresos No Operacionales) lista
+   • Cuenta 4.2.01 (Intereses Ganados / Otros Ingresos) lista
+   • Cuenta 5 (EGRESOS / GASTOS) lista
+   • Cuenta 5.1 (Costos de Ventas) lista
+   • Cuenta 5.1.01 (Costo de Mercaderías Vendidas (CMV)) lista
+   • Cuenta 5.2 (Gastos de Administración) lista
+   • Cuenta 5.2.01 (Sueldos y Salarios) lista
+   • Cuenta 5.2.02 (Arriendos) lista
+   • Cuenta 5.2.03 (Gastos Generales) lista
+   • Cuenta 5.2.04 (Honorarios Profesionales) lista
+   • Cuenta 5.3 (Gastos de Ventas) lista
+   • Cuenta 5.3.01 (Publicidad y Marketing) lista
+   • Cuenta 5.3.02 (Comisiones por Ventas) lista
+
+📑 Configurando categorías de gasto...
+   • Categoría SERV_AGUA (Agua y alcantarillado) lista
+   • Categoría SERV_LUZ (Electricidad) lista
+   • Categoría SERV_INTERNET (Internet y telecomunicaciones) lista
+   • Categoría SERV_BAS_OTH (Servicios básicos complementarios) lista
+   • Categoría RRHH_SUELDOS (Pago de remuneraciones) lista
+   • Categoría RRHH_ADELANTO (Adelantos de sueldos) lista
+   • Categoría RRHH_BENEF (Beneficios y viáticos) lista
+   • Categoría SERV_EXTERNOS (Servicios profesionales externos) lista
+   • Categoría MANT_LOCAL (Mantención y reparaciones del local) lista
+   • Categoría SERV_LIMPIEZA (Limpieza y seguridad) lista
+   • Categoría TI_SOFTWARE (Licencias y software) lista
+   • Categoría TI_CLOUD (Servicios cloud y SaaS) lista
+   • Categoría MKT_DIGITAL (Marketing digital) lista
+   • Categoría MKT_TRADIC (Marketing offline y eventos) lista
+   • Categoría LOG_DESPACHO (Transporte y logística) lista
+   • Categoría OFI_SUMINISTROS (Suministros y papelería) lista
+   • Categoría RRHH_CAPAC (Capacitación y desarrollo) lista
+   • Categoría ADM_SEGUROS (Seguros y pólizas) lista
+
+🧾 Configurando reglas contables...
+   • Regla TRANSACTION / SALE (1) lista
+   • Regla TRANSACTION / SALE (2) lista
+   • Regla TRANSACTION / SALE (3) lista
+   • Regla TRANSACTION / SALE (4) lista
+   • Regla TRANSACTION_LINE / SALE (10) lista
+   • Regla TRANSACTION / PURCHASE (1) lista
+   • Regla TRANSACTION_LINE / PURCHASE (15) lista
+   • Regla TRANSACTION / OPERATING_EXPENSE (5) lista
+   • Regla TRANSACTION / OPERATING_EXPENSE (6) lista
+   • Regla TRANSACTION / OPERATING_EXPENSE (7) lista
+   • Regla TRANSACTION / OPERATING_EXPENSE (8) lista
+   • Regla TRANSACTION / PAYMENT_OUT (19) lista
+   • Regla TRANSACTION / PAYMENT_OUT (20) lista
+   • Regla TRANSACTION / PAYMENT_OUT (21) lista
+   • Regla TRANSACTION / PAYMENT_OUT (22) lista
+   • Regla TRANSACTION / PAYMENT_OUT (23) lista
+   • Regla TRANSACTION / PAYMENT_OUT (24) lista
+   • Regla TRANSACTION / PAYMENT_OUT (25) lista
+   • Regla TRANSACTION / PAYMENT_OUT (26) lista
+   • Regla TRANSACTION / PAYMENT_OUT (27) lista
+   • Regla TRANSACTION / PAYMENT_OUT (28) lista
+   • Regla TRANSACTION / PAYMENT_OUT (29) lista
+   • Regla TRANSACTION / PAYMENT_OUT (30) lista
+   • Regla TRANSACTION / PAYMENT_OUT (31) lista
+   • Regla TRANSACTION / PAYMENT_OUT (32) lista
+   • Regla TRANSACTION / PAYMENT_OUT (33) lista
+   • Regla TRANSACTION / PAYMENT_OUT (34) lista
+   • Regla TRANSACTION / PAYMENT_OUT (35) lista
+   • Regla TRANSACTION / PAYMENT_OUT (36) lista
+   • Regla TRANSACTION / PAYMENT_OUT (37) lista
+   • Regla TRANSACTION / PAYMENT_IN (40) lista
+   • Regla TRANSACTION / PAYMENT_IN (41) lista
+   • Regla TRANSACTION / CASH_DEPOSIT (42) lista
+
+📁 Creando categorías de joyería...
+   ✓ Categoría creada: Anillos
+   ✓ Categoría creada: Collares
+   ✓ Categoría creada: Aros
+   ✓ Categoría creada: Pulseras
+   ✓ Categoría creada: Relojes
+   ✓ Categoría creada: Cadenas
+   ✓ Categoría creada: Sets
+   ✓ Categoría creada: Accesorios
+
+💍 Creando atributos para variantes...
+   ✓ Atributo creado: Material (7 opciones)
+   ✓ Atributo creado: Talla (12 opciones)
+   ✓ Atributo creado: Piedra (8 opciones)
+   ✓ Atributo creado: Quilates (7 opciones)
+   ✓ Atributo creado: Largo (5 opciones)
+
+📋 Configurando listas de precios...
+   ✓ Lista de precios creada: Precio Público
+   ✓ Lista de precios creada: Venta Online
+   ✓ Lista de precios creada: Mayorista Joyero
+
+📦 Configurando bodegas...
+   ✓ Bodega creada: Vitrina Principal
+
+🖥️  Configurando puntos de venta...
+   ✓ Punto de venta creado: Caja Principal → Lista por defecto Precio Público
+   ✓ Punto de venta creado: Caja Mayorista → Lista por defecto Mayorista Joyero
+
+👤 Creando usuarios...
+   ✓ Persona creada: Felipe Chandía Castillo
+   ✓ Usuario creado: admin
+   • Contraseña actualizada: 098098
+   ✓ Persona creada: Camila Rojas Manríquez
+   ✓ Usuario creado: op
+
+🗓️  Configurando periodos contables...
+   ✓ Periodo cerrado: Joyarte SpA 2025-10-01 → 2025-10-31
+   ✓ Periodo cerrado: Joyarte SpA 2025-11-01 → 2025-11-30
+   ✓ Periodo cerrado: Joyarte SpA 2025-12-01 → 2025-12-31
+   ✓ Periodo abierto: Joyarte SpA 2026-01-01 → 2026-01-31
+
+💼 Configurando sesiones de caja base...
+   ✓ Sesión de caja creada: Caja Mayorista → Apertura 2026-01-19T06:56:32.000Z ($90.000)
+
+💸 Registrando transacciones contables base...
+   ✓ Transacción registrada: CSO-20260119095632-LWHS01-771B02 (CASH_SESSION_OPENING) → $90.000
+   ✓ Transacción registrada: CAP-000001 (PAYMENT_IN) → $890.000
+   ✓ Transacción registrada: BTC-000001 (PAYMENT_OUT) → $800.000
+
+🧑‍🤝‍🧑 Creando clientes base...
+   ✓ Persona creada: Camila Paredes
+   ✓ Cliente creado: Camila Paredes
+   ✓ Persona creada: Miguel Mesa
+   ✓ Cliente creado: Miguel Mesa
+   ✓ Persona creada: Valeria Rojas
+   ✓ Cliente creado: Valeria Rojas
+
+🏭 Creando proveedores base...
+   ✓ Persona registrada: Metalúrgica Andina SpA
+   ✓ Proveedor creado: Metalúrgica Andina SpA
+   ✓ Persona registrada: Gemas del Sur Ltda.
+   ✓ Proveedor creado: Gemas del Sur Ltda.
+   ✓ Persona registrada: Taller Silva Joyeros EIRL
+   ✓ Proveedor creado: Taller Silva Joyeros EIRL
+   ✓ Persona registrada: Joyas Patagonia Comercial Ltda.
+   ✓ Proveedor creado: Joyas Patagonia Comercial Ltda.
+   ✓ Persona registrada: Luminosa Imports SpA
+   ✓ Proveedor creado: Luminosa Imports SpA
+   ✓ Persona registrada: Energia Metropolitana S.A.
+   ✓ Proveedor creado: Energia Metropolitana S.A.
+   ✓ Persona registrada: Aguas Cordilleranas S.A.
+   ✓ Proveedor creado: Aguas Cordilleranas S.A.
+   ✓ Persona registrada: AndesNet Telecomunicaciones SpA
+   ✓ Proveedor creado: AndesNet Telecomunicaciones SpA
+   ✓ Persona registrada: Libreria Oficina Total Ltda.
+   ✓ Proveedor creado: Libreria Oficina Total Ltda.
+   ✓ Persona registrada: Servicios Tecnicos Luis Herrera
+   ✓ Proveedor creado: Servicios Tecnicos Luis Herrera
+   ✓ Persona registrada: Consultoria TI Valentina Rojas
+   ✓ Proveedor creado: Consultoria TI Valentina Rojas
+
+🔐 Asignando permisos al administrador...
+   ✓ 72 permisos asignados
+
+📏 Configurando unidades de medida...
+   ✓ Unidad base creada: Unidad (un)
+   ✓ Unidad base creada: Kilogramo (kg)
+   ✓ Unidad derivada creada: Caja (cj)
+   ✓ Unidad derivada creada: Gramo (g)
+
+💎 Creando productos de ejemplo...
+   ✓ Variante asegurada: ANI-SOL-ORO18-T6
+   ✓ Variante asegurada: ANI-SOL-ORO18-T7
+   ✓ Variante asegurada: COL-VEN-ORO14-45
+   ✓ Variante asegurada: COL-VEN-ORO14-50
+   ✓ Variante asegurada: COL-VEN-PLATA-50
+   ✓ Variante asegurada: ARE-PER-PLATA
+   ✓ Variante asegurada: ARE-PER-ORO18
+   ✓ Variante asegurada: PUL-TEN-OROB-ZAF
+   ✓ Variante asegurada: PUL-TEN-PLATA-ZAF
+   ✓ Variante asegurada: PUL-ESC-ORO-18
+   ✓ Variante asegurada: PUL-ESC-PLATA-18
+   ✓ Variante asegurada: REL-CRO-ACERO-NEG
+   ✓ Variante asegurada: REL-CRO-ORO-NEG
+   ✓ Variante asegurada: REL-CLA-OROB-BLA
+   ✓ Variante asegurada: REL-CLA-ACERO-MAD
+   ✓ Variante asegurada: CAD-SIN-PLATA-45
+   ✓ Variante asegurada: CAD-SIN-PLATA-55
+   ✓ Variante asegurada: CAD-BAR-ORO18-50
+   ✓ Variante asegurada: CAD-BAR-ORO18-60
+   ✓ Variante asegurada: SET-RUB-ORO18
+   ✓ Variante asegurada: SET-PER-PLATA
+   ✓ Variante asegurada: ACC-LIMP-ULTRA
+   ✓ Variante asegurada: ACC-BOX-LUX
+   ✓ Variante asegurada: ANI-ETR-ORO18-T6
+   ✓ Variante asegurada: ANI-ETR-ORO18-T7
+   ✓ Variante asegurada: ANI-ETR-ORO18-T8
+   ✓ Variante asegurada: COL-COR-ORO18-45
+   ✓ Variante asegurada: COL-COR-PLATA-45
+   ✓ Variante asegurada: PUL-CHA-PLATA-LUNA
+   ✓ Variante asegurada: PUL-CHA-DORADA-EST
+   ✓ Variante asegurada: PUL-CHA-MIX-CORA
+   ✓ Variante asegurada: ARE-HAL-OROR-MOR
+   ✓ Variante asegurada: ARE-HAL-PLATA-MOR
+   ✓ Variante asegurada: REL-DEP-TI-AZUL
+   ✓ Variante asegurada: REL-DEP-TI-NEG
+   ✓ Variante asegurada: SET-ESM-AURA
+   ✓ Variante asegurada: CAD-FOR-TI-50
+   ✓ Variante asegurada: CAD-FOR-TI-60
+   ✓ Variante asegurada: ANI-HAL-OROB-T6
+   ✓ Variante asegurada: ANI-HAL-OROB-T7
+   ✓ Variante asegurada: PUL-MIX-BIMETAL
+   ✓ Variante asegurada: PUL-MIX-CUARZO
+   ✓ Variante asegurada: ACC-KIT-EXPRESS
+
+═══════════════════════════════════════════════════════════
+✅ Seed completado exitosamente!
+───────────────────────────────────────────────────────────
+
+📊 Resumen de datos:
+   • Empresa: Joyarte SpA
+   • Sucursales (2): Sucursal Parral (Casa matriz), Tienda Online
+   • Impuestos (8):
+      - Exento
+      - ILA Bebidas Analcohólicas 10%
+      - ILA Bebidas Azucaradas 18%
+      - ILA Cervezas y Sidras 20.5%
+      - ILA Licores y Destilados 31.5%
+      - ILA Vinos y Chichas 20.5%
+      - Impuesto de Lujo 15%
+      - IVA 19%
+   • Plan de cuentas: 38 cuentas activas
+   • Categorías de gasto: 18 categorías
+   • Reglas contables: 33 reglas automáticas
+   • Permisos asignados: 72
+   • Usuarios activos: 2
+   • Personas registradas: 17
+   • Socios activos: 1 (Amalia Riquelme)
+   • Clientes activos: 3 (Camila Paredes, Miguel Mesa, Valeria Rojas)
+   • Proveedores activos: 11 (Metalúrgica Andina SpA, Gemas del Sur Ltda., Taller Silva Joyeros EIRL, Joyas Patagonia Comercial Ltda., Luminosa Imports SpA, Energia Metropolitana S.A., Aguas Cordilleranas S.A., AndesNet Telecomunicaciones SpA, Libreria Oficina Total Ltda., Servicios Tecnicos Luis Herrera, Consultoria TI Valentina Rojas)
+   • Centros de costo: 2 activos
+   • Unidades organizativas: 3 activas
+   • Categorías: 8 categorías de joyería
+   • Atributos: 5 atributos para variantes
+   • Productos: 23 productos de ejemplo (43 variantes)
+   • Listas de precios: 3 (Precio Público, Venta Online, Mayorista Joyero)
+   • Ítems de listas de precio: 127
+   • Bodegas: 1 (Vitrina Principal)
+   • Puntos de venta: 2 (Caja Principal → Precio Público, Caja Mayorista → Mayorista Joyero)
+
+🔑 Credenciales de acceso:
+   Usuario: admin
+   Contraseña: 098098
+───────────────────────────────────────────────────────────
+

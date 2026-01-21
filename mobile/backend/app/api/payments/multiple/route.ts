@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDataSource } from '@/src/db';
+import { getDb } from '../../../../../../data/db';
 import { EntityManager } from 'typeorm';
-import { Transaction, TransactionType, TransactionStatus, PaymentMethod } from '@/data/entities/Transaction';
-import { TransactionLine } from '@/data/entities/TransactionLine';
-import { CashSession } from '@/data/entities/CashSession';
-import { PointOfSale } from '@/data/entities/PointOfSale';
-import { User } from '@/data/entities/User';
-import { Customer } from '@/data/entities/Customer';
-import { buildLedger, recordPayment } from '@/data/services/AccountingEngine';
+import { Transaction, TransactionType, TransactionStatus, PaymentMethod } from '../../../../../../data/entities/Transaction';
+import { TransactionLine } from '../../../../../../data/entities/TransactionLine';
+import { CashSession } from '../../../../../../data/entities/CashSession';
+import { PointOfSale } from '../../../../../../data/entities/PointOfSale';
+import { User } from '../../../../../../data/entities/User';
+import { Customer } from '../../../../../../data/entities/Customer';
+import { buildLedger, recordPayment } from '../../../../../../data/services/AccountingEngine';
 
 type CreateMultiplePaymentsInput = {
   saleTransactionId: string;
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     const body: CreateMultiplePaymentsInput = await request.json();
     const { saleTransactionId, payments } = body;
 
-    const dataSource = await getDataSource();
+    const dataSource = await getDb();
 
     return await dataSource.transaction(async (manager: EntityManager) => {
       // Verificar que la venta existe

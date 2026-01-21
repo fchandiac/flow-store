@@ -50,15 +50,15 @@ export function usePaymentCalculations({
     const remaining = Math.max(0, totalToPay - totalPaid + change);
 
     // Validaciones
-    const hasExcessNonCash = paymentCards.some(card => {
-      if (card.type === 'CASH') return false;
+    const hasNegativePayments = paymentCards.some(card => {
       if (card.type === 'INTERNAL_CREDIT' && card.subPayments) {
-        return card.subPayments.some(sub => sub.amount > totalToPay);
+        return card.subPayments.some(sub => sub.amount <= 0);
       }
-      return card.amount > totalToPay;
+      return card.amount <= 0;
     });
 
-    const isValid = !hasExcessNonCash && totalPaid >= totalToPay;
+    const hasExcessCash = cashPayments > totalToPay;
+    const isValid = !hasNegativePayments && !hasExcessCash && totalPaid >= totalToPay;
     const canFinalize = isValid && remaining === 0;
 
     return {

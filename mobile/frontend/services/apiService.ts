@@ -987,7 +987,7 @@ export async function getTreasuryAccounts(): Promise<TreasuryAccountResponse[]> 
     '/api/treasury-accounts',
     { method: 'GET' },
   );
-  return payload;
+  return payload.data;
 }
 
 // Multiple payments
