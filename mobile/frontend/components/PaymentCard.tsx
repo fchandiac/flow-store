@@ -86,20 +86,25 @@ export function PaymentCard({
     return true;
   };
 
-  const renderAmountInput = () => (
-    <View style={styles.field}>
-      <Text style={styles.fieldLabel}>Monto</Text>
-      <TextInput
-        style={styles.amountInput}
-        value={amountInput}
-        onChangeText={handleAmountChange}
-        onBlur={validateAmount}
-        placeholder="0"
-        keyboardType="numeric"
-        selectTextOnFocus
-      />
-    </View>
-  );
+  const renderAmountInput = () => {
+    // Para crédito interno, el monto se deriva de los sub-pagos
+    if (card.type === 'INTERNAL_CREDIT') return null;
+
+    return (
+      <View style={styles.field}>
+        <Text style={styles.fieldLabel}>Monto</Text>
+        <TextInput
+          style={styles.amountInput}
+          value={amountInput}
+          onChangeText={handleAmountChange}
+          onBlur={validateAmount}
+          placeholder="0"
+          keyboardType="numeric"
+          selectTextOnFocus
+        />
+      </View>
+    );
+  };
 
   const renderBankAccountSelector = () => (
     <View style={styles.field}>

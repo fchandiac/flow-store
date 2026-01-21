@@ -356,7 +356,19 @@ function PaymentScreen({ navigation }: PaymentScreenProps) {
 
   const handleFinalizeSale = async () => {
     if (!paymentCalculations.canFinalize) {
-      Alert.alert('Error', 'No se puede finalizar la venta. Verifique los montos de pago.');
+      if (paymentCalculations.internalCreditExceedsBalance) {
+        Alert.alert(
+          'Crédito insuficiente',
+          'El monto del pago con crédito interno supera el límite disponible del cliente.'
+        );
+      } else if (paymentCalculations.nonCashExceedsTotal) {
+        Alert.alert(
+          'Error de pagos',
+          'Los pagos que no son en efectivo no pueden superar el total de la venta.'
+        );
+      } else {
+        Alert.alert('Error', 'No se puede finalizar la venta. Verifique los montos de pago.');
+      }
       return;
     }
 
@@ -904,6 +916,15 @@ function PaymentScreen({ navigation }: PaymentScreenProps) {
                   <Ionicons name="alert-circle" size={20} color={palette.danger} />
                   <Text style={styles.validationWarningText}>
                     Los pagos que no son en efectivo (tarjeta, transferencia o crédito) no pueden superar el total de la venta.
+                  </Text>
+                </View>
+              )}
+
+              {paymentCalculations.internalCreditExceedsBalance && (
+                <View style={styles.validationWarning}>
+                  <Ionicons name="alert-circle" size={20} color={palette.danger} />
+                  <Text style={styles.validationWarningText}>
+                    El monto de Pago a Crédito supera el saldo disponible del cliente (${selectedCustomer?.availableCredit?.toFixed(2)}).
                   </Text>
                 </View>
               )}

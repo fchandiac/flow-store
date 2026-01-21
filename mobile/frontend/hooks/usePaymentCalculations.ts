@@ -1,9 +1,10 @@
 import { useMemo } from 'react';
-import { PaymentCard } from '../store/usePosStore';
+import { PaymentCard, PosCustomer } from '../store/usePosStore';
 
 interface UsePaymentCalculationsProps {
   paymentCards: PaymentCard[];
   totalToPay: number;
+  selectedCustomer?: PosCustomer | null;
 }
 
 interface PaymentCalculations {
@@ -13,13 +14,25 @@ interface PaymentCalculations {
   isValid: boolean;
   canFinalize: boolean;
   nonCashExceedsTotal: boolean;
+  internalCreditExceedsBalance: boolean;
 }
 
 export function usePaymentCalculations({
   paymentCards,
   totalToPay,
+  selectedCustomer,
 }: UsePaymentCalculationsProps): PaymentCalculations {
   return useMemo(() => {
+    // Calcular total de crédito interno
+    const internalCreditTotal = paymentCards
+      .filter(card => card.type === 'INTERNAL_CREDIT')
+      .reduce((sum, card) => {
+        if (card.subPayments) {
+          return sum + card.subPayments.reduce((subSum, sub) => subSum + sub.amount, 0);
+        }
+        return sum + card.amount;
+      }, 0);
+
     // Calcular total pagado (suma de todos los montos de las tarjetas)
     const totalPaid = paymentCards.reduce((sum, card) => {
       // Para crédito interno, sumar los sub-pagos
@@ -67,8 +80,12 @@ export function usePaymentCalculations({
     // 3. El total pagado debe cubrir el total de la venta (con una pequeña tolerancia para decimales)
     const coversTotal = (totalPaid - change) >= (totalToPay - 0.1);
 
-    // 4. Si hay exceso, solo puede ser por pagos en efectivo (vuelto)
-    const isValid = !hasNegativePayments && !nonCashExceedsTotal && coversTotal;
+    // 4. El crédito interno no puede superar el crédito disponible del cliente
+    const availableCredit = selectedCustomer?.availableCredit ?? 0;
+    const internalCreditExceedsBalance = internalCreditTotal > (availableCredit + 0.1);
+
+    // 5. Si hay exceso, solo puede ser por pagos en efectivo (vuelto)
+    const isValid = !hasNegativePayments && !nonCashExceedsTotal && !internalCreditExceedsBalance && coversTotal;
     
     // Se puede finalizar si es válido y el saldo restante es casi 0 (tolerancia de 0.1 por redondeos)
     const canFinalize = isValid && remaining <= 0.1;
@@ -80,6 +97,7 @@ export function usePaymentCalculations({
       isValid,
       canFinalize,
       nonCashExceedsTotal,
+      internalCreditExceedsBalance,
     };
-  }, [paymentCards, totalToPay]);
+  }, [paymentCards, totalToPay, selectedCustomer]);
 }
