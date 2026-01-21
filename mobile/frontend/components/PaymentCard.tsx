@@ -203,7 +203,7 @@ export function PaymentCard({
         </TouchableOpacity>
       </View>
 
-      {renderAmountInput()}
+      {card.type !== 'INTERNAL_CREDIT' && renderAmountInput()}
 
       {card.type === 'TRANSFER' && renderBankAccountSelector()}
 
