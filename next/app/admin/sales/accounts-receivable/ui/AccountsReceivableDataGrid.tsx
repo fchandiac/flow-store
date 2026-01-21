@@ -155,7 +155,6 @@ const AccountsReceivableDataGrid = () => {
                 rows={rows}
                 columns={columns}
                 totalRows={totalRows}
-                getRowId={(row: AccountsReceivableQuota) => row.id}
                 emptyMessage="No se encontraron cuotas pendientes de crédito interno."
             />
         </div>
