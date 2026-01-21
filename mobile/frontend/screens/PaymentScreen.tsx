@@ -359,7 +359,7 @@ function PaymentScreen({ navigation }: PaymentScreenProps) {
       if (paymentCalculations.internalCreditExceedsBalance) {
         Alert.alert(
           'Crédito insuficiente',
-          'El monto del pago con crédito interno supera el límite disponible del cliente.'
+          `El monto del pago con crédito interno supera el límite disponible del cliente (${formatCurrency(selectedCustomer?.availableCredit ?? 0)}).`
         );
       } else if (paymentCalculations.nonCashExceedsTotal) {
         Alert.alert(
@@ -924,7 +924,7 @@ function PaymentScreen({ navigation }: PaymentScreenProps) {
                 <View style={styles.validationWarning}>
                   <Ionicons name="alert-circle" size={20} color={palette.danger} />
                   <Text style={styles.validationWarningText}>
-                    El monto de Pago a Crédito supera el saldo disponible del cliente (${selectedCustomer?.availableCredit?.toFixed(2)}).
+                    El monto de Pago a Crédito supera el saldo disponible del cliente ({formatCurrency(selectedCustomer?.availableCredit ?? 0)}).
                   </Text>
                 </View>
               )}
