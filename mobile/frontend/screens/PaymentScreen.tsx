@@ -903,7 +903,7 @@ function PaymentScreen({ navigation }: PaymentScreenProps) {
                 <View style={styles.validationWarning}>
                   <Ionicons name="alert-circle" size={20} color={palette.danger} />
                   <Text style={styles.validationWarningText}>
-                    Los pagos con tarjeta o transferencia no pueden superar el total de la venta.
+                    Los pagos que no son en efectivo (tarjeta, transferencia o crédito) no pueden superar el total de la venta.
                   </Text>
                 </View>
               )}
