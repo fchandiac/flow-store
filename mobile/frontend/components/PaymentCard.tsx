@@ -166,11 +166,13 @@ export function PaymentCard({
                     style={[styles.amountInput, styles.subPaymentInput]}
                     value={formatAmount(subPayment.amount)}
                     onChangeText={(value) => {
-                      const numValue = parseFormattedAmount(value);
+                      const formatted = formatAmountInput(value);
+                      const numValue = parseFormattedAmount(formatted);
                       onUpdateSubPayment(subPayment.id, { amount: numValue });
                     }}
                     placeholder="0"
                     keyboardType="numeric"
+                    selectTextOnFocus
                   />
                   <TextInput
                     style={[styles.dateInput, styles.subPaymentInput]}

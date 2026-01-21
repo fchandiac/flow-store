@@ -133,6 +133,7 @@ function PaymentScreen({ navigation }: PaymentScreenProps) {
   const paymentCalculations = usePaymentCalculations({
     paymentCards,
     totalToPay: cartTotals.total,
+    selectedCustomer,
   });
 
   // Cargar cuentas bancarias al montar el componente
@@ -406,15 +407,22 @@ function PaymentScreen({ navigation }: PaymentScreenProps) {
 
       // Crear los pagos múltiples
       if (paymentCards.length > 0) {
-        const paymentsInput = paymentCards.map((card) => ({
-          paymentMethod: card.type,
-          amount: card.amount,
-          bankAccountId: card.bankAccountId,
-          subPayments: card.subPayments?.map((sub) => ({
-            amount: sub.amount,
-            dueDate: sub.dueDate,
-          })),
-        }));
+        const paymentsInput = paymentCards.map((card) => {
+          let amount = card.amount;
+          if (card.type === 'INTERNAL_CREDIT' && card.subPayments) {
+            amount = card.subPayments.reduce((sum, sub) => sum + sub.amount, 0);
+          }
+
+          return {
+            paymentMethod: card.type,
+            amount,
+            bankAccountId: card.bankAccountId,
+            subPayments: card.subPayments?.map((sub) => ({
+              amount: sub.amount,
+              dueDate: sub.dueDate,
+            })),
+          };
+        });
 
         await createMultiplePayments({
           saleTransactionId: saleResult.transaction.id,
