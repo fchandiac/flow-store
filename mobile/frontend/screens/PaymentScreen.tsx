@@ -319,6 +319,15 @@ function PaymentScreen({ navigation }: PaymentScreenProps) {
   };
 
   const handleAddPaymentCard = (type: Parameters<typeof addPaymentCard>[0]) => {
+    if (type === 'INTERNAL_CREDIT' && !selectedCustomer) {
+      Alert.alert(
+        'Cliente requerido',
+        'Debe seleccionar un cliente para poder utilizar el método de Pago a Crédito.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+
     // Por defecto, el monto de la nueva tarjeta es el saldo restante
     addPaymentCard(type);
     setShowPaymentOptions(false);
