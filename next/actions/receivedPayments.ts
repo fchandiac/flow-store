@@ -139,13 +139,13 @@ export async function listReceivedPayments(
     });
   }
 
-  if (filters.search && filters.search.trim().length > 0) {
+  if (filters.search && typeof filters.search === 'string' && filters.search.trim().length > 0) {
     const term = `%${filters.search.trim()}%`;
     queryBuilder.andWhere(
       new Brackets((qb) => {
-        qb.where('payment.documentNumber ILIKE :term', { term })
-          .orWhere('COALESCE(payment.notes, \'\') ILIKE :term', { term })
-          .orWhere("(payment.metadata ->> 'cashSessionRef') ILIKE :term", { term });
+        qb.where('payment.documentNumber LIKE :term', { term })
+          .orWhere('COALESCE(payment.notes, \'\') LIKE :term', { term })
+          .orWhere("(payment.metadata ->> 'cashSessionRef') LIKE :term", { term });
       }),
     );
   }

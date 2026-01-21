@@ -418,6 +418,7 @@ function PaymentScreen({ navigation }: PaymentScreenProps) {
             amount,
             bankAccountId: card.bankAccountId,
             subPayments: card.subPayments?.map((sub) => ({
+              id: sub.id,
               amount: sub.amount,
               dueDate: sub.dueDate,
             })),

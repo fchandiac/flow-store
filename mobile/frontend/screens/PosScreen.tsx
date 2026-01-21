@@ -209,6 +209,13 @@ function PosScreen({ navigation }: PosScreenProps) {
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.85}
+              style={styles.modalOption}
+              onPress={() => navigation.navigate('CreditPayment')}
+            >
+              <Text style={styles.modalOptionLabel}>Pago de Crédito</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.85}
               style={[styles.modalOption, styles.modalCancel]}
               onPress={() => setIsCashMenuVisible(false)}
             >

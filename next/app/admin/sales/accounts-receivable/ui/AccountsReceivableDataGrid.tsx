@@ -146,7 +146,7 @@ const AccountsReceivableDataGrid = () => {
                         label="Buscar por documento o cliente"
                         placeholder="Ej: PAY-VENTA-123 o Juan Perez..."
                         value={filters.search ?? ''}
-                        onChange={(val) => handleFilterChange('search', val)}
+                        onChange={(e) => handleFilterChange('search', (e.target as HTMLInputElement).value)}
                     />
                 </div>
             </div>

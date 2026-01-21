@@ -140,10 +140,10 @@ export async function getSupplierPayments(
         });
     }
 
-    if (params?.search) {
+    if (params?.search && typeof params.search === 'string') {
         const term = `%${params.search.trim()}%`;
         queryBuilder.andWhere(
-            'payment.documentNumber ILIKE :term OR payment.externalReference ILIKE :term',
+            'payment.documentNumber LIKE :term OR payment.externalReference LIKE :term',
             { term }
         );
     }

@@ -1031,6 +1031,44 @@ export async function createMultiplePayments(
   return payload;
 }
 
+export type PendingQuota = {
+  id: string;
+  transactionId: string;
+  documentNumber: string;
+  amount: number;
+  dueDate: string;
+  createdAt: string;
+};
+
+export async function fetchPendingQuotas(customerId: string): Promise<PendingQuota[]> {
+  const payload = await request<{ success: boolean; quotas: PendingQuota[] }>(
+    `/api/customers/${customerId}/pending-quotas`,
+    { method: 'GET' }
+  );
+  return payload.quotas;
+}
+
+export type PayQuotaInput = {
+  quotaId: string;
+  originalTransactionId: string;
+  cashSessionId: string;
+  payments: Array<{
+    paymentMethod: string;
+    amount: number;
+    bankAccountId?: string;
+  }>;
+};
+
+export async function payQuota(input: PayQuotaInput): Promise<{ success: boolean; message: string }> {
+  return await request<{ success: boolean; message: string }>(
+    '/api/payments/pay-quota',
+    {
+      method: 'POST',
+      body: JSON.stringify(input),
+    },
+  );
+}
+
 export default {
   login,
   fetchPointsOfSale,
@@ -1046,4 +1084,6 @@ export default {
   checkoutSale,
   getTreasuryAccounts,
   createMultiplePayments,
+  fetchPendingQuotas,
+  payQuota,
 };

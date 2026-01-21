@@ -75,13 +75,13 @@ export async function listAccountsReceivable(
   }
 
   if (filters.search) {
-    const term = `%${filters.search.trim()}%`;
+    const term = `%${String(filters.search).trim()}%`;
     queryBuilder.andWhere(
       new Brackets((qb) => {
-        qb.where('tx.documentNumber ILIKE :term', { term })
-          .orWhere('person.firstName ILIKE :term', { term })
-          .orWhere('person.lastName ILIKE :term', { term })
-          .orWhere('person.businessName ILIKE :term', { term });
+        qb.where('tx.documentNumber LIKE :term', { term })
+          .orWhere('person.firstName LIKE :term', { term })
+          .orWhere('person.lastName LIKE :term', { term })
+          .orWhere('person.businessName LIKE :term', { term });
       }),
     );
   }
