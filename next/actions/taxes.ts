@@ -67,9 +67,12 @@ export async function getDefaultTax(): Promise<Tax | null> {
     const ds = await getDb();
     const repo = ds.getRepository(Tax);
     
-    return repo.findOne({
+    const result = await repo.findOne({
         where: { isDefault: true, isActive: true, deletedAt: IsNull() }
     });
+
+    if (!result) return null;
+    return JSON.parse(JSON.stringify(result));
 }
 
 /**
@@ -79,9 +82,12 @@ export async function getTaxById(id: string): Promise<Tax | null> {
     const ds = await getDb();
     const repo = ds.getRepository(Tax);
     
-    return repo.findOne({
+    const result = await repo.findOne({
         where: { id, deletedAt: IsNull() }
     });
+
+    if (!result) return null;
+    return JSON.parse(JSON.stringify(result));
 }
 
 /**
@@ -91,9 +97,12 @@ export async function getTaxByCode(code: string): Promise<Tax | null> {
     const ds = await getDb();
     const repo = ds.getRepository(Tax);
     
-    return repo.findOne({
+    const result = await repo.findOne({
         where: { code, deletedAt: IsNull() }
     });
+
+    if (!result) return null;
+    return JSON.parse(JSON.stringify(result));
 }
 
 /**

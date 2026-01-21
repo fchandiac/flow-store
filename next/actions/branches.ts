@@ -54,7 +54,8 @@ export async function getBranches(params?: GetBranchesParams): Promise<Branch[]>
     queryBuilder.orderBy('branch.isHeadquarters', 'DESC')
         .addOrderBy('branch.name', 'ASC');
     
-    return queryBuilder.getMany();
+    const results = await queryBuilder.getMany();
+    return JSON.parse(JSON.stringify(results));
 }
 
 /**
@@ -64,10 +65,13 @@ export async function getBranchById(id: string): Promise<Branch | null> {
     const ds = await getDb();
     const repo = ds.getRepository(Branch);
     
-    return repo.findOne({
+    const result = await repo.findOne({
         where: { id, deletedAt: IsNull() },
         relations: ['company']
     });
+
+    if (!result) return null;
+    return JSON.parse(JSON.stringify(result));
 }
 
 /**
@@ -221,8 +225,10 @@ export async function getBranchPointsOfSale(branchId: string): Promise<PointOfSa
     const ds = await getDb();
     const repo = ds.getRepository(PointOfSale);
     
-    return repo.find({
+    const results = await repo.find({
         where: { branchId, deletedAt: IsNull(), isActive: true },
         order: { name: 'ASC' }
     });
+
+    return JSON.parse(JSON.stringify(results));
 }

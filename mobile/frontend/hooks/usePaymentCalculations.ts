@@ -12,6 +12,7 @@ interface PaymentCalculations {
   remaining: number;
   isValid: boolean;
   canFinalize: boolean;
+  nonCashExceedsTotal: boolean;
 }
 
 export function usePaymentCalculations({
@@ -47,19 +48,30 @@ export function usePaymentCalculations({
     const change = Math.max(0, cashPayments - remainingAfterNonCash);
 
     // Saldo restante (después de aplicar todos los pagos)
-    const remaining = Math.max(0, totalToPay - totalPaid + change);
+    // Usamos Math.max(0, ...) para evitar negativos ínfimos por precisión de punto flotante
+    const remaining = Math.max(0, totalToPay - (totalPaid - change));
 
     // Validaciones
+    // 1. No pueden haber montos negativos
     const hasNegativePayments = paymentCards.some(card => {
       if (card.type === 'INTERNAL_CREDIT' && card.subPayments) {
-        return card.subPayments.some(sub => sub.amount <= 0);
+        return card.subPayments.some(sub => sub.amount < 0);
       }
-      return card.amount <= 0;
+      return card.amount < 0;
     });
 
-    const hasExcessCash = cashPayments > totalToPay;
-    const isValid = !hasNegativePayments && !hasExcessCash && totalPaid >= totalToPay;
-    const canFinalize = isValid && remaining === 0;
+    // 2. Los pagos que NO son efectivo NO pueden superar el total de la venta
+    // Usamos un pequeño margen de 0.1 para evitar problemas con decimales
+    const nonCashExceedsTotal = nonCashPayments > (totalToPay + 0.1);
+
+    // 3. El total pagado debe cubrir el total de la venta (con una pequeña tolerancia para decimales)
+    const coversTotal = (totalPaid - change) >= (totalToPay - 0.1);
+
+    // 4. Si hay exceso, solo puede ser por pagos en efectivo (vuelto)
+    const isValid = !hasNegativePayments && !nonCashExceedsTotal && coversTotal;
+    
+    // Se puede finalizar si es válido y el saldo restante es casi 0 (tolerancia de 0.1 por redondeos)
+    const canFinalize = isValid && remaining <= 0.1;
 
     return {
       totalPaid,
@@ -67,6 +79,7 @@ export function usePaymentCalculations({
       remaining,
       isValid,
       canFinalize,
+      nonCashExceedsTotal,
     };
   }, [paymentCards, totalToPay]);
 }

@@ -472,8 +472,8 @@ export async function recordPayment(
 
         case 'DEBIT_CARD':
             // Tarjetas de débito: el dinero viene directamente del cliente
-            // Débito: Ingreso por venta, Crédito: Banco (aumenta saldo bancario)
-            await createBasicPosting(manager, transaction, '4.1.01', '1.1.02', amount);
+            // Débito: Banco, Crédito: Ingreso por venta
+            await createBasicPosting(manager, transaction, '1.1.02', '4.1.01', amount);
             break;
 
         case 'TRANSFER':

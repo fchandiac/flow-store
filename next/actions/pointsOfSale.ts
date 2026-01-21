@@ -54,7 +54,8 @@ export async function getPointsOfSale(params?: GetPointsOfSaleParams): Promise<P
     
     queryBuilder.orderBy('pos.name', 'ASC');
     
-    return queryBuilder.getMany();
+    const results = await queryBuilder.getMany();
+    return JSON.parse(JSON.stringify(results));
 }
 
 /**
@@ -64,14 +65,17 @@ export async function getPointOfSaleById(id: string): Promise<PointOfSale | null
     const ds = await getDb();
     const repo = ds.getRepository(PointOfSale);
     
-    return repo.findOne({
+    const result = await repo.findOne({
         where: { id, deletedAt: IsNull() },
         relations: ['branch', 'defaultPriceList']
     });
+
+    if (!result) return null;
+    return JSON.parse(JSON.stringify(result));
 }
 
 /**
- * Obtiene un punto de venta con su sesión activa
+ * Obtiene un punto de venta con su sesión activa si existe
  */
 export async function getPointOfSaleWithActiveSession(id: string): Promise<{
     pointOfSale: PointOfSale | null;
@@ -98,7 +102,7 @@ export async function getPointOfSaleWithActiveSession(id: string): Promise<{
         relations: ['openedBy']
     });
     
-    return { pointOfSale, activeSession };
+    return JSON.parse(JSON.stringify({ pointOfSale, activeSession }));
 }
 
 /**

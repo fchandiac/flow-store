@@ -180,7 +180,7 @@ export async function getCashSessions(params: GetSessionsParams): Promise<Sessio
     
     const [data, total] = await queryBuilder.getManyAndCount();
     
-    return { data, total };
+    return JSON.parse(JSON.stringify({ data, total }));
 }
 
 export async function listCashSessions(params?: { filters?: CashSessionListFilters }): Promise<CashSessionListResult> {
@@ -404,7 +404,7 @@ export async function getCashSessionById(id: string): Promise<SessionWithSummary
     
     summary.expectedBalance = summary.openingBalance + summary.cashIn - summary.cashOut;
     
-    return { ...session, summary };
+    return JSON.parse(JSON.stringify({ ...session, summary }));
 }
 
 /**
@@ -414,13 +414,16 @@ export async function getActiveSession(pointOfSaleId: string): Promise<CashSessi
     const ds = await getDb();
     const repo = ds.getRepository(CashSession);
     
-    return repo.findOne({
+    const session = await repo.findOne({
         where: { 
             pointOfSaleId, 
             status: CashSessionStatus.OPEN 
         },
         relations: ['openedBy']
     });
+
+    if (!session) return null;
+    return JSON.parse(JSON.stringify(session));
 }
 
 /**
@@ -455,7 +458,7 @@ export async function openCashSession(data: OpenSessionDTO): Promise<SessionResu
         await repo.save(session);
         revalidatePath('/pos');
         
-        return { success: true, session };
+        return { success: true, session: JSON.parse(JSON.stringify(session)) };
     } catch (error) {
         console.error('Error opening cash session:', error);
         return { 
@@ -503,7 +506,7 @@ export async function closeCashSession(data: CloseSessionDTO): Promise<CloseResu
         
         return { 
             success: true, 
-            session: sessionWithSummary,
+            session: JSON.parse(JSON.stringify(sessionWithSummary)),
             difference 
         };
     } catch (error) {
@@ -590,7 +593,7 @@ export async function reconcileCashSession(data: {
         await repo.save(session);
         revalidatePath('/admin/cash-sessions');
         
-        return { success: true, session };
+        return { success: true, session: JSON.parse(JSON.stringify(session)) };
     } catch (error) {
         console.error('Error reconciling cash session:', error);
         return { 

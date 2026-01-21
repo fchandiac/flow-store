@@ -111,6 +111,7 @@ function PaymentScreen({ navigation }: PaymentScreenProps) {
   const updateSubPayment = usePosStore((state) => state.updateSubPayment);
   const removeSubPayment = usePosStore((state) => state.removeSubPayment);
   const clearPayments = usePosStore((state) => state.clearPayments);
+  const clearCart = usePosStore((state) => state.clearCart);
   const setTreasuryAccounts = usePosStore((state) => state.setTreasuryAccounts);
 
   const [customerQuery, setCustomerQuery] = useState('');
@@ -356,6 +357,7 @@ function PaymentScreen({ navigation }: PaymentScreenProps) {
       const user = selectUser(usePosStore.getState());
       const pointOfSale = selectPointOfSale(usePosStore.getState());
       const cashSession = selectCashSession(usePosStore.getState());
+      const selectedCustomer = selectSelectedCustomer(usePosStore.getState());
 
       if (!user || !pointOfSale || !cashSession) {
         throw new Error('Información de usuario, punto de venta o sesión de caja no disponible');
@@ -378,6 +380,7 @@ function PaymentScreen({ navigation }: PaymentScreenProps) {
         paymentMethod: 'MIXED', // Usamos MIXED para pagos múltiples
         amountPaid: paymentCalculations.totalPaid,
         lines: saleLines,
+        customerId: selectedCustomer?.customerId,
       });
 
       // Crear los pagos múltiples
@@ -402,6 +405,7 @@ function PaymentScreen({ navigation }: PaymentScreenProps) {
 
       // Limpiar estado
       clearPayments();
+      clearCart();
       clearSelectedCustomer();
 
       // Navegar automáticamente a la pantalla POS
@@ -884,6 +888,16 @@ function PaymentScreen({ navigation }: PaymentScreenProps) {
                   </View>
                 </View>
               </View>
+
+              {/* Advertencias de validación */}
+              {paymentCalculations.nonCashExceedsTotal && (
+                <View style={styles.validationWarning}>
+                  <Ionicons name="alert-circle" size={20} color={palette.danger} />
+                  <Text style={styles.validationWarningText}>
+                    Los pagos con tarjeta o transferencia no pueden superar el total de la venta.
+                  </Text>
+                </View>
+              )}
 
               {/* Botón finalizar - fuera de las columnas */}
               <View style={styles.paymentFooter}>
@@ -1491,6 +1505,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: palette.primaryText,
+  },
+  validationWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF5F5',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#FEB2B2',
+  },
+  validationWarningText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#C53030',
+    flex: 1,
   },
   modalBackdrop: {
     flex: 1,

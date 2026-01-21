@@ -908,6 +908,7 @@ export type CreateSaleInput = {
   paymentMethod: 'CASH' | 'CREDIT_CARD' | 'DEBIT_CARD' | 'TRANSFER' | 'CHECK' | 'CREDIT' | 'INTERNAL_CREDIT' | 'MIXED';
   amountPaid: number;
   lines: SaleLineInput[];
+  customerId?: string | null;
 };
 
 type CreateSalePayload = {
@@ -949,6 +950,7 @@ export async function checkoutSale(
     userName: string;
     pointOfSaleId: string;
     cashSessionId: string;
+    customerId?: string | null;
   },
 ): Promise<CheckoutResult> {
   const lines: SaleLineInput[] = params.cartItems.map((item) => ({
@@ -968,6 +970,7 @@ export async function checkoutSale(
     paymentMethod: 'CASH',
     amountPaid: Number(amountPaid.toFixed(2)),
     lines,
+    customerId: params.customerId,
   });
 
   return response;
