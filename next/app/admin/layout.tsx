@@ -19,6 +19,7 @@ const menuItems: SideBarMenuItem[] = [
         label: 'Ventas',
         children: [
             { id: 'transactions', label: 'Transacciones', url: '/admin/sales/transactions' },
+            { id: 'accounts-receivable', label: 'Cuentas por cobrar', url: '/admin/sales/accounts-receivable' },
             { id: 'customers', label: 'Clientes', url: '/admin/sales/customers' },
             { id: 'points-of-sale', label: 'Puntos de Venta', url: '/admin/sales/points-of-sale' },
             { id: 'received-payments', label: 'Pagos recibidos', url: '/admin/sales/received-payments' },
