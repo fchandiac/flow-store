@@ -28,9 +28,14 @@ const menuItems: SideBarMenuItem[] = [
         ],
     },
     {
-        id: 'point-of-sale-cart',
-        label: 'Carro de compra',
-        url: '/pointOfSale',
+        id: 'purchasing',
+        label: 'Compras',
+        children: [
+            { id: 'purchase-orders', label: 'Órdenes de compra', url: '/admin/purchasing/purchase-orders' },
+            { id: 'receptions', label: 'Recepción de productos', url: '/admin/purchasing/receptions' },
+            { id: 'suppliers', label: 'Proveedores', url: '/admin/purchasing/suppliers' },
+            { id: 'supplier-payments', label: 'Pagos a proveedores', url: '/admin/purchasing/supplier-payments' },
+        ],
     },
     {
         id: 'inventario',
@@ -50,16 +55,7 @@ const menuItems: SideBarMenuItem[] = [
             { id: 'acc-banking', label: 'Tesoreria', url: '/admin/accounting/banking' },
             { id: 'acc-reports', label: 'Estados Financieros', url: '/admin/accounting/reports' },
             { id: 'acc-periods', label: 'Cierres Mensuales', url: '/admin/accounting/periods' },
-        ],
-    },
-    {
-        id: 'purchasing',
-        label: 'Compras',
-        children: [
-            { id: 'purchase-orders', label: 'Órdenes de compra', url: '/admin/purchasing/purchase-orders' },
-            { id: 'receptions', label: 'Recepción de productos', url: '/admin/purchasing/receptions' },
-            { id: 'suppliers', label: 'Proveedores', url: '/admin/purchasing/suppliers' },
-            { id: 'supplier-payments', label: 'Pagos a proveedores', url: '/admin/purchasing/supplier-payments' },
+            { id: 'cost-centers', label: 'Centros de Costos', url: '/admin/accounting/cost-centers' },
         ],
     },
     {
@@ -84,7 +80,6 @@ const menuItems: SideBarMenuItem[] = [
         children: [
             { id: 'company', label: 'Empresa', url: '/admin/settings/company' },
             { id: 'branches', label: 'Sucursales', url: '/admin/settings/branches' },
-            { id: 'cost-centers', label: 'Centros de Costos', url: '/admin/settings/cost-centers' },
             { id: 'storages', label: 'Almacenes', url: '/admin/settings/storages' },
             { id: 'users', label: 'Usuarios', url: '/admin/settings/users' },
             { id: 'taxes', label: 'Impuestos', url: '/admin/settings/taxes' },
@@ -98,11 +93,6 @@ const menuItems: SideBarMenuItem[] = [
         id: 'auditoria',
         label: 'Auditoría',
         url: '/admin/audit',
-    },
-    {
-        id: 'showcases',
-        label: 'Showcases',
-        url: '/admin/showcases',
     },
 ];
 

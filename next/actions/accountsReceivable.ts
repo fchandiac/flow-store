@@ -61,13 +61,24 @@ export async function listAccountsReceivable(
 
   const filters = params?.filters ?? {};
 
-  // Buscamos transacciones de tipo PAYMENT_IN que fueron con CRÉDITO INTERNO
+  // Buscamos transacciones que generen cuentas por cobrar:
+  // 1. PAYMENT_IN con CRÉDITO INTERNO (Legacy o pagos manuales)
+  // 2. SALE que tengan cuotas de crédito interno en su metadata (Nuevo flujo MIXED o Crédito parcial)
   const queryBuilder = repo
     .createQueryBuilder('tx')
     .leftJoinAndSelect('tx.customer', 'customer')
     .leftJoinAndSelect('customer.person', 'person')
-    .where('tx.transactionType = :paymentType', { paymentType: TransactionType.PAYMENT_IN })
-    .andWhere('tx.paymentMethod = :method', { method: PaymentMethod.INTERNAL_CREDIT })
+    .where(new Brackets(qb => {
+      qb.where('tx.transactionType = :paymentType AND tx.paymentMethod = :method', { 
+        paymentType: TransactionType.PAYMENT_IN, 
+        method: PaymentMethod.INTERNAL_CREDIT 
+      })
+      .orWhere('tx.transactionType = :saleType AND (tx.paymentMethod = :method OR tx.paymentMethod = :mixedMethod)', {
+        saleType: TransactionType.SALE,
+        method: PaymentMethod.INTERNAL_CREDIT,
+        mixedMethod: PaymentMethod.MIXED
+      });
+    }))
     .andWhere('tx.status != :cancelled', { cancelled: TransactionStatus.CANCELLED });
 
   if (filters.customerId) {
@@ -96,11 +107,34 @@ export async function listAccountsReceivable(
 
   const [transactions, total] = await queryBuilder.getManyAndCount();
 
+  // Para marcar como pagadas, buscamos transacciones de pago que referencien estas transacciones
+  const txIds = transactions.map(t => t.id);
+  const paidQuotaIds = new Set<string>();
+
+  if (txIds.length > 0) {
+    const paymentRepo = ds.getRepository(Transaction);
+    // Buscamos pagos que referencien a estas transacciones originales
+    const quotaPayments = await paymentRepo
+      .createQueryBuilder('ptx')
+      .where('ptx.transactionType = :paymentIn', { paymentIn: TransactionType.PAYMENT_IN })
+      .andWhere('ptx.relatedTransactionId IN (:...txIds)', { txIds })
+      .andWhere('ptx.status != :cancelled', { cancelled: TransactionStatus.CANCELLED })
+      .getMany();
+    
+    quotaPayments.forEach(p => {
+        const metadata = p.metadata as any;
+        if (metadata?.paidQuotaId) {
+            paidQuotaIds.add(metadata.paidQuotaId);
+        }
+    });
+  }
+
   const allQuotas: AccountsReceivableQuota[] = [];
   const now = new Date();
 
   transactions.forEach((tx) => {
-    const subPayments = (tx.metadata?.subPayments as any[]) || [];
+    // Intentar obtener sub-pagos de metadata (posibles campos: subPayments o internalCreditQuotas)
+    const subPayments = (tx.metadata?.subPayments as any[]) || (tx.metadata?.internalCreditQuotas as any[]) || [];
     const customer = tx.customer;
     const person = customer?.person;
     
@@ -114,10 +148,13 @@ export async function listAccountsReceivable(
     }
 
     if (subPayments.length === 0) {
-      // Si no tiene sub-pagos explícitos, tratamos el total como una sola cuota venciendo el día de la venta
+      // Si no tiene sub-pagos explícitos, tratamos el total como una sola cuota
       const dueDate = new Date(tx.createdAt);
+      const quotaId = `${tx.id}-1`;
+      const isPaid = paidQuotaIds.has(quotaId);
+
       allQuotas.push({
-        id: `${tx.id}-1`,
+        id: quotaId,
         transactionId: tx.id,
         documentNumber: tx.documentNumber,
         createdAt: tx.createdAt.toISOString(),
@@ -128,13 +165,16 @@ export async function listAccountsReceivable(
         dueDate: dueDate.toISOString().split('T')[0],
         quotaNumber: 1,
         totalQuotas: 1,
-        status: dueDate < now ? 'OVERDUE' : 'PENDING',
+        status: isPaid ? 'PAID' : (dueDate < now ? 'OVERDUE' : 'PENDING'),
       });
     } else {
       subPayments.forEach((sp, index) => {
         const dueDate = new Date(sp.dueDate);
+        const quotaId = sp.id || `${tx.id}-${index + 1}`;
+        const isPaid = paidQuotaIds.has(quotaId);
+
         allQuotas.push({
-          id: `${tx.id}-${index + 1}`,
+          id: quotaId,
           transactionId: tx.id,
           documentNumber: tx.documentNumber,
           createdAt: tx.createdAt.toISOString(),
@@ -145,15 +185,21 @@ export async function listAccountsReceivable(
           dueDate: sp.dueDate,
           quotaNumber: index + 1,
           totalQuotas: subPayments.length,
-          status: dueDate < now ? 'OVERDUE' : 'PENDING',
+          status: isPaid ? 'PAID' : (dueDate < now ? 'OVERDUE' : 'PENDING'),
         });
       });
     }
   });
 
+  // Filtramos si el usuario no quiere ver las pagadas (opcional, según filtros del front)
+  let filteredQuotas = allQuotas;
+  if (!filters.includePaid) {
+    filteredQuotas = allQuotas.filter(q => q.status !== 'PAID');
+  }
+
   return JSON.parse(
     JSON.stringify({
-      rows: allQuotas,
+      rows: filteredQuotas,
       total, // Este total es de transacciones, no de cuotas individuales
       page,
       pageSize,

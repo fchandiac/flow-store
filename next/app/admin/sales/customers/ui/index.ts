@@ -5,3 +5,4 @@ export { default as UpdateCustomerDialog } from './UpdateCustomerDialog';
 export { default as DeleteCustomerDialog } from './DeleteCustomerDialog';
 export { default as CustomersDataGrid } from './CustomersDataGrid';
 export type { CustomerWithPerson } from './types';
+export { CustomerDetailDialog } from './CustomerDetailDialog';

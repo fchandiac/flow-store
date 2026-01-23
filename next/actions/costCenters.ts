@@ -45,8 +45,8 @@ interface CostCenterResult {
     costCenter?: CostCenterSummary;
 }
 
-const COST_CENTER_SETTINGS_PATH = '/admin/settings/cost-centers';
-const COST_CENTER_BUDGETS_PATH = '/admin/settings/cost-centers/budgets';
+const COST_CENTER_SETTINGS_PATH = '/admin/accounting/cost-centers';
+const COST_CENTER_BUDGETS_PATH = '/admin/accounting/cost-centers/budgets';
 
 const serializeCostCenter = (center: CostCenter): CostCenterSummary => ({
     id: center.id,

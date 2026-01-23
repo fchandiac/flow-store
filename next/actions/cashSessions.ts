@@ -295,9 +295,13 @@ export async function getCashSessionMovements(sessionId: string): Promise<CashSe
 
     const movements: CashSessionMovementItem[] = transactions.map((tx) => {
         const total = Number(tx.total) || 0;
-        const direction = IN_FLOW_TYPES.has(tx.transactionType)
+        
+        // El crédito interno no se considera flujo de efectivo para la sesión
+        const isInternalCredit = tx.paymentMethod === PaymentMethod.INTERNAL_CREDIT;
+        
+        const direction = (!isInternalCredit && IN_FLOW_TYPES.has(tx.transactionType))
             ? 'IN'
-            : OUT_FLOW_TYPES.has(tx.transactionType)
+            : (!isInternalCredit && OUT_FLOW_TYPES.has(tx.transactionType))
                 ? 'OUT'
                 : 'NEUTRAL';
 
@@ -374,24 +378,25 @@ export async function getCashSessionById(id: string): Promise<SessionWithSummary
     
     for (const tx of transactions) {
         const total = Number(tx.total) || 0;
+        const isInternalCredit = tx.paymentMethod === PaymentMethod.INTERNAL_CREDIT;
         
         switch (tx.transactionType) {
             case TransactionType.SALE:
                 summary.totalSales += total;
-                summary.cashIn += total;
+                if (!isInternalCredit) summary.cashIn += total;
                 break;
             case TransactionType.SALE_RETURN:
                 summary.totalReturns += total;
-                summary.cashOut += total;
+                if (!isInternalCredit) summary.cashOut += total;
                 break;
             case TransactionType.PAYMENT_IN:
-                summary.cashIn += total;
+                if (!isInternalCredit) summary.cashIn += total;
                 break;
             case TransactionType.CASH_SESSION_DEPOSIT:
                 summary.cashIn += total;
                 break;
             case TransactionType.PAYMENT_OUT:
-                summary.cashOut += total;
+                if (!isInternalCredit) summary.cashOut += total;
                 break;
             case TransactionType.OPERATING_EXPENSE:
                 summary.cashOut += total;

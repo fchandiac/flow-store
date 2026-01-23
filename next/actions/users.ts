@@ -6,6 +6,7 @@ import { DocumentType, Person, PersonType } from '@/data/entities/Person';
 import { revalidatePath } from 'next/cache';
 import { IsNull } from 'typeorm';
 import crypto from 'crypto';
+import { getCurrentSession } from './auth.server';
 
 // Types
 interface GetUsersParams {
@@ -50,6 +51,39 @@ interface UserResult {
 // Hash password with SHA256
 function hashPassword(password: string): string {
     return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+/**
+ * Cambia la contraseña del usuario actual
+ */
+export async function changeOwnPassword(currentPassword: string, newPassword: string): Promise<UserResult> {
+    try {
+        const session = await getCurrentSession();
+        if (!session) {
+            return { success: false, error: 'Inicia sesión para cambiar tu contraseña' };
+        }
+
+        const ds = await getDb();
+        const repo = ds.getRepository(User);
+        const user = await repo.findOne({ where: { id: session.id, deletedAt: IsNull() } });
+
+        if (!user) {
+            return { success: false, error: 'Usuario no encontrado' };
+        }
+
+        const hashedCurrent = hashPassword(currentPassword);
+        if (user.pass !== hashedCurrent) {
+            return { success: false, error: 'La contraseña actual no es correcta' };
+        }
+
+        user.pass = hashPassword(newPassword);
+        await repo.save(user);
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error changing password:', error);
+        return { success: false, error: 'Ocurrió un error al cambiar la contraseña' };
+    }
 }
 
 /**

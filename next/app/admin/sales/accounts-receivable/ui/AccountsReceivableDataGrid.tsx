@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import DataGrid, { type DataGridColumn } from '@/baseComponents/DataGrid/DataGrid';
 import Select, { type Option } from '@/baseComponents/Select/Select';
 import { TextField } from '@/baseComponents/TextField/TextField';
+import Switch from '@/baseComponents/Switch/Switch';
 import Badge from '@/baseComponents/Badge/Badge';
 import { useAlert } from '@/globalstate/alert/useAlert';
 import { 
@@ -14,7 +15,7 @@ import {
 import { formatDateTime } from '@/lib/dateTimeUtils';
 
 const currencyFormatter = new Intl.NumberFormat('es-CL', {
-  style: 'currency',
+  style: 'currency', 
   currency: 'CLP',
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
@@ -147,6 +148,14 @@ const AccountsReceivableDataGrid = () => {
                         placeholder="Ej: PAY-VENTA-123 o Juan Perez..."
                         value={filters.search ?? ''}
                         onChange={(e) => handleFilterChange('search', (e.target as HTMLInputElement).value)}
+                    />
+                </div>
+                <div className="flex items-center pb-2">
+                    <Switch 
+                        label="Mostrar pagados" 
+                        labelPosition="right" 
+                        checked={filters.includePaid} 
+                        onChange={(checked) => handleFilterChange('includePaid', checked)}
                     />
                 </div>
             </div>

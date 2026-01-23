@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     const dataSource = await getDb();
 
-    return await dataSource.transaction(async (manager: EntityManager) => {
+    return await dataSource.transaction(async (manager: any) => {
       // Verificar que la venta existe
       const saleTransaction = await manager.findOne(Transaction, {
         where: { id: saleTransactionId, transactionType: TransactionType.SALE },
@@ -61,6 +61,25 @@ export async function POST(request: NextRequest) {
 
       // Procesar cada pago
       for (const payment of payments) {
+        if (payment.paymentMethod === PaymentMethod.INTERNAL_CREDIT) {
+          // El crédito interno no se registra como PAYMENT_IN, se registra como deuda en la venta
+          saleTransaction.metadata = {
+            ...(saleTransaction.metadata || {}),
+            internalCreditQuotas: payment.subPayments,
+            internalCreditAmount: payment.amount,
+          };
+          await manager.save(Transaction, saleTransaction);
+
+          // Registramos en el ledger que esta parte de la venta es a crédito
+          // (Si AccountingEngine ya lo hace por el método MIXED de la venta, genial, 
+          //  si no, recordPayment con INTERNAL_CREDIT hará el asiento de AR)
+          const dummyTx = { ...saleTransaction, paymentMethod: PaymentMethod.INTERNAL_CREDIT, total: payment.amount } as Transaction;
+          await recordPayment(manager, dummyTx, payment.bankAccountId);
+          
+          totalPaid += payment.amount;
+          continue;
+        }
+
         const paymentTransaction = await createPaymentTransaction(
           manager,
           {

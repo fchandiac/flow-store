@@ -102,6 +102,9 @@ export async function listReceivedPayments(
     .leftJoinAndSelect('user.person', 'userPerson')
     .where('payment.transactionType = :transactionType', {
       transactionType: TransactionType.PAYMENT_IN,
+    })
+    .andWhere('payment.paymentMethod != :internalCredit', {
+      internalCredit: PaymentMethod.INTERNAL_CREDIT,
     });
 
   if (!filters.includeCancelled) {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getDataSource } from '../../../../src/db';
+import { getDataSource } from '@/src/db';
 import { EntityManager } from 'typeorm';
 import { Transaction, TransactionType, TransactionStatus, PaymentMethod } from '@/data/entities/Transaction';
 import { CashSession } from '@/data/entities/CashSession';

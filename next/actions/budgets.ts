@@ -54,7 +54,7 @@ interface CreateBudgetDTO {
     currency: BudgetCurrency;
 }
 
-const BUDGETS_PATH = '/admin/settings/cost-centers/budgets';
+const BUDGETS_PATH = '/admin/accounting/cost-centers/budgets';
 
 const toInt = (value: string | number | null | undefined): number => {
     if (value === null || value === undefined) {

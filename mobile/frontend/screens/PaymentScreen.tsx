@@ -395,12 +395,18 @@ function PaymentScreen({ navigation }: PaymentScreenProps) {
       }));
 
       // Crear la venta
+      const nonInternalCreditPaid = paymentCards
+        .filter(card => card.type !== 'INTERNAL_CREDIT')
+        .reduce((sum, card) => sum + card.amount, 0);
+
+      const amountPaid = Math.max(0, nonInternalCreditPaid - paymentCalculations.change);
+
       const saleResult = await createSale({
         userName: user.userName,
         pointOfSaleId: pointOfSale.id,
         cashSessionId: cashSession.id,
         paymentMethod: 'MIXED', // Usamos MIXED para pagos múltiples
-        amountPaid: paymentCalculations.totalPaid,
+        amountPaid: amountPaid,
         lines: saleLines,
         customerId: selectedCustomer?.customerId,
       });

@@ -7,7 +7,7 @@ import Badge from "@/app/baseComponents/Badge/Badge";
 import IconButton from "@/app/baseComponents/IconButton/IconButton";
 import { useAlert } from "@/app/globalstate/alert/useAlert";
 import { getCustomers } from "@/app/actions/customers";
-import { CreateCustomerDialog } from ".";
+import { CreateCustomerDialog, CustomerDetailDialog } from ".";
 import UpdateCustomerDialog from "./UpdateCustomerDialog";
 import DeleteCustomerDialog from "./DeleteCustomerDialog";
 import type { CustomerWithPerson } from "./types";
@@ -35,6 +35,7 @@ export const CustomersDataGrid = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerRow | null>(null);
 
   const search = searchParams.get("search") || "";
@@ -82,6 +83,11 @@ export const CustomersDataGrid = () => {
     setDeleteDialogOpen(true);
   }, []);
 
+  const handleOpenDetail = useCallback((customer: CustomerRow) => {
+    setSelectedCustomer(customer);
+    setDetailDialogOpen(true);
+  }, []);
+
   const handleSuccess = useCallback(
     async (message: string) => {
       await loadCustomers();
@@ -93,6 +99,13 @@ export const CustomersDataGrid = () => {
   const columns: DataGridColumn[] = useMemo(() => {
     const ActionsCell = ({ row }: { row: CustomerRow }) => (
       <div className="flex items-center gap-1">
+        <IconButton
+          icon="more_horiz"
+          variant="basicSecondary"
+          size="xs"
+          onClick={() => handleOpenDetail(row)}
+          title="Ver detalle"
+        />
         <IconButton
           icon="edit"
           variant="basicSecondary"
@@ -182,7 +195,7 @@ export const CustomersDataGrid = () => {
         renderCell: ({ row }) => <ActionsCell row={row as CustomerRow} />,
       },
     ];
-  }, [handleOpenDelete, handleOpenUpdate]);
+  }, [handleOpenDelete, handleOpenUpdate, handleOpenDetail]);
 
   return (
     <>
@@ -223,6 +236,17 @@ export const CustomersDataGrid = () => {
             setSelectedCustomer(null);
           }}
           onSuccess={() => handleSuccess("Cliente eliminado correctamente")}
+        />
+      )}
+
+      {selectedCustomer && (
+        <CustomerDetailDialog
+          open={detailDialogOpen}
+          customer={selectedCustomer}
+          onClose={() => {
+            setDetailDialogOpen(false);
+            setSelectedCustomer(null);
+          }}
         />
       )}
     </>

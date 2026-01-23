@@ -4,6 +4,7 @@ import { getDb } from '@/data/db';
 import { Transaction, TransactionType, TransactionStatus, PaymentMethod } from '@/data/entities/Transaction';
 import { TransactionLine } from '@/data/entities/TransactionLine';
 import { ProductVariant } from '@/data/entities/ProductVariant';
+import { Attribute } from '@/data/entities/Attribute';
 import { CashSession } from '@/data/entities/CashSession';
 import { User } from '@/data/entities/User';
 import { revalidatePath } from 'next/cache';
@@ -199,7 +200,17 @@ export async function getTransactions(params?: GetTransactionsParams): Promise<T
     
     const [data, total] = await queryBuilder.getManyAndCount();
     
-    return { data, total };
+    // Serializar a objetos planos para evitar problemas con Server Components
+    const plainData = data.map(tx => ({
+        ...tx,
+        // Aseguramos que las fechas se conviertan a Date o string serializable si es necesario, 
+        // pero principalmente removemos prototipos de clase
+    }));
+
+    return { 
+        data: JSON.parse(JSON.stringify(plainData)), 
+        total 
+    };
 }
 
 const buildPersonFullName = (person?: { firstName?: string | null; lastName?: string | null; businessName?: string | null } | null): string | null => {
@@ -392,6 +403,8 @@ export async function getSaleTransactionDetail(transactionId: string): Promise<S
     const ds = await getDb();
     const transactionRepo = ds.getRepository(Transaction);
     const lineRepo = ds.getRepository(TransactionLine);
+    const variantRepo = ds.getRepository(ProductVariant);
+    const attributeRepo = ds.getRepository(Attribute);
 
     const transaction = await transactionRepo.findOne({
         where: { id: transactionId },
@@ -414,8 +427,50 @@ export async function getSaleTransactionDetail(transactionId: string): Promise<S
         order: { lineNumber: 'ASC' },
     });
 
+    // Obtener todos los atributos para mapear nombres
+    const allAttributes = await attributeRepo.find();
+    const attributeMap = allAttributes.reduce((acc, attr) => {
+        acc[attr.id] = attr.name;
+        return acc;
+    }, {} as Record<string, string>);
+
     const customerPerson = transaction.customer?.person ?? null;
     const userPerson = transaction.user?.person ?? null;
+
+    const detailedLines: SaleTransactionLineDetail[] = [];
+
+    for (const line of lines) {
+        let displayVariantName = line.variantName ?? null;
+
+        if (line.productVariantId) {
+            const variant = await variantRepo.findOneBy({ id: line.productVariantId });
+            if (variant?.attributeValues) {
+                const parts: string[] = [];
+                for (const [attrId, value] of Object.entries(variant.attributeValues)) {
+                    const attrName = attributeMap[attrId] || 'Atributo';
+                    parts.push(`${attrName}: ${value}`);
+                }
+                if (parts.length > 0) {
+                    displayVariantName = parts.join(', ');
+                }
+            }
+        }
+
+        detailedLines.push({
+            id: line.id,
+            productName: line.productName,
+            productSku: line.productSku,
+            variantName: displayVariantName,
+            quantity: Number(line.quantity ?? 0),
+            unitOfMeasure: line.unitOfMeasure ?? null,
+            unitPrice: Number(line.unitPrice ?? 0),
+            subtotal: Number(line.subtotal ?? 0),
+            taxAmount: Number(line.taxAmount ?? 0),
+            taxRate: Number(line.taxRate ?? 0),
+            total: Number(line.total ?? 0),
+            notes: line.notes ?? null,
+        });
+    }
 
     const detail: SaleTransactionDetail = {
         id: transaction.id,
@@ -439,20 +494,7 @@ export async function getSaleTransactionDetail(transactionId: string): Promise<S
         total: Number(transaction.total ?? 0),
         notes: transaction.notes ?? null,
         externalReference: transaction.externalReference ?? null,
-        lines: lines.map<SaleTransactionLineDetail>((line) => ({
-            id: line.id,
-            productName: line.productName,
-            productSku: line.productSku,
-            variantName: line.variantName ?? null,
-            quantity: Number(line.quantity ?? 0),
-            unitOfMeasure: line.unitOfMeasure ?? null,
-            unitPrice: Number(line.unitPrice ?? 0),
-            subtotal: Number(line.subtotal ?? 0),
-            taxAmount: Number(line.taxAmount ?? 0),
-            taxRate: Number(line.taxRate ?? 0),
-            total: Number(line.total ?? 0),
-            notes: line.notes ?? null,
-        })),
+        lines: detailedLines,
     };
 
     return JSON.parse(JSON.stringify(detail));
