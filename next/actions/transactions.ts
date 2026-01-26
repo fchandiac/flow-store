@@ -34,20 +34,21 @@ interface TransactionsResponse {
 }
 
 export interface TransactionLineDTO {
-    productId: string;
+    productId?: string;
     productVariantId?: string;
     productName: string;
-    productSku: string;
+    productSku?: string;
     variantName?: string;
     quantity: number;
-    unitId?: string;
-    unitOfMeasure?: string;
-    unitConversionFactor?: number;
     quantityInBase?: number;
+    unitId?: string;
     unitPrice: number;
     unitCost?: number;
+    unitOfMeasure?: string;
+    unitConversionFactor?: number;
     discountPercentage?: number;
     discountAmount?: number;
+    taxId?: string;
     taxRate?: number;
     taxAmount?: number;
     notes?: string;
@@ -768,6 +769,7 @@ export async function createTransaction(data: CreateTransactionDTO): Promise<Tra
                 unitCost: lineUnitCost,
                 discountPercentage: Number(lineData.discountPercentage ?? 0),
                 discountAmount: lineDiscountAmount,
+                taxId: lineData.taxId,
                 taxRate: Number(lineData.taxRate ?? 0),
                 taxAmount: lineTaxAmount,
                 subtotal: lineSubtotal,

@@ -23,5 +23,26 @@
     "branchRef": "ONLINE",
     "costCenterRef": "OPERACIONES_ONLINE",
     "parentCode": "ADM-CENTRAL"
+  },
+  {
+    "code": "FINANZAS",
+    "name": "Departamento de Finanzas",
+    "description": "Responsable de la contabilidad, tesorería y auditoría interna.",
+    "type": "BACKOFFICE",
+    "parentCode": "ADM-CENTRAL"
+  },
+  {
+    "code": "RRHH",
+    "name": "Recursos Humanos",
+    "description": "Gestión de personal, nóminas y bienestar.",
+    "type": "BACKOFFICE",
+    "parentCode": "ADM-CENTRAL"
+  },
+  {
+    "code": "LOGISTICA",
+    "name": "Logística y Bodega",
+    "description": "Encargados de recepción, almacenamiento y despacho de mercadería.",
+    "type": "OPERATIONS",
+    "parentCode": "ADM-CENTRAL"
   }
 ]

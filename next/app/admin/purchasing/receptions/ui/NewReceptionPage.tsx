@@ -11,6 +11,7 @@ import DotProgress from '@/app/baseComponents/DotProgress/DotProgress';
 import Switch from '@/app/baseComponents/Switch/Switch';
 import { useAlert } from '@/app/globalstate/alert/useAlert';
 import { getSuppliers } from '@/app/actions/suppliers';
+import { getCategories } from '@/app/actions/categories';
 import { getInventoryFilters } from '@/app/actions/inventory';
 import { getAttributes } from '@/app/actions/attributes';
 import { getActiveTaxes } from '@/app/actions/taxes';
@@ -202,8 +203,6 @@ const formatVariantAttributes = (
         .join(' · ');
 };
 
-const MIN_PRODUCT_SEARCH_LENGTH = 2;
-
 const DATE_ONLY_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 const normalizeDateInput = (value?: string | null): string | null => {
@@ -228,7 +227,7 @@ const addDaysToDateOnly = (dateString: string, days: number) => {
         const today = new Date();
         return formatDateOnly(today);
     }
-    const safeDays = Number.isFinite(days) ? days : 0;
+    const safeDays = Number.isNaN(days) ? 0 : days;
     const result = new Date(base);
     result.setDate(result.getDate() + safeDays);
     return formatDateOnly(result);
@@ -240,12 +239,21 @@ interface NewReceptionPageProps {
     onSuccess?: () => void;
 }
 
+const DOCUMENT_TYPE_OPTIONS = [
+    { id: 'FACTURA_ELECTRONICA', label: 'Factura Electrónica' },
+    { id: 'GUIA_DESPACHO', label: 'Guía de Despacho' },
+    { id: 'BOLETA', label: 'Boleta' },
+    { id: 'FACTURA_EXENTA', label: 'Factura Exenta' },
+    { id: 'OTRO', label: 'Otro' },
+];
+
 export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const router = useRouter();
     const { success, error } = useAlert();
 
     const [suppliers, setSuppliers] = useState<SupplierOption[]>([]);
     const [storages, setStorages] = useState<StorageOption[]>([]);
+    const [categories, setCategories] = useState<SelectOption[]>([]);
     const [attributeNames, setAttributeNames] = useState<Record<string, string>>({});
     const [activeTaxes, setActiveTaxes] = useState<TaxOption[]>([]);
     const [taxesLoaded, setTaxesLoaded] = useState(false);
@@ -317,7 +325,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
         ) => {
             if (activeTaxes.length === 0) {
                 const unique = Array.from(new Set(candidate.filter((id) => typeof id === 'string' && id.trim().length > 0)));
-                const sanitizedFallback = Number.isFinite(fallbackRate ?? 0) ? Number(fallbackRate ?? 0) : 0;
+                const sanitizedFallback = Number.isNaN(fallbackRate ?? 0) ? 0 : Number(fallbackRate ?? 0);
                 return {
                     selection: unique,
                     rate: Number(sanitizedFallback.toFixed(4)),
@@ -352,8 +360,10 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const [receptionDate, setReceptionDate] = useState(getTodayDate);
     const [paymentDate, setPaymentDate] = useState(getTodayDate);
     const [paymentDateTouched, setPaymentDateTouched] = useState(false);
-    const [reference, setReference] = useState('');
+    const [documentType, setDocumentType] = useState<string>('FACTURA_ELECTRONICA');
+    const [documentNumber, setDocumentNumber] = useState('');
     const [notes, setNotes] = useState('');
+    const [reference, setReference] = useState('');
 
     const [selectedPurchaseOrder, setSelectedPurchaseOrder] = useState<PurchaseOrderForReception | null>(null);
     const [purchaseOrderResults, setPurchaseOrderResults] = useState<PurchaseOrderForReception[]>([]);
@@ -361,7 +371,11 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const [showPendingOrders, setShowPendingOrders] = useState(false);
 
     const [productSearch, setProductSearch] = useState('');
+    const [categoryId, setCategoryId] = useState<string | null>(null);
     const [productResults, setProductResults] = useState<ReceptionProductSearchItem[]>([]);
+    const [totalProducts, setTotalProducts] = useState(0);
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 10;
     const [loadingProducts, setLoadingProducts] = useState(false);
     const [addingProductId, setAddingProductId] = useState<string | null>(null);
 
@@ -369,6 +383,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const [payments, setPayments] = useState<PaymentEntry[]>([]);
     const [paymentDatesTouched, setPaymentDatesTouched] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [isDragOver, setIsDragOver] = useState(false);
 
     const supplierMap = useMemo(() => new Map(suppliers.map((supplier) => [supplier.value, supplier])), [suppliers]);
 
@@ -380,7 +395,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
             }
             const supplier = supplierMap.get(supplierIdValue);
             const termDaysRaw = supplier?.defaultPaymentTermDays ?? 0;
-            const termDays = Number.isFinite(termDaysRaw) ? Math.round(termDaysRaw) : 0;
+            const termDays = Number.isNaN(termDaysRaw) ? 0 : Math.round(termDaysRaw);
             const candidate = addDaysToDateOnly(normalizedBase, termDays);
             return candidate < normalizedBase ? normalizedBase : candidate;
         },
@@ -423,9 +438,10 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
     const loadInitialData = useCallback(async () => {
         setTaxesLoaded(false);
         try {
-            const [suppliersData, filtersData, pendingOrders, taxesData] = await Promise.all([
+            const [suppliersData, filtersData, categoryData, pendingOrders, taxesData] = await Promise.all([
                 getSuppliers(),
                 getInventoryFilters(),
+                getCategories({ isActive: true }),
                 searchPurchaseOrdersForReception(), // Sin parámetro, trae las últimas órdenes
                 getActiveTaxes(),
             ]);
@@ -447,6 +463,13 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                     id: s.id,
                     value: s.id,
                     label: s.branchName ? `${s.name} · ${s.branchName}` : s.name,
+                }))
+            );
+
+            setCategories(
+                categoryData.map((category) => ({
+                    id: category.id,
+                    label: category.name,
                 }))
             );
 
@@ -481,6 +504,34 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
         loadInitialData();
     }, [loadInitialData]);
 
+    const loadProducts = useCallback(async (term: string, category: string | null, page: number = 1) => {
+        const requestId = latestProductSearchId.current + 1;
+        latestProductSearchId.current = requestId;
+        setLoadingProducts(true);
+        try {
+            const data = await searchProductsForReception({ 
+                search: term, 
+                categoryId: category || undefined,
+                page, 
+                pageSize 
+            });
+            if (latestProductSearchId.current === requestId) {
+                setProductResults(data.items);
+                setTotalProducts(data.total);
+                setCurrentPage(page);
+            }
+        } catch (err) {
+            console.error('Error searching products:', err);
+            if (latestProductSearchId.current === requestId) {
+                error('No fue posible cargar productos');
+            }
+        } finally {
+            if (latestProductSearchId.current === requestId) {
+                setLoadingProducts(false);
+            }
+        }
+    }, [error, pageSize]);
+
     // Búsqueda de productos
     useEffect(() => {
         const term = productSearch.trim();
@@ -490,32 +541,8 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
             searchProductTimeout.current = null;
         }
 
-        if (term.length < MIN_PRODUCT_SEARCH_LENGTH) {
-            latestProductSearchId.current += 1;
-            setProductResults([]);
-            setLoadingProducts(false);
-            return;
-        }
-
-        searchProductTimeout.current = setTimeout(async () => {
-            const requestId = latestProductSearchId.current + 1;
-            latestProductSearchId.current = requestId;
-            setLoadingProducts(true);
-            try {
-                const results = await searchProductsForReception({ search: term, limit: 20 });
-                if (latestProductSearchId.current === requestId) {
-                    setProductResults(results);
-                }
-            } catch (err) {
-                console.error('Error searching products:', err);
-                if (latestProductSearchId.current === requestId) {
-                    error('No fue posible cargar productos');
-                }
-            } finally {
-                if (latestProductSearchId.current === requestId) {
-                    setLoadingProducts(false);
-                }
-            }
+        searchProductTimeout.current = setTimeout(() => {
+            loadProducts(term, categoryId, 1);
         }, 350);
 
         return () => {
@@ -524,7 +551,7 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                 searchProductTimeout.current = null;
             }
         };
-    }, [productSearch, error]);
+    }, [productSearch, categoryId, loadProducts]);
 
     // Seleccionar orden de compra
     const handleSelectPurchaseOrder = (order: PurchaseOrderForReception) => {
@@ -1010,40 +1037,37 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
         setSubmitting(true);
 
         try {
-            const receptionLines: ReceptionLineInput[] = lines.map((line) => ({
-                productVariantId: line.productVariantId,
-                expectedQuantity: line.expectedQuantity,
-                receivedQuantity: line.receivedQuantity,
-                unitPrice: line.unitPrice,
-                unitCost: line.unitCost,
-                notes: line.notes,
-                taxRate: line.taxRate,
-                taxIds: line.selectedTaxIds,
-                qualityStatus: 'APPROVED',
+            const lineInputs: ReceptionLineInput[] = lines.map((l) => ({
+                productVariantId: l.productVariantId,
+                expectedQuantity: l.expectedQuantity,
+                receivedQuantity: l.receivedQuantity,
+                unitPrice: l.unitPrice,
+                unitCost: l.unitCost,
+                notes: l.notes,
+                selectedTaxIds: l.selectedTaxIds,
             }));
 
             let result;
-
             if (selectedPurchaseOrder) {
-                // Recepción con orden de compra
                 result = await createReceptionFromPurchaseOrder({
                     purchaseOrderId: selectedPurchaseOrder.id,
-                    storageId,
-                    receptionDate: normalizedReceptionDate,
-                    paymentDueDate: normalizedPaymentDate,
+                    storageId: storageId!,
+                    receptionDate,
                     notes,
-                    lines: receptionLines,
+                    documentType,
+                    documentNumber,
+                    lines: lineInputs,
                 });
             } else {
-                // Recepción directa
                 result = await createDirectReception({
-                    supplierId,
-                    storageId,
-                    receptionDate: normalizedReceptionDate,
-                    paymentDueDate: normalizedPaymentDate,
-                    reference,
+                    supplierId: supplierId!,
+                    storageId: storageId!,
+                    receptionDate,
+                    reference: documentNumber || reference,
+                    documentType,
+                    documentNumber,
                     notes,
-                    lines: receptionLines,
+                    lines: lineInputs,
                 });
             }
 
@@ -1075,9 +1099,45 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
 
     const trimmedProductSearch = productSearch.trim();
 
+    const handleDragOver = (event: React.DragEvent) => {
+        event.preventDefault();
+        setIsDragOver(true);
+    };
+
+    const handleDragLeave = () => {
+        setIsDragOver(false);
+    };
+
+    const handleDrop = useCallback(
+        (event: React.DragEvent) => {
+            event.preventDefault();
+            setIsDragOver(false);
+            const variantId = event.dataTransfer.getData('text/plain');
+            if (variantId) {
+                const product = productResults.find((p) => p.variantId === variantId);
+                if (product) {
+                    handleAddProduct(product);
+                } else {
+                    // Si no está en resultados actuales por alguna razón, tratar de cargarlo directo
+                    getReceptionVariantDetail(variantId).then(detail => {
+                        if (detail) handleAddProduct({
+                            variantId: detail.variantId,
+                            productName: detail.productName,
+                            sku: detail.sku,
+                            pmp: detail.pmp,
+                            unitOfMeasure: detail.unitOfMeasure ?? undefined,
+                            attributeValues: detail.attributeValues ?? {}
+                        });
+                    }).catch(err => console.error("Error added dropped product", err));
+                }
+            }
+        },
+        [handleAddProduct, productResults]
+    );
+
     return (
         <div className="space-y-6 pt-2">
-            <div className="grid grid-cols-1 gap-6 xl:grid-cols-[280px,1fr]">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px,1fr]">
                 <aside className="space-y-4">
                     {!selectedPurchaseOrder && (
                         <div className="border border-border rounded-md bg-white p-4 space-y-4">
@@ -1144,6 +1204,14 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                 Puedes sumar productos adicionales a la recepción seleccionada.
                             </p>
                         )}
+                        <Select
+                            label="Categoría"
+                            options={categories}
+                            value={categoryId}
+                            onChange={(value) => setCategoryId(value ? String(value) : null)}
+                            allowClear
+                            variant="default"
+                        />
                         <TextField
                             label="Buscar producto"
                             value={productSearch}
@@ -1151,57 +1219,96 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                             placeholder="Nombre, SKU o código"
                             startIcon="search"
                         />
-                        {trimmedProductSearch.length > 0 && trimmedProductSearch.length < MIN_PRODUCT_SEARCH_LENGTH && !loadingProducts && (
+                        {totalProducts > pageSize && (
+                            <div className="flex items-center justify-between py-2 border-y border-border">
+                                <span className="text-[11px] text-muted-foreground">
+                                    {currentPage} de {Math.ceil(totalProducts / pageSize)}
+                                </span>
+                                <div className="flex gap-1">
+                                    <IconButton
+                                        icon="chevron_left"
+                                        variant="basicSecondary"
+                                        size="xs"
+                                        onClick={() => loadProducts(productSearch, categoryId, currentPage - 1)}
+                                        disabled={currentPage <= 1 || loadingProducts}
+                                    />
+                                    <IconButton
+                                        icon="chevron_right"
+                                        variant="basicSecondary"
+                                        size="xs"
+                                        onClick={() => loadProducts(productSearch, categoryId, currentPage + 1)}
+                                        disabled={currentPage >= Math.ceil(totalProducts / pageSize) || loadingProducts}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {productResults.length === 0 && !loadingProducts && (
                             <p className="text-xs text-muted-foreground">
-                                Ingresa al menos {MIN_PRODUCT_SEARCH_LENGTH} caracteres para buscar.
+                                No se encontraron productos. Ajusta los filtros o busca por nombre/SKU.
                             </p>
                         )}
-                        {trimmedProductSearch.length >= MIN_PRODUCT_SEARCH_LENGTH && productResults.length === 0 && !loadingProducts && (
-                            <p className="text-xs text-muted-foreground">
-                                No se encontraron productos para "{trimmedProductSearch}".
-                            </p>
-                        )}
+
                         {productResults.length > 0 && (
-                            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
                                 {productResults.map((product) => {
                                     const variantAttributes = formatVariantAttributes(
                                         product.attributeValues,
                                         attributeNames
                                     );
                                     return (
-                                        <button
+                                        <div
                                             key={product.variantId}
-                                            type="button"
-                                            onClick={() => handleAddProduct(product)}
-                                            className="w-full rounded-md border border-border bg-background p-3 text-left transition hover:border-primary-200 hover:bg-primary-50"
-                                            disabled={addingProductId === product.variantId}
+                                            className="border border-border rounded-md p-3 flex flex-col gap-2 hover:shadow-sm transition cursor-grab"
+                                            draggable
+                                            onDragStart={(event) => {
+                                                event.dataTransfer.setData('text/plain', product.variantId);
+                                                event.dataTransfer.effectAllowed = 'move';
+                                            }}
                                         >
-                                            <div className="text-sm font-medium text-foreground">
-                                                {product.productName}
-                                            </div>
-                                            <div className="text-xs text-muted-foreground">SKU {product.sku}</div>
-                                            {variantAttributes && (
-                                                <div className="text-xs text-muted-foreground">{variantAttributes}</div>
-                                            )}
-                                            {product.unitOfMeasure && (
-                                                <div className="text-xs text-muted-foreground">
-                                                    Unidad: {product.unitOfMeasure}
+                                            <div className="flex items-start justify-between gap-3">
+                                                <div>
+                                                    <p className="text-sm font-medium text-foreground">{product.productName}</p>
+                                                    <p className="text-xs text-muted-foreground">SKU {product.sku}</p>
+                                                    {variantAttributes && (
+                                                        <p className="text-xs text-muted-foreground">{variantAttributes}</p>
+                                                    )}
                                                 </div>
-                                            )}
-                                            <div className="mt-2 text-xs font-semibold text-foreground">
-                                                PMP {currencyFormatter.format(product.pmp)}
+                                                <IconButton
+                                                    icon="add"
+                                                    variant="basicSecondary"
+                                                    size="xs"
+                                                    onClick={() => handleAddProduct(product)}
+                                                    title="Agregar a la recepción"
+                                                    disabled={addingProductId === product.variantId}
+                                                />
                                             </div>
-                                        </button>
+                                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                                <span>PMP: {currencyFormatter.format(product.pmp)}</span>
+                                                {product.unitOfMeasure && <span>UM: {product.unitOfMeasure}</span>}
+                                            </div>
+                                        </div>
                                     );
                                 })}
                             </div>
                         )}
+                        
+                        <p className="text-[11px] text-muted-foreground italic">
+                            Puedes arrastrar un producto al panel de la derecha o utilizar el botón “+”.
+                        </p>
                     </div>
                 </aside>
 
-                <section className="border border-border rounded-md bg-white p-5 space-y-5">
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:gap-6">
-                        <div className="flex flex-col gap-3 flex-1 xl:max-w-lg">
+                <section 
+                    className={`border border-border rounded-md bg-white p-5 space-y-5 transition-colors ${
+                        isDragOver ? 'ring-2 ring-primary/50' : ''
+                    }`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                >
+                    <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-6">
+                        <div className="flex flex-col gap-3 flex-1 lg:max-w-lg">
                             <div className="flex items-start justify-between gap-3">
                                 <div className="flex items-start gap-3">
                                     <IconButton
@@ -1253,7 +1360,21 @@ export default function NewReceptionPage({ onSuccess }: NewReceptionPageProps) {
                                 value={receptionDate}
                                 onChange={(event) => handleReceptionDateChange(event.target.value)}
                             />
-                            {!selectedPurchaseOrder && (
+                            <div className="grid grid-cols-2 gap-4">
+                                <Select
+                                    label="Tipo de documento"
+                                    options={DOCUMENT_TYPE_OPTIONS}
+                                    value={documentType}
+                                    onChange={(value) => setDocumentType(value as string)}
+                                />
+                                <TextField
+                                    label="N° Documento / Folio"
+                                    value={documentNumber}
+                                    onChange={(event) => setDocumentNumber(event.target.value)}
+                                    placeholder="Ej: 123456"
+                                />
+                            </div>
+                            {!selectedPurchaseOrder && false && ( // Ocultamos el campo referencia antiguo
                                 <TextField
                                     label="Referencia externa"
                                     value={reference}

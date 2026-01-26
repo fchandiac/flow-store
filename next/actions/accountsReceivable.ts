@@ -87,12 +87,18 @@ export async function listAccountsReceivable(
 
   if (filters.search) {
     const term = `%${String(filters.search).trim()}%`;
+    const numericTerm = filters.search.replace(/[^0-9]/g, '');
+    
     queryBuilder.andWhere(
       new Brackets((qb) => {
         qb.where('tx.documentNumber LIKE :term', { term })
           .orWhere('person.firstName LIKE :term', { term })
           .orWhere('person.lastName LIKE :term', { term })
           .orWhere('person.businessName LIKE :term', { term });
+        
+        if (numericTerm) {
+          qb.orWhere('tx.total LIKE :numTerm', { numTerm: `%${numericTerm}%` });
+        }
       }),
     );
   }

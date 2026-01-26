@@ -3,9 +3,11 @@
 import { revalidatePath } from 'next/cache';
 import { getDb } from '@/data/db';
 import { Transaction, TransactionStatus, TransactionType, PaymentMethod } from '@/data/entities/Transaction';
+import { TransactionLine } from '@/data/entities/TransactionLine';
 import { AccountTypeName, BankName, PersonBankAccount } from '@/data/entities/Person';
 import { getCurrentSession } from './auth.server';
 import { getCompany } from './companies';
+import { createTransaction } from './transactions';
 
 export interface SupplierPaymentListItem {
     id: string;
@@ -120,7 +122,11 @@ export async function getSupplierPayments(
         .createQueryBuilder('payment')
         .leftJoinAndSelect('payment.supplier', 'supplier')
         .leftJoinAndSelect('supplier.person', 'supplierPerson')
-        .where('payment.transactionType = :type', { type: TransactionType.PAYMENT_OUT });
+        .where('(payment.transactionType = :type_payment OR (payment.transactionType = :type_purchase AND payment.paymentMethod = :method_credit AND (payment.metadata ->> \'paymentStatus\' IS NULL OR payment.metadata ->> \'paymentStatus\' != \'PAID\')))', {
+            type_payment: TransactionType.PAYMENT_OUT,
+            type_purchase: TransactionType.PURCHASE,
+            method_credit: PaymentMethod.CREDIT
+        });
 
     if (!params?.includeCancelled) {
         queryBuilder.andWhere('payment.status != :cancelled', { cancelled: TransactionStatus.CANCELLED });
@@ -173,7 +179,7 @@ export async function getSupplierPayments(
         const paymentTermDays = typeof metadata.paymentTermDays === 'number' ? metadata.paymentTermDays : null;
         const receptionDocumentNumber = typeof metadata.receptionDocumentNumber === 'string'
             ? metadata.receptionDocumentNumber
-            : null;
+            : (payment.transactionType === TransactionType.PURCHASE ? metadata.documentNumber : null);
         const origin = typeof metadata.origin === 'string' ? metadata.origin : null;
 
         return {
@@ -217,8 +223,8 @@ export async function getSupplierPaymentContext(paymentId: string): Promise<{ su
         return { success: false, error: 'Pago no encontrado' };
     }
 
-    if (payment.transactionType !== TransactionType.PAYMENT_OUT) {
-        return { success: false, error: 'La transacción seleccionada no es un pago a proveedor' };
+    if (payment.transactionType !== TransactionType.PAYMENT_OUT && payment.transactionType !== TransactionType.PURCHASE) {
+        return { success: false, error: 'Documento no válido' };
     }
 
     if (payment.status === TransactionStatus.CANCELLED) {
@@ -286,15 +292,15 @@ export async function completeSupplierPayment(
     });
 
     if (!payment) {
-        return { success: false, error: 'Pago no encontrado' };
+        return { success: false, error: 'Documento no encontrado' };
     }
 
-    if (payment.transactionType !== TransactionType.PAYMENT_OUT) {
-        return { success: false, error: 'La transacción seleccionada no es un pago a proveedor' };
+    if (payment.transactionType !== TransactionType.PAYMENT_OUT && payment.transactionType !== TransactionType.PURCHASE) {
+        return { success: false, error: 'La transacción seleccionada no es válida para registrar un pago' };
     }
 
     if (payment.status === TransactionStatus.CANCELLED) {
-        return { success: false, error: 'El pago está anulado y no se puede confirmar' };
+        return { success: false, error: 'El documento está anulado y no se puede pagar' };
     }
 
     const metadata = normalizeMetadata(payment.metadata);
@@ -355,6 +361,56 @@ export async function completeSupplierPayment(
 
     const total = Number(payment.total ?? 0);
 
+    // Si es una compra a crédito, creamos un nuevo registro de pago
+    if (payment.transactionType === TransactionType.PURCHASE) {
+        const productLines = await ds.getRepository(TransactionLine).find({ where: { transactionId: payment.id } });
+        
+        const result = await createTransaction({
+            transactionType: TransactionType.PAYMENT_OUT,
+            branchId: payment.branchId,
+            pointOfSaleId: payment.pointOfSaleId,
+            storageId: payment.storageId,
+            supplierId: payment.supplierId,
+            userId: session.id,
+            paymentMethod: input.paymentMethod,
+            bankAccountKey: payment.bankAccountKey,
+            documentNumber: `PAG-${Date.now()}`,
+            externalReference: payment.documentNumber, // Referencia a la compra
+            notes: input.note || `Pago de compra ${payment.documentNumber}`,
+            relatedTransactionId: payment.id,
+            status: TransactionStatus.CONFIRMED,
+            lines: [{
+                productName: `Pago de compra ${payment.documentNumber}`,
+                quantity: 1,
+                unitPrice: total,
+                taxRate: 0,
+                taxAmount: 0,
+            }]
+        });
+
+        if (!result.success) {
+            return { success: false, error: `Error creand el pago: ${result.error}` };
+        }
+
+        // Actualizar metadata de la compra original
+        const nextMetadata = {
+            ...metadata,
+            paymentStatus: 'PAID',
+            paymentConfirmedAt: new Date().toISOString(),
+            paymentConfirmedBy: session.id,
+            relatedPaymentId: result.transaction?.id,
+        };
+        payment.metadata = nextMetadata;
+        await repo.save(payment);
+
+        revalidatePath('/admin/purchasing/supplier-payments');
+        return {
+            success: true,
+            documentNumber: result.transaction?.documentNumber || '',
+        };
+    }
+
+    // Si ya era un PAYMENT_OUT (pendiente del sistema anterior), lo confirmamos
     payment.paymentMethod = input.paymentMethod;
     payment.amountPaid = total;
     payment.status = TransactionStatus.CONFIRMED;

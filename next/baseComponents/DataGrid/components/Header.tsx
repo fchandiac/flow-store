@@ -24,6 +24,8 @@ interface HeaderProps {
   showSortButton?: boolean;
   showFilterButton?: boolean;
   showExportButton?: boolean;
+  showSearch?: boolean;
+  onSearchChange?: (value: string) => void;
 }
 
 const Header: React.FC<HeaderProps> = ({
@@ -40,6 +42,8 @@ const Header: React.FC<HeaderProps> = ({
   showSortButton = true,
   showFilterButton = true,
   showExportButton = true,
+  showSearch = true,
+  onSearchChange,
 }) => {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -63,17 +67,21 @@ const Header: React.FC<HeaderProps> = ({
 
     // Set new timer for 300ms debounce
     debounceTimer.current = setTimeout(() => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (value) {
-        params.set('search', value);
+      if (onSearchChange) {
+        onSearchChange(value);
       } else {
-        params.delete('search');
+        const params = new URLSearchParams(searchParams.toString());
+        if (value) {
+          params.set('search', value);
+        } else {
+          params.delete('search');
+        }
+        // Reset to page 1 when searching
+        params.set('page', '1');
+        router.replace(`?${params.toString()}`);
       }
-      // Reset to page 1 when searching
-      params.set('page', '1');
-      router.replace(`?${params.toString()}`);
     }, 300);
-  }, [searchParams, router]);
+  }, [searchParams, router, onSearchChange]);
 
   // Calcular estilos computados para las columnas usando utilidad centralizada
   const computedStyles = calculateColumnStyles(columns, screenWidth);
@@ -82,7 +90,7 @@ const Header: React.FC<HeaderProps> = ({
   return (
     <div className="w-full" data-test-id="data-grid-header">
       {/* Primera fila: Add button + Title + (Toolbar + Search en desktop) */}
-      <div className="flex items-center w-full">
+      <div className="flex items-center w-full px-4 pt-4 pb-2">
         {/* Add button - usa onAddClick si está definido, sino abre el modal interno */}
         {(createForm || onAddClick) && (
           <div className="flex items-center mr-4">
@@ -97,7 +105,7 @@ const Header: React.FC<HeaderProps> = ({
         )}
         
         {/* Title */}
-        <div className="text-lg font-semibold text-gray-800">
+        <div className="text-lg font-semibold text-gray-800 mr-6 whitespace-nowrap">
           {title}
         </div>
 
@@ -112,9 +120,9 @@ const Header: React.FC<HeaderProps> = ({
         {!headerActions && <div className="flex-1" />}
         
         {/* Toolbar y Search - solo visible en sm y superior */}
-        <div className="hidden sm:flex items-start gap-4 self-start ml-4 pr-4">
+        <div className="hidden sm:flex items-center gap-4 ml-4">
           {/* Toolbar */}
-          <div>
+          <div className="flex-shrink-0">
             <Toolbar
               filterMode={filterMode}
               onToggleFilterMode={onToggleFilterMode}
@@ -127,22 +135,23 @@ const Header: React.FC<HeaderProps> = ({
             />
           </div>
           {/* Search field */}
-          <div className="flex items-start">
-            <label htmlFor="datagrid-search" className="sr-only">Buscar</label>
-            <div className="w-48">
+          {showSearch && (
+            <div className="flex items-center">
               <TextField
-                label="Buscar"
-                placeholder="Buscar..."
-                name="datagrid-search"
+                label=""
                 value={searchInput}
                 onChange={handleChange}
-                startIcon={"search"}
-                className="text-sm"
+                placeholder="Buscar..."
+                startIcon="search"
+                className="w-full sm:w-64"
+                data-test-id="data-grid-search-input"
               />
             </div>
-          </div>
+          )}
         </div>
       </div>
+
+      {/* Mobile Toolbar and Search */}
       
       {/* Segunda fila: Header Actions (móvil) - solo si hay headerActions */}
       {headerActions && (

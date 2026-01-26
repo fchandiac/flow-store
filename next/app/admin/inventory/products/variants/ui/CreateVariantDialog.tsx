@@ -15,6 +15,7 @@ import { getAttributes } from '@/app/actions/attributes';
 import { getPriceLists } from '@/app/actions/priceLists';
 import { getTaxes } from '@/app/actions/taxes';
 import { getActiveUnits } from '@/app/actions/units';
+import { getGoldPrices } from '@/app/actions/goldPrices';
 import { computePriceWithTaxes } from '@/lib/pricing/priceCalculations';
 
 interface AttributeType {
@@ -255,6 +256,73 @@ const weightUnitOptions = [
     { id: 'g', label: 'Gramo (g)' },
 ];
 
+interface PriceCalculatorDialogProps {
+    open: boolean;
+    onClose: () => void;
+    weight: number;
+    goldPrice: number;
+    onCalculate: (netPrice: number) => void;
+}
+
+const PriceCalculatorDialog: React.FC<PriceCalculatorDialogProps> = ({
+    open,
+    onClose,
+    weight,
+    goldPrice,
+    onCalculate,
+}) => {
+    const [manufacture, setManufacture] = useState('0');
+    const [currentWeight, setCurrentWeight] = useState(weight.toString());
+
+        const result = useMemo(() => {
+            const w = parseFloat(currentWeight) || 0;
+            const h = parseFloat(manufacture) || 0;
+            // Formula updated per request: (((Peso * Oro) * 2) * 0.1) + hechura
+            const goldCost = w * goldPrice;
+            const total = (goldCost * 2 * 0.1) + h;
+            return total;
+        }, [currentWeight, goldPrice, manufacture]);    const handleApply = () => {
+        onCalculate(result);
+        onClose();
+    };
+
+    return (
+        <Dialog open={open} onClose={onClose} title="Calculadora de Precio" size="sm">
+            <div className="space-y-4">
+                <Alert variant="info">
+                    Precio del Oro actual: <strong>{formatCurrencyByCode('CLP', goldPrice)}</strong>
+                </Alert>
+                <TextField
+                    label="Peso (gramos)"
+                    type="number"
+                    value={currentWeight}
+                    onChange={(e) => setCurrentWeight(e.target.value)}
+                    placeholder="Peso"
+                />
+                <TextField
+                    label="Hechura / Mano de obra"
+                    type="currency"
+                    value={manufacture}
+                    onChange={(e) => setManufacture(e.target.value)}
+                />
+                <div className="p-4 bg-neutral-100 rounded-lg">
+                    <p className="text-sm text-neutral-600">Precio Neto Calculado:</p>
+                    <p className="text-2xl font-bold text-primary">
+                        {formatCurrencyByCode('CLP', result)}
+                    </p>
+                                            <p className="text-[10px] text-neutral-500 mt-1 italic">
+                            Fórmula: (((Peso × Oro) × 2) × 0.1) + Hechura
+                        </p>
+                </div>
+                <div className="flex justify-end gap-3 pt-4 border-t">
+                    <Button variant="outlined" onClick={onClose}>Cancelar</Button>
+                    <Button onClick={handleApply}>Aplicar al precio</Button>
+                </div>
+            </div>
+        </Dialog>
+    );
+};
+
 const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({ 
     open, 
     onClose,
@@ -273,6 +341,11 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
     const [priceLists, setPriceLists] = useState<PriceListOption[]>([]);
     const [taxes, setTaxes] = useState<TaxOption[]>([]);
     const [priceEntries, setPriceEntries] = useState<PriceEntryState[]>([]);
+    const [latestGoldPrice, setLatestGoldPrice] = useState<number | null>(null);
+    const [calculatorConfig, setCalculatorConfig] = useState<{ open: boolean; entryId: string | null }>({
+        open: false,
+        entryId: null
+    });
 
     const [formData, setFormData] = useState<VariantFormState>({
         sku: '',
@@ -371,42 +444,33 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
     }, [open]);
 
     const loadDialogData = async () => {
-        const [attrs, lists, taxesResult, unitsResult] = await Promise.all([
+        const [attrData, unitsData, listsData, taxesData, goldPricesData] = await Promise.all([
             getAttributes(),
-            getPriceLists(true),
-            getTaxes(),
             getActiveUnits(),
+            getPriceLists(),
+            getTaxes(),
+            getGoldPrices(),
         ]);
 
-        setAttributes(attrs);
-        setPriceLists(
-            lists.map((list) => ({
-                id: list.id,
-                label: list.name,
-                currency: list.currency,
-                isDefault: Boolean(list.isDefault),
-            }))
-        );
-        setTaxes(
-            taxesResult.map((tax) => ({
-                id: tax.id,
-                name: tax.name,
-                code: tax.code,
-                rate: Number(tax.rate) || 0,
-                isDefault: Boolean(tax.isDefault),
-            }))
-        );
-        setUnits(
-            unitsResult.map((unit) => ({
-                id: unit.id,
-                name: unit.name,
-                symbol: unit.symbol,
-                dimension: unit.dimension,
-                conversionFactor: Number(unit.conversionFactor),
-                isBase: unit.isBase,
-                baseUnitId: unit.baseUnitId,
-            }))
-        );
+        setAttributes(attrData);
+        setUnits(unitsData as UnitOption[]);
+        setPriceLists(listsData.map((list: any) => ({
+            id: list.id,
+            label: list.name,
+            currency: list.currency,
+            isDefault: list.isDefault
+        })) as PriceListOption[]);
+        setTaxes(taxesData as TaxOption[]);
+
+        if (goldPricesData && goldPricesData.length > 0) {
+            setLatestGoldPrice(Number(goldPricesData[0].valueCLP));
+        }
+
+        // Generar entradas iniciales de precio
+        if (listsData.length > 0) {
+            const defaultList = listsData.find((list) => list.isDefault) ?? listsData[0];
+            setPriceEntries([createPriceEntry({ priceListId: defaultList?.id ?? '' })]);
+        }
     };
 
     const handleChange = (field: string, value: any) => {
@@ -737,7 +801,15 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+        }
+    };
+
+    const handleFormSubmit = async () => {
         const validationErrors: string[] = [];
         if (!formData.sku.trim()) validationErrors.push('El SKU es requerido');
         if (Object.keys(attributeValues).length === 0) {
@@ -894,16 +966,26 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
     const selectedAttributeIds = Object.keys(attributeValues);
     const canAddAnotherPriceEntry = priceLists.length > 0 && priceEntries.length < priceLists.length;
 
+    const handleApplyCalculation = (netPrice: number) => {
+        if (calculatorConfig.entryId) {
+            handleNetPriceChange(calculatorConfig.entryId, netPrice.toString());
+        }
+    };
+
     return (
         <>
-            <Dialog 
-                open={open} 
-                onClose={handleClose} 
+            <Dialog
+                open={open}
+                onClose={handleClose}
                 title="Crear Variante"
                 size="lg"
                 data-test-id={dataTestId}
             >
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form
+                    onSubmit={handleSubmit}
+                    onKeyDown={handleKeyDown}
+                    className="space-y-6"
+                >
                     {/* Info del producto */}
                     <div className="p-3 bg-neutral-50 rounded-lg">
                         <p className="text-sm text-neutral-500">Producto</p>
@@ -1008,7 +1090,7 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                                 type="number"
                                 value={formData.weight}
                                 onChange={(event) => handleChange('weight', event.target.value)}
-                                placeholder="0.000"
+                                placeholder="Peso"
                                 min="0"
                                 step="0.001"
                                 inputMode="decimal"
@@ -1151,15 +1233,28 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                                                     placeholder="Selecciona una lista"
                                                     required
                                                 />
-                                                <TextField
-                                                    label="Precio neto (sin impuestos)"
-                                                    type="currency"
-                                                    value={entry.netPrice}
-                                                    onChange={(event) => handleNetPriceChange(entry.id, event.target.value)}
-                                                    currencySymbol={getCurrencySymbol(currencyCode)}
-                                                    allowDecimalComma={useDecimalComma}
-                                                    data-test-id={`variant-price-entry-${index}-net`}
-                                                />
+                                                <div className="relative">
+                                                    <TextField
+                                                        label="Precio neto (sin impuestos)"
+                                                        type="currency"
+                                                        value={entry.netPrice}
+                                                        onChange={(event) => handleNetPriceChange(entry.id, event.target.value)}
+                                                        currencySymbol={getCurrencySymbol(currencyCode)}
+                                                        allowDecimalComma={useDecimalComma}
+                                                        data-test-id={`variant-price-entry-${index}-net`}
+                                                    />
+                                                    {latestGoldPrice && (
+                                                        <div className="absolute bottom-0 right-0 pb-1.5 pr-1.5">
+                                                            <IconButton
+                                                                icon="calculate"
+                                                                variant="basicSecondary"
+                                                                size="sm"
+                                                                onClick={() => setCalculatorConfig({ open: true, entryId: entry.id })}
+                                                                title="Calcular basado en oro"
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
                                                 <TextField
                                                     label="Precio con impuestos"
                                                     type="currency"
@@ -1233,7 +1328,8 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                             Cancelar
                         </Button>
                         <Button
-                            type="submit"
+                            type="button"
+                            onClick={handleFormSubmit}
                             disabled={isSubmitting || attributes.length === 0}
                         >
                             {isSubmitting ? 'Creando...' : 'Crear Variante'}
@@ -1250,6 +1346,17 @@ const CreateVariantDialog: React.FC<CreateVariantDialogProps> = ({
                 selectedAttributeIds={selectedAttributeIds}
                 onAdd={handleAddAttribute}
             />
+
+            {/* Diálogo del calculador */}
+            {latestGoldPrice && (
+                <PriceCalculatorDialog
+                    open={calculatorConfig.open}
+                    onClose={() => setCalculatorConfig({ open: false, entryId: null })}
+                    weight={parseFloat(formData.weight) || 0}
+                    goldPrice={latestGoldPrice}
+                    onCalculate={handleApplyCalculation}
+                />
+            )}
         </>
     );
 };

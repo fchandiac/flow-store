@@ -386,6 +386,7 @@ const SalesTransactionsDataGrid = () => {
         showSortButton={false}
         showFilterButton={false}
         showExportButton={false}
+        showSearch={false}
       />
 
       <Dialog

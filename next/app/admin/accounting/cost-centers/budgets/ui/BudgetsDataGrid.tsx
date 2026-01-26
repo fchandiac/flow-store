@@ -112,7 +112,6 @@ const BudgetStatusActions: React.FC<{ row: BudgetRow }> = ({ row }) => {
 
 const BudgetsDataGrid: React.FC<BudgetsDataGridProps> = ({ budgets, branches, costCenters }) => {
     const router = useRouter();
-    const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | BudgetStatus>('all');
     const [typeFilter, setTypeFilter] = useState<'all' | CostCenterType>('all');
     const [branchFilter, setBranchFilter] = useState<'all' | 'none' | string>('all');
@@ -131,11 +130,6 @@ const BudgetsDataGrid: React.FC<BudgetsDataGridProps> = ({ budgets, branches, co
 
     const filteredRows = useMemo(() => {
         return rows.filter((row) => {
-            const matchesSearch = search
-                ? row.costCenterName.toLowerCase().includes(search.toLowerCase()) ||
-                  row.costCenterCode.toLowerCase().includes(search.toLowerCase())
-                : true;
-
             const matchesStatus =
                 statusFilter === 'all'
                     ? true
@@ -153,9 +147,9 @@ const BudgetsDataGrid: React.FC<BudgetsDataGridProps> = ({ budgets, branches, co
                         ? !row.branchId
                         : row.branchId === branchFilter;
 
-            return matchesSearch && matchesStatus && matchesType && matchesBranch;
+            return matchesStatus && matchesType && matchesBranch;
         });
-    }, [branchFilter, rows, search, statusFilter, typeFilter]);
+    }, [branchFilter, rows, statusFilter, typeFilter]);
 
     const columns: DataGridColumn[] = useMemo(() => [
         {
@@ -227,14 +221,6 @@ const BudgetsDataGrid: React.FC<BudgetsDataGridProps> = ({ budgets, branches, co
     const headerActions = (
         <div className="flex w-full flex-col gap-3 lg:flex-row lg:items-center">
             <div className="flex flex-1 flex-col gap-3 sm:flex-row">
-                <TextField
-                    label="Buscar"
-                    value={search}
-                    onChange={(event) => setSearch(event.target.value)}
-                    placeholder="Código o nombre del centro"
-                    startIcon="search"
-                    data-test-id="budgets-search"
-                />
                 <Select
                     options={budgetStatusOptions}
                     value={statusFilter}
@@ -257,11 +243,6 @@ const BudgetsDataGrid: React.FC<BudgetsDataGridProps> = ({ budgets, branches, co
                     data-test-id="budgets-branch-filter"
                 />
             </div>
-            <div className="flex justify-end">
-                <Button onClick={() => setIsCreateOpen(true)} variant="primary" size="md" data-test-id="open-create-budget">
-                    Nuevo presupuesto
-                </Button>
-            </div>
         </div>
     );
 
@@ -270,9 +251,10 @@ const BudgetsDataGrid: React.FC<BudgetsDataGridProps> = ({ budgets, branches, co
             <DataGrid
                 columns={columns}
                 rows={filteredRows}
-                title="Presupuestos por centro de costo"
                 height="72vh"
                 headerActions={headerActions}
+                onAddClick={() => setIsCreateOpen(true)}
+                showSearch={false}
                 data-test-id="budgets-data-grid"
             />
             <CreateBudgetDialog

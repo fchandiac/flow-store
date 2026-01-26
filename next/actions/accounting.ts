@@ -56,6 +56,7 @@ export interface AccountingPeriodSummary {
 export interface CreateAccountingPeriodInput {
     startDate: string;
     endDate: string;
+    name?: string;
 }
 
 export interface AccountingPeriodMutationResult {
@@ -126,7 +127,7 @@ const periodNameFormatter = new Intl.DateTimeFormat('es-CL', {
 const serializeAccountingPeriod = (period: AccountingPeriod): AccountingPeriodSummary => {
     const start = new Date(period.startDate);
     const end = new Date(period.endDate);
-    const name = `${periodNameFormatter.format(start)} — ${periodNameFormatter.format(end)}`;
+    const name = period.name || `${periodNameFormatter.format(start)} — ${periodNameFormatter.format(end)}`;
 
     return {
         id: period.id,
@@ -398,6 +399,7 @@ export async function createAccountingPeriod(input: CreateAccountingPeriodInput)
         companyId: company.id,
         startDate: normalizedStart,
         endDate: normalizedEnd,
+        name: input.name,
         status: AccountingPeriodStatus.OPEN,
     });
 

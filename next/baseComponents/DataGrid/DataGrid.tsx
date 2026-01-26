@@ -61,6 +61,8 @@ export interface DataGridProps {
   showSortButton?: boolean;
   showFilterButton?: boolean;
   showExportButton?: boolean;
+  showSearch?: boolean;
+  onSearchChange?: (value: string) => void;
   // Expandable rows
   expandable?: boolean; // Habilita filas expandibles
   expandableRowContent?: (row: any) => React.ReactNode; // Contenido del panel expandido
@@ -92,6 +94,8 @@ const DataGrid: React.FC<DataGridProps> = ({
   showSortButton = true,
   showFilterButton = true,
   showExportButton = true,
+  showSearch = true,
+  onSearchChange,
   expandable = false,
   expandableRowContent,
   defaultExpandedRowIds = [],
@@ -168,6 +172,8 @@ const DataGrid: React.FC<DataGridProps> = ({
         showSortButton={showSortButton}
         showFilterButton={showFilterButton}
         showExportButton={showExportButton}
+        showSearch={showSearch}
+        onSearchChange={onSearchChange}
       />
       {/* Scrollable container for columns header and body */}
       <div className={`${DataGridStyles.scrollContainer} relative`}>

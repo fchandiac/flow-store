@@ -35,6 +35,9 @@ export class AccountingPeriod {
     @Column({ type: "date" })
     endDate!: string;
 
+    @Column({ type: "varchar", length: 50, nullable: true })
+    name?: string | null;
+
     @Column({ type: "enum", enum: AccountingPeriodStatus, default: AccountingPeriodStatus.OPEN })
     status!: AccountingPeriodStatus;
 

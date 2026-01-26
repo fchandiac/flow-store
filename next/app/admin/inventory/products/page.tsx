@@ -391,8 +391,8 @@ export default function ProductsPage() {
                         <VariantsPanel product={row} onUpdate={loadProducts} />
                     )}
                     headerActions={
-                        <>
-                            <div className="w-48">
+                        <div className="flex items-center gap-3">
+                            <div className="w-48 flex-shrink-0">
                                 <Select
                                     label="Categoría"
                                     options={[{ id: '', label: 'Todas' }, ...categories]}
@@ -401,7 +401,7 @@ export default function ProductsPage() {
                                     data-test-id="filter-category"
                                 />
                             </div>
-                            <div className="w-36">
+                            <div className="w-40 flex-shrink-0">
                                 <Select
                                     label="Estado"
                                     options={statusOptions}
@@ -410,7 +410,7 @@ export default function ProductsPage() {
                                     data-test-id="filter-status"
                                 />
                             </div>
-                        </>
+                        </div>
                     }
                 />
             </div>

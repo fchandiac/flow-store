@@ -6,6 +6,7 @@ import Tabs, { type TabItem } from '@/baseComponents/Tabs/Tabs';
 const tabs: TabItem[] = [
     { href: '/admin/accounting/cost-centers', label: 'Centros de costo', exact: true },
     { href: '/admin/accounting/cost-centers/budgets', label: 'Presupuestos' },
+    { href: '/admin/accounting/cost-centers/reports', label: 'Reportes de Análisis' },
 ];
 
 export default function CostCentersLayout({ children }: PropsWithChildren) {

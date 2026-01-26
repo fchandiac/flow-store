@@ -61,7 +61,13 @@ export interface PurchaseOrderProductResult {
 export interface SearchPurchaseProductsParams {
     search?: string;
     categoryId?: string;
-    limit?: number;
+    page?: number;
+    pageSize?: number;
+}
+
+export interface SearchPurchaseProductsResult {
+    items: PurchaseOrderProductResult[];
+    total: number;
 }
 
 export interface PurchaseOrderLineInput {
@@ -199,11 +205,13 @@ export async function deletePurchaseOrder(id: string): Promise<PurchaseOrderActi
     return { success: true, orderId: order.id };
 }
 
-export async function searchProductsForPurchase(params?: SearchPurchaseProductsParams): Promise<PurchaseOrderProductResult[]> {
+export async function searchProductsForPurchase(params?: SearchPurchaseProductsParams): Promise<SearchPurchaseProductsResult> {
     const ds = await getDb();
     const variantRepo = ds.getRepository(ProductVariant);
 
-    const limit = params?.limit && params.limit > 0 ? Math.min(params.limit, 40) : 20;
+    const page = params?.page && params.page > 0 ? params.page : 1;
+    const pageSize = params?.pageSize && params.pageSize > 0 ? params.pageSize : 20;
+    const skip = (page - 1) * pageSize;
 
     const queryBuilder = variantRepo
         .createQueryBuilder('variant')
@@ -225,9 +233,13 @@ export async function searchProductsForPurchase(params?: SearchPurchaseProductsP
         );
     }
 
-    queryBuilder.orderBy('product.name', 'ASC').addOrderBy('variant.sku', 'ASC').take(limit);
+    queryBuilder
+        .orderBy('product.name', 'ASC')
+        .addOrderBy('variant.sku', 'ASC')
+        .skip(skip)
+        .take(pageSize);
 
-    const variants = await queryBuilder.getMany();
+    const [variants, total] = await queryBuilder.getManyAndCount();
 
     const taxIds = new Set<string>();
     for (const variant of variants) {
@@ -281,7 +293,10 @@ export async function searchProductsForPurchase(params?: SearchPurchaseProductsP
         };
     });
 
-    return JSON.parse(JSON.stringify(results));
+    return {
+        items: JSON.parse(JSON.stringify(results)),
+        total
+    };
 }
 
 export async function createPurchaseOrder(data: CreatePurchaseOrderDTO): Promise<PurchaseOrderActionResult> {

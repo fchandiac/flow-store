@@ -30,6 +30,7 @@ import { TransactionLine } from '../entities/TransactionLine';
 import { TreasuryAccount } from '../entities/TreasuryAccount';
 import { CostCenter, CostCenterType } from '../entities/CostCenter';
 import { OrganizationalUnit, OrganizationalUnitType } from '../entities/OrganizationalUnit';
+import { Employee, EmploymentType, EmployeeStatus } from '../entities/Employee';
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcryptjs';
 import { In, IsNull } from 'typeorm';
@@ -368,6 +369,25 @@ type UserSeed = {
   person?: UserSeedPerson;
 };
 
+type EmployeeSeed = {
+  orgUnitCode?: string;
+  branchRef?: string;
+  costCenterRef?: string;
+  employmentType: keyof typeof EmploymentType | string;
+  status: keyof typeof EmployeeStatus | string;
+  hireDate: string;
+  baseSalary?: number;
+  person: {
+    firstName: string;
+    lastName: string;
+    documentType: keyof typeof DocumentType | string;
+    documentNumber: string;
+    email?: string;
+    phone?: string;
+    address?: string;
+  };
+};
+
 type ProductVariantSeed = {
   sku: string;
   baseCost?: number;
@@ -622,14 +642,15 @@ async function seedFlowStore() {
     const customerSeeds = ensureArray(await readSeedJson<CustomerSeed[]>('customers.json'), 'customers.json');
     const supplierSeedsRaw = ensureArray(await readSeedJson<SupplierSeed[]>('suppliers.json'), 'suppliers.json');
     const userSeeds = ensureArray(await readSeedJson<UserSeed[]>('users.json'), 'users.json');
+    const employeeSeeds = await readSeedJson<EmployeeSeed[]>('employees.json') || [];
     const productSeeds = ensureArray(await readSeedJson<ProductSeed[]>('products.json'), 'products.json');
     const accountingPeriodSeedsRaw = ensureArray(
       await readSeedJson<AccountingPeriodSeedRaw[]>('accountingPeriods.json'),
       'accountingPeriods.json',
     );
     const shareholderSeedsRaw = ensureArray(await readSeedJson<ShareholderSeedRaw[]>('shareholders.json'), 'shareholders.json');
-    const cashSessionSeedsRaw = ensureArray(await readSeedJson<CashSessionSeedRaw[]>('cashSessions.json'), 'cashSessions.json');
-    const transactionSeedsRaw = ensureArray(await readSeedJson<TransactionSeedRaw[]>('transactions.json'), 'transactions.json');
+    const cashSessionSeedsRaw = (await readSeedJson<CashSessionSeedRaw[]>('cashSessions.json')) || [];
+    const transactionSeedsRaw = (await readSeedJson<TransactionSeedRaw[]>('transactions.json')) || [];
 
     const costCenterSeeds = costCenterSeedsRaw.map((entry) => ({
       ...entry,
@@ -1858,6 +1879,16 @@ async function seedFlowStore() {
         period.endDate = periodSeed.endDate;
       }
 
+      // Generate name in format "MONTH-YY" (e.g., OCTOBER-25)
+      const startDate = new Date(periodSeed.startDate + 'T00:00:00');
+      const monthNames = [
+        'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+        'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+      ];
+      const monthName = monthNames[startDate.getMonth()];
+      const yearShort = startDate.getFullYear().toString().slice(-2);
+      period.name = `${monthName}-${yearShort}`;
+
       period.status = periodSeed.status;
 
       if (periodSeed.status === AccountingPeriodStatus.OPEN) {
@@ -2365,6 +2396,65 @@ async function seedFlowStore() {
     }
 
     // ============================================
+    // 9.6 EMPLEADOS BASE
+    // ============================================
+    console.log('\n👥 Creando empleados base...');
+
+    const employeeRepo = db.getRepository(Employee);
+
+    for (const seed of employeeSeeds) {
+      let person = await personRepo.findOne({ where: { documentNumber: seed.person.documentNumber }, withDeleted: true });
+      const isNewPerson = !person;
+
+      if (!person) {
+        person = new Person();
+        person.id = uuidv4();
+      }
+
+      person.type = PersonType.NATURAL;
+      person.firstName = seed.person.firstName;
+      person.lastName = seed.person.lastName;
+      person.documentType = parseEnum(DocumentType, seed.person.documentType, `empleado ${seed.person.documentNumber} (documentType)`);
+      person.documentNumber = seed.person.documentNumber;
+      person.email = seed.person.email || undefined;
+      person.phone = seed.person.phone || undefined;
+      person.address = seed.person.address || undefined;
+      person.deletedAt = undefined;
+
+      await personRepo.save(person);
+
+      let employee = await employeeRepo.findOne({ where: { personId: person.id }, withDeleted: true });
+      const isNewEmployee = !employee;
+
+      if (!employee) {
+        employee = new Employee();
+        employee.id = uuidv4();
+        employee.personId = person.id;
+      }
+
+      employee.companyId = company.id;
+      employee.branchId = seed.branchRef ? branchesByRef[seed.branchRef]?.id : null;
+      employee.costCenterId = seed.costCenterRef ? costCenterRefMap[seed.costCenterRef]?.id : null;
+      employee.organizationalUnitId = seed.orgUnitCode ? organizationalUnitMap.get(seed.orgUnitCode)?.id : null;
+      employee.employmentType = parseEnum(EmploymentType, seed.employmentType, `empleado ${seed.person.documentNumber} (employmentType)`);
+      employee.status = parseEnum(EmployeeStatus, seed.status, `empleado ${seed.person.documentNumber} (status)`);
+      employee.hireDate = seed.hireDate;
+      employee.baseSalary = seed.baseSalary?.toString() || null;
+      employee.deletedAt = undefined;
+
+      await employeeRepo.save(employee);
+
+      const displayName = `${person.firstName} ${person.lastName}`;
+      const personPrefix = isNewPerson ? '   ✓ Persona registrada' : '   • Persona actualizada';
+      const employeePrefix = isNewEmployee ? '   ✓ Empleado creado' : '   • Empleado actualizado';
+
+      if (isNewPerson) {
+        console.log(`${personPrefix}: ${displayName}`);
+      }
+      console.log(`${employeePrefix}: ${displayName} (${employee.employmentType})`);
+    }
+
+    // ============================================
     // 10. PERMISOS PARA ADMIN
     // ============================================
     console.log('\n🔐 Asignando permisos al administrador...');
@@ -2656,6 +2746,7 @@ async function seedFlowStore() {
       userCount,
       permissionCount,
       priceListItemCount,
+      employeeCount,
     ] = await Promise.all([
       db.getRepository(Person).count({ where: { deletedAt: IsNull() } }),
       db.getRepository(Shareholder).count({ where: { companyId: company.id, deletedAt: IsNull() } }),
@@ -2664,6 +2755,7 @@ async function seedFlowStore() {
       db.getRepository(User).count({ where: { deletedAt: IsNull() } }),
       db.getRepository(Permission).count({ where: { deletedAt: IsNull() } }),
       db.getRepository(PriceListItem).count({ where: { deletedAt: IsNull() } }),
+      db.getRepository(Employee).count({ where: { companyId: company.id, deletedAt: IsNull() } }),
     ]);
 
     const storagesSummaryList = await db.getRepository(Storage).find({
@@ -2711,6 +2803,7 @@ async function seedFlowStore() {
     console.log(`   • Reglas contables: ${accountingRuleSeeds.length} reglas automáticas`);
     console.log(`   • Permisos asignados: ${permissionCount}`);
     console.log(`   • Usuarios activos: ${userCount}`);
+    console.log(`   • Empleados activos: ${employeeCount}`);
     console.log(`   • Personas registradas: ${personCount}`);
     console.log(`   • Socios activos: ${shareholderCount}${shareholderSummaryText !== '—' ? ` (${shareholderSummaryText})` : ''}`);
     console.log(`   • Clientes activos: ${customerCount}${customerSummaryText !== '—' ? ` (${customerSummaryText})` : ''}`);

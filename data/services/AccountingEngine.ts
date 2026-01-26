@@ -46,6 +46,8 @@ const TRANSACTION_TYPES_WITH_SUBTOTAL_BASE = new Set<
 >([
     TransactionType.SALE,
     TransactionType.SALE_RETURN,
+    TransactionType.PURCHASE,
+    TransactionType.PURCHASE_RETURN,
 ]);
 
 const INVERT_POLARITY_TYPES = new Set<TransactionType>([
@@ -122,7 +124,15 @@ function matchesTransactionRule(rule: AccountingRule, transaction: TransactionWi
     return true;
 }
 
-function matchesLineRule(rule: AccountingRule, line: TransactionLine): boolean {
+function matchesLineRule(rule: AccountingRule, line: TransactionLine, transaction?: TransactionWithMetadata): boolean {
+    if (rule.transactionType && transaction && rule.transactionType !== transaction.transactionType) {
+        return false;
+    }
+
+    if (rule.paymentMethod && transaction && rule.paymentMethod !== transaction.paymentMethod) {
+        return false;
+    }
+
     if (rule.taxId && line.taxId !== rule.taxId) {
         return false;
     }
@@ -232,13 +242,13 @@ function groupLinesByTransaction(lines: TransactionLine[]): LinesByTransaction {
 
 function sumLineAmounts(
     rule: AccountingRule,
-    transaction: Transaction,
+    transaction: TransactionWithMetadata,
     lines: readonly TransactionLine[],
 ): number {
     let amount = 0;
 
     for (const line of lines) {
-        if (!matchesLineRule(rule, line)) {
+        if (!matchesLineRule(rule, line, transaction)) {
             continue;
         }
         amount += resolveLineAmount(transaction, line);

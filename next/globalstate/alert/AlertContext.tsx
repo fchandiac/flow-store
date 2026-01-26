@@ -1,5 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, useCallback, ReactNode, useMemo } from 'react';
+import { signOut } from 'next-auth/react';
 import Alert from '@/app/baseComponents/Alert/Alert';
 import IconButton from '@/app/baseComponents/IconButton/IconButton';
 
@@ -54,6 +55,13 @@ export function AlertProvider({ children }: { children: ReactNode }) {
   }, [showAlert]);
   const error = useCallback((message: string, opts?: Omit<AppAlert, 'id' | 'message' | 'type'>) => {
     showAlert({ message, type: 'error', duration: opts?.duration ?? 6000 });
+    
+    // Si el error es de autenticación, cerrar sesión automáticamente
+    if (message === 'Usuario no autenticado' || message.includes('autenticado')) {
+      setTimeout(() => {
+        signOut({ callbackUrl: '/' });
+      }, 1500);
+    }
   }, [showAlert]);
   const info = useCallback((message: string, opts?: Omit<AppAlert, 'id' | 'message' | 'type'>) => {
     showAlert({ message, type: 'info', duration: opts?.duration ?? 4000 });

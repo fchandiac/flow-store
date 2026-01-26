@@ -32,6 +32,7 @@ interface TextFieldProps {
   phonePrefix?: string; // Prefijo para teléfono (ej: "+56")
   allowLetters?: boolean; // Permitir letras en teléfono (default: false)
   passwordVisibilityToggle?: boolean; // Mostrar/ocultar toggle de visibilidad para password (default: true)
+  autoComplete?: string;
   ["data-test-id"]?: string;
 }
 
@@ -61,6 +62,7 @@ export const TextField: React.FC<TextFieldProps> = ({
   phonePrefix,
   allowLetters = false,
   passwordVisibilityToggle = true, // Default: true para mostrar toggle en password
+  autoComplete,
   ...props
 }) => {
   const [focused, setFocused] = useState(false);
@@ -389,7 +391,7 @@ export const TextField: React.FC<TextFieldProps> = ({
           required={required}
           readOnly={readOnly}
           disabled={disabled}
-          autoComplete="off"
+          autoComplete={autoComplete || "off"}
           style={{
             resize: 'none',
             paddingTop: '0.75rem',
@@ -421,7 +423,7 @@ export const TextField: React.FC<TextFieldProps> = ({
             required={required}
             readOnly={readOnly}
             disabled={disabled}
-            autoComplete="off"
+            autoComplete={autoComplete || "off"}
             min={type === "datePicker" ? "1800" : undefined}
             max={type === "datePicker" ? new Date().getFullYear().toString() : undefined}
             maxLength={type === "dni" ? 12 : type === "datePicker" ? 4 : undefined}

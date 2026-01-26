@@ -15,6 +15,7 @@ import { getAttributes } from '@/app/actions/attributes';
 import { getActiveUnits } from '@/app/actions/units';
 import { getPriceLists } from '@/app/actions/priceLists';
 import { getTaxes } from '@/app/actions/taxes';
+import { getGoldPrices } from '@/app/actions/goldPrices';
 import { computePriceWithTaxes } from '@/lib/pricing/priceCalculations';
 import { VariantType } from './VariantCard';
 
@@ -32,6 +33,11 @@ interface UpdateVariantDialogProps {
     onUpdated?: () => void;
     'data-test-id'?: string;
 }
+
+const weightUnitOptions = [
+    { id: 'kg', label: 'Kilogramo (kg)' },
+    { id: 'g', label: 'Gramo (g)' },
+];
 
 interface AttributeChipProps {
     attributeName: string;
@@ -239,6 +245,11 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
     const [priceLists, setPriceLists] = useState<PriceListOption[]>([]);
     const [taxes, setTaxes] = useState<TaxOption[]>([]);
     const [priceEntries, setPriceEntries] = useState<PriceEntryState[]>([]);
+    const [latestGoldPrice, setLatestGoldPrice] = useState<number | null>(null);
+    const [calculatorConfig, setCalculatorConfig] = useState<{ open: boolean; entryId: string | null }>({
+        open: false,
+        entryId: null
+    });
     const [initializedPrices, setInitializedPrices] = useState(false);
     const [showAddAttributeDialog, setShowAddAttributeDialog] = useState(false);
 
@@ -247,6 +258,8 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
         barcode: '',
         unitId: '',
         isActive: true,
+        weight: '',
+        weightUnit: 'g',
     });
 
     const [attributeValues, setAttributeValues] = useState<Record<string, string>>({});
@@ -367,44 +380,100 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
         [defaultTaxIds]
     );
 
-    const loadDialogData = useCallback(async () => {
-        const [attrs, unitsResult, lists, taxesResult] = await Promise.all([
-            getAttributes(),
-            getActiveUnits(),
-            getPriceLists(true),
-            getTaxes(),
-        ]);
+    const PriceCalculatorDialog: React.FC<{
+        open: boolean;
+        onClose: () => void;
+        weight: number;
+        goldPrice: number;
+        onCalculate: (netPrice: number) => void;
+    }> = ({
+        open,
+        onClose,
+        weight,
+        goldPrice,
+        onCalculate,
+    }) => {
+        const [manufacture, setManufacture] = useState('0');
+        const [currentWeight, setCurrentWeight] = useState(weight.toString());
 
-        setAttributes(attrs);
-        setUnits(
-            unitsResult.map((unit) => ({
-                id: unit.id,
-                name: unit.name,
-                symbol: unit.symbol,
-                dimension: unit.dimension,
-                conversionFactor: Number(unit.conversionFactor),
-                isBase: unit.isBase,
-                baseUnitId: unit.baseUnitId,
-            }))
+        const result = useMemo(() => {
+            const w = parseFloat(currentWeight) || 0;
+            const h = parseFloat(manufacture) || 0;
+            // Formula updated per request: (((Peso * Oro) * 2) * 0.1) + hechura
+            const goldCost = w * goldPrice;
+            const total = (goldCost * 2 * 0.1) + h;
+            return total;
+        }, [currentWeight, goldPrice, manufacture]);
+
+        const handleApply = () => {
+            onCalculate(result);
+            onClose();
+        };
+
+        return (
+            <Dialog open={open} onClose={onClose} title="Calculadora de Precio" size="sm">
+                <div className="space-y-4">
+                    <Alert variant="info">
+                        Precio del Oro actual: <strong>{formatCurrencyByCode('CLP', goldPrice)}</strong>
+                    </Alert>
+                    <TextField
+                        label="Peso (gramos)"
+                        type="number"
+                        value={currentWeight}
+                        onChange={(e) => setCurrentWeight(e.target.value)}
+                        placeholder="Peso"
+                    />
+                    <TextField
+                        label="Hechura / Mano de obra"
+                        type="currency"
+                        value={manufacture}
+                        onChange={(e) => setManufacture(e.target.value)}
+                    />
+                    <div className="p-4 bg-neutral-100 rounded-lg">
+                        <p className="text-sm text-neutral-600">Precio Neto Calculado:</p>
+                        <p className="text-2xl font-bold text-primary">
+                            {formatCurrencyByCode('CLP', result)}
+                        </p>
+                        <p className="text-[10px] text-neutral-500 mt-1 italic">
+                            Fórmula: (((Peso × Oro) × 2) × 0.1) + Hechura
+                        </p>
+                    </div>
+                    <div className="flex justify-end gap-3 pt-4 border-t">
+                        <Button variant="outlined" onClick={onClose}>Cancelar</Button>
+                        <Button onClick={handleApply}>Aplicar al precio</Button>
+                    </div>
+                </div>
+            </Dialog>
         );
-        setPriceLists(
-            lists.map((list) => ({
+    };
+
+    const loadDialogData = async () => {
+        try {
+            const [attrData, unitsData, listsData, taxesData, goldPricesData] = await Promise.all([
+                getAttributes(),
+                getActiveUnits(),
+                getPriceLists(),
+                getTaxes(),
+                getGoldPrices(),
+            ]);
+
+            setAttributes(attrData);
+            setPriceLists(listsData.map((list: any) => ({
                 id: list.id,
                 label: list.name,
                 currency: list.currency,
-                isDefault: Boolean(list.isDefault),
-            }))
-        );
-        setTaxes(
-            taxesResult.map((tax) => ({
-                id: tax.id,
-                name: tax.name,
-                code: tax.code,
-                rate: Number(tax.rate) || 0,
-                isDefault: Boolean(tax.isDefault),
-            }))
-        );
-    }, []);
+                isDefault: list.isDefault
+            })) as PriceListOption[]);
+            setUnits(unitsData as UnitOption[]);
+            setTaxes(taxesData as TaxOption[]);
+
+            if (goldPricesData && goldPricesData.length > 0) {
+                setLatestGoldPrice(Number(goldPricesData[0].valueCLP));
+            }
+        } catch (error) {
+            console.error('Error loading variant dialog metadata', error);
+        }
+    };
 
     useEffect(() => {
         if (open) {
@@ -419,6 +488,8 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
                 barcode: variant.barcode || '',
                 unitId: variant.unitId || '',
                 isActive: variant.isActive,
+                weight: variant.weight?.toString() || '',
+                weightUnit: variant.weightUnit || 'g',
             });
             setAttributeValues(variant.attributeValues || {});
             setErrors([]);
@@ -757,6 +828,12 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
         );
     };
 
+    const handleApplyCalculation = (netPrice: number) => {
+        if (calculatorConfig.entryId) {
+            handleNetPriceChange(calculatorConfig.entryId, netPrice.toString());
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
@@ -822,15 +899,22 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
         });
 
         if (hasDuplicatedList) {
-            validationErrors.push('No puede repetir la misma lista de precios más de una vez.');
+            validationErrors.push('No puede haber precios duplicados para la misma lista de precios.');
         }
 
-        if (sanitizedPayload.length === 0 || sanitizedPayload.length !== priceEntries.length) {
-            validationErrors.push('Debe definir al menos un precio de venta válido.');
+        let weightValue: number | undefined;
+        if (formData.weight.trim()) {
+            const normalizedWeight = formData.weight.replace(',', '.');
+            const parsedWeight = Number(normalizedWeight);
+            if (!Number.isFinite(parsedWeight) || parsedWeight < 0) {
+                validationErrors.push('El peso debe ser un número mayor o igual a 0.');
+            } else {
+                weightValue = Number(parsedWeight.toFixed(3));
+            }
         }
 
         if (validationErrors.length > 0) {
-            setErrors(Array.from(new Set(validationErrors)));
+            setErrors(validationErrors);
             return;
         }
 
@@ -846,6 +930,8 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
                 barcode: formData.barcode.trim() || undefined,
                 basePrice: baseNetPrice,
                 unitId: formData.unitId,
+                weight: weightValue,
+                weightUnit: formData.weightUnit,
                 attributeValues: Object.keys(attributeValues).length > 0 ? attributeValues : undefined,
                 isActive: formData.isActive,
                 priceListItems: sanitizedPayload.map(({ priceListId, grossPrice, taxIds }) => ({
@@ -881,356 +967,196 @@ const UpdateVariantDialog: React.FC<UpdateVariantDialogProps> = ({
         onClose();
     };
 
-    const selectedAttributeIds = Object.keys(attributeValues);
-    const remainingAttributes = attributes.filter((attr) => !selectedAttributeIds.includes(attr.id));
-    const canAddAnotherPriceEntry = priceLists.length > 0 && priceEntries.length < priceLists.length;
-
     return (
-        <>
-            <Dialog
-                open={open}
-                onClose={handleClose}
-                title="Editar Variante"
-                size="lg"
-                data-test-id={dataTestId}
-            >
-                <form onSubmit={handleSubmit} className="space-y-6">
-                {errors.length > 0 && (
-                    <Alert variant="error">
-                        <ul className="list-disc list-inside">
-                            {errors.map((err, i) => (
-                                <li key={i}>{err}</li>
-                            ))}
-                        </ul>
-                    </Alert>
-                )}
+        <Dialog open={open} onClose={handleClose} title="Actualizar Variante" size="lg" data-test-id={dataTestId}>
+            <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <TextField
+                        label="SKU"
+                        value={formData.sku}
+                        onChange={(e) => handleChange('sku', e.target.value)}
+                        required
+                    />
+                    <TextField
+                        label="Código de Barras"
+                        value={formData.barcode}
+                        onChange={(e) => handleChange('barcode', e.target.value)}
+                        placeholder="Opcional"
+                    />
+                    <Select
+                        label="Unidad de Medida"
+                        value={formData.unitId}
+                        onChange={(id) => handleChange('unitId', id?.toString() || '')}
+                        options={units.map((unit) => ({ id: unit.id, label: unit.name }))}
+                        placeholder="Seleccionar unidad"
+                        required
+                    />
+                    <TextField
+                        label="Peso"
+                        type="number"
+                        value={formData.weight}
+                        onChange={(event) => handleChange('weight', event.target.value)}
+                        placeholder="Peso"
+                        min="0"
+                        step="0.001"
+                        inputMode="decimal"
+                    />
+                    <Select
+                        label="Unidad de peso"
+                        value={formData.weightUnit}
+                        onChange={(value) => handleChange('weightUnit', value?.toString() || 'kg')}
+                        options={weightUnitOptions}
+                    />
+                    <div className="flex items-center gap-4">
+                        <span className="whitespace-nowrap">Activo</span>
+                        <Switch
+                            checked={formData.isActive}
+                            onChange={(checked) => handleChange('isActive', checked)}
+                            aria-label="Estado de la variante"
+                        />
+                    </div>
+                </div>
 
-                <div className="space-y-3">
+                <div className="border-t border-neutral-200 pt-4">
                     <div className="flex items-center justify-between">
-                        <h4 className="font-medium text-neutral-700">Atributos de la Variante</h4>
-                        {attributes.length > 0 && (
-                            <Button
-                                type="button"
-                                variant="outlined"
-                                size="sm"
-                                onClick={() => setShowAddAttributeDialog(true)}
-                                disabled={remainingAttributes.length === 0}
-                            >
-                                <span className="material-symbols-outlined mr-1" style={{ fontSize: '1.25rem' }}>
-                                    add
-                                </span>
-                                Agregar atributo
-                            </Button>
-                        )}
-                    </div>
-
-                    {attributes.length === 0 ? (
-                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
-                            <p className="font-medium mb-1">No hay atributos definidos</p>
-                            <p>Debe crear atributos (Color, Talla, etc.) en Configuración → Atributos.</p>
-                        </div>
-                    ) : selectedAttributeIds.length === 0 ? (
-                        <div className="p-4 bg-neutral-50 border border-neutral-200 border-dashed rounded-lg text-center">
-                            <span className="material-symbols-outlined text-neutral-400 mb-2" style={{ fontSize: '2rem' }}>
-                                label
-                            </span>
-                            <p className="text-neutral-500 text-sm">No hay atributos agregados</p>
-                            <p className="text-neutral-400 text-xs mt-1">
-                                Usa el botón "Agregar atributo" para definir las características de esta variante
-                            </p>
-                        </div>
-                    ) : (
-                        <div className="flex flex-wrap gap-2">
-                            {selectedAttributeIds.map((attrId) => {
-                                const attr = attributes.find((item) => item.id === attrId);
-                                const attributeName = attr?.name ?? attrId;
-                                const rawValue = attributeValues[attrId];
-                                const value = typeof rawValue === 'string' ? rawValue : String(rawValue ?? '');
-                                if (!value.trim()) {
-                                    return null;
-                                }
-                                return (
-                                    <AttributeChip
-                                        key={attrId}
-                                        attributeName={attributeName}
-                                        value={value}
-                                        onRemove={() => handleRemoveAttribute(attrId)}
-                                    />
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-
-                <div className="space-y-4">
-                    <h4 className="font-medium text-neutral-700">Identificación</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                        <TextField
-                            label="SKU"
-                            value={formData.sku}
-                            onChange={(e) => handleChange('sku', e.target.value)}
-                            required
-                            data-test-id="update-variant-sku"
-                        />
-                        <TextField
-                            label="Código de Barras"
-                            value={formData.barcode}
-                            onChange={(e) => handleChange('barcode', e.target.value)}
-                            data-test-id="update-variant-barcode"
-                        />
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                        <h4 className="font-medium text-neutral-700">Precio de Venta</h4>
+                        <h3 className="text-lg font-semibold">Atributos</h3>
                         <Button
-                            type="button"
                             variant="outlined"
-                            size="sm"
-                            onClick={handleAddPriceEntry}
-                            disabled={!canAddAnotherPriceEntry || isSubmitting}
+                            onClick={() => setShowAddAttributeDialog(true)}
+                            disabled={attributes.length === 0}
                         >
-                            <span className="material-symbols-outlined mr-1" style={{ fontSize: '1.25rem' }}>
-                                add
-                            </span>
-                            Agregar precio
+                            Agregar Atributo
                         </Button>
                     </div>
 
-                    {!priceLists.length ? (
-                        <Alert variant="warning">
-                            Debes crear al menos una lista de precios en Configuración → Listas de precios antes de definir precios.
+                    <div className="mt-4 flex flex-wrap gap-2">
+                        {Object.entries(attributeValues).map(([attrId, value]) => {
+                            const attribute = attributes.find((attr) => attr.id === attrId);
+                            if (!attribute) {
+                                return null;
+                            }
+                            return (
+                                <AttributeChip
+                                    key={attrId}
+                                    attributeName={attribute.name}
+                                    value={value}
+                                    onRemove={() => handleRemoveAttribute(attrId)}
+                                />
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className="border-t border-neutral-200 pt-4">
+                    <h3 className="text-lg font-semibold">Precios</h3>
+
+                    {priceEntries.length === 0 && (
+                        <Alert variant="info" className="mt-2">
+                            No se han definido precios para esta variante. Agrega un precio usando el botón "Agregar Precio".
                         </Alert>
-                    ) : priceEntries.length === 0 ? (
-                        <div className="p-4 bg-neutral-50 border border-neutral-200 border-dashed rounded-lg text-center text-sm text-neutral-500">
-                            <span className="material-symbols-outlined text-neutral-400 mb-2" style={{ fontSize: '2rem' }}>
-                                sell
-                            </span>
-                            <p>Agrega un precio seleccionando una lista y definiendo el monto neto o el valor con impuestos para esta variante.</p>
-                        </div>
-                    ) : (
-                        <div className="space-y-4">
-                            {priceEntries.map((entry, index) => {
-                                const selectedList = priceLists.find((list) => list.id === entry.priceListId);
-                                const currencyCode = selectedList?.currency || entry.currencyCode || 'CLP';
-                                const useDecimalComma = usesDecimalCommaForList(entry.priceListId, currencyCode);
-                                const netValue = parseAmountFromInput(entry.netPrice, useDecimalComma);
-                                const grossValue = parseAmountFromInput(entry.grossPrice, useDecimalComma);
-                                const taxRates = resolveTaxRates(entry.taxIds);
-                                let computedPrice: ReturnType<typeof computePriceWithTaxes> | null = null;
+                    )}
 
-                                if (netValue !== undefined || grossValue !== undefined) {
-                                    try {
-                                        computedPrice = computePriceWithTaxes({
-                                            netPrice: netValue,
-                                            grossPrice: grossValue,
-                                            taxRates,
-                                        });
-                                    } catch (err) {
-                                        console.error('Error computing price for display', err);
-                                        computedPrice = null;
-                                    }
-                                }
+                    {priceEntries.map((entry, index) => {
+                        const isFirst = index === 0;
+                        const isLast = index === priceEntries.length - 1;
+                        const showDivider = !isFirst;
 
-                                const appliedTaxes = taxes.filter((tax) => entry.taxIds.includes(tax.id));
-                                const formattedNetDisplay = computedPrice
-                                    ? formatCurrencyByCode(currencyCode, computedPrice.netPrice)
-                                    : '—';
-                                const formattedGrossDisplay = computedPrice
-                                    ? formatCurrencyByCode(currencyCode, computedPrice.grossPrice)
-                                    : '—';
-
-                                const isDuplicatedList = Boolean(
-                                    entry.priceListId && duplicatedPriceListIds.has(entry.priceListId)
-                                );
-
-                                const baseOptions = priceLists.map((list) => {
-                                    const isUsedByOther = usedPriceListIds.has(list.id) && list.id !== entry.priceListId;
-                                    const usageSuffix = isUsedByOther ? ' (en uso)' : '';
-                                    return {
-                                        id: list.id,
-                                        label: `${list.label} (${list.currency})${usageSuffix}`,
-                                    };
-                                });
-
-                                if (
-                                    entry.priceListId &&
-                                    !baseOptions.some((option) => option.id === entry.priceListId)
-                                ) {
-                                    baseOptions.push({
-                                        id: entry.priceListId,
-                                        label: `${entry.priceListName || 'Lista no disponible'} (inactiva)`,
-                                    });
-                                }
-
-                                return (
-                                    <div
-                                        key={entry.id}
-                                        className={`rounded-lg p-4 space-y-4 border ${
-                                            isDuplicatedList ? 'border-amber-400 bg-amber-50' : 'border-border bg-neutral-50'
-                                        }`}
-                                    >
-                                        <div className="flex items-start justify-between gap-4">
-                                            <div>
-                                                <p className="text-sm font-medium text-neutral-800">
-                                                    {selectedList?.label || entry.priceListName || `Precio ${index + 1}`}
-                                                </p>
-                                                <p className="text-xs text-neutral-500">
-                                                    {selectedList ? `Moneda: ${selectedList.currency}` : `Moneda: ${entry.currencyCode || 'CLP'}`}
-                                                </p>
-                                                {isDuplicatedList && (
-                                                    <p className="text-xs text-amber-700 mt-1">
-                                                        Esta lista está asignada en más de un precio. Ajusta antes de guardar.
-                                                    </p>
-                                                )}
-                                            </div>
-                                            <IconButton
-                                                icon="delete"
-                                                variant="text"
-                                                size="sm"
-                                                onClick={() => handleRemovePriceEntry(entry.id)}
-                                                title="Eliminar precio"
-                                            />
-                                        </div>
-
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <Select
-                                                label="Lista de precios"
-                                                value={entry.priceListId || null}
-                                                onChange={(id) => handleUpdatePriceEntry(entry.id, { priceListId: id ? id.toString() : '' })}
-                                                options={baseOptions}
-                                                placeholder="Selecciona una lista"
-                                                required
-                                            />
-                                            <TextField
-                                                label="Precio neto (sin impuestos)"
-                                                type="currency"
-                                                value={entry.netPrice}
-                                                onChange={(event) => handleNetPriceChange(entry.id, event.target.value)}
-                                                currencySymbol={getCurrencySymbol(currencyCode)}
-                                                allowDecimalComma={useDecimalComma}
-                                                data-test-id={`update-variant-price-entry-${index}-net`}
-                                                disabled={isSubmitting}
-                                            />
-                                            <TextField
-                                                label="Precio con impuestos"
-                                                type="currency"
-                                                value={entry.grossPrice}
-                                                onChange={(event) => handleGrossPriceChange(entry.id, event.target.value)}
-                                                currencySymbol={getCurrencySymbol(currencyCode)}
-                                                allowDecimalComma={useDecimalComma}
-                                                data-test-id={`update-variant-price-entry-${index}-gross`}
-                                                disabled={isSubmitting}
-                                            />
-                                        </div>
-
-                                        <div className="space-y-2">
-                                            <p className="text-xs font-medium text-neutral-600 uppercase tracking-wide">Impuestos</p>
-                                            {taxes.length === 0 ? (
-                                                <p className="text-sm text-neutral-500">No hay impuestos configurados.</p>
-                                            ) : (
-                                                <div className="flex flex-wrap gap-3">
-                                                    {taxes.map((tax) => (
-                                                        <Switch
-                                                            key={`${entry.id}-${tax.id}`}
-                                                            checked={entry.taxIds.includes(tax.id)}
-                                                            onChange={(checked) => handleTogglePriceEntryTax(entry.id, tax.id, checked)}
-                                                            label={`${tax.name} (${Number(tax.rate) || 0}%)`}
-                                                            labelPosition="right"
-                                                        />
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-
-                                        {appliedTaxes.length > 0 && (
-                                            <div className="text-xs text-neutral-500 space-y-1">
-                                                <p>Precio neto estimado: {formattedNetDisplay}</p>
-                                                <p>Precio con impuestos: {formattedGrossDisplay}</p>
-                                                <p>
-                                                    Impuestos aplicados:{' '}
-                                                    {appliedTaxes
-                                                        .map((tax) => `${tax.code || tax.name} (${Number(tax.rate) || 0}%)`)
-                                                        .join(', ')}
-                                                </p>
+                        return (
+                            <div key={entry.id} className="py-4">
+                                {showDivider && <div className="border-t border-neutral-200 mb-4" />}
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <Select
+                                        label="Lista de Precios"
+                                        value={entry.priceListId}
+                                        onChange={(id) => handleUpdatePriceEntry(entry.id, { priceListId: id?.toString() })}
+                                        options={priceLists.map((list) => ({ id: list.id, label: list.label }))}
+                                        placeholder="Seleccionar lista de precios"
+                                        required
+                                    />
+                                    <div className="relative">
+                                        <TextField
+                                            label="Precio Neto"
+                                            value={entry.netPrice}
+                                            onChange={(e) => handleNetPriceChange(entry.id, e.target.value)}
+                                            type="currency"
+                                            required
+                                        />
+                                        {latestGoldPrice && (
+                                            <div className="absolute bottom-0 right-0 pb-1.5 pr-1.5">
+                                                <IconButton
+                                                    icon="calculate"
+                                                    variant="basicSecondary"
+                                                    size="sm"
+                                                    onClick={() => setCalculatorConfig({ open: true, entryId: entry.id })}
+                                                    title="Calcular basado en oro"
+                                                />
                                             </div>
                                         )}
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
+                                    <TextField
+                                        label="Precio Bruto"
+                                        value={entry.grossPrice}
+                                        onChange={(e) => handleGrossPriceChange(entry.id, e.target.value)}
+                                        type="currency"
+                                        required
+                                    />
+                                </div>
 
-                    {duplicatedPriceListIds.size > 0 && (
-                        <p className="text-xs text-amber-700">
-                            Existen listas de precios repetidas. Ajusta la selección antes de continuar.
-                        </p>
-                    )}
+                                <div className="mt-4 space-y-2">
+                                    <p className="text-xs font-medium text-neutral-600 uppercase tracking-wide">Impuestos</p>
+                                    <div className="flex flex-wrap gap-3">
+                                        {taxes.map((tax) => (
+                                            <Switch
+                                                key={`${entry.id}-${tax.id}`}
+                                                checked={entry.taxIds.includes(tax.id)}
+                                                onChange={(checked) => handleTogglePriceEntryTax(entry.id, tax.id, checked)}
+                                                label={`${tax.name} (${Number(tax.rate) || 0}%)`}
+                                                labelPosition="right"
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
 
-                    {priceLists.length > 0 && priceEntries.length >= priceLists.length && (
-                        <p className="text-xs text-neutral-500">
-                            Ya utilizaste todas las listas de precios disponibles para esta variante.
-                        </p>
-                    )}
-                </div>
-
-                <div className="space-y-4">
-                    <h4 className="font-medium text-neutral-700">Unidad de Medida</h4>
-                    <div>
-                        <Select
-                            label="Unidad"
-                            value={formData.unitId}
-                            onChange={(id) => handleChange('unitId', id?.toString() || '')}
-                            options={units.map((unit) => ({
-                                id: unit.id,
-                                label: `${unit.symbol} · ${unit.name}`,
-                            }))}
-                            placeholder="Seleccionar unidad"
-                            data-test-id="update-variant-unit"
-                            disabled={units.length === 0}
-                        />
-                        {selectedUnit && (
-                            <p className="text-xs text-neutral-500 mt-1">
-                                Dimensión: {selectedUnit.dimension} · Conversión a base: {selectedUnit.conversionFactor}
-                            </p>
-                        )}
-                        {units.length === 0 && (
-                            <p className="text-xs text-amber-600 mt-1">
-                                No hay unidades activas disponibles. Configúralas en Ajustes → Unidades.
-                            </p>
-                        )}
-                    </div>
-                </div>
-
-                <div className="pt-4 border-t border-neutral-200">
-                    <Switch
-                        label="Variante activa"
-                        checked={formData.isActive}
-                        onChange={(checked) => handleChange('isActive', checked)}
-                        data-test-id="update-variant-active"
-                    />
-                </div>
-
-                    <div className="flex justify-end gap-3 pt-4 border-t border-neutral-200">
-                        <Button variant="outlined" onClick={handleClose} disabled={isSubmitting}>
-                            Cancelar
-                        </Button>
-                        <Button type="submit" disabled={isSubmitting || !priceEntries.length}>
-                            {isSubmitting ? 'Guardando...' : 'Guardar Cambios'}
+                    <div className="flex justify-end gap-3 pt-4">
+                        <Button
+                            variant="outlined"
+                            onClick={handleAddPriceEntry}
+                            disabled={priceLists.length === 0}
+                        >
+                            Agregar Precio
                         </Button>
                     </div>
-                </form>
-            </Dialog>
+                </div>
+
+                <div className="flex justify-end gap-4">
+                    <Button variant="outlined" onClick={handleClose}>
+                        Cancelar
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting} loading={isSubmitting}>
+                        {isSubmitting ? 'Actualizando...' : 'Actualizar Variante'}
+                    </Button>
+                </div>
+            </form>
 
             <AddAttributeDialog
                 open={showAddAttributeDialog}
                 onClose={() => setShowAddAttributeDialog(false)}
                 attributes={attributes}
-                selectedAttributeIds={selectedAttributeIds}
+                selectedAttributeIds={Object.keys(attributeValues)}
                 onAdd={handleAddAttribute}
             />
-        </>
+
+            <PriceCalculatorDialog
+                open={calculatorConfig.open}
+                onClose={() => setCalculatorConfig({ ...calculatorConfig, open: false })}
+                weight={parseFloat(formData.weight) || 0}
+                goldPrice={latestGoldPrice || 0}
+                onCalculate={handleApplyCalculation}
+            />
+        </Dialog>
     );
 };
 

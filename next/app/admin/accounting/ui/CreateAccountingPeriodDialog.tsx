@@ -18,6 +18,7 @@ interface CreateAccountingPeriodDialogProps {
 interface FormState {
     startDate: string;
     endDate: string;
+    name: string;
 }
 
 const formatDate = (date: Date): string => {
@@ -27,6 +28,21 @@ const formatDate = (date: Date): string => {
     return `${year}-${month}-${day}`;
 };
 
+const getPeriodName = (startDate: string): string => {
+    try {
+        const date = new Date(startDate + 'T00:00:00');
+        const monthNames = [
+            'ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO',
+            'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'
+        ];
+        const monthName = monthNames[date.getMonth()];
+        const yearShort = date.getFullYear().toString().slice(-2);
+        return `${monthName}-${yearShort}`;
+    } catch {
+        return '';
+    }
+};
+
 const addDays = (date: Date, days: number): Date => {
     const result = new Date(date);
     result.setDate(result.getDate() + days);
@@ -34,20 +50,29 @@ const addDays = (date: Date, days: number): Date => {
 };
 
 const defaultRange = (periods: AccountingPeriodSummary[]): FormState => {
+    let startDateStr: string;
+    let endDateStr: string;
+
     if (!periods || periods.length === 0) {
         const now = new Date();
         const start = new Date(now.getFullYear(), now.getMonth(), 1);
         const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-        return { startDate: formatDate(start), endDate: formatDate(end) };
+        startDateStr = formatDate(start);
+        endDateStr = formatDate(end);
+    } else {
+        const sorted = [...periods].sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
+        const last = sorted[sorted.length - 1];
+        const nextStartCandidate = addDays(new Date(last.endDate), 1);
+        startDateStr = formatDate(nextStartCandidate);
+        const endOfMonth = new Date(nextStartCandidate.getFullYear(), nextStartCandidate.getMonth() + 1, 0);
+        endDateStr = formatDate(endOfMonth);
     }
 
-    const sorted = [...periods].sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime());
-    const last = sorted[sorted.length - 1];
-    const nextStartCandidate = addDays(new Date(last.endDate), 1);
-    const startDate = formatDate(nextStartCandidate);
-    const endOfMonth = new Date(nextStartCandidate.getFullYear(), nextStartCandidate.getMonth() + 1, 0);
-    const endDate = formatDate(endOfMonth);
-    return { startDate, endDate };
+    return { 
+        startDate: startDateStr, 
+        endDate: endDateStr, 
+        name: getPeriodName(startDateStr) 
+    };
 };
 
 const overlapsWithExisting = (
@@ -130,6 +155,7 @@ export default function CreateAccountingPeriodDialog({ open, onClose, onSuccess,
             const result = await createAccountingPeriod({
                 startDate: formState.startDate,
                 endDate: formState.endDate,
+                name: formState.name,
             });
 
             if (!result.success) {
@@ -169,12 +195,14 @@ export default function CreateAccountingPeriodDialog({ open, onClose, onSuccess,
                         label="Fecha de inicio"
                         type="date"
                         value={formState.startDate}
-                        onChange={(event) =>
+                        onChange={(event) => {
+                            const newStart = event.target.value;
                             setFormState((prev) => ({
                                 ...prev,
-                                startDate: event.target.value,
-                            }))
-                        }
+                                startDate: newStart,
+                                name: prev.name === getPeriodName(prev.startDate) ? getPeriodName(newStart) : prev.name
+                            }));
+                        }}
                         required
                     />
                     <TextField
@@ -190,6 +218,20 @@ export default function CreateAccountingPeriodDialog({ open, onClose, onSuccess,
                         required
                     />
                 </div>
+
+                <TextField
+                    label="Nombre del período"
+                    placeholder="Ej. OCTUBRE-25"
+                    value={formState.name}
+                    onChange={(event) =>
+                        setFormState((prev) => ({
+                            ...prev,
+                            name: event.target.value.toUpperCase(),
+                        }))
+                    }
+                    data-test-id="accounting-period-name"
+                    required
+                />
 
                 {errors.length > 0 && (
                     <Alert variant="error">

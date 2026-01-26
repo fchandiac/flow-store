@@ -23,8 +23,7 @@ const menuItems: SideBarMenuItem[] = [
             { id: 'customers', label: 'Clientes', url: '/admin/sales/customers' },
             { id: 'points-of-sale', label: 'Puntos de Venta', url: '/admin/sales/points-of-sale' },
             { id: 'received-payments', label: 'Pagos recibidos', url: '/admin/sales/received-payments' },
-        { id: 'cash-sessions', label: 'Sesiones de Caja', url: '/admin/sales/cash-sessions' },
-            { id: 'cash-reports', label: 'Cortes de Caja', url: '' },
+            { id: 'cash-sessions', label: 'Sesiones de Caja', url: '/admin/sales/cash-sessions' },
         ],
     },
     {
@@ -86,6 +85,7 @@ const menuItems: SideBarMenuItem[] = [
             { id: 'price-lists', label: 'Listas de Precios', url: '/admin/settings/price-lists' },
             { id: 'attributes', label: 'Atributos', url: '/admin/settings/attributes' },
             { id: 'units', label: 'Unidades', url: '/admin/settings/units' },
+            { id: 'gold-price', label: 'Precio del Oro', url: '/admin/settings/gold-price' },
             { id: 'scale', label: 'Scale', url: '/admin/settings/scale' },
         ],
     },

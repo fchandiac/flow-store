@@ -31,6 +31,8 @@ export interface VariantType {
     trackInventory: boolean;
     allowNegativeStock: boolean;
     isActive: boolean;
+    weight?: number | null;
+    weightUnit?: string | null;
     priceListItems?: VariantPriceListItem[];
 }
 
@@ -119,6 +121,12 @@ const VariantCard: React.FC<VariantCardProps> = ({
                                 {variant.trackInventory && variant.allowNegativeStock ? ' · Permite negativos' : ''}
                             </span>
                         </div>
+                        {variant.weight && (
+                            <div>
+                                <span className="text-xs uppercase tracking-wide text-neutral-500 block">Peso</span>
+                                <span className="font-medium text-neutral-700">{variant.weight} {variant.weightUnit || 'kg'}</span>
+                            </div>
+                        )}
                     </div>
 
                     {variant.priceListItems && variant.priceListItems.length > 0 ? (

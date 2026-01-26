@@ -33,6 +33,7 @@ import { AccountingPeriod } from "./entities/AccountingPeriod";
 import { AccountingPeriodSnapshot } from "./entities/AccountingPeriodSnapshot";
 import { Employee } from "./entities/Employee";
 import { OrganizationalUnit } from "./entities/OrganizationalUnit";
+import { GoldPrice } from "./entities/GoldPrice";
 import { AuditSubscriber } from "./subscribers/AuditSubscriber";
 import fs from "fs";
 import path from "path";
@@ -158,7 +159,8 @@ export const getDb = async (retries: number = 0): Promise<DataSource> => {
           Employee,
           OrganizationalUnit,
           AccountingAccount, AccountingRule, ExpenseCategory, AccountingPeriod, AccountingPeriodSnapshot,
-          Shareholder
+          Shareholder,
+          GoldPrice
         ],
         subscribers: [AuditSubscriber],
         migrations: [],

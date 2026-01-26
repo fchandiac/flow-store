@@ -85,7 +85,8 @@ const AccountsReceivableDataGrid = () => {
         {
             field: 'customerName',
             headerName: 'Cliente',
-            width: 220,
+            flex: 1,
+            minWidth: 220,
             renderCell: ({ value }) => (
                 <span className="font-medium text-neutral-900">{value ?? 'Consumidor Final'}</span>
             ),
@@ -113,6 +114,7 @@ const AccountsReceivableDataGrid = () => {
             headerName: 'Monto Cuota',
             width: 140,
             align: 'right',
+            headerAlign: 'right',
             renderCell: ({ value }) => (
                 <span className="font-semibold text-neutral-900">
                     {currencyFormatter.format(value as number)}
@@ -133,37 +135,36 @@ const AccountsReceivableDataGrid = () => {
             field: 'createdAt',
             headerName: 'Fecha Venta',
             width: 180,
+            flex: 1,
+            minWidth: 160,
             renderCell: ({ value }) => (
                 <span className="text-xs text-neutral-500">{formatDateTime(value as string)}</span>
             ),
         },
     ], []);
 
-    return (
-        <div className="space-y-4">
-            <div className="flex flex-wrap gap-4 items-end bg-white p-4 rounded-xl border border-neutral-200 shadow-sm">
-                <div className="w-full md:w-80">
-                    <TextField
-                        label="Buscar por documento o cliente"
-                        placeholder="Ej: PAY-VENTA-123 o Juan Perez..."
-                        value={filters.search ?? ''}
-                        onChange={(e) => handleFilterChange('search', (e.target as HTMLInputElement).value)}
-                    />
-                </div>
-                <div className="flex items-center pb-2">
-                    <Switch 
-                        label="Mostrar pagados" 
-                        labelPosition="right" 
-                        checked={filters.includePaid} 
-                        onChange={(checked) => handleFilterChange('includePaid', checked)}
-                    />
-                </div>
-            </div>
+    const headerActions = (
+        <div className="flex items-center gap-4">
+            <Switch
+                label="Mostrar pagados"
+                labelPosition="right"
+                checked={filters.includePaid}
+                onChange={(checked) => handleFilterChange('includePaid', checked)}
+            />
+        </div>
+    );
 
+    return (
+        <div className="flex h-full flex-col">
             <DataGrid
                 rows={rows}
                 columns={columns}
                 totalRows={totalRows}
+                height="75vh"
+                showSearch={true}
+                showFilterButton={false}
+                onSearchChange={(value) => handleFilterChange('search', value)}
+                headerActions={headerActions}
             />
         </div>
     );

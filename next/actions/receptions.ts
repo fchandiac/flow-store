@@ -9,6 +9,7 @@ import { Product } from '@/data/entities/Product';
 import { Unit } from '@/data/entities/Unit';
 import { Supplier } from '@/data/entities/Supplier';
 import { Storage } from '@/data/entities/Storage';
+import { Tax } from '@/data/entities/Tax';
 import { In } from 'typeorm';
 import { getCurrentSession } from './auth.server';
 import { createTransaction, cancelTransaction, type TransactionLineDTO } from './transactions';
@@ -60,6 +61,7 @@ export interface ReceptionLineInput {
     unitCost?: number;
     notes?: string;
     qualityStatus?: 'APPROVED' | 'REJECTED' | 'PARTIAL';
+    selectedTaxIds?: string[];
 }
 
 export interface CreateReceptionFromPurchaseOrderDTO {
@@ -68,6 +70,8 @@ export interface CreateReceptionFromPurchaseOrderDTO {
     receptionDate?: string;
     paymentDueDate?: string;
     notes?: string;
+    documentType?: string;
+    documentNumber?: string;
     lines: ReceptionLineInput[];
 }
 
@@ -77,6 +81,8 @@ export interface CreateDirectReceptionDTO {
     receptionDate?: string;
     paymentDueDate?: string;
     reference?: string;
+    documentType?: string;
+    documentNumber?: string;
     notes?: string;
     lines: ReceptionLineInput[];
 }
@@ -119,47 +125,74 @@ export interface ReceptionVariantDetail {
 }
 
 export interface SearchReceptionProductsParams {
-    search: string;
-    limit?: number;
+    search?: string;
+    categoryId?: string;
+    page?: number;
+    pageSize?: number;
+}
+
+export interface SearchReceptionProductsResult {
+    items: ReceptionProductSearchItem[];
+    total: number;
 }
 
 const MIN_RECEPTION_PRODUCT_SEARCH_LENGTH = 2;
 
 export async function searchProductsForReception(
     params: SearchReceptionProductsParams
-): Promise<ReceptionProductSearchItem[]> {
+): Promise<SearchReceptionProductsResult> {
     const term = params.search?.trim();
-    if (!term || term.length < MIN_RECEPTION_PRODUCT_SEARCH_LENGTH) {
-        return [];
+    const categoryId = params.categoryId;
+
+    // Si no hay término ni categoría, no buscamos nada
+    if (!term && !categoryId) {
+        return { items: [], total: 0 };
     }
 
-    const limit = Math.min(Math.max(params.limit ?? 20, 1), 40);
-    const normalizedTerm = term.toLowerCase();
+    // Si hay término pero es muy corto y no hay categoría para filtrar, retornamos vacío
+    if (term && term.length < MIN_RECEPTION_PRODUCT_SEARCH_LENGTH && !categoryId) {
+        return { items: [], total: 0 };
+    }
+
+    const page = params.page && params.page > 0 ? params.page : 1;
+    const pageSize = params.pageSize && params.pageSize > 0 ? params.pageSize : 10; // Default 10 for consistency
+    const skip = (page - 1) * pageSize;
 
     const ds = await getDb();
     const variantRepo = ds.getRepository(ProductVariant);
 
-    const variants = await variantRepo
+    const query = variantRepo
         .createQueryBuilder('variant')
         .leftJoinAndSelect('variant.unit', 'variantUnit')
         .leftJoinAndSelect('variant.product', 'product')
         .leftJoinAndSelect('product.baseUnit', 'productBaseUnit')
         .where('variant.deletedAt IS NULL')
         .andWhere('product.deletedAt IS NULL')
-        .andWhere('product.isActive = :active', { active: true })
-        .andWhere(
-            'LOWER(product.name) LIKE :search OR LOWER(variant.sku) LIKE :search OR LOWER(variant.sku) = :skuExact',
+        .andWhere('product.isActive = :active', { active: true });
+
+    if (term) {
+        const normalizedTerm = term.toLowerCase();
+        query.andWhere(
+            '(LOWER(product.name) LIKE :search OR LOWER(variant.sku) LIKE :search OR LOWER(variant.sku) = :skuExact)',
             {
                 search: `%${normalizedTerm}%`,
                 skuExact: normalizedTerm,
             }
-        )
+        );
+    }
+
+    if (categoryId) {
+        query.andWhere('product.categoryId = :categoryId', { categoryId });
+    }
+
+    const [variants, total] = await query
         .orderBy('product.name', 'ASC')
         .addOrderBy('variant.sku', 'ASC')
-        .take(limit)
-        .getMany();
+        .skip(skip)
+        .take(pageSize)
+        .getManyAndCount();
 
-    return variants.map((variant) => {
+    const items = variants.map((variant) => {
         const product = variant.product;
         const unitSymbol = variant.unit?.symbol ?? product?.baseUnit?.symbol ?? null;
         const allowsDecimals =
@@ -175,6 +208,8 @@ export async function searchProductsForReception(
             allowDecimals: allowsDecimals,
         };
     });
+
+    return { items, total };
 }
 
 export async function getReceptionVariantDetail(variantId: string): Promise<ReceptionVariantDetail | null> {
@@ -752,6 +787,11 @@ export async function createReceptionFromPurchaseOrder(
             }
         }
 
+        // Obtener todos los impuestos activos para calcular tasas
+        const taxRepo = ds.getRepository(Tax);
+        const activeTaxes = await taxRepo.find({ where: { isActive: true } });
+        const taxMap = new Map(activeTaxes.map((t) => [t.id, t]));
+
         const transactionLines: TransactionLineDTO[] = data.lines.map((line) => {
             const originalLine = originalLines.find(
                 (ol) => ol.productVariantId === line.productVariantId
@@ -766,6 +806,24 @@ export async function createReceptionFromPurchaseOrder(
             const effectiveConversion = conversionFromVariant || conversionFromOriginal || 1;
             const quantityInBase = Number((quantity * effectiveConversion).toFixed(6));
 
+            // Calcular impuestos de la línea
+            let totalTaxRate = 0;
+            let primaryTaxId: string | undefined;
+
+            if (line.selectedTaxIds && line.selectedTaxIds.length > 0) {
+                primaryTaxId = line.selectedTaxIds[0];
+                line.selectedTaxIds.forEach((taxId) => {
+                    const tax = taxMap.get(taxId);
+                    if (tax) {
+                        totalTaxRate += Number(tax.rate);
+                    }
+                });
+            }
+
+            const unitPrice = Number(line.unitPrice);
+            const subtotal = quantity * unitPrice;
+            const taxAmount = Number(((subtotal * totalTaxRate) / 100).toFixed(2));
+
             return {
                 productId: originalLine?.productId ?? '',
                 productVariantId: line.productVariantId,
@@ -777,12 +835,13 @@ export async function createReceptionFromPurchaseOrder(
                 unitId: unit?.id ?? originalLine?.unitId ?? variant?.unitId ?? undefined,
                 unitOfMeasure: unit?.symbol ?? originalLine?.unitOfMeasure ?? undefined,
                 unitConversionFactor: effectiveConversion,
-                unitPrice: Number(line.unitPrice),
+                unitPrice: unitPrice,
                 unitCost: Number(line.unitCost ?? line.unitPrice),
                 discountAmount: 0,
                 discountPercentage: 0,
-                taxAmount: 0,
-                taxRate: 0,
+                taxId: primaryTaxId,
+                taxAmount: taxAmount,
+                taxRate: totalTaxRate,
                 notes: line.notes,
             };
         });
@@ -792,6 +851,8 @@ export async function createReceptionFromPurchaseOrder(
             receptionId: `RCP-${Date.now()}`,
             purchaseOrderId: data.purchaseOrderId,
             purchaseOrderNumber: purchaseOrder.documentNumber,
+            documentType: data.documentType,
+            documentNumber: data.documentNumber,
             isDirect: false,
             isPartialReception: discrepancies.length > 0,
             expectedQuantities,
@@ -815,14 +876,17 @@ export async function createReceptionFromPurchaseOrder(
             hasDiscrepancies: discrepancies.length > 0,
             paymentDueDate,
             paymentTermDays: paymentTermDaysApplied,
+            paymentStatus: 'PENDING',
         };
 
-        // Crear transacción de recepción
+        // Crear transacción
         const result = await createTransaction({
             transactionType: TransactionType.PURCHASE,
-            storageId: data.storageId,
-            supplierId: purchaseOrder.supplierId ?? undefined,
+            storageId: purchaseOrder.storageId,
+            supplierId: purchaseOrder.supplierId,
             userId: session.id,
+            paymentMethod: PaymentMethod.CREDIT,
+            externalReference: data.documentNumber || purchaseOrder.externalReference,
             notes: data.notes,
             lines: transactionLines,
         });
@@ -835,61 +899,6 @@ export async function createReceptionFromPurchaseOrder(
         }
 
         const receptionTransaction = result.transaction;
-
-        const existingPayment = await transactionRepo.findOne({
-            where: {
-                relatedTransactionId: receptionTransaction.id,
-                transactionType: TransactionType.PAYMENT_OUT,
-            },
-        });
-
-        if (!existingPayment) {
-            const paymentLines = transactionLines.map((line) => ({
-                ...line,
-                quantity: Number(line.quantity),
-                unitPrice: Number(line.unitPrice),
-                unitCost: Number(line.unitCost ?? line.unitPrice),
-                discountAmount: Number(line.discountAmount ?? 0),
-                discountPercentage: Number(line.discountPercentage ?? 0),
-                taxAmount: Number(line.taxAmount ?? 0),
-                taxRate: Number(line.taxRate ?? 0),
-            }));
-
-            const supplierIdForPayment = purchaseOrder.supplierId ?? null;
-
-            if (!supplierIdForPayment) {
-                console.warn('Saltando creación de obligación de pago: la orden no tiene proveedor asociado');
-            } else {
-                const paymentResult = await createTransaction({
-                    transactionType: TransactionType.PAYMENT_OUT,
-                    supplierId: supplierIdForPayment,
-                    userId: session.id,
-                    paymentMethod: PaymentMethod.CREDIT,
-                    status: TransactionStatus.DRAFT,
-                    relatedTransactionId: receptionTransaction.id,
-                    metadata: {
-                        origin: 'PURCHASE_RECEPTION',
-                        receptionTransactionId: receptionTransaction.id,
-                        receptionDocumentNumber: receptionTransaction.documentNumber,
-                        purchaseOrderId: purchaseOrder.id,
-                        paymentDueDate,
-                        paymentTermDays: paymentTermDaysApplied,
-                        paymentStatus: 'PENDING',
-                        receptionTotal: Number(receptionTransaction.total ?? 0),
-                    },
-                    notes: data.notes,
-                    lines: paymentLines,
-                });
-
-                if (!paymentResult.success) {
-                    console.error('Error creating pending payment transaction for reception:', paymentResult.error);
-                    return {
-                        success: false,
-                        error: paymentResult.error ?? 'Error al generar la obligación de pago',
-                    };
-                }
-            }
-        }
 
         // Actualizar metadata
         await transactionRepo.update(receptionTransaction.id, { metadata: metadata as any });
@@ -913,7 +922,6 @@ export async function createReceptionFromPurchaseOrder(
         if (discrepancies.length > 0) {
             orderMetadata.lastReceptionDiscrepancies = discrepancies;
         } else if ('lastReceptionDiscrepancies' in orderMetadata) {
-            delete orderMetadata.lastReceptionDiscrepancies;
         }
 
         await transactionRepo.update(purchaseOrder.id, {
@@ -986,28 +994,10 @@ export async function createDirectReception(
 
         const variantMap = new Map(variants.map((v) => [v.id, v]));
 
-        // Preparar líneas
-        for (const line of data.lines) {
-            const variant = variantMap.get(line.productVariantId);
-            if (!variant) {
-                continue;
-            }
-            const quantity = Number(line.receivedQuantity);
-            const productLabel = variant.product?.name ?? variant.sku;
-            if (!Number.isFinite(quantity)) {
-                return {
-                    success: false,
-                    error: `Cantidad inválida para el producto "${productLabel}"`,
-                };
-            }
-            const allowsDecimals = variant.unit?.allowDecimals ?? variant.product?.baseUnit?.allowDecimals ?? true;
-            if (!allowsDecimals && !Number.isInteger(quantity)) {
-                return {
-                    success: false,
-                    error: `La unidad del producto "${productLabel}" no permite decimales.`,
-                };
-            }
-        }
+        // Obtener todos los impuestos activos para calcular tasas
+        const taxRepo = ds.getRepository(Tax);
+        const activeTaxes = await taxRepo.find({ where: { isActive: true } });
+        const taxMap = new Map(activeTaxes.map((t) => [t.id, t]));
 
         const transactionLines: TransactionLineDTO[] = data.lines.map((line) => {
             const variant = variantMap.get(line.productVariantId)!;
@@ -1016,6 +1006,24 @@ export async function createDirectReception(
             const quantity = Number(line.receivedQuantity);
             const conversionFactor = Number(unit?.conversionFactor ?? 1);
             const quantityInBase = Number((quantity * conversionFactor).toFixed(6));
+
+            // Calcular impuestos de la línea
+            let totalTaxRate = 0;
+            let primaryTaxId: string | undefined;
+
+            if (line.selectedTaxIds && line.selectedTaxIds.length > 0) {
+                primaryTaxId = line.selectedTaxIds[0];
+                line.selectedTaxIds.forEach((taxId) => {
+                    const tax = taxMap.get(taxId);
+                    if (tax) {
+                        totalTaxRate += Number(tax.rate);
+                    }
+                });
+            }
+
+            const unitPrice = Number(line.unitPrice);
+            const subtotal = quantity * unitPrice;
+            const taxAmount = Number(((subtotal * totalTaxRate) / 100).toFixed(2));
 
             return {
                 productId: product?.id ?? '',
@@ -1028,12 +1036,13 @@ export async function createDirectReception(
                 unitId: unit?.id ?? variant.unitId ?? undefined,
                 unitOfMeasure: unit?.symbol ?? undefined,
                 unitConversionFactor: conversionFactor,
-                unitPrice: Number(line.unitPrice),
+                unitPrice: unitPrice,
                 unitCost: Number(line.unitCost ?? line.unitPrice),
                 discountAmount: 0,
                 discountPercentage: 0,
-                taxAmount: 0,
-                taxRate: 0,
+                taxId: primaryTaxId,
+                taxAmount: taxAmount,
+                taxRate: totalTaxRate,
                 notes: line.notes,
             };
         });
@@ -1042,12 +1051,15 @@ export async function createDirectReception(
         const metadata = {
             receptionId: `RCP-${Date.now()}`,
             isDirect: true,
+            documentType: data.documentType,
+            documentNumber: data.documentNumber,
             receptionDate: receptionDateValue,
             receptionNotes: data.notes,
             inspectionStatus: 'APPROVED',
             reason: 'DIRECT_PURCHASE',
             paymentDueDate,
             paymentTermDays: paymentTermDaysApplied,
+            paymentStatus: 'PENDING',
         };
 
         // Crear transacción
@@ -1056,7 +1068,8 @@ export async function createDirectReception(
             storageId: data.storageId,
             supplierId: data.supplierId,
             userId: session.id,
-            externalReference: data.reference,
+            paymentMethod: PaymentMethod.CREDIT,
+            externalReference: data.documentNumber || data.reference,
             notes: data.notes,
             lines: transactionLines,
         });
@@ -1069,55 +1082,7 @@ export async function createDirectReception(
         }
 
         const receptionTransaction = result.transaction;
-
         const transactionRepo = ds.getRepository(Transaction);
-        const existingPayment = await transactionRepo.findOne({
-            where: {
-                relatedTransactionId: receptionTransaction.id,
-                transactionType: TransactionType.PAYMENT_OUT,
-            },
-        });
-
-        if (!existingPayment) {
-            const paymentLines = transactionLines.map((line) => ({
-                ...line,
-                quantity: Number(line.quantity),
-                unitPrice: Number(line.unitPrice),
-                unitCost: Number(line.unitCost ?? line.unitPrice),
-                discountAmount: Number(line.discountAmount ?? 0),
-                discountPercentage: Number(line.discountPercentage ?? 0),
-                taxAmount: Number(line.taxAmount ?? 0),
-                taxRate: Number(line.taxRate ?? 0),
-            }));
-
-            const paymentResult = await createTransaction({
-                transactionType: TransactionType.PAYMENT_OUT,
-                supplierId: data.supplierId,
-                userId: session.id,
-                paymentMethod: PaymentMethod.CREDIT,
-                status: TransactionStatus.DRAFT,
-                relatedTransactionId: receptionTransaction.id,
-                metadata: {
-                    origin: 'DIRECT_RECEPTION',
-                    receptionTransactionId: receptionTransaction.id,
-                    receptionDocumentNumber: receptionTransaction.documentNumber,
-                    paymentDueDate,
-                    paymentTermDays: paymentTermDaysApplied,
-                    paymentStatus: 'PENDING',
-                    receptionTotal: Number(receptionTransaction.total ?? 0),
-                },
-                notes: data.notes,
-                lines: paymentLines,
-            });
-
-            if (!paymentResult.success) {
-                console.error('Error creating pending payment transaction for direct reception:', paymentResult.error);
-                return {
-                    success: false,
-                    error: paymentResult.error ?? 'Error al generar la obligación de pago',
-                };
-            }
-        }
 
         // Actualizar metadata
         await transactionRepo.update(receptionTransaction.id, { metadata: metadata as any });

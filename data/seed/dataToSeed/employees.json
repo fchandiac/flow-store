@@ -1,0 +1,68 @@
+[
+  {
+    "orgUnitCode": "RRHH",
+    "employmentType": "FULL_TIME",
+    "status": "ACTIVE",
+    "hireDate": "2024-01-15",
+    "baseSalary": 1200000,
+    "person": {
+      "firstName": "Ana",
+      "lastName": "García Pérez",
+      "documentType": "RUN",
+      "documentNumber": "20.123.456-7",
+      "email": "ana.garcia@joyarte.cl",
+      "phone": "+56 9 8888 7777",
+      "address": "Calle Falsa 123, Santiago"
+    }
+  },
+  {
+    "orgUnitCode": "FINANZAS",
+    "employmentType": "FULL_TIME",
+    "status": "ACTIVE",
+    "hireDate": "2024-03-01",
+    "baseSalary": 1500000,
+    "person": {
+      "firstName": "Roberto",
+      "lastName": "Soto López",
+      "documentType": "RUN",
+      "documentNumber": "19.987.654-k",
+      "email": "roberto.soto@joyarte.cl",
+      "phone": "+56 9 9999 8888",
+      "address": "Alameda 456, Santiago"
+    }
+  },
+  {
+    "orgUnitCode": "OPS-PARRAL",
+    "branchRef": "PARRAL",
+    "costCenterRef": "OPERACIONES_PARRAL",
+    "employmentType": "PART_TIME",
+    "status": "ACTIVE",
+    "hireDate": "2024-06-10",
+    "baseSalary": 600000,
+    "person": {
+      "firstName": "Luis",
+      "lastName": "Tapia Ruiz",
+      "documentType": "RUN",
+      "documentNumber": "21.456.789-0",
+      "email": "luis.tapia@joyarte.cl",
+      "phone": "+56 9 7777 6666",
+      "address": "Balmaceda 789, Parral"
+    }
+  },
+  {
+    "orgUnitCode": "LOGISTICA",
+    "employmentType": "FULL_TIME",
+    "status": "ACTIVE",
+    "hireDate": "2024-11-01",
+    "baseSalary": 850000,
+    "person": {
+      "firstName": "Pedro",
+      "lastName": "Ramírez Vargas",
+      "documentType": "RUN",
+      "documentNumber": "17.321.654-3",
+      "email": "pedro.ramirez@joyarte.cl",
+      "phone": "+56 9 6666 5555",
+      "address": "Independencia 321, Talca"
+    }
+  }
+]

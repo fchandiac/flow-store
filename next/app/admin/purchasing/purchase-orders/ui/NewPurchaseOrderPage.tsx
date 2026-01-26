@@ -132,6 +132,9 @@ const NewPurchaseOrderPage = () => {
     const [expectedDate, setExpectedDate] = useState('');
 
     const [productResults, setProductResults] = useState<PurchaseOrderProductResult[]>([]);
+    const [totalProducts, setTotalProducts] = useState(0);
+    const [currentPage, setCurrentPage] = useState(1);
+    const pageSize = 10;
     const [loadingProducts, setLoadingProducts] = useState(false);
     const [lines, setLines] = useState<OrderLine[]>([]);
     const [submitting, setSubmitting] = useState(false);
@@ -267,28 +270,32 @@ const NewPurchaseOrderPage = () => {
 
 
 
-    const loadProducts = useCallback(async (term: string, category: string | null) => {
+    const loadProducts = useCallback(async (term: string, category: string | null, page: number = 1) => {
         setLoadingProducts(true);
         try {
             const data = await searchProductsForPurchase({
                 search: term || undefined,
                 categoryId: category || undefined,
+                page,
+                pageSize,
             });
-            setProductResults(data);
+            setProductResults(data.items);
+            setTotalProducts(data.total);
+            setCurrentPage(page);
         } catch (err) {
             console.error('Error searching products for purchase order', err);
             error('No fue posible cargar productos');
         } finally {
             setLoadingProducts(false);
         }
-    }, [error]);
+    }, [error, pageSize]);
 
     useEffect(() => {
         if (searchTimeout.current) {
             clearTimeout(searchTimeout.current);
         }
         searchTimeout.current = setTimeout(() => {
-            loadProducts(searchTerm, categoryId);
+            loadProducts(searchTerm, categoryId, 1);
         }, 300);
 
         return () => {
@@ -555,6 +562,31 @@ const NewPurchaseOrderPage = () => {
                             <h2 className="text-sm font-semibold text-muted-foreground uppercase">Catálogo</h2>
                             {loadingProducts && <DotProgress size={12} totalSteps={3} />}
                         </div>
+
+                        {totalProducts > pageSize && (
+                            <div className="flex items-center justify-between py-2 border-b border-border">
+                                <span className="text-[11px] text-muted-foreground">
+                                    {currentPage} de {Math.ceil(totalProducts / pageSize)}
+                                </span>
+                                <div className="flex gap-1">
+                                    <IconButton
+                                        icon="chevron_left"
+                                        variant="basicSecondary"
+                                        size="xs"
+                                        onClick={() => loadProducts(searchTerm, categoryId, currentPage - 1)}
+                                        disabled={currentPage <= 1 || loadingProducts}
+                                    />
+                                    <IconButton
+                                        icon="chevron_right"
+                                        variant="basicSecondary"
+                                        size="xs"
+                                        onClick={() => loadProducts(searchTerm, categoryId, currentPage + 1)}
+                                        disabled={currentPage >= Math.ceil(totalProducts / pageSize) || loadingProducts}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
                         <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
                             {productResults.length === 0 && !loadingProducts && (
                                 <p className="text-xs text-muted-foreground">
@@ -597,6 +629,7 @@ const NewPurchaseOrderPage = () => {
                                 );
                             })}
                         </div>
+                        
                         <p className="text-[11px] text-muted-foreground italic">
                             Puedes arrastrar un producto al panel de la derecha o utilizar el botón “+”.
                         </p>

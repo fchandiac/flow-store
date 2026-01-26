@@ -34,6 +34,7 @@ export * from './Attribute';
 export * from './PriceList';
 export * from './PriceListItem';
 export * from './Tax';
+export * from './GoldPrice';
 
 // Entidad central de transacciones
 export * from './Transaction';
